@@ -139,6 +139,23 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS tracking_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      num_entries INTEGER NOT NULL DEFAULT 1,
+      cashed INTEGER NOT NULL DEFAULT 0,
+      finish_place INTEGER,
+      cash_amount INTEGER DEFAULT 0,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
+      UNIQUE(user_id, tournament_id)
+    )
+  `);
+
   // Auto-seed WSOP 2026 schedule if tournaments table is empty
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM tournaments');
   countStmt.step();
@@ -727,6 +744,84 @@ app.get('/api/venues', authenticateToken, (req, res) => {
     stmt.free();
     
     res.json(venues);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Tracking endpoints ──────────────────────────────────────
+
+app.get('/api/tracking', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT te.*,
+             t.event_number, t.event_name, t.date, t.time, t.buyin,
+             t.game_variant, t.venue
+      FROM tracking_entries te
+      JOIN tournaments t ON te.tournament_id = t.id
+      WHERE te.user_id = ?
+      ORDER BY t.date DESC, t.time DESC
+    `);
+    stmt.bind([req.user.id]);
+    const entries = [];
+    while (stmt.step()) { entries.push(stmt.getAsObject()); }
+    stmt.free();
+    res.json(entries);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/tracking', authenticateToken, async (req, res) => {
+  try {
+    const { tournamentId, numEntries, cashed, finishPlace, cashAmount, notes } = req.body;
+    const checkStmt = db.prepare('SELECT id FROM tournaments WHERE id = ?');
+    checkStmt.bind([tournamentId]);
+    const exists = checkStmt.step();
+    checkStmt.free();
+    if (!exists) return res.status(400).json({ error: 'Tournament not found' });
+
+    db.run(
+      'INSERT INTO tracking_entries (user_id, tournament_id, num_entries, cashed, finish_place, cash_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [req.user.id, tournamentId, numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null]
+    );
+    await saveDatabase();
+    res.status(201).json({ message: 'Entry tracked' });
+  } catch (error) {
+    if (error.message && error.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Entry already tracked for this tournament' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/tracking/:entryId', authenticateToken, async (req, res) => {
+  try {
+    const { entryId } = req.params;
+    const { numEntries, cashed, finishPlace, cashAmount, notes } = req.body;
+    const checkStmt = db.prepare('SELECT id FROM tracking_entries WHERE id = ? AND user_id = ?');
+    checkStmt.bind([entryId, req.user.id]);
+    const owns = checkStmt.step();
+    checkStmt.free();
+    if (!owns) return res.status(404).json({ error: 'Entry not found' });
+
+    db.run(
+      'UPDATE tracking_entries SET num_entries = ?, cashed = ?, finish_place = ?, cash_amount = ?, notes = ? WHERE id = ? AND user_id = ?',
+      [numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null, entryId, req.user.id]
+    );
+    await saveDatabase();
+    res.json({ message: 'Entry updated' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
+  try {
+    const { entryId } = req.params;
+    db.run('DELETE FROM tracking_entries WHERE id = ? AND user_id = ?', [entryId, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Entry removed' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

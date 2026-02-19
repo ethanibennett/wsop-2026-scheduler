@@ -1165,6 +1165,33 @@
 
     /* saved indicator removed — saved state shown by venue-colored border */
 
+    /* ── Tracking ── */
+    .tracking-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+    }
+    @media (min-width: 420px) {
+      .tracking-stats { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    }
+    .tracking-profit-pos { color: #4ade80; }
+    .tracking-profit-neg { color: #f87171; }
+    [data-theme="light"] .tracking-profit-pos { color: #16a34a; }
+    [data-theme="light"] .tracking-profit-neg { color: #dc2626; }
+    .tracking-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-bottom: 8px;
+    }
+    .tracking-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
     .cal-event-chevron {
       display: flex;
       justify-content: center;
@@ -1579,6 +1606,12 @@
       if (days > 0) return `${days}d ${hours}h`;
       if (hours > 0) return `${hours}h ${mins}m`;
       return `${mins}m`;
+    }
+
+    function getOrdinal(n) {
+      const s = ['th','st','nd','rd'];
+      const v = n % 100;
+      return s[(v - 20) % 10] || s[v] || s[0];
     }
 
     function extractCondition(t, sharedView) {
@@ -3188,6 +3221,287 @@
       );
     }
 
+    // ── Tracking Entry Form ─────────────────────────────────────
+
+    function TrackingEntryForm({ tournaments, mySchedule, existingEntryIds, initialValues, tournamentLabel, onSubmit, onCancel, isEdit }) {
+      const [tournamentId, setTournamentId] = useState(initialValues?.tournamentId || '');
+      const [numEntries, setNumEntries] = useState(initialValues?.numEntries || 1);
+      const [cashed, setCashed] = useState(initialValues?.cashed || false);
+      const [finishPlace, setFinishPlace] = useState(initialValues?.finishPlace || '');
+      const [cashAmount, setCashAmount] = useState(initialValues?.cashAmount || '');
+      const [notes, setNotes] = useState(initialValues?.notes || '');
+
+      const tournamentOptions = useMemo(() => {
+        if (isEdit) return [];
+        const scheduleIds = new Set((mySchedule || []).map(t => t.id));
+        return (tournaments || [])
+          .filter(t => !existingEntryIds || !existingEntryIds.has(t.id))
+          .sort((a, b) => {
+            const aS = scheduleIds.has(a.id) ? 0 : 1;
+            const bS = scheduleIds.has(b.id) ? 0 : 1;
+            if (aS !== bS) return aS - bS;
+            return new Date(b.date) - new Date(a.date);
+          });
+      }, [tournaments, mySchedule, existingEntryIds, isEdit]);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!isEdit && !tournamentId) return;
+        onSubmit({
+          tournamentId: parseInt(tournamentId),
+          numEntries: parseInt(numEntries) || 1,
+          cashed,
+          finishPlace: cashed && finishPlace ? parseInt(finishPlace) : null,
+          cashAmount: cashed && cashAmount ? parseInt(cashAmount) : 0,
+          notes: notes || null
+        });
+      };
+
+      return (
+        <form onSubmit={handleSubmit} className="tracking-card" style={{padding:'16px',marginBottom:'12px'}}>
+          <div style={{fontSize:'0.9rem',fontWeight:700,color:'var(--text)',marginBottom:'12px',fontFamily:"'Oswald',sans-serif"}}>
+            {isEdit ? `Edit: ${tournamentLabel}` : 'Log Tournament Result'}
+          </div>
+
+          {!isEdit && (
+            <div className="filter-group" style={{marginBottom:'12px'}}>
+              <label>Tournament</label>
+              <select value={tournamentId} onChange={e => setTournamentId(e.target.value)} required>
+                <option value="">Select event...</option>
+                {tournamentOptions.map(t => (
+                  <option key={t.id} value={t.id}>
+                    #{t.event_number} — {t.event_name} ({t.date}) — ${Number(t.buyin).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="tracking-form-grid">
+            <div className="filter-group">
+              <label>Buy-ins (incl. re-entries)</label>
+              <input type="number" min="1" max="50" value={numEntries}
+                onChange={e => setNumEntries(e.target.value)} />
+            </div>
+            <div className="filter-group">
+              <label>Cashed?</label>
+              <div style={{display:'flex',gap:'8px',marginTop:'4px'}}>
+                <button type="button" className={`filter-chip ${!cashed ? 'active' : ''}`}
+                  onClick={() => setCashed(false)}>No</button>
+                <button type="button" className={`filter-chip ${cashed ? 'active' : ''}`}
+                  onClick={() => setCashed(true)}>Yes</button>
+              </div>
+            </div>
+          </div>
+
+          {cashed && (
+            <div className="tracking-form-grid">
+              <div className="filter-group">
+                <label>Finish Place</label>
+                <input type="number" min="1" value={finishPlace}
+                  onChange={e => setFinishPlace(e.target.value)} placeholder="e.g. 3" />
+              </div>
+              <div className="filter-group">
+                <label>Cash Amount ($)</label>
+                <input type="number" min="0" value={cashAmount}
+                  onChange={e => setCashAmount(e.target.value)} placeholder="e.g. 15000" />
+              </div>
+            </div>
+          )}
+
+          <div className="filter-group" style={{marginBottom:'14px'}}>
+            <label>Notes (optional)</label>
+            <input type="text" value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Optional notes about this session"
+              style={{padding:'10px 12px',border:'1.5px solid var(--border)',borderRadius:'var(--radius-sm)',
+                background:'var(--bg)',color:'var(--text)',fontFamily:"'Oswald',sans-serif",fontSize:'0.9rem',width:'100%'}} />
+          </div>
+
+          <div style={{display:'flex',gap:'8px'}}>
+            <button type="submit" className="btn btn-primary btn-sm">
+              {isEdit ? 'Save Changes' : 'Log Result'}
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+          </div>
+        </form>
+      );
+    }
+
+    // ── Tracking Entry Row ────────────────────────────────────
+
+    function TrackingEntryRow({ entry, onEdit, onDelete, isEditing, onUpdate, onCancelEdit }) {
+      const totalCost = (entry.buyin || 0) * (entry.num_entries || 1);
+      const profit = (entry.cash_amount || 0) - totalCost;
+
+      if (isEditing) {
+        return (
+          <TrackingEntryForm
+            initialValues={{
+              tournamentId: entry.tournament_id,
+              numEntries: entry.num_entries,
+              cashed: !!entry.cashed,
+              finishPlace: entry.finish_place,
+              cashAmount: entry.cash_amount,
+              notes: entry.notes
+            }}
+            tournamentLabel={`#${entry.event_number} ${entry.event_name}`}
+            onSubmit={onUpdate}
+            onCancel={onCancelEdit}
+            isEdit
+          />
+        );
+      }
+
+      return (
+        <div className="tracking-card">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'6px'}}>
+            <div>
+              <div style={{fontSize:'0.72rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",letterSpacing:'0.03em'}}>
+                {entry.date} · #{entry.event_number}
+              </div>
+              <div style={{fontSize:'0.88rem',fontWeight:600,color:'var(--text)',marginTop:'2px',fontFamily:"'Oswald',sans-serif"}}>
+                {entry.event_name}
+              </div>
+            </div>
+            <div style={{textAlign:'right',flexShrink:0}}>
+              <div style={{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:'1rem',fontWeight:700}}
+                className={entry.cashed && profit >= 0 ? 'tracking-profit-pos' : entry.cashed ? 'tracking-profit-neg' : ''}>
+                {entry.cashed ? `${profit >= 0 ? '+' : ''}${formatBuyin(profit)}` : 'Bust'}
+              </div>
+            </div>
+          </div>
+
+          <div className="cal-detail-grid" style={{marginBottom:'8px'}}>
+            <div className="cal-detail-item">
+              <span className="cal-detail-label">Cost</span>
+              <span className="cal-detail-value">{formatBuyin(totalCost)}</span>
+            </div>
+            <div className="cal-detail-item">
+              <span className="cal-detail-label">Entries</span>
+              <span className="cal-detail-value">{entry.num_entries || 1}</span>
+            </div>
+            {entry.cashed ? (
+              <React.Fragment>
+                <div className="cal-detail-item">
+                  <span className="cal-detail-label">Cashed</span>
+                  <span className="cal-detail-value">{formatBuyin(entry.cash_amount)}</span>
+                </div>
+                <div className="cal-detail-item">
+                  <span className="cal-detail-label">Finish</span>
+                  <span className="cal-detail-value">{entry.finish_place ? `${entry.finish_place}${getOrdinal(entry.finish_place)}` : '—'}</span>
+                </div>
+              </React.Fragment>
+            ) : (
+              <div className="cal-detail-item">
+                <span className="cal-detail-label">Result</span>
+                <span className="cal-detail-value" style={{color:'var(--text-muted)'}}>No cash</span>
+              </div>
+            )}
+          </div>
+
+          {entry.notes && (
+            <p style={{fontSize:'0.78rem',color:'var(--text-muted)',fontStyle:'italic',marginBottom:'8px'}}>{entry.notes}</p>
+          )}
+
+          <div style={{display:'flex',gap:'8px'}}>
+            <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>
+            <button className="btn btn-ghost btn-sm" style={{color:'var(--accent2)'}} onClick={onDelete}>Delete</button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Tracking View ─────────────────────────────────────────
+
+    function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, onDelete }) {
+      const [showAddForm, setShowAddForm] = useState(false);
+      const [editingId, setEditingId] = useState(null);
+
+      const stats = useMemo(() => {
+        let totalBuyins = 0, totalCashes = 0, eventsCashed = 0;
+        for (const e of trackingData) {
+          totalBuyins += (e.buyin || 0) * (e.num_entries || 1);
+          if (e.cashed) { totalCashes += e.cash_amount || 0; eventsCashed++; }
+        }
+        const profit = totalCashes - totalBuyins;
+        const roi = totalBuyins > 0 ? ((profit / totalBuyins) * 100) : 0;
+        return { totalBuyins, totalCashes, profit, roi, totalEntries: trackingData.length, eventsCashed };
+      }, [trackingData]);
+
+      const existingEntryIds = useMemo(() => new Set(trackingData.map(e => e.tournament_id)), [trackingData]);
+
+      return (
+        <div>
+          <div className="section-header">
+            <h2>Tracking</h2>
+            <button className="btn btn-primary btn-sm" onClick={() => { setShowAddForm(f => !f); setEditingId(null); }}>
+              {showAddForm ? 'Cancel' : '+ Log Result'}
+            </button>
+          </div>
+
+          {trackingData.length > 0 && (
+            <div className="tracking-card" style={{padding:'16px',marginBottom:'12px'}}>
+              <div className="tracking-stats">
+                <div className="cal-detail-item">
+                  <span className="cal-detail-label">Total Buyins</span>
+                  <span className="cal-detail-value">{formatBuyin(stats.totalBuyins)}</span>
+                </div>
+                <div className="cal-detail-item">
+                  <span className="cal-detail-label">Total Cashes</span>
+                  <span className="cal-detail-value">{formatBuyin(stats.totalCashes)}</span>
+                </div>
+                <div className="cal-detail-item">
+                  <span className="cal-detail-label">Profit</span>
+                  <span className={`cal-detail-value ${stats.profit >= 0 ? 'tracking-profit-pos' : 'tracking-profit-neg'}`}>
+                    {stats.profit >= 0 ? '+' : ''}{formatBuyin(stats.profit)}
+                  </span>
+                </div>
+                <div className="cal-detail-item">
+                  <span className="cal-detail-label">ROI</span>
+                  <span className={`cal-detail-value ${stats.roi >= 0 ? 'tracking-profit-pos' : 'tracking-profit-neg'}`}>
+                    {stats.roi >= 0 ? '+' : ''}{stats.roi.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+              <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginTop:'8px'}}>
+                {stats.totalEntries} event{stats.totalEntries !== 1 ? 's' : ''} played · {stats.eventsCashed} cash{stats.eventsCashed !== 1 ? 'es' : ''}
+              </p>
+            </div>
+          )}
+
+          {showAddForm && (
+            <TrackingEntryForm
+              tournaments={tournaments}
+              mySchedule={mySchedule}
+              existingEntryIds={existingEntryIds}
+              onSubmit={(data) => { onAdd(data); setShowAddForm(false); }}
+              onCancel={() => setShowAddForm(false)}
+            />
+          )}
+
+          {trackingData.length === 0 && !showAddForm ? (
+            <div className="empty-state">
+              <Icon.tracking />
+              <h3>No results tracked yet</h3>
+              <p>Tap "+ Log Result" to record your first tournament entry</p>
+            </div>
+          ) : (
+            trackingData.map(entry => (
+              <TrackingEntryRow
+                key={entry.id}
+                entry={entry}
+                onEdit={() => setEditingId(entry.id)}
+                onDelete={() => onDelete(entry.id)}
+                isEditing={editingId === entry.id}
+                onUpdate={(data) => { onUpdate(entry.id, data); setEditingId(null); }}
+                onCancelEdit={() => setEditingId(null)}
+              />
+            ))
+          )}
+        </div>
+      );
+    }
+
     // ── Bottom Nav ─────────────────────────────────────────────
 
     function BottomNav({ current, onChange, scheduleCount }) {
@@ -3395,6 +3709,9 @@
       const [shareError, setShareError] = useState('');
       const [shareSuccess, setShareSuccess] = useState('');
 
+      // ── Tracking state ──
+      const [trackingData, setTrackingData] = useState([]);
+
       // ── Theme ──
       const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
       const [contrast, setContrast] = useState(localStorage.getItem('contrast') || 'normal');
@@ -3423,6 +3740,7 @@
           fetchShareToken();
           fetchGrantedViewers();
           fetchSharedWithMe();
+          fetchTracking();
         }
       }, [token]);
 
@@ -3460,6 +3778,58 @@
           });
           setVenues(await res.json());
         } catch {}
+      };
+
+      // ── Tracking functions ──
+      const fetchTracking = async () => {
+        try {
+          const res = await fetch(`${API_URL}/tracking`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setTrackingData(await res.json());
+        } catch { setError('Failed to load tracking data'); }
+      };
+
+      const addTracking = async (data) => {
+        try {
+          const res = await fetch(`${API_URL}/tracking`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            setError(err.error || 'Failed to add tracking entry');
+            return;
+          }
+          fetchTracking();
+        } catch { setError('Failed to add tracking entry'); }
+      };
+
+      const updateTracking = async (entryId, data) => {
+        try {
+          const res = await fetch(`${API_URL}/tracking/${entryId}`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            setError(err.error || 'Failed to update tracking entry');
+            return;
+          }
+          fetchTracking();
+        } catch { setError('Failed to update tracking entry'); }
+      };
+
+      const deleteTracking = async (entryId) => {
+        try {
+          await fetch(`${API_URL}/tracking/${entryId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchTracking();
+        } catch { setError('Failed to delete tracking entry'); }
       };
 
       // ── Sharing functions ──
@@ -3664,13 +4034,14 @@
             )}
 
             {currentView === 'tracking' && (
-              <div>
-                <div className="empty-state">
-                  <Icon.tracking />
-                  <h3>Tracking</h3>
-                  <p>Results tracking, bankroll, and ROI — coming soon</p>
-                </div>
-              </div>
+              <TrackingView
+                trackingData={trackingData}
+                tournaments={tournaments}
+                mySchedule={mySchedule}
+                onAdd={addTracking}
+                onUpdate={updateTracking}
+                onDelete={deleteTracking}
+              />
             )}
 
             {currentView === 'settings' && (
