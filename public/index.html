@@ -2356,7 +2356,7 @@
       const [open, setOpen] = useState(false);
 
       const hasActive = filters.minBuyin || filters.maxBuyin ||
-        filters.gameVariant !== 'all' || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts;
+        filters.selectedGames.length > 0 || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts;
 
       return (
         <div>
@@ -2379,12 +2379,12 @@
                 style={{margin:0}}
               /> Restarts
             </label>
-            {filters.gameVariant !== 'all' && (
+            {filters.selectedGames.length > 0 && (
               <span className="filter-chip active">
-                {filters.gameVariant}
+                {filters.selectedGames.length === 1 ? filters.selectedGames[0] : `${filters.selectedGames.length} games`}
                 <span
                   style={{marginLeft:'4px',cursor:'pointer'}}
-                  onClick={() => setFilters(f => ({...f, gameVariant:'all'}))}
+                  onClick={() => setFilters(f => ({...f, selectedGames:[]}))}
                 >✕</span>
               </span>
             )}
@@ -2426,13 +2426,25 @@
                   onChange={e => setFilters(f => ({...f, maxBuyin:e.target.value}))}
                   placeholder="Any" min="0" />
               </div>
-              <div className="filter-group">
+              <div className="filter-group" style={{gridColumn:'1 / -1'}}>
                 <label>Game</label>
-                <select value={filters.gameVariant}
-                  onChange={e => setFilters(f => ({...f, gameVariant:e.target.value}))}>
-                  <option value="all">All Games</option>
-                  {gameVariants.map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
+                <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+                  {gameVariants.map(v => (
+                    <label key={v} className={`filter-chip ${filters.selectedGames.includes(v) ? 'active' : ''}`}
+                      style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',fontSize:'0.78rem'}}>
+                      <input type="checkbox"
+                        checked={filters.selectedGames.includes(v)}
+                        onChange={e => setFilters(f => ({
+                          ...f,
+                          selectedGames: e.target.checked
+                            ? [...f.selectedGames, v]
+                            : f.selectedGames.filter(g => g !== v)
+                        }))}
+                        style={{margin:0}}
+                      />{v}
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="filter-group">
                 <label>Venue</label>
@@ -2453,7 +2465,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',gameVariant:'all',venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true})
+                    setFilters({minBuyin:'',maxBuyin:'',selectedGames:[],venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -2468,7 +2480,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', gameVariant: 'all', venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
+        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
       });
       const [focusEventId, setFocusEventId] = useState(null);
 
@@ -2493,7 +2505,7 @@
             }
             if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
             if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
-            if (filters.gameVariant !== 'all' && t.game_variant !== filters.gameVariant) return false;
+            if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
             if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
@@ -2701,7 +2713,7 @@
         }
       }, [selectedDate]);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', gameVariant: 'all', venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
+        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
       });
 
       // Map normalised date → all tournaments
@@ -2734,7 +2746,7 @@
           .filter(t => {
             if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
             if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
-            if (filters.gameVariant !== 'all' && t.game_variant !== filters.gameVariant) return false;
+            if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
             if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
