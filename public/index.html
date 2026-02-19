@@ -841,6 +841,7 @@
       text-transform: uppercase;
       color: rgba(255,255,255,0.85);
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      position: relative;
       user-select: none;
       padding: 4px 0;
       white-space: nowrap;
@@ -852,11 +853,7 @@
       letter-spacing: 0.12em;
     }
 
-    .cal-event-row.saved {
-      border-top-color:    var(--accent);
-      border-right-color:  var(--accent);
-      border-bottom-color: var(--accent);
-    }
+    /* saved border color applied inline via venue brand color */
 
     /* Venue backgrounds — calendar rows */
     .cal-event-row.venue-hs   { background: var(--venue-hs-bg); }
@@ -897,9 +894,7 @@
       border-bottom: 1.5px dashed var(--border);
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     }
-    .cal-event-row.conditional.saved .cal-event-row-content {
-      border-color: var(--accent);
-    }
+    /* conditional saved border color applied inline via venue brand color */
     .cal-event-row.conditional.open {
       opacity: 0.85;
     }
@@ -1184,8 +1179,12 @@
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: var(--accent);
       flex-shrink: 0;
+      position: absolute;
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0.85;
     }
 
     .cal-event-chevron {
@@ -2115,13 +2114,16 @@
       const stripTextColor = venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)';
 
       return (
-        <div ref={rowRef} className={rowClasses}>
+        <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor} : undefined}>
           <div
             className={`cal-venue-strip venue-strip-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}
             style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
             onClick={() => setOpen(o => !o)}
-          >{open && venue.longName ? venue.longName : venue.abbr}</div>
-          <div className="cal-event-row-content">
+          >
+            {open && venue.longName ? venue.longName : venue.abbr}
+            {isInSchedule && <span className="cal-event-saved-dot" style={{background: stripTextColor}} />}
+          </div>
+          <div className="cal-event-row-content" style={isInSchedule && condition ? {borderColor: stripColor} : undefined}>
             {/* Collapsed bar — always visible */}
             <div className="cal-event-bar" onClick={() => setOpen(o => !o)}>
               <div className="cal-bar-row1">
@@ -2131,7 +2133,6 @@
                 <span className="cal-event-buyin">${Number(tournament.buyin).toLocaleString()}</span>
               </div>
               <div className="cal-bar-row2">
-                {isInSchedule && <span className="cal-event-saved-dot" />}
                 <span className="cal-event-name">{tournament.event_name}</span>
                 {condition && (
                   <span className="cal-condition-label">
