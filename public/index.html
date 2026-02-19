@@ -2098,7 +2098,7 @@
             style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
             onClick={() => setOpen(o => !o)}
           >{open && venue.longName ? venue.longName : venue.abbr}</div>
-          <div className="cal-event-row-content" style={isInSchedule && condition ? {borderColor: venue.abbr === 'WSOP' ? '#999' : stripColor} : undefined}>
+          <div className="cal-event-row-content" style={isInSchedule && condition ? {borderColor: venue.abbr === 'WSOP' ? (document.documentElement.dataset.theme === 'light' ? '#444' : '#999') : stripColor, borderWidth: venue.abbr === 'WSOP' && document.documentElement.dataset.theme === 'light' ? '2px' : undefined} : undefined}>
             {/* Collapsed bar — always visible */}
             <div className="cal-event-bar" onClick={() => setOpen(o => !o)}>
               <div className="cal-bar-row1">
