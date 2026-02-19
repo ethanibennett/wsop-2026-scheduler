@@ -2590,7 +2590,7 @@
       const [focusEventId, setFocusEventId] = useState(null);
 
       const buyinOptions = useMemo(() =>
-        [...new Set(tournaments.map(t => Number(t.buyin)).filter(Boolean))].sort((a, b) => a - b),
+        [...new Set(tournaments.map(t => parseInt(t.buyin, 10)).filter(n => n > 0 && !isNaN(n)))].sort((a, b) => a - b),
         [tournaments]
       );
 
@@ -2827,7 +2827,7 @@
       });
 
       const buyinOptions = useMemo(() =>
-        [...new Set(allTournaments.map(t => Number(t.buyin)).filter(Boolean))].sort((a, b) => a - b),
+        [...new Set(allTournaments.map(t => parseInt(t.buyin, 10)).filter(n => n > 0 && !isNaN(n)))].sort((a, b) => a - b),
         [allTournaments]
       );
 
