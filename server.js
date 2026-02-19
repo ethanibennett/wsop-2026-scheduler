@@ -123,6 +123,7 @@ async function initDatabase() {
       tournament_id INTEGER NOT NULL,
       depends_on_tournament_id INTEGER NOT NULL,
       condition_type TEXT NOT NULL CHECK(condition_type IN ('IF_WIN_SEAT', 'IF_NO_SEAT')),
+      is_public INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id),
       FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
@@ -130,6 +131,13 @@ async function initDatabase() {
       UNIQUE(user_id, tournament_id)
     )
   `);
+
+  // Migrate: add is_public column if missing (existing DBs)
+  try {
+    db.run('ALTER TABLE schedule_conditions ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1');
+  } catch (e) {
+    // Column already exists — ignore
+  }
 
   // Auto-seed WSOP 2026 schedule if tournaments table is empty
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM tournaments');
@@ -388,7 +396,8 @@ app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) =>
 app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.params;
-    const { dependsOnTournamentId, conditionType } = req.body;
+    const { dependsOnTournamentId, conditionType, isPublic } = req.body;
+    const publicFlag = isPublic === undefined ? 1 : (isPublic ? 1 : 0);
 
     // Verify event is on user's schedule
     const checkStmt = db.prepare('SELECT 1 FROM user_schedules WHERE user_id = ? AND tournament_id = ?');
@@ -402,8 +411,8 @@ app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, 
     // Upsert: delete existing then insert
     db.run('DELETE FROM schedule_conditions WHERE user_id = ? AND tournament_id = ?', [req.user.id, tournamentId]);
     db.run(
-      'INSERT INTO schedule_conditions (user_id, tournament_id, depends_on_tournament_id, condition_type) VALUES (?, ?, ?, ?)',
-      [req.user.id, tournamentId, dependsOnTournamentId, conditionType]
+      'INSERT INTO schedule_conditions (user_id, tournament_id, depends_on_tournament_id, condition_type, is_public) VALUES (?, ?, ?, ?, ?)',
+      [req.user.id, tournamentId, dependsOnTournamentId, conditionType, publicFlag]
     );
 
     await saveDatabase();
@@ -432,6 +441,7 @@ app.get('/api/my-schedule', authenticateToken, (req, res) => {
       SELECT t.*, us.added_at,
              sc.condition_type,
              sc.depends_on_tournament_id,
+             sc.is_public AS condition_is_public,
              dep.event_number AS depends_on_event_number,
              dep.event_name AS depends_on_event_name
       FROM tournaments t
@@ -539,6 +549,7 @@ app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
       SELECT t.*,
              sc.condition_type,
              sc.depends_on_tournament_id,
+             sc.is_public AS condition_is_public,
              dep.event_number AS depends_on_event_number,
              dep.event_name AS depends_on_event_name
       FROM tournaments t
@@ -586,6 +597,7 @@ app.get('/api/shared/:token', (req, res) => {
       SELECT t.*,
              sc.condition_type,
              sc.depends_on_tournament_id,
+             sc.is_public AS condition_is_public,
              dep.event_number AS depends_on_event_number,
              dep.event_name AS depends_on_event_name
       FROM tournaments t

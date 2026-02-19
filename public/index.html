@@ -1604,6 +1604,13 @@
       return `${mins}m`;
     }
 
+    function extractCondition(t, sharedView) {
+      if (!t.condition_type) return null;
+      const isPublic = !!t.condition_is_public;
+      if (sharedView && !isPublic) return null;
+      return { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name, isPublic };
+    }
+
     function detectConflicts(schedule) {
       // Returns { conflicts, expectedConflicts } — Sets of tournament ids
       // expectedConflicts: overlaps involving at least one conditional event (no warning)
@@ -1929,6 +1936,7 @@
       const [condType, setCondType] = useState(condition ? condition.type : 'IF_WIN_SEAT');
       const [selectedId, setSelectedId] = useState(condition ? condition.dependsOnId : null);
       const [search, setSearch] = useState('');
+      const [isPublic, setIsPublic] = useState(condition ? condition.isPublic !== false : true);
 
       const suggestedSatellites = useMemo(() =>
         allTournaments.filter(t => t.is_satellite && t.target_event === tournament.event_number),
@@ -1995,11 +2003,30 @@
             </div>
           )}
 
+          <div
+            style={{display:'flex',alignItems:'center',gap:'8px',marginTop:'10px',fontSize:'0.75rem',fontFamily:"'Oswald',sans-serif",color:'var(--text-muted)',cursor:'pointer',userSelect:'none'}}
+            onClick={() => setIsPublic(p => !p)}
+          >
+            <div style={{
+              width:'32px',height:'18px',borderRadius:'9px',
+              background: isPublic ? 'var(--accent)' : 'var(--border)',
+              position:'relative',transition:'background 0.2s'
+            }}>
+              <div style={{
+                width:'14px',height:'14px',borderRadius:'50%',background:'#fff',
+                position:'absolute',top:'2px',
+                left: isPublic ? '16px' : '2px',
+                transition:'left 0.2s'
+              }} />
+            </div>
+            <span style={{color:'var(--text)'}}>Show condition on shared schedule</span>
+          </div>
+
           <div style={{display:'flex',gap:'8px',marginTop:'8px'}}>
             <button
               className="condition-type-btn active"
               style={{flex:1,opacity:selectedId ? 1 : 0.4,pointerEvents:selectedId ? 'auto' : 'none'}}
-              onClick={() => selectedId && onSet(selectedId, condType)}
+              onClick={() => selectedId && onSet(selectedId, condType, isPublic)}
             >
               Set Condition
             </button>
@@ -2231,7 +2258,7 @@
                       tournament={tournament}
                       condition={condition}
                       allTournaments={allTournaments || []}
-                      onSet={(depId, type) => { onSetCondition(tournament.id, depId, type); setShowConditionUI(false); }}
+                      onSet={(depId, type, pub) => { onSetCondition(tournament.id, depId, type, pub); setShowConditionUI(false); }}
                       onRemove={() => { onRemoveCondition(tournament.id); setShowConditionUI(false); }}
                       onClose={() => setShowConditionUI(false)}
                     />
@@ -2473,7 +2500,8 @@
       const conditionMap = useMemo(() => {
         const m = {};
         for (const t of mySchedule) {
-          if (t.condition_type) m[t.id] = { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name };
+          const c = extractCondition(t);
+          if (c) m[t.id] = c;
         }
         return m;
       }, [mySchedule]);
@@ -2641,7 +2669,7 @@
                       const targetId = findBestFlightSchedule(num, sat);
                       if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
                     }}
-                    condition={t.condition_type ? { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name } : null}
+                    condition={extractCondition(t)}
                     onSetCondition={onSetCondition}
                     onRemoveCondition={onRemoveCondition}
                     allTournaments={allTournaments}
@@ -2720,7 +2748,8 @@
       const conditionMap = useMemo(() => {
         const m = {};
         for (const t of mySchedule) {
-          if (t.condition_type) m[t.id] = { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name };
+          const c = extractCondition(t);
+          if (c) m[t.id] = c;
         }
         return m;
       }, [mySchedule]);
@@ -2944,7 +2973,7 @@
                   showDate={true}
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
-                  condition={t.condition_type ? { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name } : null}
+                  condition={extractCondition(t, true)}
                 />
               ))
             )}
@@ -2996,7 +3025,7 @@
                   showDate={true}
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
-                  condition={t.condition_type ? { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name } : null}
+                  condition={extractCondition(t, true)}
                 />
               ))}
             </div>
@@ -3453,12 +3482,12 @@
         } catch { setError('Failed to update schedule'); }
       };
 
-      const setCondition = async (tournamentId, dependsOnTournamentId, conditionType) => {
+      const setCondition = async (tournamentId, dependsOnTournamentId, conditionType, isPublic) => {
         try {
           await fetch(`${API_URL}/schedule/${tournamentId}/condition`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dependsOnTournamentId, conditionType })
+            body: JSON.stringify({ dependsOnTournamentId, conditionType, isPublic })
           });
           fetchMySchedule();
         } catch { setError('Failed to set condition'); }
