@@ -1175,17 +1175,7 @@
       color: #ffffff !important;
     }
 
-    .cal-event-saved-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      position: absolute;
-      bottom: 5px;
-      left: 50%;
-      transform: translateX(-50%);
-      opacity: 0.85;
-    }
+    /* saved indicator removed — saved state shown by venue-colored border */
 
     .cal-event-chevron {
       display: flex;
@@ -2114,16 +2104,13 @@
       const stripTextColor = venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)';
 
       return (
-        <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor} : undefined}>
+        <div ref={rowRef} className={rowClasses} style={isInSchedule && venue.abbr !== 'WSOP' ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor} : undefined}>
           <div
             className={`cal-venue-strip venue-strip-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}
             style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
             onClick={() => setOpen(o => !o)}
-          >
-            {open && venue.longName ? venue.longName : venue.abbr}
-            {isInSchedule && <span className="cal-event-saved-dot" style={{background: stripTextColor}} />}
-          </div>
-          <div className="cal-event-row-content" style={isInSchedule && condition ? {borderColor: stripColor} : undefined}>
+          >{open && venue.longName ? venue.longName : venue.abbr}</div>
+          <div className="cal-event-row-content" style={isInSchedule && condition && venue.abbr !== 'WSOP' ? {borderColor: stripColor} : undefined}>
             {/* Collapsed bar — always visible */}
             <div className="cal-event-bar" onClick={() => setOpen(o => !o)}>
               <div className="cal-bar-row1">
