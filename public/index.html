@@ -2514,7 +2514,7 @@
           {open && (
             <div className="filter-panel" onClick={e => {
               const tag = e.target.tagName;
-              if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'OPTION' && tag !== 'BUTTON' && tag !== 'LABEL') setOpen(false);
+              if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'OPTION' && tag !== 'BUTTON' && tag !== 'LABEL' && !e.target.closest('.filter-group')) setOpen(false);
             }}>
               <div className="filter-group">
                 <label>Min Buy-in ($)</label>
