@@ -861,15 +861,7 @@
     .cal-event-row.venue-aria { background: var(--venue-aria-bg); }
     .cal-event-row.venue-gn   { background: var(--venue-gn-bg); }
 
-    /* Bracelet events → silver border (dark), black border (light) */
-    .cal-event-row.bracelet {
-      border-color: #c0c0c0;
-    }
-    [data-theme="light"] .cal-event-row.bracelet {
-      border-color: #000000;
-    }
-
-    /* Bracelet + saved: bracelet border wins over green */
+    /* Bracelet events only get special border when saved */
     .cal-event-row.bracelet.saved {
       border-color: #c0c0c0;
     }
