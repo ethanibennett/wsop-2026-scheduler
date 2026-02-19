@@ -2154,8 +2154,8 @@
             {/* Expanded detail panel — animated */}
             <div className={`cal-event-detail-wrap ${open ? 'open' : ''}`} onClick={e => {
               const tag = e.target.tagName;
-              if (tag === 'A' || tag === 'BUTTON') return;
-              if (e.target.closest('.badge-clickable')) return;
+              if (tag === 'A' || tag === 'BUTTON' || tag === 'INPUT') return;
+              if (e.target.closest('.badge-clickable') || e.target.closest('.condition-picker') || e.target.closest('.cal-action-row')) return;
               setOpen(false);
             }}>
               <div className="cal-event-detail-inner">
