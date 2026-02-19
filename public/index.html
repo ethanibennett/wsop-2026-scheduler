@@ -2454,7 +2454,7 @@
 
     // ── Filters ────────────────────────────────────────────────
 
-    function Filters({ filters, setFilters, gameVariants, venues }) {
+    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions }) {
       const [open, setOpen] = useState(false);
 
       const hasActive = filters.minBuyin || filters.maxBuyin ||
@@ -2518,15 +2518,37 @@
             }}>
               <div className="filter-group">
                 <label>Min Buy-in ($)</label>
+                <select value={filters.minBuyin}
+                  onChange={e => setFilters(f => {
+                    const min = e.target.value;
+                    const max = f.maxBuyin && Number(min) > Number(f.maxBuyin) ? min : f.maxBuyin;
+                    return {...f, minBuyin: min, maxBuyin: max};
+                  })}>
+                  <option value="">Any</option>
+                  {(buyinOptions || []).map(b => (
+                    <option key={b} value={b}>${Number(b).toLocaleString()}</option>
+                  ))}
+                </select>
                 <input type="number" value={filters.minBuyin}
-                  onChange={e => setFilters(f => ({...f, minBuyin:e.target.value}))}
-                  placeholder="0" min="0" />
+                  onChange={e => setFilters(f => {
+                    const min = e.target.value;
+                    const max = f.maxBuyin && min && Number(min) > Number(f.maxBuyin) ? min : f.maxBuyin;
+                    return {...f, minBuyin: min, maxBuyin: max};
+                  })}
+                  placeholder="Custom" min="0" style={{marginTop:'4px'}} />
               </div>
               <div className="filter-group">
                 <label>Max Buy-in ($)</label>
+                <select value={filters.maxBuyin}
+                  onChange={e => setFilters(f => ({...f, maxBuyin: e.target.value}))}>
+                  <option value="">Any</option>
+                  {(buyinOptions || []).filter(b => !filters.minBuyin || Number(b) >= Number(filters.minBuyin)).map(b => (
+                    <option key={b} value={b}>${Number(b).toLocaleString()}</option>
+                  ))}
+                </select>
                 <input type="number" value={filters.maxBuyin}
-                  onChange={e => setFilters(f => ({...f, maxBuyin:e.target.value}))}
-                  placeholder="Any" min="0" />
+                  onChange={e => setFilters(f => ({...f, maxBuyin: e.target.value}))}
+                  placeholder="Custom" min="0" style={{marginTop:'4px'}} />
               </div>
               <GameVariantFilter selectedGames={filters.selectedGames} setFilters={setFilters} />
               <div className="filter-group">
@@ -2566,6 +2588,11 @@
         minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
       });
       const [focusEventId, setFocusEventId] = useState(null);
+
+      const buyinOptions = useMemo(() =>
+        [...new Set(tournaments.map(t => Number(t.buyin)).filter(Boolean))].sort((a, b) => a - b),
+        [tournaments]
+      );
 
       const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
       const conditionMap = useMemo(() => {
@@ -2630,7 +2657,7 @@
               )}
             </div>
 
-            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} />
+            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} />
 
             <p className="results-count">{filtered.length} event{filtered.length !== 1 ? 's' : ''}</p>
           </div>
@@ -2799,6 +2826,11 @@
         minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
       });
 
+      const buyinOptions = useMemo(() =>
+        [...new Set(allTournaments.map(t => Number(t.buyin)).filter(Boolean))].sort((a, b) => a - b),
+        [allTournaments]
+      );
+
       // Map normalised date → all tournaments
       const byDate = useMemo(() => {
         const map = {};
@@ -2894,7 +2926,7 @@
               })}
             </div>
 
-            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} />
+            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} buyinOptions={buyinOptions} />
 
             {/* Summary row */}
             <p className="cal-event-count">
