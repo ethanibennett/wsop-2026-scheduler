@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -102,6 +103,16 @@ async function initDatabase() {
       FOREIGN KEY (owner_id) REFERENCES users(id),
       FOREIGN KEY (viewer_id) REFERENCES users(id),
       UNIQUE(owner_id, viewer_id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS share_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER UNIQUE NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
     )
   `);
 
@@ -481,6 +492,119 @@ app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
   }
 });
 
+// ── Share Token Endpoints ─────────────────────────────────────
+
+// Public shared schedule view (no auth required)
+app.get('/api/shared/:token', (req, res) => {
+  try {
+    const { token } = req.params;
+    const tokenStmt = db.prepare(
+      'SELECT st.user_id, u.username FROM share_tokens st JOIN users u ON st.user_id = u.id WHERE st.token = ?'
+    );
+    tokenStmt.bind([token]);
+    let tokenRow = null;
+    if (tokenStmt.step()) { tokenRow = tokenStmt.getAsObject(); }
+    tokenStmt.free();
+
+    if (!tokenRow) {
+      return res.status(404).json({ error: 'Share link not found' });
+    }
+
+    const schedStmt = db.prepare(`
+      SELECT t.* FROM tournaments t
+      JOIN user_schedules us ON t.id = us.tournament_id
+      WHERE us.user_id = ?
+      ORDER BY t.date, t.time
+    `);
+    schedStmt.bind([tokenRow.user_id]);
+    const tournaments = [];
+    while (schedStmt.step()) { tournaments.push(schedStmt.getAsObject()); }
+    schedStmt.free();
+
+    res.json({ username: tokenRow.username, tournaments });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get current user's share token
+app.get('/api/share-token', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT token FROM share_tokens WHERE user_id = ?');
+    stmt.bind([req.user.id]);
+    let existing = null;
+    if (stmt.step()) { existing = stmt.getAsObject(); }
+    stmt.free();
+    res.json({ token: existing ? existing.token : null });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Generate share token
+app.post('/api/share-token', authenticateToken, async (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT token FROM share_tokens WHERE user_id = ?');
+    stmt.bind([req.user.id]);
+    let existing = null;
+    if (stmt.step()) { existing = stmt.getAsObject(); }
+    stmt.free();
+
+    if (existing) { return res.json({ token: existing.token }); }
+
+    const token = crypto.randomBytes(16).toString('hex');
+    db.run('INSERT INTO share_tokens (user_id, token) VALUES (?, ?)', [req.user.id, token]);
+    await saveDatabase();
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Revoke share token
+app.delete('/api/share-token', authenticateToken, async (req, res) => {
+  try {
+    db.run('DELETE FROM share_tokens WHERE user_id = ?', [req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Share link revoked' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get users I've granted permission to
+app.get('/api/permissions/mine', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT u.id, u.username, sp.granted_at
+      FROM schedule_permissions sp
+      JOIN users u ON sp.viewer_id = u.id
+      WHERE sp.owner_id = ?
+    `);
+    stmt.bind([req.user.id]);
+    const viewers = [];
+    while (stmt.step()) { viewers.push(stmt.getAsObject()); }
+    stmt.free();
+    res.json(viewers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Revoke permission from a viewer
+app.delete('/api/permissions/:viewerId', authenticateToken, async (req, res) => {
+  try {
+    db.run(
+      'DELETE FROM schedule_permissions WHERE owner_id = ? AND viewer_id = ?',
+      [req.user.id, req.params.viewerId]
+    );
+    await saveDatabase();
+    res.json({ message: 'Permission revoked' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get available game variants
 app.get('/api/game-variants', authenticateToken, (req, res) => {
   try {
@@ -515,6 +639,11 @@ app.get('/api/venues', authenticateToken, (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// SPA catch-all for /shared/* routes
+app.get('/shared/:token', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Start server
