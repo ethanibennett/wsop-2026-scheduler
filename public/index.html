@@ -884,6 +884,110 @@
       opacity: 0.4;
     }
 
+    /* ── Conditional events ── */
+    .cal-event-row.conditional {
+      opacity: 0.55;
+      border-style: dashed;
+    }
+    .cal-event-row.conditional.open {
+      opacity: 0.85;
+    }
+    .cal-condition-label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: rgba(136,136,136,0.12);
+      border: 1px solid rgba(136,136,136,0.25);
+      padding: 1px 6px;
+      border-radius: 3px;
+      white-space: nowrap;
+      letter-spacing: 0.02em;
+    }
+    .badge-condition {
+      background: rgba(136,136,136,0.15);
+      color: var(--text-muted);
+      border: 1px solid rgba(136,136,136,0.3);
+    }
+    .condition-picker {
+      border-top: 1px solid var(--border);
+      padding: 12px;
+    }
+    .condition-picker-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .condition-type-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .condition-type-btn {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .condition-type-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(160,160,160,0.1);
+    }
+    .condition-sat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 10px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .condition-sat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: var(--text);
+    }
+    .condition-sat-item:active,
+    .condition-sat-item:hover {
+      background: var(--hover-overlay);
+    }
+    .condition-sat-item.selected {
+      border-color: var(--accent);
+      background: rgba(160,160,160,0.08);
+    }
+    .condition-search {
+      padding: 8px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.82rem;
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 8px;
+    }
+    .condition-search:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
     .cal-event-bar {
       display: flex;
       flex-direction: column;
@@ -1163,6 +1267,8 @@
     .cal-action-btn:active { background: rgba(160,160,160,0.1); }
     .cal-action-btn.remove { color: var(--accent2); }
     .cal-action-btn.remove:active { background: rgba(136,136,136,0.1); }
+    .cal-action-row .cal-action-btn { border-top: none; }
+    .cal-action-btn.condition-btn { color: var(--text-muted); border-left: 1px solid var(--border); }
 
     /* ── Late reg bar ── */
     .late-reg-wrap {
@@ -1488,21 +1594,28 @@
     }
 
     function detectConflicts(schedule) {
-      // Returns a Set of tournament ids that overlap with another in schedule
+      // Returns { conflicts, expectedConflicts } — Sets of tournament ids
+      // expectedConflicts: overlaps involving at least one conditional event (no warning)
+      // conflicts: overlaps between two firm events (show warning)
       const conflicts = new Set();
+      const expectedConflicts = new Set();
       const sorted = [...schedule].sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`));
       for (let i = 0; i < sorted.length; i++) {
         for (let j = i + 1; j < sorted.length; j++) {
           const a = sorted[i], b = sorted[j];
           if (a.date !== b.date) break;
-          // Treat same day same time as conflict (rough heuristic)
           if (a.time === b.time) {
-            conflicts.add(a.id);
-            conflicts.add(b.id);
+            if (a.condition_type || b.condition_type) {
+              expectedConflicts.add(a.id);
+              expectedConflicts.add(b.id);
+            } else {
+              conflicts.add(a.id);
+              conflicts.add(b.id);
+            }
           }
         }
       }
-      return conflicts;
+      return { conflicts, expectedConflicts };
     }
 
     // ── SVG Icons ─────────────────────────────────────────────
@@ -1799,10 +1912,108 @@
       );
     }
 
+    // ── Condition Picker (inline in expanded card) ─────────────
+
+    function ConditionPicker({ tournament, condition, allTournaments, onSet, onRemove, onClose }) {
+      const [condType, setCondType] = useState(condition ? condition.type : 'IF_WIN_SEAT');
+      const [selectedId, setSelectedId] = useState(condition ? condition.dependsOnId : null);
+      const [search, setSearch] = useState('');
+
+      const suggestedSatellites = useMemo(() =>
+        allTournaments.filter(t => t.is_satellite && t.target_event === tournament.event_number),
+        [allTournaments, tournament.event_number]
+      );
+
+      const searchResults = useMemo(() => {
+        if (!search.trim()) return [];
+        const q = search.toLowerCase();
+        return allTournaments.filter(t =>
+          t.id !== tournament.id &&
+          ((t.event_number || '').toLowerCase().includes(q) || (t.event_name || '').toLowerCase().includes(q))
+        ).slice(0, 8);
+      }, [allTournaments, search, tournament.id]);
+
+      const renderItem = (t) => (
+        <div
+          key={t.id}
+          className={`condition-sat-item ${selectedId === t.id ? 'selected' : ''}`}
+          onClick={() => setSelectedId(t.id)}
+        >
+          <span style={{fontWeight:600,flexShrink:0}}>#{t.event_number}</span>
+          <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.event_name}</span>
+          <span style={{flexShrink:0,color:'var(--text-muted)',fontSize:'0.72rem'}}>${t.buyin}</span>
+        </div>
+      );
+
+      return (
+        <div className="condition-picker">
+          <div className="condition-picker-title">Set Condition</div>
+
+          <div className="condition-type-row">
+            <button className={`condition-type-btn ${condType === 'IF_WIN_SEAT' ? 'active' : ''}`} onClick={() => setCondType('IF_WIN_SEAT')}>
+              If I win a seat
+            </button>
+            <button className={`condition-type-btn ${condType === 'IF_NO_SEAT' ? 'active' : ''}`} onClick={() => setCondType('IF_NO_SEAT')}>
+              If I don't win a seat
+            </button>
+          </div>
+
+          {suggestedSatellites.length > 0 && (
+            <React.Fragment>
+              <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
+                Related Satellites
+              </div>
+              <div className="condition-sat-list">
+                {suggestedSatellites.map(renderItem)}
+              </div>
+            </React.Fragment>
+          )}
+
+          <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
+            {suggestedSatellites.length > 0 ? 'Or search any event' : 'Search for an event'}
+          </div>
+          <input
+            className="condition-search"
+            placeholder="Event name or number..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {searchResults.length > 0 && (
+            <div className="condition-sat-list">
+              {searchResults.map(renderItem)}
+            </div>
+          )}
+
+          <div style={{display:'flex',gap:'8px',marginTop:'8px'}}>
+            <button
+              className="condition-type-btn active"
+              style={{flex:1,opacity:selectedId ? 1 : 0.4,pointerEvents:selectedId ? 'auto' : 'none'}}
+              onClick={() => selectedId && onSet(selectedId, condType)}
+            >
+              Set Condition
+            </button>
+            <button className="condition-type-btn" style={{flex:'0 0 auto'}} onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+
+          {condition && (
+            <button
+              style={{marginTop:'8px',background:'none',border:'none',color:'var(--accent2)',fontSize:'0.75rem',cursor:'pointer',padding:'4px 0',fontFamily:"'Oswald',sans-serif",fontWeight:600}}
+              onClick={onRemove}
+            >
+              Remove Condition
+            </button>
+          )}
+        </div>
+      );
+    }
+
     // ── Calendar Event Row (collapsible) ──────────────────────
 
-    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly }) {
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, condition, onSetCondition, onRemoveCondition, allTournaments }) {
       const [open, setOpen] = useState(false);
+      const [showConditionUI, setShowConditionUI] = useState(false);
       const rowRef = React.useRef(null);
 
       // Scroll a row to just below the sticky header
@@ -1856,6 +2067,7 @@
         'cal-event-row',
         open ? 'open' : '',
         isInSchedule ? 'saved' : '',
+        condition ? 'conditional' : '',
         venueClass,
         bracelet ? 'bracelet' : '',
         isPast ? 'past' : '',
@@ -1883,6 +2095,11 @@
               <div className="cal-bar-row2">
                 {isInSchedule && <span className="cal-event-saved-dot" />}
                 <span className="cal-event-name">{tournament.event_name}</span>
+                {condition && (
+                  <span className="cal-condition-label">
+                    {condition.type === 'IF_WIN_SEAT' ? 'If seat' : 'If no seat'} #{condition.dependsOnEventNumber}
+                  </span>
+                )}
                 {isBounty && <span className="cal-bounty-icon"><Icon.crosshairs /></span>}
                 {isSat && <span className="cal-bounty-icon"><Icon.satellite /></span>}
                 {isRestart && <span className="cal-bounty-icon"><Icon.restart /></span>}
@@ -1926,6 +2143,11 @@
                     ))}
                     {isInSchedule && (
                       <span className="badge badge-saved">✓ Saved</span>
+                    )}
+                    {condition && (
+                      <span className="badge badge-condition">
+                        {condition.type === 'IF_WIN_SEAT' ? '🎯 If seat from' : '🔄 If no seat from'} #{condition.dependsOnEventNumber}
+                      </span>
                     )}
                   </div>
 
@@ -1981,9 +2203,27 @@
                       className={`cal-action-btn ${isInSchedule ? 'remove' : ''}`}
                       onClick={() => onToggle(tournament.id)}
                     >
-                      {isInSchedule ? '✕ Remove from My Schedule' : '+ Add to My Schedule'}
+                      {isInSchedule ? '✕ Remove' : '+ Add to My Schedule'}
                     </button>
+                    {isInSchedule && onSetCondition && (
+                      <button
+                        className="cal-action-btn condition-btn"
+                        onClick={() => setShowConditionUI(prev => !prev)}
+                      >
+                        {condition ? '✎ Edit Condition' : '⚡ Condition'}
+                      </button>
+                    )}
                   </div>
+                  )}
+                  {showConditionUI && isInSchedule && onSetCondition && (
+                    <ConditionPicker
+                      tournament={tournament}
+                      condition={condition}
+                      allTournaments={allTournaments || []}
+                      onSet={(depId, type) => { onSetCondition(tournament.id, depId, type); setShowConditionUI(false); }}
+                      onRemove={() => { onRemoveCondition(tournament.id); setShowConditionUI(false); }}
+                      onClose={() => setShowConditionUI(false)}
+                    />
                   )}
                 </div>
               </div>
@@ -2211,7 +2451,7 @@
 
     // ── Tournaments View ───────────────────────────────────────
 
-    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues }) {
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
         minBuyin: '', maxBuyin: '', gameVariant: 'all', venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
@@ -2219,6 +2459,13 @@
       const [focusEventId, setFocusEventId] = useState(null);
 
       const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
+      const conditionMap = useMemo(() => {
+        const m = {};
+        for (const t of mySchedule) {
+          if (t.condition_type) m[t.id] = { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name };
+        }
+        return m;
+      }, [mySchedule]);
 
       const filtered = useMemo(() => {
         return tournaments
@@ -2299,6 +2546,10 @@
                     const targetId = findBestFlight(num, sat);
                     if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
                   }}
+                  condition={conditionMap[t.id] || null}
+                  onSetCondition={onSetCondition}
+                  onRemoveCondition={onRemoveCondition}
+                  allTournaments={tournaments}
                 />
               ))}
             </div>
@@ -2309,8 +2560,8 @@
 
     // ── My Schedule View ───────────────────────────────────────
 
-    function ScheduleView({ mySchedule, onToggle, sharedWithMe, token }) {
-      const conflicts = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
+    function ScheduleView({ mySchedule, onToggle, sharedWithMe, token, onSetCondition, onRemoveCondition, allTournaments }) {
+      const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
       const [focusEventId, setFocusEventId] = useState(null);
 
@@ -2379,6 +2630,10 @@
                       const targetId = findBestFlightSchedule(num, sat);
                       if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
                     }}
+                    condition={t.condition_type ? { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name } : null}
+                    onSetCondition={onSetCondition}
+                    onRemoveCondition={onRemoveCondition}
+                    allTournaments={allTournaments}
                   />
                 </div>
               );
@@ -2416,7 +2671,7 @@
     const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues }) {
+    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition }) {
       const today = getToday();
       const defaultDate = WSOP_DATES.includes(today) ? today : WSOP_DATES[0];
       const [selectedDate, setSelectedDate] = useState(defaultDate);
@@ -2451,6 +2706,13 @@
       }, [allTournaments]);
 
       const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
+      const conditionMap = useMemo(() => {
+        const m = {};
+        for (const t of mySchedule) {
+          if (t.condition_type) m[t.id] = { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name };
+        }
+        return m;
+      }, [mySchedule]);
 
       const selDateObj  = new Date(selectedDate + 'T12:00:00');
       const todayEvents = byDate[selectedDate] || [];
@@ -2560,6 +2822,10 @@
                       setTimeout(() => setFocusEventId(best.id), 50);
                     }
                   }}
+                  condition={conditionMap[t.id] || null}
+                  onSetCondition={onSetCondition}
+                  onRemoveCondition={onRemoveCondition}
+                  allTournaments={allTournaments}
                 />
               ))}
             </div>
@@ -2667,6 +2933,7 @@
                   showDate={true}
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
+                  condition={t.condition_type ? { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name } : null}
                 />
               ))
             )}
@@ -2718,6 +2985,7 @@
                   showDate={true}
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
+                  condition={t.condition_type ? { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name } : null}
                 />
               ))}
             </div>
@@ -3174,6 +3442,27 @@
         } catch { setError('Failed to update schedule'); }
       };
 
+      const setCondition = async (tournamentId, dependsOnTournamentId, conditionType) => {
+        try {
+          await fetch(`${API_URL}/schedule/${tournamentId}/condition`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dependsOnTournamentId, conditionType })
+          });
+          fetchMySchedule();
+        } catch { setError('Failed to set condition'); }
+      };
+
+      const removeCondition = async (tournamentId) => {
+        try {
+          await fetch(`${API_URL}/schedule/${tournamentId}/condition`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchMySchedule();
+        } catch { setError('Failed to remove condition'); }
+      };
+
       const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -3223,15 +3512,17 @@
                 onToggle={toggleTournament}
                 gameVariants={gameVariants}
                 venues={venues}
+                onSetCondition={setCondition}
+                onRemoveCondition={removeCondition}
               />
             )}
 
             {currentView === 'schedule' && (
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} token={token} />
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} />
             )}
 
             {currentView === 'calendar' && (
-              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} />
+              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} />
             )}
 
             {currentView === 'tracking' && (

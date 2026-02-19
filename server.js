@@ -116,6 +116,21 @@ async function initDatabase() {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS schedule_conditions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      depends_on_tournament_id INTEGER NOT NULL,
+      condition_type TEXT NOT NULL CHECK(condition_type IN ('IF_WIN_SEAT', 'IF_NO_SEAT')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
+      FOREIGN KEY (depends_on_tournament_id) REFERENCES tournaments(id),
+      UNIQUE(user_id, tournament_id)
+    )
+  `);
+
   // Auto-seed WSOP 2026 schedule if tournaments table is empty
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM tournaments');
   countStmt.step();
@@ -351,15 +366,60 @@ app.post('/api/schedule', authenticateToken, async (req, res) => {
 app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.params;
-    
+
+    db.run(
+      'DELETE FROM schedule_conditions WHERE user_id = ? AND tournament_id = ?',
+      [req.user.id, tournamentId]
+    );
     db.run(
       'DELETE FROM user_schedules WHERE user_id = ? AND tournament_id = ?',
       [req.user.id, tournamentId]
     );
-    
+
     await saveDatabase();
-    
+
     res.json({ message: 'Tournament removed from schedule' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Set or update a condition on a scheduled event
+app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+    const { dependsOnTournamentId, conditionType } = req.body;
+
+    // Verify event is on user's schedule
+    const checkStmt = db.prepare('SELECT 1 FROM user_schedules WHERE user_id = ? AND tournament_id = ?');
+    checkStmt.bind([req.user.id, tournamentId]);
+    const onSchedule = checkStmt.step();
+    checkStmt.free();
+    if (!onSchedule) {
+      return res.status(400).json({ error: 'Event not on your schedule' });
+    }
+
+    // Upsert: delete existing then insert
+    db.run('DELETE FROM schedule_conditions WHERE user_id = ? AND tournament_id = ?', [req.user.id, tournamentId]);
+    db.run(
+      'INSERT INTO schedule_conditions (user_id, tournament_id, depends_on_tournament_id, condition_type) VALUES (?, ?, ?, ?)',
+      [req.user.id, tournamentId, dependsOnTournamentId, conditionType]
+    );
+
+    await saveDatabase();
+    res.json({ message: 'Condition set' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Remove condition from a scheduled event (make it firm)
+app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+    db.run('DELETE FROM schedule_conditions WHERE user_id = ? AND tournament_id = ?', [req.user.id, tournamentId]);
+    await saveDatabase();
+    res.json({ message: 'Condition removed' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -369,9 +429,15 @@ app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) =>
 app.get('/api/my-schedule', authenticateToken, (req, res) => {
   try {
     const query = `
-      SELECT t.*, us.added_at 
+      SELECT t.*, us.added_at,
+             sc.condition_type,
+             sc.depends_on_tournament_id,
+             dep.event_number AS depends_on_event_number,
+             dep.event_name AS depends_on_event_name
       FROM tournaments t
       JOIN user_schedules us ON t.id = us.tournament_id
+      LEFT JOIN schedule_conditions sc ON sc.tournament_id = t.id AND sc.user_id = us.user_id
+      LEFT JOIN tournaments dep ON dep.id = sc.depends_on_tournament_id
       WHERE us.user_id = ?
       ORDER BY t.date, t.time
     `;
@@ -470,13 +536,19 @@ app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
     }
     
     const query = `
-      SELECT t.* 
+      SELECT t.*,
+             sc.condition_type,
+             sc.depends_on_tournament_id,
+             dep.event_number AS depends_on_event_number,
+             dep.event_name AS depends_on_event_name
       FROM tournaments t
       JOIN user_schedules us ON t.id = us.tournament_id
+      LEFT JOIN schedule_conditions sc ON sc.tournament_id = t.id AND sc.user_id = us.user_id
+      LEFT JOIN tournaments dep ON dep.id = sc.depends_on_tournament_id
       WHERE us.user_id = ?
       ORDER BY t.date, t.time
     `;
-    
+
     const stmt = db.prepare(query);
     stmt.bind([userId]);
     
@@ -511,8 +583,15 @@ app.get('/api/shared/:token', (req, res) => {
     }
 
     const schedStmt = db.prepare(`
-      SELECT t.* FROM tournaments t
+      SELECT t.*,
+             sc.condition_type,
+             sc.depends_on_tournament_id,
+             dep.event_number AS depends_on_event_number,
+             dep.event_name AS depends_on_event_name
+      FROM tournaments t
       JOIN user_schedules us ON t.id = us.tournament_id
+      LEFT JOIN schedule_conditions sc ON sc.tournament_id = t.id AND sc.user_id = us.user_id
+      LEFT JOIN tournaments dep ON dep.id = sc.depends_on_tournament_id
       WHERE us.user_id = ?
       ORDER BY t.date, t.time
     `);
