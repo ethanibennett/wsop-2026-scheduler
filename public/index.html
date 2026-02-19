@@ -2606,12 +2606,7 @@
         return sorted.findIndex(t => normaliseDate(t.date) >= todayISO);
       }, [sorted, todayISO]);
 
-      // Auto-scroll to today's first event on mount
-      useEffect(() => {
-        if (todayRef.current) {
-          todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, [sorted.length]);
+      // No auto-scroll — start at the top so the title is visible
 
       // Find best flight: closest on or after satellite date within my schedule
       function findBestFlightSchedule(eventNum, sat) {
