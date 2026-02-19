@@ -1,0 +1,2947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#111111">
+  <title>shonabish | summer 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg:        #111111;
+      --surface:   #1a1a1a;
+      --surface2:  #242424;
+      --border:    #333333;
+      --accent:    #a0a0a0;
+      --accent2:   #888888;
+      --text:      #e8e8e8;
+      --text-muted:#808080;
+      --bg-contrast: #111111;
+      --venue-hs-bg:   #141414;
+      --venue-wynn-bg: #141414;
+      --venue-aria-bg: #141414;
+      --venue-gn-bg:   #141414;
+      --hover-overlay: rgba(255,255,255,0.04);
+      --radius:    12px;
+      --radius-sm: 8px;
+      --tab-h:     56px;
+      --header-h:  60px;
+      /* Venue brand colors — muted for dark mode */
+      --venue-wynn:          #8a3030;
+      --venue-aria:          #5a3a9a;
+      --venue-golden-nugget: #7a6520;
+      --venue-resorts-world: #2a7a72;
+      --venue-south-point:   #5e4430;
+      --venue-orleans:       #944828;
+      --venue-mgm-grand:     #2a6a3e;
+    }
+
+    [data-theme="light"] {
+      --bg:        #f5f5f5;
+      --surface:   #ffffff;
+      --surface2:  #ebebeb;
+      --border:    #d0d0d0;
+      --accent:    #555555;
+      --accent2:   #777777;
+      --text:      #1a1a1a;
+      --text-muted:#888888;
+      --bg-contrast: #ffffff;
+      --venue-hs-bg:   #eeeeee;
+      --venue-wynn-bg: #eeeeee;
+      --venue-aria-bg: #eeeeee;
+      --venue-gn-bg:   #eeeeee;
+      --hover-overlay: rgba(0,0,0,0.04);
+      /* Venue brand colors — full saturation for light mode */
+      --venue-wynn:          #b91c1c;
+      --venue-aria:          #6d28d9;
+      --venue-golden-nugget: #92700a;
+      --venue-resorts-world: #0d9488;
+      --venue-south-point:   #6b4226;
+      --venue-orleans:       #c2410c;
+      --venue-mgm-grand:     #15803d;
+    }
+
+    /* High contrast — dark */
+    [data-contrast="high"] {
+      --bg:        #000000;
+      --surface:   #0a0a0a;
+      --surface2:  #1a1a1a;
+      --border:    #555555;
+      --text:      #ffffff;
+      --text-muted:#b0b0b0;
+      --hover-overlay: rgba(255,255,255,0.07);
+    }
+
+    /* High contrast — light */
+    [data-theme="light"][data-contrast="high"] {
+      --bg:        #ffffff;
+      --surface:   #ffffff;
+      --surface2:  #e0e0e0;
+      --border:    #555555;
+      --text:      #000000;
+      --text-muted:#444444;
+      --hover-overlay: rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      height: 100%;
+      overscroll-behavior: none;
+    }
+
+    body {
+      font-family: 'Oswald', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    /* ── Layout shell ── */
+    #root { display: flex; flex-direction: column; height: 100vh; }
+
+    .app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    .top-bar {
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .top-bar-title {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top-bar-title h1 {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+    }
+
+    .top-bar-title small {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .top-bar-actions { display: flex; align-items: center; gap: 8px; }
+
+    .username-chip {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Scrollable content area ── */
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 12px 12px 80px; /* bottom pad clears the tab bar */
+    }
+
+    /* ── Bottom tab bar ── */
+    .bottom-nav {
+      height: var(--tab-h);
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: stretch;
+      flex-shrink: 0;
+      z-index: 10;
+      /* safe area inset for iPhone home indicator */
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .nav-tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.2s;
+      padding: 6px 0;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+
+    .nav-tab.active { color: var(--accent); }
+
+    .nav-tab svg { width: 22px; height: 22px; stroke-width: 1.8; }
+
+    /* ── Auth screen ── */
+    .auth-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+      background: var(--bg);
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+    }
+
+    .auth-logo {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .auth-logo h1 { font-family: 'Libre Baskerville', Georgia, serif; font-size: 1.4rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .auth-logo p { font-size: 0.8rem; color: var(--text-muted); }
+
+    .form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+
+    .form-field label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+
+    .form-field input {
+      padding: 13px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-field input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 13px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      line-height: 1;
+    }
+
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary { background: var(--accent); color: var(--bg-contrast); }
+    .btn-primary:hover { opacity: 0.88; }
+
+    .btn-danger { background: var(--accent2); color: #fff; }
+    .btn-danger:hover { opacity: 0.88; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1.5px solid var(--border);
+    }
+
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-sm { padding: 8px 14px; font-size: 0.82rem; }
+
+    .btn-full { width: 100%; }
+
+    /* ── Alerts ── */
+    .alert {
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .alert-error { background: rgba(136,136,136,0.15); border: 1px solid rgba(136,136,136,0.4); color: #999999; }
+    .alert-success { background: rgba(160,160,160,0.12); border: 1px solid rgba(160,160,160,0.4); color: var(--accent); }
+
+    /* ── Settings ── */
+    .settings-view { padding: 0 4px; }
+    .settings-section {
+      margin-bottom: 24px;
+    }
+    .settings-section-label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }
+    .settings-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row-label {
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+    .settings-row-value {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-align: right;
+    }
+    .settings-row-btn {
+      width: 100%;
+      padding: 12px 14px;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.88rem;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .settings-row-btn:last-child { border-bottom: none; }
+    .settings-row-btn:active { background: var(--hover-overlay); }
+    .settings-row-btn.danger { color: #b91c1c; }
+
+    .settings-toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: var(--border);
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .settings-toggle.on { background: var(--accent); }
+    .settings-toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .settings-toggle.on::after { transform: translateX(20px); }
+
+    .settings-debug-input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.82rem;
+      padding: 6px 10px;
+      width: 100%;
+      max-width: 220px;
+    }
+    .settings-debug-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .settings-about {
+      text-align: center;
+      padding: 20px 0;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+    .settings-about h3 {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 1.1rem;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    /* ── Search & filters ── */
+    .sticky-filters {
+      position: sticky;
+      top: -12px;
+      z-index: 20;
+      background: var(--bg);
+      margin: -12px -12px 0;
+      padding: 24px 12px 4px;
+    }
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 12px;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+
+    .search-bar svg { color: var(--text-muted); flex-shrink: 0; width: 18px; height: 18px; }
+
+    .search-bar input {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.95rem;
+      padding: 12px 0;
+      min-width: 0;
+    }
+
+    .search-bar input:focus { outline: none; }
+    .search-bar input::placeholder { color: var(--text-muted); }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .filter-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(160,160,160,0.1); }
+
+    .filter-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .filter-group { display: flex; flex-direction: column; gap: 6px; }
+
+    .filter-group label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .filter-group select,
+    .filter-group input[type="number"] {
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.9rem;
+      width: 100%;
+    }
+
+    .filter-group select:focus,
+    .filter-group input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .filter-span2 { grid-column: span 2; }
+
+    .results-count {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }
+
+    /* ── Tournament cards ── */
+    .tournament-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .t-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .t-card.saved { border-color: var(--accent); }
+
+    /* Venue backgrounds — tournament cards */
+    .t-card.venue-hs   { background: var(--venue-hs-bg); }
+    .t-card.venue-wynn { background: var(--venue-wynn-bg); }
+    .t-card.venue-aria { background: var(--venue-aria-bg); }
+    .t-card.venue-gn   { background: var(--venue-gn-bg); }
+
+    /* Bracelet events → gold border */
+    .t-card.bracelet { border-color: #c0c0c0; }
+
+    /* Bracelet + saved: gold wins */
+    .t-card.bracelet.saved { border-color: #c0c0c0; }
+
+    .t-card.past {
+      opacity: 0.4;
+    }
+
+    .t-card-main {
+      padding: 14px 14px 12px;
+    }
+
+    .t-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .t-card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    .badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-event { background: rgba(136,136,136,0.2); color: #999999; }
+    .badge-variant { background: rgba(160,160,160,0.12); color: var(--accent); }
+    .badge-saved { background: rgba(160,160,160,0.2); color: var(--accent); }
+    .badge-target { background: rgba(160,160,160,0.15); color: var(--text-muted); }
+    .badge-clickable { cursor: pointer; }
+    .badge-clickable:active { opacity: 0.6; }
+
+    .t-buyin {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .t-name {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 0.95rem;
+      font-weight: 400;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: 10px;
+    }
+
+    .t-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 12px;
+    }
+
+    .t-meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .t-meta-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .t-meta-value {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 0.85rem;
+      color: var(--text);
+      font-weight: 400;
+    }
+
+    .t-notes {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-style: italic;
+      grid-column: span 2;
+    }
+
+    .t-card-footer {
+      display: flex;
+      border-top: 1px solid var(--border);
+    }
+
+    .t-action-btn {
+      flex: 1;
+      padding: 12px;
+      background: none;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--accent);
+      transition: background 0.15s;
+      letter-spacing: 0.02em;
+    }
+
+    .t-action-btn:active { background: rgba(160,160,160,0.1); }
+
+    .t-action-btn.remove { color: var(--accent2); }
+    .t-action-btn.remove:active { background: rgba(136,136,136,0.1); }
+
+    .countdown-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(160,160,160,0.1);
+      border: 1px solid rgba(160,160,160,0.25);
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-top: 8px;
+    }
+
+    /* ── Empty states ── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-muted);
+    }
+
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .empty-state h3 { font-size: 1rem; color: var(--text); margin-bottom: 6px; }
+    .empty-state p { font-size: 0.85rem; }
+
+    /* ── Calendar ── */
+    .calendar-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+    }
+
+    .cal-nav-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+    }
+
+    .cal-nav-btn:hover { background: rgba(160,160,160,0.1); }
+    .cal-nav-btn svg { width: 20px; height: 20px; }
+
+    .cal-date-label {
+      text-align: center;
+    }
+
+    .cal-date-label .day-name { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .cal-date-label .day-full { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+
+    .cal-date-strip {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .cal-date-strip::-webkit-scrollbar { display: none; }
+
+    .cal-date-btn {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      min-width: 52px;
+      transition: all 0.15s;
+    }
+
+    .cal-date-btn.active { background: var(--accent); border-color: var(--accent); animation: date-bounce 0.45s cubic-bezier(0.18, 1.8, 0.35, 1) both; }
+
+    @keyframes date-bounce {
+      0%   { transform: scale(0.85); }
+      60%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+    .cal-date-btn.has-events { border-color: rgba(160,160,160,0.5); }
+
+    .cal-date-btn .dow {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .cal-date-btn.active .dow { color: var(--bg-contrast); }
+
+    .cal-date-btn .dom {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .cal-date-btn.active .dom { color: var(--bg-contrast); }
+
+    .cal-date-btn .ev-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-top: 3px;
+    }
+
+    .cal-date-btn.active .ev-dot { background: var(--bg-contrast); }
+
+    .cal-event-count {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    /* ── Upload ── */
+    .upload-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 20px;
+      text-align: center;
+    }
+
+    .upload-card h2 { font-size: 1.1rem; color: var(--accent); margin-bottom: 8px; }
+    .upload-card p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 24px; }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px 20px;
+      margin-bottom: 20px;
+      transition: border-color 0.2s;
+    }
+
+    .drop-zone:hover { border-color: var(--accent); }
+    .drop-zone svg { width: 40px; height: 40px; color: var(--text-muted); margin-bottom: 12px; }
+    .drop-zone p { font-size: 0.85rem; color: var(--text-muted); }
+
+    .file-input { display: none; }
+
+    /* ── Section headers ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .section-header h2 { font-size: 1rem; font-weight: 700; color: var(--text); }
+
+    /* ── Calendar event rows (collapsible) ── */
+    .cal-event-row {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-left: none;
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+      display: flex;
+    }
+
+    .cal-event-row-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .cal-venue-strip {
+      width: 22px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.48rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      user-select: none;
+      padding: 4px 0;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .cal-event-row.open .cal-venue-strip {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+    }
+
+    .cal-event-row.saved {
+      border-top-color:    var(--accent);
+      border-right-color:  var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Venue backgrounds — calendar rows */
+    .cal-event-row.venue-hs   { background: var(--venue-hs-bg); }
+    .cal-event-row.venue-wynn { background: var(--venue-wynn-bg); }
+    .cal-event-row.venue-aria { background: var(--venue-aria-bg); }
+    .cal-event-row.venue-gn   { background: var(--venue-gn-bg); }
+
+    /* Bracelet events → silver border (dark), black border (light) */
+    .cal-event-row.bracelet {
+      border-color: #c0c0c0;
+    }
+    [data-theme="light"] .cal-event-row.bracelet {
+      border-color: #000000;
+    }
+
+    /* Bracelet + saved: bracelet border wins over green */
+    .cal-event-row.bracelet.saved {
+      border-color: #c0c0c0;
+    }
+    [data-theme="light"] .cal-event-row.bracelet.saved {
+      border-color: #000000;
+    }
+
+    .cal-event-row.past {
+      opacity: 0.4;
+    }
+
+    .cal-event-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 12px;
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .cal-event-bar:active { background: var(--hover-overlay); }
+
+    .cal-sat-badge {
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      background: var(--border);
+      border-radius: 3px;
+      padding: 1px 4px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .cal-bounty-icon {
+      width: 14px;
+      height: 14px;
+      color: var(--text);
+      opacity: 0.5;
+      pointer-events: none;
+      flex-shrink: 0;
+      margin-left: auto;
+      align-self: center;
+      position: relative;
+      top: -6px;
+      left: 1px;
+    }
+
+    .cal-bounty-icon + .cal-bounty-icon {
+      margin-left: 4px;
+    }
+
+    .cal-bounty-icon:has(+ .cal-bracelet-icon) {
+      left: -3px;
+    }
+
+    .cal-bracelet-icon {
+      width: 21px;
+      height: 21px;
+      color: #c9a227;
+      opacity: 0.85;
+      pointer-events: none;
+      flex-shrink: 0;
+      align-self: center;
+      margin-left: auto;
+      margin-right: -4.5px;
+      position: relative;
+      top: -5px;
+      left: -5px;
+    }
+
+    .cal-bar-row1 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cal-bar-row2 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cal-event-date {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .cal-event-dow {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+
+    .cal-event-time {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .cal-event-name {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      flex: 1;
+      font-size: 0.84rem;
+      font-weight: 400;
+      color: var(--text);
+      min-width: 0;
+      line-height: 1.3;
+    }
+
+    .cal-event-buyin {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+
+    .cal-venue-chip {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1.5px solid transparent;
+      flex-shrink: 0;
+      /* color and background set via inline style */
+    }
+    /* Venue-branded pills (chip + event badge) */
+    .venue-wsop.cal-venue-chip,
+    .venue-wsop.badge-event {
+      color: #111111 !important;
+      background: #e8e8e8 !important;
+    }
+    [data-theme="light"] .venue-wsop.cal-venue-chip,
+    [data-theme="light"] .venue-wsop.badge-event {
+      color: #ffffff !important;
+      background: #111111 !important;
+    }
+    .venue-wynn.cal-venue-chip,
+    .venue-wynn.badge-event {
+      color: #ffffff !important;
+      background: var(--venue-wynn) !important;
+    }
+    .venue-aria.cal-venue-chip,
+    .venue-aria.badge-event {
+      color: #ffffff !important;
+      background: var(--venue-aria) !important;
+    }
+    .venue-golden-nugget.cal-venue-chip,
+    .venue-golden-nugget.badge-event {
+      color: #ffffff !important;
+      background: var(--venue-golden-nugget) !important;
+    }
+    .venue-resorts-world.cal-venue-chip,
+    .venue-resorts-world.badge-event {
+      color: #ffffff !important;
+      background: var(--venue-resorts-world) !important;
+    }
+    .venue-south-point.cal-venue-chip,
+    .venue-south-point.badge-event {
+      color: #ffffff !important;
+      background: var(--venue-south-point) !important;
+    }
+    .venue-orleans.cal-venue-chip,
+    .venue-orleans.badge-event {
+      color: #ffffff !important;
+      background: var(--venue-orleans) !important;
+    }
+    .venue-mgm-grand.cal-venue-chip,
+    .venue-mgm-grand.badge-event {
+      color: #ffffff !important;
+      background: var(--venue-mgm-grand) !important;
+    }
+    /* Venue strip — WSOP light mode inversion */
+    [data-theme="light"] .venue-strip-wsop {
+      background: #111111 !important;
+      color: #ffffff !important;
+    }
+
+    .cal-event-saved-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .cal-event-chevron {
+      display: flex;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+      margin-top: -3.5px;
+      margin-bottom: -3.5px;
+      position: relative;
+      top: -6px;
+      cursor: pointer;
+    }
+
+    .mini-late-reg + .cal-event-chevron { margin-top: -2.5px; margin-bottom: -2.5px; top: -4px; }
+    .cal-event-chevron.open { transform: rotate(180deg); margin-top: -0.5px; margin-bottom: -6.5px; padding-bottom: 0; top: -10px; }
+    .cal-event-chevron svg { width: 14px; height: 14px; }
+
+    .cal-event-detail-wrap {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.4s cubic-bezier(0.18, 1.8, 0.35, 1);
+    }
+
+    .cal-event-detail-wrap.open {
+      grid-template-rows: 1fr;
+    }
+
+    .cal-event-detail-inner {
+      overflow: hidden;
+    }
+
+    .cal-event-detail-inner > .cal-event-detail {
+      opacity: 0;
+      transform: translateY(-14px);
+      transition: opacity 0.2s ease, transform 0.35s cubic-bezier(0.18, 1.8, 0.35, 1);
+    }
+
+    .cal-event-detail-wrap.open > .cal-event-detail-inner > .cal-event-detail {
+      opacity: 1;
+      transform: translateY(0);
+      transition-delay: 0.06s;
+    }
+
+    .cal-event-detail {
+      border-top: 1px solid var(--border);
+      padding: 12px 12px 4px;
+    }
+
+    .cal-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+      margin-bottom: 10px;
+    }
+
+    .cal-detail-item { display: flex; flex-direction: column; gap: 1px; }
+    .cal-detail-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .cal-detail-value { font-family: 'Libre Baskerville', Georgia, serif; font-size: 0.82rem; color: var(--text); font-weight: 400; }
+
+    .cal-detail-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+
+    .cal-structure-link {
+      display: inline-block;
+      font-size: 0.78rem;
+      color: var(--accent);
+      text-decoration: none;
+      margin-bottom: 10px;
+    }
+    .cal-structure-link:active { opacity: 0.6; }
+
+    .cal-action-row {
+      display: flex;
+      border-top: 1px solid var(--border);
+      margin: 0 -12px;
+    }
+
+    .cal-action-btn {
+      flex: 1;
+      padding: 10px;
+      background: none;
+      border: none;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+    }
+
+    .cal-action-btn:active { background: rgba(160,160,160,0.1); }
+    .cal-action-btn.remove { color: var(--accent2); }
+    .cal-action-btn.remove:active { background: rgba(136,136,136,0.1); }
+
+    /* ── Late reg bar ── */
+    .late-reg-wrap {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .late-reg-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+
+    .late-reg-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .late-reg-label.open   { color: #b0b0b0; }
+    .late-reg-label.soon   { color: #909090; }
+    .late-reg-label.urgent { color: #707070; }
+    .late-reg-label.closed { color: var(--text-muted); }
+    .late-reg-label.pending { color: var(--text-muted); }
+    .late-reg-time.pending  { color: var(--text-muted); }
+
+    .late-reg-time {
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .late-reg-time.open   { color: #b0b0b0; }
+    .late-reg-time.soon   { color: #909090; }
+    .late-reg-time.urgent { color: #707070; }
+    .late-reg-time.closed { color: var(--text-muted); }
+
+    .late-reg-bar-bg {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      overflow: hidden;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .late-reg-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 1s linear;
+    }
+
+    .late-reg-bar-fill.open   { background: #b0b0b0; }
+    .late-reg-bar-fill.soon   { background: #909090; }
+    .late-reg-bar-fill.urgent { background: #707070; }
+    .late-reg-bar-fill.closed { background: var(--border); width: 0% !important; }
+
+    /* ── Mini late-reg bar (collapsed calendar row) ── */
+    .mini-late-reg {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      justify-content: flex-start;
+      position: relative;
+      top: -5px;
+    }
+    .mini-late-reg-time {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.58rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .mini-late-reg-track {
+      flex: 1;
+      height: 3px;
+      border-radius: 1.5px;
+      background: var(--border);
+      overflow: hidden;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .mini-late-reg-fill {
+      height: 100%;
+      border-radius: 1.5px;
+      transition: width 1s linear;
+    }
+
+    /* ── Conflict warning ── */
+    .conflict-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(136,136,136,0.15);
+      border: 1px solid rgba(136,136,136,0.4);
+      color: #999999;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-top: 6px;
+    }
+
+    /* ── Responsive tweaks for desktop ── */
+    @media (min-width: 640px) {
+      .content-area { padding: 16px 20px 80px; }
+      .sticky-filters { margin: -16px -20px 0; padding: 32px 20px 4px; top: -16px; }
+
+      .tournament-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 14px;
+      }
+
+      .filter-panel {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .filter-span2 { grid-column: span 1; }
+    }
+
+    @media (min-width: 1024px) {
+      .content-area { padding: 20px 32px 80px; }
+      .sticky-filters { margin: -20px -32px 0; padding: 40px 32px 4px; top: -20px; }
+
+      .tournament-list {
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useCallback } = React;
+
+    const API_URL = window.location.origin + '/api';
+
+    // Debug: override "today" for testing via Settings page
+    // Stored in localStorage('debugNow') — mutable at runtime
+    let _debugNow = localStorage.getItem('debugNow') || '';
+    function setDebugNow(v) { _debugNow = v || ''; localStorage.setItem('debugNow', _debugNow); }
+    function getToday() { return _debugNow ? _debugNow.slice(0, 10) : new Date().toISOString().slice(0, 10); }
+    function getNow() { return _debugNow ? new Date(_debugNow).getTime() : Date.now(); }
+
+    // ── Variant Color Map ─────────────────────────────────────
+    const VARIANT_COLORS = {
+      'NLH':                '#808080',
+      'PLO':                '#999999',
+      'PLO8':               '#8a8a8a',
+      'O8':                 '#7a7a7a',
+      'Limit Hold\'em':     '#6a6a6a',
+      'Big O':              '#909090',
+      '7-Card Stud':        '#757575',
+      'Stud8':              '#858585',
+      'Razz':               '#707070',
+      'HORSE':              '#9a9a9a',
+      'TORSE':              '#8f8f8f',
+      '2-7 Triple Draw':    '#787878',
+      'NL 2-7 Single Draw': '#888888',
+      'Badugi':             '#959595',
+      "Dealer's Choice":    '#a0a0a0',
+      'Mixed':              '#7f7f7f',
+      '9-Game Mix':         '#8b8b8b',
+      '8-Game Mix':         '#868686',
+      'Mixed Triple Draw':  '#7c7c7c',
+    };
+    function getVariantColor(v) { return VARIANT_COLORS[v] ?? '#808080'; }
+
+    // ── Venue Color + Abbreviation Map ───────────────────────
+    const VENUE_MAP = {
+      'Horseshoe / Paris Las Vegas': { abbr: 'WSOP',  color: '#a0a0a0', longName: 'WSOP Horseshoe / Paris' },
+      'Horseshoe Las Vegas':         { abbr: 'WSOP',  color: '#a0a0a0', longName: 'WSOP Horseshoe' },
+      'Paris Las Vegas':             { abbr: 'PRS',   color: '#909090', longName: 'Paris Las Vegas' },
+      'Wynn Las Vegas':              { abbr: 'WYNN',  color: '#888888', longName: 'Wynn / Encore' },
+      'Wynn':                        { abbr: 'WYNN',  color: '#888888', longName: 'Wynn / Encore' },
+      'Aria':                        { abbr: 'ARIA',  color: '#999999', longName: 'Aria Resort & Casino' },
+      'Aria Resort & Casino':        { abbr: 'ARIA',  color: '#999999', longName: 'Aria Resort & Casino' },
+      'Resorts World':               { abbr: 'RESORTS WORLD', color: '#7a7a7a', longName: 'Resorts World Las Vegas' },
+      'Venetian':                    { abbr: 'VEN',   color: '#858585', longName: 'The Venetian' },
+      'Golden Nugget':               { abbr: 'GOLDEN NUGGET', color: '#92700a', longName: 'Golden Nugget' },
+      'South Point':                 { abbr: 'SOUTH POINT', color: '#6b4226', longName: 'South Point Hotel & Casino' },
+      'Orleans':                     { abbr: 'ORLEANS', color: '#c2410c', longName: 'The Orleans' },
+      'MGM Grand':                   { abbr: 'MGM GRAND', color: '#15803d', longName: 'MGM Grand' },
+    };
+    function getVenueInfo(v) {
+      return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
+    }
+
+    // Actual branded pill colors for mini late-reg bar
+    const VENUE_BRAND_VAR = {
+      'WYNN':          '--venue-wynn',
+      'ARIA':          '--venue-aria',
+      'GOLDEN NUGGET': '--venue-golden-nugget',
+      'RESORTS WORLD': '--venue-resorts-world',
+      'SOUTH POINT':   '--venue-south-point',
+      'ORLEANS':       '--venue-orleans',
+      'MGM GRAND':     '--venue-mgm-grand',
+    };
+    function getVenueBrandColor(abbr) {
+      if (abbr === 'WSOP') return '#e8e8e8';
+      const cssVar = VENUE_BRAND_VAR[abbr];
+      if (!cssVar) return '#808080';
+      return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim() || '#808080';
+    }
+
+    // ── Bracelet Event Detection ──────────────────────────────
+    // Only Horseshoe/Paris events can be bracelet events.
+    // Satellites and side events at HS/Paris are excluded by keyword.
+    const NON_BRACELET_KEYWORDS = ['satellite', 'mega sat', 'super sat', 'qualifier', 'freeroll', 'charity', 'side event'];
+    function isBraceletEvent(t) {
+      if (t.is_satellite) return false;
+      const v = (t.venue || '').toLowerCase();
+      if (!v.includes('horseshoe') && !v.includes('paris')) return false;
+      const name = (t.event_name || '').toLowerCase();
+      return !NON_BRACELET_KEYWORDS.some(kw => name.includes(kw));
+    }
+
+    // ── Venue → CSS class map (for row/card backgrounds) ──────
+    const VENUE_CLASS_MAP = {
+      'Horseshoe / Paris Las Vegas': 'venue-hs',
+      'Horseshoe Las Vegas':         'venue-hs',
+      'Paris Las Vegas':             'venue-hs',
+      'Wynn Las Vegas':              'venue-wynn',
+      'Wynn':                        'venue-wynn',
+      'Aria':                        'venue-aria',
+      'Aria Resort & Casino':        'venue-aria',
+      'Golden Nugget':               'venue-gn',
+    };
+    function getVenueClass(t) {
+      return VENUE_CLASS_MAP[t.venue] || '';
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
+
+    function normaliseDate(d) {
+      if (!d) return '';
+      if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
+      return new Date(d).toISOString().slice(0, 10);
+    }
+
+    // Parse a tournament's date + time into a ms timestamp for comparison
+    function parseTournamentTime(t) {
+      const time = (t.time && t.time !== 'TBD') ? t.time : '12:00 AM';
+      return new Date(`${t.date} ${time}`).getTime();
+    }
+
+    // Find the best flight of a multi-flight event: the first flight strictly after satDateTime
+    function findClosestFlight(flights, satTimestamp) {
+      if (flights.length === 0) return null;
+      const withTime = flights
+        .map(f => ({ id: f.id, date: normaliseDate(f.date), ts: parseTournamentTime(f) }))
+        .sort((a, b) => a.ts - b.ts);
+      // First flight strictly after the satellite
+      const after = withTime.find(f => f.ts > satTimestamp);
+      if (after) return after;
+      // Fallback: last flight (all are before/concurrent — shouldn't happen in practice)
+      return withTime[withTime.length - 1];
+    }
+
+    function formatBuyin(val) {
+      if (!val && val !== 0) return '—';
+      return '$' + Number(val).toLocaleString();
+    }
+
+    function calculateCountdown(date, time) {
+      const d = new Date(`${date}T${time || '00:00'}:00`);
+      const diff = d - getNow();
+      if (diff < 0) return null;
+      const days = Math.floor(diff / 86400000);
+      const hours = Math.floor((diff % 86400000) / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${mins}m`;
+      return `${mins}m`;
+    }
+
+    function detectConflicts(schedule) {
+      // Returns a Set of tournament ids that overlap with another in schedule
+      const conflicts = new Set();
+      const sorted = [...schedule].sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`));
+      for (let i = 0; i < sorted.length; i++) {
+        for (let j = i + 1; j < sorted.length; j++) {
+          const a = sorted[i], b = sorted[j];
+          if (a.date !== b.date) break;
+          // Treat same day same time as conflict (rough heuristic)
+          if (a.time === b.time) {
+            conflicts.add(a.id);
+            conflicts.add(b.id);
+          }
+        }
+      }
+      return conflicts;
+    }
+
+    // ── SVG Icons ─────────────────────────────────────────────
+
+    const Icon = {
+      search: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+      ),
+      filter: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
+        </svg>
+      ),
+      list: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/>
+          <line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/>
+        </svg>
+      ),
+      calendar: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      ),
+      star: (filled) => (
+        <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      ),
+      upload: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      ),
+      chevLeft: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      ),
+      chevRight: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      ),
+      warn: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'14px',height:'14px'}}>
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      ),
+      clock: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'12px',height:'12px'}}>
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+      ),
+      empty: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+      ),
+      logout: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'18px',height:'18px'}}>
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      ),
+      sun: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'18px',height:'18px'}}>
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      ),
+      moon: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'18px',height:'18px'}}>
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+      ),
+      tracking: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      ),
+      user: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+      ),
+      crosshairs: () => (
+        <svg viewBox="0 0 334 334" fill="currentColor">
+          <path d="M174.32 292.33c31.72,-1.91 60.27,-15.55 81.37,-36.64 21.09,-21.1 34.74,-49.65 36.64,-81.37l-30.53 0c-1.85,23.3 -12.07,44.25 -27.65,59.83 -15.58,15.58 -36.53,25.8 -59.83,27.65l0 30.53zm72.11 -118.01l-25.31 0c-4.23,0 -7.65,-3.43 -7.65,-7.66 0,-4.23 3.43,-7.66 7.65,-7.66l25.31 0c-1.81,-19.07 -10.3,-36.2 -23.1,-49 -12.81,-12.81 -29.93,-21.3 -49,-23.1l0 25.31c0,4.23 -3.43,7.65 -7.66,7.65 -4.23,0 -7.66,-3.43 -7.66,-7.65l0 -25.31c-19.07,1.81 -36.2,10.3 -49,23.1 -12.81,12.81 -21.3,29.93 -23.1,49l25.31 0c4.23,0 7.65,3.43 7.65,7.66 0,4.23 -3.43,7.66 -7.65,7.66l-25.31 0c1.81,19.07 10.3,36.2 23.1,49 12.81,12.81 29.93,21.3 49,23.1l0 -25.31c0,-4.23 3.43,-7.65 7.66,-7.65 4.23,0 7.66,3.43 7.66,7.65l0 25.31c19.07,-1.81 36.2,-10.3 49,-23.1 12.81,-12.81 21.3,-29.93 23.1,-49zm15.37 -15.31l30.53 0c-1.91,-31.72 -15.55,-60.27 -36.64,-81.37 -21.1,-21.09 -49.65,-34.74 -81.37,-36.64l0 30.53c23.3,1.85 44.25,12.07 59.83,27.65 15.58,15.58 25.8,36.53 27.65,59.83zm-102.8 -87.48l0 -30.53c-31.72,1.91 -60.27,15.55 -81.37,36.64 -21.09,21.1 -34.74,49.65 -36.64,81.37l30.53 0c1.85,-23.3 12.07,-44.25 27.65,-59.83 15.58,-15.58 36.53,-25.8 59.83,-27.65zm-87.48 102.8l-30.53 0c1.91,31.72 15.55,60.27 36.64,81.37 21.1,21.09 49.65,34.74 81.37,36.64l0 -30.53c-23.3,-1.85 -44.25,-12.07 -59.83,-27.65 -15.58,-15.58 -25.8,-36.53 -27.65,-59.83zm-45.86 0l-14.68 0c-4.23,0 -7.66,-3.43 -7.66,-7.66 0,-4.23 3.43,-7.66 7.66,-7.66l14.68 0c1.92,-35.94 17.28,-68.32 41.15,-92.19 23.87,-23.87 56.25,-39.23 92.19,-41.15l0 -14.68c0,-4.23 3.43,-7.66 7.66,-7.66 4.23,0 7.66,3.43 7.66,7.66l0 14.68c35.94,1.92 68.32,17.28 92.19,41.15 23.87,23.87 39.23,56.25 41.15,92.19l14.68 0c4.23,0 7.66,3.43 7.66,7.66 0,4.23 -3.43,7.66 -7.66,7.66l-14.68 0c-1.92,35.94 -17.28,68.32 -41.15,92.19 -23.87,23.87 -56.24,39.23 -92.19,41.15l0 14.68c0,4.23 -3.43,7.66 -7.66,7.66 -4.23,0 -7.66,-3.43 -7.66,-7.66l0 -14.68c-35.94,-1.92 -68.32,-17.28 -92.19,-41.15 -23.87,-23.87 -39.23,-56.25 -41.15,-92.19z"/>
+        </svg>
+      ),
+      satellite: () => (
+        <svg viewBox="-5 -10 110 110" fill="currentColor">
+          <path d="M73.594 51.875c-0.742-0.73-1.75-1.133-2.789-1.117-1.043 0.016-2.035 0.445-2.758 1.195l-4.766 5-2.5-2.5 9.922-10.312c1.594-1.676 1.727-4.262 0.312-6.094l4.922-5.312c1.168-1.235 1.137-3.18-0.078-4.375l-4.062-4.141c-1.215-1.191-3.16-1.191-4.375 0l-5.078 5-0.547-0.547c-1.801-1.809-4.719-1.844-6.562-0.078l-9.141 8.828-2.734-2.734 3.984-3.906c0.754-0.746 1.172-1.77 1.156-2.828-0.016-1.063-0.461-2.07-1.234-2.797l-25.391-24.062c-1.539-1.469-3.973-1.434-5.469 0.078l-10.625 11.016c-0.719 0.754-1.106 1.766-1.078 2.805 0.031 1.043 0.473 2.031 1.234 2.742l25.547 23.438c1.531 1.418 3.902 1.383 5.391-0.078l4.219-4.141 2.734 2.734-9.453 8.984-0.937-0.234c-7.656-1.875-15.234-0.391-22.578 4.453-0.789 0.52-1.301 1.367-1.395 2.309-0.09 0.941 0.25 1.875 0.926 2.535l15 14.922-3.672 3.672c-2.023-1.066-4.52-0.516-5.906 1.301-1.391 1.816-1.266 4.367 0.293 6.043 1.555 1.672 4.094 1.977 6.004 0.723 1.91-1.258 2.637-3.707 1.719-5.801l3.75-3.672 14.766 14.766c0.578 0.59 1.363 0.926 2.188 0.938h0.312c0.926-0.106 1.758-0.621 2.266-1.406 2.266-3.438 7.266-12.578 4.297-23.281l-0.391-1.328 0.312-0.234 7.266-7.656 2.5 2.5-2.969 3.125c-0.719 0.754-1.106 1.766-1.078 2.805 0.031 1.043 0.473 2.031 1.234 2.742l25.469 23.984c0.754 0.719 1.766 1.106 2.805 1.078 1.043-0.031 2.031-0.473 2.742-1.234l9.688-10.234c0.719-0.754 1.106-1.766 1.078-2.805-0.031-1.043-0.473-2.031-1.234-2.742z"/>
+          <path d="M9.609 74.219c-0.414-0.043-0.828 0.082-1.152 0.344-0.324 0.266-0.527 0.648-0.566 1.062 0 0.312-0.625 6.953 3.828 11.953 2.969 3.359 7.422 5.156 13.203 5.312h0.078c0.863 0 1.562-0.699 1.562-1.562s-0.699-1.562-1.562-1.562c-4.844-0.156-8.594-1.562-10.938-4.219-3.516-3.984-3.125-9.531-3.125-9.609 0.094-0.836-0.496-1.598-1.328-1.719z"/>
+          <path d="M26.484 96.797c-7.109 0.391-12.734-1.406-16.719-5.234-6.562-6.328-6.641-16.406-6.641-16.562 0-0.414-0.164-0.812-0.457-1.105s-0.691-0.457-1.105-0.457c-0.863 0-1.562 0.699-1.562 1.562 0 0.469 0 11.484 7.578 18.828 4.297 4.141 10.078 6.172 17.188 6.172h1.875c0.863-0.043 1.527-0.777 1.484-1.641s-0.777-1.527-1.641-1.484z"/>
+          <path d="M25.625 12.344c-0.609-0.594-1.578-0.594-2.188 0l-7.031 7.031c-0.363 0.273-0.59 0.688-0.621 1.141-0.031 0.449 0.133 0.895 0.453 1.215 0.32 0.32 0.766 0.484 1.215 0.453 0.453-0.031 0.867-0.258 1.141-0.621l7.031-7.031c0.594-0.609 0.594-1.578 0-2.188z"/>
+          <path d="M32.891 20.781l-6.953 6.953c-0.301 0.289-0.473 0.688-0.48 1.106-0.008 0.418 0.152 0.82 0.441 1.121 0.606 0.625 1.602 0.645 2.227 0.039l6.953-6.953c0.465-0.621 0.406-1.492-0.145-2.043-0.551-0.551-1.422-0.609-2.043-0.145z"/>
+          <path d="M78.75 63.125c-0.609-0.594-1.578-0.594-2.188 0l-7.031 7.031c-0.363 0.273-0.59 0.688-0.621 1.141-0.031 0.449 0.133 0.895 0.453 1.215 0.32 0.32 0.766 0.484 1.215 0.453 0.453-0.031 0.867-0.258 1.141-0.621l7.031-7.031c0.594-0.609 0.594-1.578 0-2.188z"/>
+          <path d="M86.016 71.562l-6.953 6.953c-0.363 0.273-0.59 0.688-0.621 1.141-0.031 0.449 0.133 0.895 0.453 1.215 0.32 0.32 0.766 0.484 1.215 0.453 0.453-0.031 0.867-0.258 1.141-0.621l6.953-6.953c0.465-0.621 0.406-1.492-0.145-2.043-0.551-0.551-1.422-0.609-2.043-0.145z"/>
+        </svg>
+      ),
+      bracelet: () => (
+        <svg viewBox="4 29 93 40" fill="currentColor">
+          <path d="M93.75 50.484l-1.059 0.867c-0.477 0.36-0.984 0.711-1.535 1.047-7.715 4.785-23.25 8.129-41.156 8.129s-33.441-3.344-41.156-8.129c-0.551-0.336-1.059-0.688-1.535-1.047l-1.059-0.867v5.18c0 1.215 0.684 2.352 1.82 3.445 1.387 1.336 3.426 2.57 5.969 3.684 8.113 3.555 21.207 5.836 35.961 5.836 14.758 0 27.852-2.281 35.961-5.836 2.543-1.117 4.582-2.348 5.969-3.684 1.133-1.094 1.82-2.227 1.82-3.445zm-35.648-18.887v8.098c14.82 0.852 27.203 4.039 33.625 8.262 0.07-0.063 0.137-0.125 0.203-0.191 1.133-1.094 1.82-2.227 1.82-3.441 0-1.09-0.559-2.117-1.492-3.113-1.148-1.223-2.836-2.352-4.961-3.398-6.535-3.215-17-5.504-29.191-6.219zm-16.207 0c-12.191 0.715-22.656 3.004-29.191 6.219-2.125 1.047-3.812 2.176-4.961 3.398-0.934 0.992-1.492 2.023-1.492 3.113 0 1.215 0.684 2.348 1.82 3.441 0.066 0.066 0.133 0.129 0.203 0.191 6.422-4.223 18.805-7.41 33.625-8.262v-8.098z" fillRule="evenodd"/>
+        </svg>
+      ),
+      restart: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="1 4 1 10 7 10"/>
+          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+        </svg>
+      ),
+      gear: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+      ),
+    };
+
+    // ── Late Reg Bar ───────────────────────────────────────────
+
+    function LateRegBar({ lateRegEnd, date, time, venueAbbr }) {
+      const [now, setNow] = React.useState(getNow());
+
+      // Tick every 30 seconds
+      useEffect(() => {
+        const id = setInterval(() => setNow(getNow()), 30000);
+        return () => clearInterval(id);
+      }, []);
+
+      // ── Pre-start countdown ──────────────────────────────────
+      if (date) {
+        // date is "May 26, 2026", time is "2:00 PM" — parse together
+        const startMs = new Date(`${date} ${time || '12:00 AM'}`).getTime();
+        if (now < startMs) {
+          const totalSec = Math.floor((startMs - now) / 1000);
+          const d = Math.floor(totalSec / 86400);
+          const h = Math.floor((totalSec % 86400) / 3600);
+          const m = Math.floor((totalSec % 3600) / 60);
+
+          const parts = [];
+          if (d > 0) parts.push(`${d} day${d !== 1 ? 's' : ''}`);
+          if (h > 0) parts.push(`${h} hour${h !== 1 ? 's' : ''}`);
+          parts.push(`${m} minute${m !== 1 ? 's' : ''}`);
+
+          return (
+            <div className="late-reg-wrap">
+              <div className="late-reg-label-row">
+                <span className="late-reg-label pending">Until Start</span>
+                <span className="late-reg-time pending">{parts.join(', ')}</span>
+              </div>
+            </div>
+          );
+        }
+      }
+
+      if (!lateRegEnd) return null;
+
+      const endMs   = new Date(lateRegEnd).getTime();
+      const diffMs  = endMs - now;
+      const diffMin = Math.floor(diffMs / 60000);
+
+      // Format end time as clock: "5:00 PM"
+      const endDate = new Date(lateRegEnd);
+      const endClock = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      // Determine status bucket
+      let status, label, timeStr;
+      if (diffMs <= 0) {
+        status  = 'closed';
+        label   = 'Late Reg Closed';
+        timeStr = null;
+      } else if (diffMin < 30) {
+        status  = 'urgent';
+        label   = 'Late Reg — Closing Soon';
+        timeStr = `${diffMin}m left | ${endClock}`;
+      } else if (diffMin < 120) {
+        const h = Math.floor(diffMin / 60);
+        const m = diffMin % 60;
+        status  = 'soon';
+        label   = 'Late Reg Open';
+        timeStr = (h > 0 ? `${h}h ${m}m left` : `${m}m left`) + ` | ${endClock}`;
+      } else {
+        const h = Math.floor(diffMin / 60);
+        const m = diffMin % 60;
+        status  = 'open';
+        label   = 'Late Reg Open';
+        timeStr = (h > 0 ? `${h}h ${m}m left` : `${m}m left`) + ` | ${endClock}`;
+      }
+
+      // Progress bar: % of a 12-hour window remaining (capped 0–100)
+      const windowMs = 12 * 60 * 60 * 1000;
+      const pct      = status === 'closed' ? 0 : Math.min(100, Math.max(0, (diffMs / windowMs) * 100));
+      const brandColor = getVenueBrandColor(venueAbbr);
+
+      return (
+        <div className="late-reg-wrap">
+          <div className="late-reg-label-row">
+            <span className={`late-reg-label ${status}`}>{label}</span>
+            {timeStr && <span className={`late-reg-time ${status}`}>{timeStr}</span>}
+          </div>
+          <div className="late-reg-bar-bg">
+            <div
+              className="late-reg-bar-fill"
+              style={{ width: `${pct}%`, background: status === 'closed' ? 'var(--border)' : brandColor }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // ── Mini Late Reg Bar (collapsed calendar row) ────────────
+
+    function MiniLateRegBar({ lateRegEnd, date, time, venueAbbr }) {
+      const [now, setNow] = React.useState(getNow());
+      useEffect(() => {
+        const id = setInterval(() => setNow(getNow()), 30000);
+        return () => clearInterval(id);
+      }, []);
+
+      // Before start — show countdown to start
+      if (date) {
+        const startMs = new Date(`${date} ${time || '12:00 AM'}`).getTime();
+        if (now < startMs) {
+          const totalSec = Math.floor((startMs - now) / 1000);
+          const d = Math.floor(totalSec / 86400);
+          const h = Math.floor((totalSec % 86400) / 3600);
+          const m = Math.floor((totalSec % 3600) / 60);
+          let label;
+          if (d > 0) label = `${d}d ${h}h`;
+          else if (h > 0) label = `${h}h ${m}m`;
+          else label = `${m}m`;
+          return (
+            <div className="mini-late-reg">
+              <span className="mini-late-reg-time" style={{opacity:0.5}}>starts in {label}</span>
+            </div>
+          );
+        }
+      }
+
+      if (!lateRegEnd) return null;
+
+      const endMs  = new Date(lateRegEnd).getTime();
+      const diffMs = endMs - now;
+      const diffMin = Math.floor(diffMs / 60000);
+      const endClock = new Date(lateRegEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      if (diffMs <= 0) {
+        return (
+          <div className="mini-late-reg">
+            <span className="mini-late-reg-time" style={{opacity:0.4}}>late reg closed</span>
+            <div className="mini-late-reg-track">
+              <div className="mini-late-reg-fill" style={{ width: '0%' }} />
+            </div>
+          </div>
+        );
+      }
+
+      const h = Math.floor(diffMin / 60);
+      const m = diffMin % 60;
+      const timeStr = (h > 0 ? `${h}h ${m}m` : `${m}m`) + ` | ${endClock}`;
+      const windowMs = 12 * 60 * 60 * 1000;
+      const pct = Math.min(100, Math.max(0, (diffMs / windowMs) * 100));
+      const brandColor = getVenueBrandColor(venueAbbr);
+
+      return (
+        <div className="mini-late-reg">
+          <span className="mini-late-reg-time">late reg {timeStr}</span>
+          <div className="mini-late-reg-track">
+            <div className="mini-late-reg-fill" style={{ width: `${pct}%`, background: brandColor }} />
+          </div>
+        </div>
+      );
+    }
+
+    // ── Calendar Event Row (collapsible) ──────────────────────
+
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent }) {
+      const [open, setOpen] = useState(false);
+      const rowRef = React.useRef(null);
+
+      // Scroll a row to just below the sticky header
+      function scrollBelowSticky(el) {
+        const container = el.closest('.content-area');
+        if (!container) return;
+        const sticky = container.querySelector('.sticky-filters');
+        const stickyH = sticky ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+        const rowTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+        container.scrollTo({ top: rowTop - stickyH - 4, behavior: 'smooth' });
+      }
+
+      // Auto-expand and scroll when this event is the focus target
+      useEffect(() => {
+        if (focusEventId && tournament.id === focusEventId) {
+          setOpen(true);
+          setTimeout(() => {
+            if (rowRef.current) scrollBelowSticky(rowRef.current);
+          }, 100);
+        }
+      }, [focusEventId]);
+
+      // Scroll expanded event to just below sticky header
+      useEffect(() => {
+        if (open && rowRef.current) {
+          setTimeout(() => scrollBelowSticky(rowRef.current), 50);
+        }
+      }, [open]);
+
+      // Format time nicely: "2:00 PM" → "2:00 PM"
+      const timeLabel = tournament.time || '—';
+      const variantColor = getVariantColor(tournament.game_variant);
+      const bracelet   = isBraceletEvent(tournament);
+      const venueClass = getVenueClass(tournament);
+      const venue      = getVenueInfo(tournament.venue);
+      const isBounty   = /bounty|mystery millions/i.test(tournament.event_name);
+      const isSat      = !!tournament.is_satellite;
+      const isRestart  = !!tournament.is_restart;
+
+      // Short date for events list: "May 26, 2026" → "May 26"
+      const shortDate = showDate && tournament.date
+        ? tournament.date.replace(/,?\s*\d{4}$/, '')
+        : null;
+
+      // Day of week: "May 26, 2026" → "Mon"
+      const dayOfWeek = tournament.date
+        ? new Date(tournament.date).toLocaleDateString('en-US', { weekday: 'short' })
+        : null;
+
+      const rowClasses = [
+        'cal-event-row',
+        open ? 'open' : '',
+        isInSchedule ? 'saved' : '',
+        venueClass,
+        bracelet ? 'bracelet' : '',
+        isPast ? 'past' : '',
+      ].filter(Boolean).join(' ');
+
+      const stripColor = getVenueBrandColor(venue.abbr);
+      const stripTextColor = venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)';
+
+      return (
+        <div ref={rowRef} className={rowClasses}>
+          <div
+            className={`cal-venue-strip venue-strip-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}
+            style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
+            onClick={() => setOpen(o => !o)}
+          >{open && venue.longName ? venue.longName : venue.abbr}</div>
+          <div className="cal-event-row-content">
+            {/* Collapsed bar — always visible */}
+            <div className="cal-event-bar" onClick={() => setOpen(o => !o)}>
+              <div className="cal-bar-row1">
+                {shortDate && <span className="cal-event-date">{shortDate}</span>}
+                {dayOfWeek && <span className="cal-event-dow">{dayOfWeek}</span>}
+                <span className="cal-event-time">{timeLabel}</span>
+                <span className="cal-event-buyin">${Number(tournament.buyin).toLocaleString()}</span>
+              </div>
+              <div className="cal-bar-row2">
+                {isInSchedule && <span className="cal-event-saved-dot" />}
+                <span className="cal-event-name">{tournament.event_name}</span>
+                {isBounty && <span className="cal-bounty-icon"><Icon.crosshairs /></span>}
+                {isSat && <span className="cal-bounty-icon"><Icon.satellite /></span>}
+                {isRestart && <span className="cal-bounty-icon"><Icon.restart /></span>}
+                {bracelet && <span className="cal-bracelet-icon"><Icon.bracelet /></span>}
+              </div>
+            </div>
+            {showMiniLateReg && !open && <MiniLateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />}
+            <div className={`cal-event-chevron ${open ? 'open' : ''}`} onClick={() => setOpen(o => !o)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+
+            {/* Expanded detail panel — animated */}
+            <div className={`cal-event-detail-wrap ${open ? 'open' : ''}`} onClick={e => {
+              const tag = e.target.tagName;
+              if (tag === 'A' || tag === 'BUTTON') return;
+              if (e.target.closest('.badge-clickable')) return;
+              setOpen(false);
+            }}>
+              <div className="cal-event-detail-inner">
+                <div className="cal-event-detail">
+                  <div className="cal-detail-badges">
+                    {tournament.event_number && (
+                      <span className={`badge badge-event venue-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}>#{tournament.event_number}</span>
+                    )}
+                    {tournament.target_event && (
+                      <span
+                        className="badge badge-target badge-clickable"
+                        onClick={e => { e.stopPropagation(); if (onNavigateToEvent) onNavigateToEvent(tournament.target_event, tournament); }}
+                      >→ #{tournament.target_event}</span>
+                    )}
+                    {tournament.parent_event && (
+                      <span
+                        className="badge badge-target badge-clickable"
+                        onClick={e => { e.stopPropagation(); if (onNavigateToEvent) onNavigateToEvent(tournament.parent_event, tournament); }}
+                      >← #{tournament.parent_event}</span>
+                    )}
+                    {tournament.game_variant && (
+                      <span className="badge badge-variant">{tournament.game_variant}</span>
+                    )}
+                    {isInSchedule && (
+                      <span className="badge badge-saved">✓ Saved</span>
+                    )}
+                  </div>
+
+                  <div className="cal-detail-grid">
+                    {tournament.starting_chips && (
+                      <div className="cal-detail-item">
+                        <span className="cal-detail-label">Starting Chips</span>
+                        <span className="cal-detail-value">{Number(tournament.starting_chips).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {tournament.level_duration && (
+                      <div className="cal-detail-item">
+                        <span className="cal-detail-label">Levels</span>
+                        <span className="cal-detail-value">{tournament.level_duration} min</span>
+                      </div>
+                    )}
+                    {tournament.reentry && (
+                      <div className="cal-detail-item">
+                        <span className="cal-detail-label">Re-entry</span>
+                        <span className="cal-detail-value">{tournament.reentry}</span>
+                      </div>
+                    )}
+                    {tournament.late_reg && (
+                      <div className="cal-detail-item">
+                        <span className="cal-detail-label">Late Reg</span>
+                        <span className="cal-detail-value">{tournament.late_reg}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {tournament.notes && (
+                    <p style={{fontSize:'0.78rem', color:'var(--text-muted)', fontStyle:'italic', marginBottom:'10px'}}>
+                      {tournament.notes}
+                    </p>
+                  )}
+
+                  <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />
+
+                  {venue.abbr === 'WSOP' && (
+                    <a
+                      href="https://www.wsop.com/tournaments/structure/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="cal-structure-link"
+                    >
+                      View Structure Sheet ↗
+                    </a>
+                  )}
+
+                  <div className="cal-action-row">
+                    <button
+                      className={`cal-action-btn ${isInSchedule ? 'remove' : ''}`}
+                      onClick={() => onToggle(tournament.id)}
+                    >
+                      {isInSchedule ? '✕ Remove from My Schedule' : '+ Add to My Schedule'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Tournament Card ────────────────────────────────────────
+
+    function TournamentCard({ tournament, isInSchedule, onToggle, showCountdown, hasConflict, isPast }) {
+      const countdown = showCountdown ? calculateCountdown(tournament.date, tournament.time) : null;
+      const bracelet   = isBraceletEvent(tournament);
+      const venueClass = getVenueClass(tournament);
+      const venue      = getVenueInfo(tournament.venue);
+
+      const cardClasses = [
+        't-card',
+        isInSchedule ? 'saved' : '',
+        venueClass,
+        bracelet ? 'bracelet' : '',
+        isPast ? 'past' : '',
+      ].filter(Boolean).join(' ');
+
+      return (
+        <div className={cardClasses}>
+          <div className="t-card-main">
+            <div className="t-card-top">
+              <div className="t-card-badges">
+                {tournament.event_number && (
+                  <span className={`badge badge-event venue-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}>#{tournament.event_number}</span>
+                )}
+                {tournament.game_variant && (
+                  <span className="badge badge-variant">{tournament.game_variant}</span>
+                )}
+                {isInSchedule && (
+                  <span className="badge badge-saved">✓ Saved</span>
+                )}
+              </div>
+              <span className="t-buyin">{formatBuyin(tournament.buyin)}</span>
+            </div>
+
+            <div className="t-name">{tournament.event_name}</div>
+
+            <div className="t-meta">
+              <div className="t-meta-item">
+                <span className="t-meta-label">Date</span>
+                <span className="t-meta-value">{tournament.date}</span>
+              </div>
+              <div className="t-meta-item">
+                <span className="t-meta-label">Time</span>
+                <span className="t-meta-value">{tournament.time || '—'}</span>
+              </div>
+              {tournament.starting_chips && (
+                <div className="t-meta-item">
+                  <span className="t-meta-label">Starting Chips</span>
+                  <span className="t-meta-value">{Number(tournament.starting_chips).toLocaleString()}</span>
+                </div>
+              )}
+              {tournament.level_duration && (
+                <div className="t-meta-item">
+                  <span className="t-meta-label">Levels</span>
+                  <span className="t-meta-value">{tournament.level_duration} min</span>
+                </div>
+              )}
+              {tournament.reentry && (
+                <div className="t-meta-item">
+                  <span className="t-meta-label">Re-entry</span>
+                  <span className="t-meta-value">{tournament.reentry}</span>
+                </div>
+              )}
+              {tournament.late_reg && (
+                <div className="t-meta-item">
+                  <span className="t-meta-label">Late Reg</span>
+                  <span className="t-meta-value">{tournament.late_reg}</span>
+                </div>
+              )}
+              {tournament.notes && (
+                <div className="t-meta-item t-notes" style={{gridColumn:'span 2'}}>
+                  {tournament.notes}
+                </div>
+              )}
+            </div>
+
+            {countdown && (
+              <div className="countdown-pill">
+                <Icon.clock /> Starts in {countdown}
+              </div>
+            )}
+
+            {hasConflict && (
+              <div className="conflict-badge">
+                <Icon.warn /> Schedule conflict
+              </div>
+            )}
+
+            <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />
+          </div>
+
+          <div className="t-card-footer">
+            <button
+              className={`t-action-btn ${isInSchedule ? 'remove' : ''}`}
+              onClick={() => onToggle(tournament.id)}
+            >
+              {isInSchedule ? '✕ Remove from My Schedule' : '+ Add to My Schedule'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Filters ────────────────────────────────────────────────
+
+    function Filters({ filters, setFilters, gameVariants, venues }) {
+      const [open, setOpen] = useState(false);
+
+      const hasActive = filters.minBuyin || filters.maxBuyin ||
+        filters.gameVariant !== 'all' || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts;
+
+      return (
+        <div>
+          <div className="filter-row">
+            <button
+              className={`filter-chip ${hasActive ? 'active' : ''}`}
+              onClick={() => setOpen(o => !o)}
+            >
+              <Icon.filter /> Filters {hasActive ? '•' : ''}
+            </button>
+            <label className={`filter-chip ${!filters.hideSatellites ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
+              <input type="checkbox" checked={!filters.hideSatellites}
+                onChange={e => setFilters(f => ({...f, hideSatellites:!e.target.checked}))}
+                style={{margin:0}}
+              /> Satellites
+            </label>
+            <label className={`filter-chip ${!filters.hideRestarts ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
+              <input type="checkbox" checked={!filters.hideRestarts}
+                onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
+                style={{margin:0}}
+              /> Restarts
+            </label>
+            {filters.gameVariant !== 'all' && (
+              <span className="filter-chip active">
+                {filters.gameVariant}
+                <span
+                  style={{marginLeft:'4px',cursor:'pointer'}}
+                  onClick={() => setFilters(f => ({...f, gameVariant:'all'}))}
+                >✕</span>
+              </span>
+            )}
+            {(filters.minBuyin || filters.maxBuyin) && (
+              <span className="filter-chip active">
+                Buy-in{filters.minBuyin ? ` ≥ $${Number(filters.minBuyin).toLocaleString()}` : ''}
+                {filters.maxBuyin ? ` ≤ $${Number(filters.maxBuyin).toLocaleString()}` : ''}
+                <span
+                  style={{marginLeft:'4px',cursor:'pointer'}}
+                  onClick={() => setFilters(f => ({...f, minBuyin:'', maxBuyin:''}))}
+                >✕</span>
+              </span>
+            )}
+            {filters.bountyOnly && (
+              <span className="filter-chip active">
+                Bounty
+                <span
+                  style={{marginLeft:'4px',cursor:'pointer'}}
+                  onClick={() => setFilters(f => ({...f, bountyOnly:false}))}
+                >✕</span>
+              </span>
+            )}
+          </div>
+
+          {open && (
+            <div className="filter-panel" onClick={e => {
+              const tag = e.target.tagName;
+              if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'OPTION' && tag !== 'BUTTON' && tag !== 'LABEL') setOpen(false);
+            }}>
+              <div className="filter-group">
+                <label>Min Buy-in ($)</label>
+                <input type="number" value={filters.minBuyin}
+                  onChange={e => setFilters(f => ({...f, minBuyin:e.target.value}))}
+                  placeholder="0" min="0" />
+              </div>
+              <div className="filter-group">
+                <label>Max Buy-in ($)</label>
+                <input type="number" value={filters.maxBuyin}
+                  onChange={e => setFilters(f => ({...f, maxBuyin:e.target.value}))}
+                  placeholder="Any" min="0" />
+              </div>
+              <div className="filter-group">
+                <label>Game</label>
+                <select value={filters.gameVariant}
+                  onChange={e => setFilters(f => ({...f, gameVariant:e.target.value}))}>
+                  <option value="all">All Games</option>
+                  {gameVariants.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="filter-group">
+                <label>Venue</label>
+                <select value={filters.venue}
+                  onChange={e => setFilters(f => ({...f, venue:e.target.value}))}>
+                  <option value="all">All Venues</option>
+                  {venues.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="filter-group">
+                <label>Format</label>
+                <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                  <input type="checkbox" checked={filters.bountyOnly}
+                    onChange={e => setFilters(f => ({...f, bountyOnly:e.target.checked}))}
+                  /> Bounty only
+                </label>
+              </div>
+              {hasActive && (
+                <div className="filter-group filter-span2">
+                  <button className="btn btn-ghost btn-sm" onClick={() =>
+                    setFilters({minBuyin:'',maxBuyin:'',gameVariant:'all',venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true})
+                  }>Clear all filters</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── Tournaments View ───────────────────────────────────────
+
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues }) {
+      const [search, setSearch] = useState('');
+      const [filters, setFilters] = useState({
+        minBuyin: '', maxBuyin: '', gameVariant: 'all', venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
+      });
+      const [focusEventId, setFocusEventId] = useState(null);
+
+      const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
+
+      const filtered = useMemo(() => {
+        return tournaments
+          .filter(t => {
+            if (search) {
+              const q = search.toLowerCase();
+              if (!t.event_name?.toLowerCase().includes(q) &&
+                  !String(t.event_number).includes(q) &&
+                  !t.game_variant?.toLowerCase().includes(q)) return false;
+            }
+            if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
+            if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
+            if (filters.gameVariant !== 'all' && t.game_variant !== filters.gameVariant) return false;
+            if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
+            if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
+            if (filters.hideSatellites && t.is_satellite) return false;
+            if (filters.hideRestarts && t.is_restart) return false;
+            return true;
+          })
+          .sort((a, b) => {
+            // Primary: chronological by date, then time
+            const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
+            const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+            if (da.getTime() !== db.getTime()) return da - db;
+            // Tiebreak: numeric event number (SAT-xxx sorted after main events, restarts after those)
+            const na = a.event_number.startsWith('SAT') ? 10000 + parseInt(a.event_number.slice(4)) : (parseInt(a.event_number) || 9999);
+            const nb = b.event_number.startsWith('SAT') ? 10000 + parseInt(b.event_number.slice(4)) : (parseInt(b.event_number) || 9999);
+            return na - nb;
+          });
+      }, [tournaments, search, filters]);
+
+      function findBestFlight(eventNum, satTournament) {
+        const flights = filtered.filter(t => t.event_number === eventNum);
+        const best = findClosestFlight(flights, parseTournamentTime(satTournament));
+        return best ? best.id : null;
+      }
+
+      return (
+        <div>
+          <div className="sticky-filters">
+            <div className="search-bar">
+              <Icon.search />
+              <input
+                type="text"
+                placeholder="Search events, games…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              {search && (
+                <button onClick={() => setSearch('')}
+                  style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
+              )}
+            </div>
+
+            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} />
+
+            <p className="results-count">{filtered.length} event{filtered.length !== 1 ? 's' : ''}</p>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="empty-state">
+              <Icon.empty />
+              <h3>No events found</h3>
+              <p>Try adjusting your search or filters</p>
+            </div>
+          ) : (
+            <div style={{minHeight:'100vh'}}>
+              {filtered.map(t => (
+                <CalendarEventRow
+                  key={t.id}
+                  tournament={t}
+                  isInSchedule={scheduleIds.has(t.id)}
+                  onToggle={onToggle}
+                  showDate
+                  isPast={normaliseDate(t.date) < getToday()}
+                  focusEventId={focusEventId}
+                  onNavigateToEvent={(num, sat) => {
+                    const targetId = findBestFlight(num, sat);
+                    if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── My Schedule View ───────────────────────────────────────
+
+    function ScheduleView({ mySchedule, onToggle }) {
+      const conflicts = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
+      const todayRef = React.useRef(null);
+      const [focusEventId, setFocusEventId] = useState(null);
+
+      const todayISO = getToday();
+
+      const sorted = useMemo(() =>
+        [...mySchedule].sort((a, b) => {
+          const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
+          const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+          return da - db;
+        }), [mySchedule]);
+
+      // Find the index of the first event that is today or in the future
+      const firstCurrentIdx = useMemo(() => {
+        return sorted.findIndex(t => normaliseDate(t.date) >= todayISO);
+      }, [sorted, todayISO]);
+
+      // Auto-scroll to today's first event on mount
+      useEffect(() => {
+        if (todayRef.current) {
+          todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, [sorted.length]);
+
+      // Find best flight: closest on or after satellite date within my schedule
+      function findBestFlightSchedule(eventNum, sat) {
+        const flights = sorted.filter(t => t.event_number === eventNum);
+        const best = findClosestFlight(flights, parseTournamentTime(sat));
+        return best ? best.id : null;
+      }
+
+      if (sorted.length === 0) {
+        return (
+          <div className="empty-state">
+            <Icon.star />
+            <h3>No events saved</h3>
+            <p>Browse All Tournaments and tap "+ Add to My Schedule"</p>
+          </div>
+        );
+      }
+
+      return (
+        <div>
+          <div className="section-header">
+            <h2>My Schedule</h2>
+            <span style={{fontSize:'0.82rem',color:'var(--text-muted)'}}>{sorted.length} event{sorted.length !== 1 ? 's' : ''}</span>
+          </div>
+          {conflicts.size > 0 && (
+            <div className="alert alert-error" style={{marginBottom:'12px'}}>
+              <Icon.warn /> {conflicts.size} event{conflicts.size !== 1 ? 's have' : ' has'} a time conflict
+            </div>
+          )}
+          <div style={{minHeight:'100vh'}}>
+            {sorted.map((t, i) => {
+              const past = normaliseDate(t.date) < todayISO;
+              return (
+                <div key={t.id} ref={i === firstCurrentIdx ? todayRef : null}>
+                  <CalendarEventRow
+                    tournament={t}
+                    isInSchedule={true}
+                    onToggle={onToggle}
+                    showDate
+                    isPast={past}
+                    focusEventId={focusEventId}
+                    onNavigateToEvent={(num, sat) => {
+                      const targetId = findBestFlightSchedule(num, sat);
+                      if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Calendar View ──────────────────────────────────────────
+
+    // Build the list of unique dates that have WSOP events (May 26 – July 15 2026)
+    function buildWsopDates() {
+      const start = new Date('2026-05-26');
+      const end = new Date('2026-07-15');
+      const dates = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().slice(0, 10));
+      }
+      return dates;
+    }
+
+    const WSOP_DATES = buildWsopDates();
+    const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues }) {
+      const today = getToday();
+      const defaultDate = WSOP_DATES.includes(today) ? today : WSOP_DATES[0];
+      const [selectedDate, setSelectedDate] = useState(defaultDate);
+      const activeDateRef = React.useRef(null);
+      const [focusEventId, setFocusEventId] = useState(null);
+
+      // Always snap to today when the tab is visited
+      useEffect(() => {
+        const t = getToday();
+        if (WSOP_DATES.includes(t)) setSelectedDate(t);
+      }, []);
+
+      // Scroll the active date button into view in the carousel
+      useEffect(() => {
+        if (activeDateRef.current) {
+          activeDateRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      }, [selectedDate]);
+      const [filters, setFilters] = useState({
+        minBuyin: '', maxBuyin: '', gameVariant: 'all', venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
+      });
+
+      // Map normalised date → all tournaments
+      const byDate = useMemo(() => {
+        const map = {};
+        for (const t of allTournaments) {
+          const key = normaliseDate(t.date);
+          if (!map[key]) map[key] = [];
+          map[key].push(t);
+        }
+        return map;
+      }, [allTournaments]);
+
+      const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
+
+      const selDateObj  = new Date(selectedDate + 'T12:00:00');
+      const todayEvents = byDate[selectedDate] || [];
+
+      // Filter + sort by time
+      const sortedEvents = useMemo(() => {
+        return [...todayEvents]
+          .filter(t => {
+            if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
+            if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
+            if (filters.gameVariant !== 'all' && t.game_variant !== filters.gameVariant) return false;
+            if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
+            if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
+            if (filters.hideSatellites && t.is_satellite) return false;
+            if (filters.hideRestarts && t.is_restart) return false;
+            return true;
+          })
+          .sort((a, b) => {
+            const ta = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
+            const tb = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+            if (ta.getTime() !== tb.getTime()) return ta - tb;
+            const na = a.event_number.startsWith('SAT') ? 10000 + parseInt(a.event_number.slice(4)) : (parseInt(a.event_number) || 9999);
+            const nb = b.event_number.startsWith('SAT') ? 10000 + parseInt(b.event_number.slice(4)) : (parseInt(b.event_number) || 9999);
+            return na - nb;
+          });
+      }, [todayEvents, filters]);
+
+      const myTodayCount = sortedEvents.filter(t => scheduleIds.has(t.id)).length;
+
+      function move(dir) {
+        const idx  = WSOP_DATES.indexOf(selectedDate);
+        const next = idx + dir;
+        if (next >= 0 && next < WSOP_DATES.length) setSelectedDate(WSOP_DATES[next]);
+      }
+
+      return (
+        <div>
+          <div className="sticky-filters">
+            {/* Date navigation header */}
+            <div className="calendar-nav">
+              <button className="cal-nav-btn" onClick={() => move(-1)}>
+                <Icon.chevLeft />
+              </button>
+              <div className="cal-date-label">
+                <div className="day-name">{DOW[selDateObj.getDay()]}</div>
+                <div className="day-full">
+                  {MONTHS[selDateObj.getMonth()]} {selDateObj.getDate()}, {selDateObj.getFullYear()}
+                </div>
+              </div>
+              <button className="cal-nav-btn" onClick={() => move(1)}>
+                <Icon.chevRight />
+              </button>
+            </div>
+
+            {/* Scrollable date strip */}
+            <div className="cal-date-strip">
+              {WSOP_DATES.map(d => {
+                const dObj  = new Date(d + 'T12:00:00');
+                const hasEv = (byDate[d] || []).length > 0;
+                const isSel = d === selectedDate;
+                return (
+                  <button
+                    key={d}
+                    ref={isSel ? activeDateRef : null}
+                    className={`cal-date-btn ${isSel ? 'active' : ''} ${hasEv && !isSel ? 'has-events' : ''}`}
+                    onClick={() => setSelectedDate(d)}
+                  >
+                    <span className="dow">{DOW[dObj.getDay()]}</span>
+                    <span className="dom">{dObj.getDate()}</span>
+                    {hasEv && <span className="ev-dot" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} />
+
+            {/* Summary row */}
+            <p className="cal-event-count">
+              {sortedEvents.length} event{sortedEvents.length !== 1 ? 's' : ''}
+              {myTodayCount > 0 && ` · ${myTodayCount} in my schedule`}
+            </p>
+          </div>
+
+          {sortedEvents.length === 0 ? (
+            <div className="empty-state" style={{padding:'40px 24px'}}>
+              <Icon.empty />
+              <h3>No events</h3>
+              <p>No tournaments scheduled for this date</p>
+            </div>
+          ) : (
+            <div style={{minHeight:'100vh'}}>
+              {sortedEvents.map(t => (
+                <CalendarEventRow
+                  key={t.id}
+                  tournament={t}
+                  isInSchedule={scheduleIds.has(t.id)}
+                  onToggle={onToggle}
+                  showMiniLateReg={selectedDate === getToday()}
+                  focusEventId={focusEventId}
+                  onNavigateToEvent={(num, sat) => {
+                    const flights = allTournaments.filter(f => f.event_number === num);
+                    const best = findClosestFlight(flights, parseTournamentTime(sat));
+                    if (best) {
+                      if (best.date !== selectedDate) setSelectedDate(best.date);
+                      setFocusEventId(null);
+                      setTimeout(() => setFocusEventId(best.id), 50);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── Upload View ────────────────────────────────────────────
+
+    function UploadView({ onUpload, success, error }) {
+      return (
+        <div className="upload-card">
+          <h2>Upload Schedule PDF</h2>
+          <p>Upload a PDF schedule (WSOP, WPT, etc.) to automatically parse and import tournaments.</p>
+
+          {error && <div className="alert alert-error">{error}</div>}
+          {success && <div className="alert alert-success">{success}</div>}
+
+          <div className="drop-zone">
+            <Icon.upload />
+            <p>Select a PDF file to upload</p>
+          </div>
+
+          <input type="file" id="pdf-upload" className="file-input" accept=".pdf" onChange={onUpload} />
+          <label htmlFor="pdf-upload" className="btn btn-primary" style={{display:'inline-flex',alignItems:'center',gap:'8px'}}>
+            <Icon.upload /> Choose PDF File
+          </label>
+        </div>
+      );
+    }
+
+    // ── Auth Screen ────────────────────────────────────────────
+
+    function AuthScreen({ onSubmit, error, success, theme, toggleTheme }) {
+      const [isRegister, setIsRegister] = useState(false);
+
+      return (
+        <div className="auth-wrap">
+          <div className="auth-card">
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px'}}>
+              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
+              </button>
+            </div>
+            <div className="auth-logo">
+              <h1>shonabish.</h1>
+              <p>summer 2026</p>
+            </div>
+
+            {error && <div className="alert alert-error">{error}</div>}
+            {success && <div className="alert alert-success">{success}</div>}
+
+            <form onSubmit={e => onSubmit(e, isRegister)}>
+              {isRegister && (
+                <div className="form-field">
+                  <label>Username</label>
+                  <input type="text" name="username" placeholder="Choose a username" required autoComplete="username" />
+                </div>
+              )}
+              <div className="form-field">
+                <label>Email</label>
+                <input type="email" name="email" placeholder="you@example.com" required autoComplete="email" />
+              </div>
+              <div className="form-field">
+                <label>Password</label>
+                <input type="password" name="password" placeholder={isRegister ? 'Min. 6 characters' : 'Your password'} required minLength="6" autoComplete={isRegister ? 'new-password' : 'current-password'} />
+              </div>
+              <button type="submit" className="btn btn-primary btn-full" style={{marginTop:'8px'}}>
+                {isRegister ? 'Create Account' : 'Sign In'}
+              </button>
+            </form>
+
+            <p style={{textAlign:'center',marginTop:'20px',fontSize:'0.85rem',color:'var(--text-muted)'}}>
+              {isRegister ? 'Already have an account? ' : "Don't have an account? "}
+              <button onClick={() => setIsRegister(r => !r)}
+                style={{color:'var(--accent)',background:'none',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'0.85rem'}}>
+                {isRegister ? 'Sign in' : 'Register'}
+              </button>
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Bottom Nav ─────────────────────────────────────────────
+
+    function BottomNav({ current, onChange, scheduleCount }) {
+      const tabs = [
+        { id: 'tournaments', label: 'Schedule', icon: Icon.list },
+        { id: 'schedule', label: `Me${scheduleCount ? ` (${scheduleCount})` : ''}`, icon: Icon.user },
+        { id: 'calendar', label: 'Today', icon: Icon.calendar },
+        { id: 'tracking', label: 'Tracking', icon: Icon.tracking },
+        { id: 'settings', label: 'Settings', icon: Icon.gear },
+      ];
+
+      return (
+        <nav className="bottom-nav">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`nav-tab ${current === tab.id ? 'active' : ''}`}
+              onClick={() => onChange(tab.id)}
+            >
+              <tab.icon />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      );
+    }
+
+    // ── Settings View ──────────────────────────────────────────
+
+    function SettingsView({ username, theme, toggleTheme, contrast, toggleContrast, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess }) {
+      const [debugInput, setDebugInput] = useState(_debugNow);
+
+      const applyDebugTime = (val) => {
+        setDebugInput(val);
+        setDebugNow(val);
+        if (onDebugTimeChange) onDebugTimeChange(val);
+      };
+
+      return (
+        <div className="settings-view">
+
+          <div className="settings-section">
+            <div className="settings-section-label">Account</div>
+            <div className="settings-card">
+              <div className="settings-row">
+                <span className="settings-row-label">Signed in as</span>
+                <span className="settings-row-value">{username}</span>
+              </div>
+              <button className="settings-row-btn danger" onClick={onLogout}>
+                Sign out
+              </button>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <div className="settings-section-label">Appearance</div>
+            <div className="settings-card">
+              <div className="settings-row">
+                <span className="settings-row-label">Dark mode</span>
+                <button
+                  className={`settings-toggle ${theme === 'dark' ? 'on' : ''}`}
+                  onClick={toggleTheme}
+                />
+              </div>
+              <div className="settings-row">
+                <span className="settings-row-label">High contrast</span>
+                <button
+                  className={`settings-toggle ${contrast === 'high' ? 'on' : ''}`}
+                  onClick={toggleContrast}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <div className="settings-section-label">Import</div>
+            <div className="settings-card">
+              <div className="settings-row" style={{flexDirection:'column',alignItems:'stretch',gap:'8px'}}>
+                <span className="settings-row-label">Upload schedule PDF</span>
+                <p style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.4}}>
+                  Import a PDF schedule (WSOP, WPT, etc.) to parse and add tournaments.
+                </p>
+                {uploadError && <div className="alert alert-error" style={{margin:'4px 0'}}>{uploadError}</div>}
+                {uploadSuccess && <div className="alert alert-success" style={{margin:'4px 0'}}>{uploadSuccess}</div>}
+                <input type="file" id="pdf-upload-settings" className="file-input" accept=".pdf" onChange={onUpload} />
+                <label htmlFor="pdf-upload-settings" className="btn btn-ghost btn-sm" style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px'}}>
+                  <Icon.upload /> Choose PDF
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <div className="settings-section-label">Debug Tools</div>
+            <div className="settings-card">
+              <div className="settings-row" style={{flexDirection:'column',alignItems:'stretch',gap:'8px'}}>
+                <span className="settings-row-label">Simulated date & time</span>
+                <input
+                  className="settings-debug-input"
+                  type="datetime-local"
+                  value={debugInput ? debugInput.slice(0,16) : ''}
+                  onChange={e => {
+                    const v = e.target.value ? e.target.value + ':00' : '';
+                    applyDebugTime(v);
+                  }}
+                />
+                {debugInput && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{alignSelf:'flex-start',marginTop:'4px'}}
+                    onClick={() => applyDebugTime('')}
+                  >Reset to real time</button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <div className="settings-about">
+              <h3>shonabish.</h3>
+              <p>summer 2026 — wsop tournament scheduler</p>
+              <p style={{marginTop:'8px',fontSize:'0.7rem',opacity:0.5}}>v0.1.0</p>
+            </div>
+          </div>
+
+        </div>
+      );
+    }
+
+    // ── App ────────────────────────────────────────────────────
+
+    function App() {
+      const [token, setToken] = useState(localStorage.getItem('token'));
+      const [username, setUsername] = useState(localStorage.getItem('username'));
+      const [currentView, setCurrentView] = useState('tournaments');
+      const [tournaments, setTournaments] = useState([]);
+      const [mySchedule, setMySchedule] = useState([]);
+      const [gameVariants, setGameVariants] = useState([]);
+      const [venues, setVenues] = useState([]);
+      const [error, setError] = useState('');
+      const [success, setSuccess] = useState('');
+      const [uploadError, setUploadError] = useState('');
+      const [uploadSuccess, setUploadSuccess] = useState('');
+      const [debugTimeKey, setDebugTimeKey] = useState(0);
+
+      // ── Theme ──
+      const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+      const [contrast, setContrast] = useState(localStorage.getItem('contrast') || 'normal');
+
+      useEffect(() => {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('theme', theme);
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f5f5' : '#111111');
+      }, [theme]);
+
+      useEffect(() => {
+        document.documentElement.dataset.contrast = contrast;
+        localStorage.setItem('contrast', contrast);
+      }, [contrast]);
+
+      const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+      const toggleContrast = () => setContrast(c => c === 'normal' ? 'high' : 'normal');
+
+      useEffect(() => {
+        if (token) {
+          fetchTournaments();
+          fetchMySchedule();
+          fetchGameVariants();
+          fetchVenues();
+        }
+      }, [token]);
+
+      const fetchTournaments = async () => {
+        try {
+          const res = await fetch(`${API_URL}/tournaments`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setTournaments(await res.json());
+        } catch { setError('Failed to load tournaments'); }
+      };
+
+      const fetchMySchedule = async () => {
+        try {
+          const res = await fetch(`${API_URL}/my-schedule`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setMySchedule(await res.json());
+        } catch { setError('Failed to load schedule'); }
+      };
+
+      const fetchGameVariants = async () => {
+        try {
+          const res = await fetch(`${API_URL}/game-variants`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setGameVariants(await res.json());
+        } catch {}
+      };
+
+      const fetchVenues = async () => {
+        try {
+          const res = await fetch(`${API_URL}/venues`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setVenues(await res.json());
+        } catch {}
+      };
+
+      const handleLogin = async (e, isRegister = false) => {
+        e.preventDefault();
+        setError(''); setSuccess('');
+        const fd = new FormData(e.target);
+        const email = fd.get('email');
+        const password = fd.get('password');
+        const usernameInput = fd.get('username');
+
+        try {
+          const endpoint = isRegister ? '/register' : '/login';
+          const body = isRegister
+            ? { username: usernameInput, email, password }
+            : { email, password };
+
+          const res = await fetch(`${API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+
+          const data = await res.json();
+          if (!res.ok) { setError(data.error || 'Authentication failed'); return; }
+
+          if (isRegister) {
+            setSuccess('Account created! Please sign in.');
+          } else {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('username', data.username);
+            setToken(data.token);
+            setUsername(data.username);
+          }
+        } catch { setError('Network error. Please try again.'); }
+      };
+
+      const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        setToken(null);
+        setUsername(null);
+      };
+
+      const toggleTournament = async (tournamentId) => {
+        const isIn = mySchedule.some(t => t.id === tournamentId);
+        try {
+          if (isIn) {
+            await fetch(`${API_URL}/schedule/${tournamentId}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${token}` }
+            });
+          } else {
+            await fetch(`${API_URL}/schedule`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tournamentId })
+            });
+          }
+          fetchMySchedule();
+        } catch { setError('Failed to update schedule'); }
+      };
+
+      const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setUploadError(''); setUploadSuccess('');
+        const fd = new FormData();
+        fd.append('pdf', file);
+        try {
+          setUploadSuccess('Uploading and parsing PDF…');
+          const res = await fetch(`${API_URL}/upload-schedule`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: fd
+          });
+          const data = await res.json();
+          setUploadSuccess(`Successfully imported ${data.tournamentsCount} tournaments!`);
+          fetchTournaments();
+        } catch { setUploadError('Failed to upload schedule'); }
+      };
+
+      if (!token) {
+        return <AuthScreen onSubmit={handleLogin} error={error} success={success} theme={theme} toggleTheme={toggleTheme} />;
+      }
+
+      return (
+        <div className="app-shell">
+          <header className="top-bar">
+            <div className="top-bar-title">
+              <h1>shonabish.</h1>
+              <small>summer 2026</small>
+            </div>
+            <div className="top-bar-actions">
+              <span className="username-chip">{username}</span>
+              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
+              </button>
+            </div>
+          </header>
+
+          <main className="content-area">
+            {error && <div className="alert alert-error">{error}</div>}
+
+            {currentView === 'tournaments' && (
+              <TournamentsView
+                key={debugTimeKey}
+                tournaments={tournaments}
+                mySchedule={mySchedule}
+                onToggle={toggleTournament}
+                gameVariants={gameVariants}
+                venues={venues}
+              />
+            )}
+
+            {currentView === 'schedule' && (
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} />
+            )}
+
+            {currentView === 'calendar' && (
+              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} />
+            )}
+
+            {currentView === 'tracking' && (
+              <div>
+                <div className="empty-state">
+                  <Icon.tracking />
+                  <h3>Tracking</h3>
+                  <p>Results tracking, bankroll, and ROI — coming soon</p>
+                </div>
+              </div>
+            )}
+
+            {currentView === 'settings' && (
+              <SettingsView
+                username={username}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                contrast={contrast}
+                toggleContrast={toggleContrast}
+                onLogout={handleLogout}
+                onDebugTimeChange={(val) => setDebugTimeKey(k => k + 1)}
+                onUpload={handleFileUpload}
+                uploadError={uploadError}
+                uploadSuccess={uploadSuccess}
+              />
+            )}
+          </main>
+
+          <BottomNav
+            current={currentView}
+            onChange={setCurrentView}
+            scheduleCount={mySchedule.length}
+          />
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>

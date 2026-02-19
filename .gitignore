@@ -1,0 +1,72 @@
+node_modules/
+uploads/
+pdf-images/
+nul
+
+# Database
+poker-tournaments.db
+
+# PDFs and spreadsheets (source data, not needed for deployment)
+*.pdf
+*.xlsx
+
+# Temp/debug scripts
+tunnel.js
+tmp_check.json
+
+# One-off utility scripts
+analyze-restarts.js
+check-flights.js
+check-nulls.js
+check-ranges.js
+compare-names.js
+convert-pdf-to-images.js
+debug-parser.js
+extract-pdf.js
+extract-structures-text.js
+filter-non-nlhe.js
+find-bad-dates.js
+fix-event-names.js
+fix-sat-names.js
+fix-sat-names2.js
+fix-sat-targets.js
+generate-restarts.js
+import-satellites.js
+list-mains.js
+manual-verify.js
+map-sat-targets.js
+map-sat-targets2.js
+parse-restarts.js
+show-all-events.js
+show-side-events.js
+test-new-parser.js
+test-pdf-parser.js
+update-latereg.js
+verify-dates.js
+verify-db.js
+
+# Extracted text files
+wsop-raw-text.txt
+wsop-2026-structures-extracted.txt
+WSOP_2026_COMPLETE_MASTER_SCHEDULE.txt
+
+# Intermediate JSON files
+parsed-tournaments.json
+wsop-2026-visual-extract.json
+wsop-2026-side-events.json
+
+# Old zip
+poker-tournament-app.zip
+
+# SVG/PNG assets not used in app
+_bracelet.svg
+_crosshair.png
+_crosshair.svg
+_satellite.svg
+
+# Dev docs
+CLAUDE-CODE-HANDOFF.md
+PROJECT-OVERVIEW.md
+QUICKSTART.md
+setup.sh
+.claude/
