@@ -3576,7 +3576,7 @@
 
           <BottomNav
             current={currentView}
-            onChange={setCurrentView}
+            onChange={v => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }}
             scheduleCount={mySchedule.length}
           />
         </div>
