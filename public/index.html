@@ -887,9 +887,18 @@
     /* ── Conditional events ── */
     .cal-event-row.conditional {
       opacity: 0.55;
-      border-top-style: dashed;
-      border-right-style: dashed;
-      border-bottom-style: dashed;
+      border-top: none;
+      border-right: none;
+      border-bottom: none;
+    }
+    .cal-event-row.conditional .cal-event-row-content {
+      border-top: 1.5px dashed var(--border);
+      border-right: 1.5px dashed var(--border);
+      border-bottom: 1.5px dashed var(--border);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .cal-event-row.conditional.saved .cal-event-row-content {
+      border-color: var(--accent);
     }
     .cal-event-row.conditional.open {
       opacity: 0.85;
