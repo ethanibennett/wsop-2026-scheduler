@@ -1326,7 +1326,7 @@
       align-items: stretch;
     }
 
-    .cal-action-btn {
+    .cal-action-btn, .cal-entries-counter {
       flex: 1;
       padding: 8px 4px 6px;
       background: none;
@@ -1335,48 +1335,43 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 3px;
+      gap: 0;
     }
+    .cal-entries-counter { cursor: default; }
     .cal-action-btn + .cal-action-btn,
     .cal-action-btn + .cal-entries-counter,
     .cal-entries-counter + .cal-action-btn { border-left: 1px solid var(--border); }
-    .cal-action-icon { font-size: 1rem; line-height: 1; }
+    .cal-action-icon, .cal-entries-stepper {
+      font-size: 1rem;
+      line-height: 1;
+      height: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     .cal-action-label {
       font-size: 0.55rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       color: var(--text-muted);
+      margin-top: 5px;
     }
     .cal-action-btn:active { background: rgba(160,160,160,0.1); }
     .cal-action-btn.remove .cal-action-icon { color: var(--accent2); }
     .cal-action-btn.anchor-btn.locked .cal-action-icon { color: #60a5fa; }
     [data-theme="light"] .cal-action-btn.anchor-btn.locked .cal-action-icon { color: #2563eb; }
 
-    /* ── Entries counter ── */
-    .cal-entries-counter {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      padding: 8px 4px 6px;
-      cursor: default;
-    }
-    .cal-entries-stepper {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      height: 1rem;
-    }
+    /* ── Entries stepper ── */
+    .cal-entries-stepper { gap: 3px; }
     .cal-entries-btn {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       border: 1px solid var(--border);
       background: var(--surface2);
       color: var(--text);
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       font-weight: 700;
       cursor: pointer;
       display: flex;
