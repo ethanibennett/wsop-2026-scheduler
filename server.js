@@ -121,9 +121,10 @@ async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       tournament_id INTEGER NOT NULL,
-      depends_on_tournament_id INTEGER NOT NULL,
-      condition_type TEXT NOT NULL CHECK(condition_type IN ('IF_WIN_SEAT', 'IF_NO_SEAT')),
+      depends_on_tournament_id INTEGER,
+      condition_type TEXT NOT NULL,
       is_public INTEGER NOT NULL DEFAULT 1,
+      profit_threshold INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id),
       FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
@@ -132,9 +133,16 @@ async function initDatabase() {
     )
   `);
 
-  // Migrate: add is_public column if missing (existing DBs)
+  // Migrate: add profit_threshold column if missing (existing DBs)
   try {
-    db.run('ALTER TABLE schedule_conditions ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1');
+    db.run('ALTER TABLE schedule_conditions ADD COLUMN profit_threshold INTEGER');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
+  // Migrate: add total_entries column for POY points calculation
+  try {
+    db.run('ALTER TABLE tournaments ADD COLUMN total_entries INTEGER');
   } catch (e) {
     // Column already exists — ignore
   }
@@ -413,7 +421,7 @@ app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) =>
 app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.params;
-    const { dependsOnTournamentId, conditionType, isPublic } = req.body;
+    const { dependsOnTournamentId, conditionType, isPublic, profitThreshold } = req.body;
     const publicFlag = isPublic === undefined ? 1 : (isPublic ? 1 : 0);
 
     // Verify event is on user's schedule
@@ -428,8 +436,8 @@ app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, 
     // Upsert: delete existing then insert
     db.run('DELETE FROM schedule_conditions WHERE user_id = ? AND tournament_id = ?', [req.user.id, tournamentId]);
     db.run(
-      'INSERT INTO schedule_conditions (user_id, tournament_id, depends_on_tournament_id, condition_type, is_public) VALUES (?, ?, ?, ?, ?)',
-      [req.user.id, tournamentId, dependsOnTournamentId, conditionType, publicFlag]
+      'INSERT INTO schedule_conditions (user_id, tournament_id, depends_on_tournament_id, condition_type, is_public, profit_threshold) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.id, tournamentId, dependsOnTournamentId || null, conditionType, publicFlag, profitThreshold || null]
     );
 
     await saveDatabase();
@@ -459,6 +467,7 @@ app.get('/api/my-schedule', authenticateToken, (req, res) => {
              sc.condition_type,
              sc.depends_on_tournament_id,
              sc.is_public AS condition_is_public,
+             sc.profit_threshold AS condition_profit_threshold,
              dep.event_number AS depends_on_event_number,
              dep.event_name AS depends_on_event_name
       FROM tournaments t
@@ -567,6 +576,7 @@ app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
              sc.condition_type,
              sc.depends_on_tournament_id,
              sc.is_public AS condition_is_public,
+             sc.profit_threshold AS condition_profit_threshold,
              dep.event_number AS depends_on_event_number,
              dep.event_name AS depends_on_event_name
       FROM tournaments t
@@ -615,6 +625,7 @@ app.get('/api/shared/:token', (req, res) => {
              sc.condition_type,
              sc.depends_on_tournament_id,
              sc.is_public AS condition_is_public,
+             sc.profit_threshold AS condition_profit_threshold,
              dep.event_number AS depends_on_event_number,
              dep.event_name AS depends_on_event_name
       FROM tournaments t
@@ -749,6 +760,29 @@ app.get('/api/venues', authenticateToken, (req, res) => {
   }
 });
 
+// ── Tournament field size (for POY calculation) ─────────────
+
+app.put('/api/tournaments/:id/total-entries', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { totalEntries } = req.body;
+    if (!totalEntries || totalEntries < 1) {
+      return res.status(400).json({ error: 'totalEntries must be a positive integer' });
+    }
+    const checkStmt = db.prepare('SELECT id FROM tournaments WHERE id = ?');
+    checkStmt.bind([id]);
+    const exists = checkStmt.step();
+    checkStmt.free();
+    if (!exists) return res.status(404).json({ error: 'Tournament not found' });
+
+    db.run('UPDATE tournaments SET total_entries = ? WHERE id = ?', [parseInt(totalEntries), id]);
+    await saveDatabase();
+    res.json({ message: 'Total entries updated' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ── Tracking endpoints ──────────────────────────────────────
 
 app.get('/api/tracking', authenticateToken, (req, res) => {
@@ -756,7 +790,7 @@ app.get('/api/tracking', authenticateToken, (req, res) => {
     const stmt = db.prepare(`
       SELECT te.*,
              t.event_number, t.event_name, t.date, t.time, t.buyin,
-             t.game_variant, t.venue
+             t.game_variant, t.venue, t.is_satellite, t.total_entries
       FROM tracking_entries te
       JOIN tournaments t ON te.tournament_id = t.id
       WHERE te.user_id = ?

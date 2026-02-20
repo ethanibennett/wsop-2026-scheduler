@@ -1191,6 +1191,8 @@
       gap: 10px;
       margin-bottom: 12px;
     }
+    .tracking-poy { color: #fbbf24; }
+    [data-theme="light"] .tracking-poy { color: #d97706; }
 
     .cal-event-chevron {
       display: flex;
@@ -1614,11 +1616,54 @@
       return s[(v - 20) % 10] || s[v] || s[0];
     }
 
+    // ── POY Points ────────────────────────────────────────────
+    const NON_POY_KEYWORDS = ['senior', 'super senior', 'ladies', 'tag team',
+                              'industry', 'employees', 'online'];
+
+    function isPOYEligible(t) {
+      if (!isBraceletEvent(t)) return false;
+      const name = (t.event_name || '').toLowerCase();
+      return !NON_POY_KEYWORDS.some(kw => name.includes(kw));
+    }
+
+    function isSixMax(eventName) {
+      return /6[- ]?handed|6[- ]?max/i.test(eventName || '');
+    }
+
+    function calculatePOYPoints(buyin, finishPlace, totalEntries, cashed, eventName) {
+      if (!totalEntries || totalEntries < 1) return null;
+      if (cashed && !finishPlace) return null;
+
+      let rankRatio;
+      if (!cashed) {
+        rankRatio = 1;
+      } else {
+        rankRatio = finishPlace / totalEntries;
+        if (rankRatio <= 0) rankRatio = 1 / totalEntries;
+        if (rankRatio > 1) rankRatio = 1;
+      }
+
+      let C;
+      if (!cashed) {
+        C = 1;
+      } else if (finishPlace === 1) {
+        C = 6;
+      } else {
+        const ftCutoff = isSixMax(eventName) ? 6 : 9;
+        C = finishPlace <= ftCutoff ? 4 : 2;
+      }
+
+      const buyinRoot = Math.pow(buyin, 1 / 4.5);
+      const lnAbs = Math.abs(Math.log(rankRatio));
+      const lnPow = Math.pow(lnAbs, 1.7);
+      return Math.round(C * buyinRoot * lnPow * 10) / 10;
+    }
+
     function extractCondition(t, sharedView) {
       if (!t.condition_type) return null;
       const isPublic = !!t.condition_is_public;
       if (sharedView && !isPublic) return null;
-      return { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name, isPublic };
+      return { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name, isPublic, profitThreshold: t.condition_profit_threshold };
     }
 
     function detectConflicts(schedule) {
@@ -1947,6 +1992,9 @@
       const [selectedId, setSelectedId] = useState(condition ? condition.dependsOnId : null);
       const [search, setSearch] = useState('');
       const [isPublic, setIsPublic] = useState(condition ? condition.isPublic !== false : true);
+      const [profitAmount, setProfitAmount] = useState(condition?.profitThreshold || '');
+
+      const needsEvent = condType === 'IF_WIN_SEAT' || condType === 'IF_NO_SEAT';
 
       const suggestedSatellites = useMemo(() =>
         allTournaments.filter(t => t.is_satellite && t.target_event === tournament.event_number),
@@ -1961,6 +2009,17 @@
           ((t.event_number || '').toLowerCase().includes(q) || (t.event_name || '').toLowerCase().includes(q))
         ).slice(0, 8);
       }, [allTournaments, search, tournament.id]);
+
+      const canSubmit = needsEvent ? !!selectedId : (profitAmount && parseInt(profitAmount) !== 0);
+
+      const handleSubmit = () => {
+        if (!canSubmit) return;
+        if (needsEvent) {
+          onSet(selectedId, condType, isPublic, null);
+        } else {
+          onSet(null, condType, isPublic, parseInt(profitAmount));
+        }
+      };
 
       const renderItem = (t) => (
         <div
@@ -1985,31 +2044,56 @@
             <button className={`condition-type-btn ${condType === 'IF_NO_SEAT' ? 'active' : ''}`} onClick={() => setCondType('IF_NO_SEAT')}>
               If I don't win a seat
             </button>
+            <button className={`condition-type-btn ${condType === 'PROFIT_THRESHOLD' ? 'active' : ''}`} onClick={() => setCondType('PROFIT_THRESHOLD')}>
+              If I'm up $X
+            </button>
           </div>
 
-          {suggestedSatellites.length > 0 && (
+          {needsEvent && (
             <React.Fragment>
+              {suggestedSatellites.length > 0 && (
+                <React.Fragment>
+                  <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
+                    Related Satellites
+                  </div>
+                  <div className="condition-sat-list">
+                    {suggestedSatellites.map(renderItem)}
+                  </div>
+                </React.Fragment>
+              )}
+
               <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
-                Related Satellites
+                {suggestedSatellites.length > 0 ? 'Or search any event' : 'Search for an event'}
               </div>
-              <div className="condition-sat-list">
-                {suggestedSatellites.map(renderItem)}
-              </div>
+              <input
+                className="condition-search"
+                placeholder="Event name or number..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              {searchResults.length > 0 && (
+                <div className="condition-sat-list">
+                  {searchResults.map(renderItem)}
+                </div>
+              )}
             </React.Fragment>
           )}
 
-          <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
-            {suggestedSatellites.length > 0 ? 'Or search any event' : 'Search for an event'}
-          </div>
-          <input
-            className="condition-search"
-            placeholder="Event name or number..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {searchResults.length > 0 && (
-            <div className="condition-sat-list">
-              {searchResults.map(renderItem)}
+          {condType === 'PROFIT_THRESHOLD' && (
+            <div style={{marginBottom:'8px'}}>
+              <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
+                Profit threshold ($)
+              </div>
+              <input
+                className="condition-search"
+                type="number"
+                placeholder="e.g. 5000"
+                value={profitAmount}
+                onChange={e => setProfitAmount(e.target.value)}
+              />
+              <span style={{fontSize:'0.7rem',color:'var(--text-muted)',display:'block',marginTop:'2px'}}>
+                I'll play this event if I'm up at least this amount
+              </span>
             </div>
           )}
 
@@ -2035,8 +2119,8 @@
           <div style={{display:'flex',gap:'8px',marginTop:'8px'}}>
             <button
               className="condition-type-btn active"
-              style={{flex:1,opacity:selectedId ? 1 : 0.4,pointerEvents:selectedId ? 'auto' : 'none'}}
-              onClick={() => selectedId && onSet(selectedId, condType, isPublic)}
+              style={{flex:1,opacity:canSubmit ? 1 : 0.4,pointerEvents:canSubmit ? 'auto' : 'none'}}
+              onClick={handleSubmit}
             >
               Set Condition
             </button>
@@ -2144,7 +2228,7 @@
                 <span className="cal-event-name">{tournament.event_name}</span>
                 {condition && (
                   <span className="cal-condition-label">
-                    {condition.type === 'IF_WIN_SEAT' ? 'If seat' : 'If no seat'} #{condition.dependsOnEventNumber}
+                    {condition.type === 'PROFIT_THRESHOLD' ? `If up $${Number(condition.profitThreshold).toLocaleString()}` : `${condition.type === 'IF_WIN_SEAT' ? 'If seat' : 'If no seat'} #${condition.dependsOnEventNumber}`}
                   </span>
                 )}
                 {isBounty && <span className="cal-bounty-icon"><Icon.crosshairs /></span>}
@@ -2193,7 +2277,7 @@
                     )}
                     {condition && (
                       <span className="badge badge-condition">
-                        {condition.type === 'IF_WIN_SEAT' ? '🎯 If seat from' : '🔄 If no seat from'} #{condition.dependsOnEventNumber}
+                        {condition.type === 'PROFIT_THRESHOLD' ? `💰 If up $${Number(condition.profitThreshold).toLocaleString()}` : `${condition.type === 'IF_WIN_SEAT' ? '🎯 If seat from' : '🔄 If no seat from'} #${condition.dependsOnEventNumber}`}
                       </span>
                     )}
                   </div>
@@ -2267,7 +2351,7 @@
                       tournament={tournament}
                       condition={condition}
                       allTournaments={allTournaments || []}
-                      onSet={(depId, type, pub) => { onSetCondition(tournament.id, depId, type, pub); setShowConditionUI(false); }}
+                      onSet={(depId, type, pub, profitThreshold) => { onSetCondition(tournament.id, depId, type, pub, profitThreshold); setShowConditionUI(false); }}
                       onRemove={() => { onRemoveCondition(tournament.id); setShowConditionUI(false); }}
                       onClose={() => setShowConditionUI(false)}
                     />
@@ -3223,13 +3307,14 @@
 
     // ── Tracking Entry Form ─────────────────────────────────────
 
-    function TrackingEntryForm({ tournaments, mySchedule, existingEntryIds, initialValues, tournamentLabel, onSubmit, onCancel, isEdit }) {
+    function TrackingEntryForm({ tournaments, mySchedule, existingEntryIds, initialValues, tournamentLabel, entryForPOY, onSubmit, onCancel, isEdit }) {
       const [tournamentId, setTournamentId] = useState(initialValues?.tournamentId || '');
       const [numEntries, setNumEntries] = useState(initialValues?.numEntries || 1);
       const [cashed, setCashed] = useState(initialValues?.cashed || false);
       const [finishPlace, setFinishPlace] = useState(initialValues?.finishPlace || '');
       const [cashAmount, setCashAmount] = useState(initialValues?.cashAmount || '');
       const [notes, setNotes] = useState(initialValues?.notes || '');
+      const [totalFieldSize, setTotalFieldSize] = useState(initialValues?.totalEntries || '');
 
       const tournamentOptions = useMemo(() => {
         if (isEdit) return [];
@@ -3240,9 +3325,16 @@
             const aS = scheduleIds.has(a.id) ? 0 : 1;
             const bS = scheduleIds.has(b.id) ? 0 : 1;
             if (aS !== bS) return aS - bS;
-            return new Date(b.date) - new Date(a.date);
+            return new Date(a.date) - new Date(b.date);
           });
       }, [tournaments, mySchedule, existingEntryIds, isEdit]);
+
+      const showFieldSize = useMemo(() => {
+        if (isEdit && entryForPOY) return isPOYEligible(entryForPOY);
+        if (!tournamentId || !tournaments) return false;
+        const t = tournaments.find(t => t.id === parseInt(tournamentId));
+        return t ? isPOYEligible(t) : false;
+      }, [isEdit, entryForPOY, tournamentId, tournaments]);
 
       const handleSubmit = (e) => {
         e.preventDefault();
@@ -3253,7 +3345,8 @@
           cashed,
           finishPlace: cashed && finishPlace ? parseInt(finishPlace) : null,
           cashAmount: cashed && cashAmount ? parseInt(cashAmount) : 0,
-          notes: notes || null
+          notes: notes || null,
+          totalFieldSize: totalFieldSize ? parseInt(totalFieldSize) : null
         });
       };
 
@@ -3309,6 +3402,19 @@
             </div>
           )}
 
+          {showFieldSize && (
+            <div className="filter-group" style={{marginBottom:'12px'}}>
+              <label>Field Size (total entries)</label>
+              <input type="number" min="1" value={totalFieldSize}
+                onChange={e => setTotalFieldSize(e.target.value)} placeholder="e.g. 8500"
+                style={{padding:'10px 12px',border:'1.5px solid var(--border)',borderRadius:'var(--radius-sm)',
+                  background:'var(--bg)',color:'var(--text)',fontFamily:"'Oswald',sans-serif",fontSize:'0.9rem',width:'100%'}} />
+              <span style={{fontSize:'0.7rem',color:'var(--text-muted)',marginTop:'2px',display:'block'}}>
+                Used for POY points calculation
+              </span>
+            </div>
+          )}
+
           <div className="filter-group" style={{marginBottom:'14px'}}>
             <label>Notes (optional)</label>
             <input type="text" value={notes} onChange={e => setNotes(e.target.value)}
@@ -3332,6 +3438,10 @@
     function TrackingEntryRow({ entry, onEdit, onDelete, isEditing, onUpdate, onCancelEdit }) {
       const totalCost = (entry.buyin || 0) * (entry.num_entries || 1);
       const profit = (entry.cash_amount || 0) - totalCost;
+      const poyEligible = isPOYEligible(entry);
+      const poyPoints = poyEligible
+        ? calculatePOYPoints(entry.buyin, entry.finish_place, entry.total_entries, !!entry.cashed, entry.event_name)
+        : null;
 
       if (isEditing) {
         return (
@@ -3342,8 +3452,10 @@
               cashed: !!entry.cashed,
               finishPlace: entry.finish_place,
               cashAmount: entry.cash_amount,
-              notes: entry.notes
+              notes: entry.notes,
+              totalEntries: entry.total_entries
             }}
+            entryForPOY={entry}
             tournamentLabel={`#${entry.event_number} ${entry.event_name}`}
             onSubmit={onUpdate}
             onCancel={onCancelEdit}
@@ -3365,8 +3477,8 @@
             </div>
             <div style={{textAlign:'right',flexShrink:0}}>
               <div style={{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:'1rem',fontWeight:700}}
-                className={entry.cashed && profit >= 0 ? 'tracking-profit-pos' : entry.cashed ? 'tracking-profit-neg' : ''}>
-                {entry.cashed ? `${profit >= 0 ? '+' : ''}${formatBuyin(profit)}` : 'Bust'}
+                className={profit >= 0 && entry.cashed ? 'tracking-profit-pos' : 'tracking-profit-neg'}>
+                {profit >= 0 && entry.cashed ? `+${formatBuyin(profit)}` : formatBuyin(profit)}
               </div>
             </div>
           </div>
@@ -3397,7 +3509,21 @@
                 <span className="cal-detail-value" style={{color:'var(--text-muted)'}}>No cash</span>
               </div>
             )}
+            {poyEligible && (
+              <div className="cal-detail-item">
+                <span className="cal-detail-label">POY Pts</span>
+                <span className={`cal-detail-value ${poyPoints > 0 ? 'tracking-poy' : ''}`}>
+                  {poyPoints !== null ? poyPoints.toFixed(1) : '—'}
+                </span>
+              </div>
+            )}
           </div>
+
+          {poyEligible && !entry.total_entries && (
+            <p style={{fontSize:'0.72rem',color:'#d97706',marginBottom:'4px'}}>
+              ⚑ Edit to add field size for POY points
+            </p>
+          )}
 
           {entry.notes && (
             <p style={{fontSize:'0.78rem',color:'var(--text-muted)',fontStyle:'italic',marginBottom:'8px'}}>{entry.notes}</p>
@@ -3419,13 +3545,21 @@
 
       const stats = useMemo(() => {
         let totalBuyins = 0, totalCashes = 0, eventsCashed = 0;
+        const poyScores = [];
         for (const e of trackingData) {
           totalBuyins += (e.buyin || 0) * (e.num_entries || 1);
           if (e.cashed) { totalCashes += e.cash_amount || 0; eventsCashed++; }
+          if (isPOYEligible(e)) {
+            const pts = calculatePOYPoints(e.buyin, e.finish_place, e.total_entries, !!e.cashed, e.event_name);
+            if (pts !== null) poyScores.push(pts);
+          }
         }
         const profit = totalCashes - totalBuyins;
         const roi = totalBuyins > 0 ? ((profit / totalBuyins) * 100) : 0;
-        return { totalBuyins, totalCashes, profit, roi, totalEntries: trackingData.length, eventsCashed };
+        poyScores.sort((a, b) => b - a);
+        const totalPOY = poyScores.slice(0, 15).reduce((s, p) => s + p, 0);
+        return { totalBuyins, totalCashes, profit, roi, totalEntries: trackingData.length, eventsCashed,
+                 totalPOY, poyEventCount: poyScores.length, hasMoreThan15: poyScores.length > 15 };
       }, [trackingData]);
 
       const existingEntryIds = useMemo(() => new Set(trackingData.map(e => e.tournament_id)), [trackingData]);
@@ -3462,9 +3596,16 @@
                     {stats.roi >= 0 ? '+' : ''}{stats.roi.toFixed(1)}%
                   </span>
                 </div>
+                {stats.poyEventCount > 0 && (
+                  <div className="cal-detail-item">
+                    <span className="cal-detail-label">POY Pts{stats.hasMoreThan15 ? ' (Top 15)' : ''}</span>
+                    <span className="cal-detail-value tracking-poy">{stats.totalPOY.toFixed(1)}</span>
+                  </div>
+                )}
               </div>
               <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginTop:'8px'}}>
                 {stats.totalEntries} event{stats.totalEntries !== 1 ? 's' : ''} played · {stats.eventsCashed} cash{stats.eventsCashed !== 1 ? 'es' : ''}
+                {stats.poyEventCount > 0 && <> · {stats.poyEventCount} POY event{stats.poyEventCount !== 1 ? 's' : ''}</>}
               </p>
             </div>
           )}
@@ -3790,34 +3931,50 @@
         } catch { setError('Failed to load tracking data'); }
       };
 
+      const saveFieldSize = async (tournamentId, totalFieldSize) => {
+        if (!totalFieldSize || !tournamentId) return;
+        try {
+          await fetch(`${API_URL}/tournaments/${tournamentId}/total-entries`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ totalEntries: totalFieldSize })
+          });
+          fetchTournaments();
+        } catch {}
+      };
+
       const addTracking = async (data) => {
         try {
+          const { totalFieldSize, ...trackingData } = data;
           const res = await fetch(`${API_URL}/tracking`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify(trackingData)
           });
           if (!res.ok) {
             const err = await res.json();
             setError(err.error || 'Failed to add tracking entry');
             return;
           }
+          if (totalFieldSize) await saveFieldSize(data.tournamentId, totalFieldSize);
           fetchTracking();
         } catch { setError('Failed to add tracking entry'); }
       };
 
       const updateTracking = async (entryId, data) => {
         try {
+          const { totalFieldSize, tournamentId, ...trackingData } = data;
           const res = await fetch(`${API_URL}/tracking/${entryId}`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify(trackingData)
           });
           if (!res.ok) {
             const err = await res.json();
             setError(err.error || 'Failed to update tracking entry');
             return;
           }
+          if (totalFieldSize && tournamentId) await saveFieldSize(tournamentId, totalFieldSize);
           fetchTracking();
         } catch { setError('Failed to update tracking entry'); }
       };
@@ -3950,12 +4107,12 @@
         } catch { setError('Failed to update schedule'); }
       };
 
-      const setCondition = async (tournamentId, dependsOnTournamentId, conditionType, isPublic) => {
+      const setCondition = async (tournamentId, dependsOnTournamentId, conditionType, isPublic, profitThreshold) => {
         try {
           await fetch(`${API_URL}/schedule/${tournamentId}/condition`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dependsOnTournamentId, conditionType, isPublic })
+            body: JSON.stringify({ dependsOnTournamentId, conditionType, isPublic, profitThreshold })
           });
           fetchMySchedule();
         } catch { setError('Failed to set condition'); }
