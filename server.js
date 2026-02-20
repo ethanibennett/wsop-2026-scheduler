@@ -8,6 +8,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { PDFParse } = require('pdf-parse');
 const initSqlJs = require('sql.js');
+const XLSX = require('xlsx');
 const { parseWSOP2025Schedule, getWSOPRake } = require('./parsers/wsop-parser');
 const { parseGenericSchedule, detectFormat } = require('./parsers/generic-parser');
 const sampleTournaments = require('./sample-data');
@@ -195,6 +196,13 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  // Migrate: add is_deepstack column for daily deepstack events
+  try {
+    db.run('ALTER TABLE tournaments ADD COLUMN is_deepstack INTEGER DEFAULT 0');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
   // Migrate: add rake breakdown columns for tournament cost analysis
   const rakeColumns = [
     ['prize_pool', 'INTEGER'],
@@ -288,6 +296,87 @@ async function initDatabase() {
     }
     await saveDatabase();
     console.log('WSOP 2026 schedule seeded successfully');
+  }
+
+  // Auto-seed WSOP 2026 Daily Deepstacks from Excel if not already present
+  try {
+    const dsCountStmt = db.prepare("SELECT COUNT(*) as c FROM tournaments WHERE is_deepstack = 1");
+    dsCountStmt.step();
+    const dsCount = dsCountStmt.getAsObject().c;
+    dsCountStmt.free();
+
+    if (dsCount === 0) {
+      const xlsxPath = path.join(__dirname, 'WSOP_2026_Daily_Deepstacks.xlsx');
+      try {
+        await fs.access(xlsxPath);
+        const wb = XLSX.readFile(xlsxPath);
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws).filter(r => r.Time);
+
+        let dsInserted = 0;
+        for (const r of rows) {
+          // Parse date: "Tue 26 May" → "2026-05-26"
+          const parts = r.Date.trim().split(/\s+/);          // ["Tue","26","May"]
+          const dayNum = parseInt(parts[1]);
+          const monthNames = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
+          const month = monthNames[parts[2]] || 1;
+          const dateStr = `2026-${String(month).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+
+          // Parse time: "1:00 PM" → "1:00PM"
+          const timeStr = r.Time.replace(/\s+/g, '');
+
+          // Parse buy-in: "$250" → 250
+          const buyin = parseInt(r['Buy-In'].replace(/[^0-9]/g, '')) || 0;
+
+          // Parse chips: "25,000" → 25000
+          const chips = parseInt(String(r.Chips || '').replace(/[^0-9]/g, '')) || null;
+
+          // Parse levels: "30-min" → "30 min"
+          const levels = r.Levels ? r.Levels.replace('-', ' ') : null;
+
+          // Determine game variant
+          let gameVariant = 'NLH';
+          const evName = r.Event || '';
+          if (/Pot Limit Omaha/i.test(evName)) gameVariant = 'PLO';
+          else if (/H\.O\.R\.S\.E/i.test(evName)) gameVariant = 'Mixed';
+
+          // Build event name
+          const eventName = 'Daily Deepstack: ' + evName;
+
+          // Determine reentry — deepstacks are generally re-entry
+          const reentry = 'Unlimited';
+
+          db.run(
+            `INSERT INTO tournaments (
+              event_number, event_name, date, time, buyin,
+              starting_chips, level_duration, reentry,
+              game_variant, venue, notes, is_satellite, is_restart, is_deepstack,
+              source_pdf
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 1, ?)`,
+            [
+              '', eventName, dateStr, timeStr, buyin,
+              chips, levels, reentry,
+              gameVariant, 'Horseshoe / Paris Las Vegas', null,
+              'WSOP 2026 Daily Deepstacks'
+            ]
+          );
+          dsInserted++;
+        }
+
+        if (dsInserted > 0) {
+          await saveDatabase();
+          console.log(`Seeded ${dsInserted} WSOP 2026 Daily Deepstack events`);
+        }
+      } catch (xlErr) {
+        if (xlErr.code === 'ENOENT') {
+          console.log('Daily Deepstacks Excel not found, skipping deepstack seed');
+        } else {
+          console.log('Deepstack seed error:', xlErr.message);
+        }
+      }
+    }
+  } catch (e) {
+    console.log('Deepstack seed check skipped:', e.message);
   }
 
   console.log('Database initialized');

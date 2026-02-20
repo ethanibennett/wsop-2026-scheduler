@@ -1609,7 +1609,7 @@
         const base = eventName.replace(/ - Day \d+$/, '').replace(/ - Flight [A-Z]$/, '');
         // Known named events
         if (/Poker Players Championship/i.test(base))
-          return ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NL 2-7 SD', 'PLO8'];
+          return ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NL 2-7 SD'];
         if (/Mixed Big Bet/i.test(base))
           return ['NLH', 'PLO', 'PLO8', 'Big O', 'PL 2-7 TD', 'NL 2-7 SD', 'PL 5CD Hi'];
         // "Mixed: PLO8, O8, Big O"
@@ -2371,6 +2371,7 @@
       const isBounty   = /bounty|mystery millions/i.test(tournament.event_name);
       const isSat      = !!tournament.is_satellite;
       const isRestart  = !!tournament.is_restart;
+      const isDeepstack = !!tournament.is_deepstack;
 
       // Short date for events list: "May 26, 2026" → "May 26"
       const shortDate = showDate && tournament.date
@@ -2392,8 +2393,8 @@
         isPast ? 'past' : '',
       ].filter(Boolean).join(' ');
 
-      const stripColor = getVenueBrandColor(venue.abbr);
-      const stripTextColor = venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)';
+      const stripColor = isDeepstack ? '#666666' : getVenueBrandColor(venue.abbr);
+      const stripTextColor = (venue.abbr === 'WSOP' && !isDeepstack) ? '#111111' : 'rgba(255,255,255,0.85)';
 
       return (
         <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor, ...(isAnchor ? {boxShadow: `inset 0 0 0 1.5px ${stripColor}`} : {})} : undefined}>
@@ -2826,7 +2827,7 @@
       const [open, setOpen] = useState(false);
 
       const hasActive = filters.minBuyin || filters.maxBuyin ||
-        filters.selectedGames.length > 0 || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts;
+        filters.selectedGames.length > 0 || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideDeepstacks;
 
       return (
         <div>
@@ -2848,6 +2849,12 @@
                 onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
                 style={{margin:0}}
               /> Restarts
+            </label>
+            <label className={`filter-chip ${!filters.hideDeepstacks ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
+              <input type="checkbox" checked={!filters.hideDeepstacks}
+                onChange={e => setFilters(f => ({...f, hideDeepstacks:!e.target.checked}))}
+                style={{margin:0}}
+              /> Deepstacks
             </label>
             {filters.selectedGames.length > 0 && (
               <span className="filter-chip active">
@@ -2938,7 +2945,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',selectedGames:[],venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true})
+                    setFilters({minBuyin:'',maxBuyin:'',selectedGames:[],venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true,hideDeepstacks:true})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -2953,7 +2960,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
+        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true
       });
       const [focusEventId, setFocusEventId] = useState(null);
 
@@ -2994,6 +3001,7 @@
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
+            if (filters.hideDeepstacks && t.is_deepstack) return false;
             return true;
           })
           .sort((a, b) => {
@@ -3205,7 +3213,7 @@
         }
       }, [selectedDate]);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
+        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true
       });
 
       const buyinOptions = useMemo(() =>
@@ -3254,6 +3262,7 @@
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
+            if (filters.hideDeepstacks && t.is_deepstack) return false;
             return true;
           })
           .sort((a, b) => {
