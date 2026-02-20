@@ -1609,7 +1609,7 @@
         const base = eventName.replace(/ - Day \d+$/, '').replace(/ - Flight [A-Z]$/, '');
         // Known named events
         if (/Poker Players Championship/i.test(base))
-          return ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NL 2-7 SD'];
+          return ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NL 2-7 SD', 'PLO8'];
         if (/Mixed Big Bet/i.test(base))
           return ['NLH', 'PLO', 'PLO8', 'Big O', 'PL 2-7 TD', 'NL 2-7 SD', 'PL 5CD Hi'];
         // "Mixed: PLO8, O8, Big O"
@@ -2371,7 +2371,6 @@
       const isBounty   = /bounty|mystery millions/i.test(tournament.event_name);
       const isSat      = !!tournament.is_satellite;
       const isRestart  = !!tournament.is_restart;
-      const isDeepstack = !!tournament.is_deepstack;
 
       // Short date for events list: "May 26, 2026" → "May 26"
       const shortDate = showDate && tournament.date
@@ -2393,8 +2392,8 @@
         isPast ? 'past' : '',
       ].filter(Boolean).join(' ');
 
-      const stripColor = isDeepstack ? '#666666' : getVenueBrandColor(venue.abbr);
-      const stripTextColor = (venue.abbr === 'WSOP' && !isDeepstack) ? '#111111' : 'rgba(255,255,255,0.85)';
+      const stripColor = getVenueBrandColor(venue.abbr);
+      const stripTextColor = venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)';
 
       return (
         <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor, ...(isAnchor ? {boxShadow: `inset 0 0 0 1.5px ${stripColor}`} : {})} : undefined}>
@@ -2827,7 +2826,7 @@
       const [open, setOpen] = useState(false);
 
       const hasActive = filters.minBuyin || filters.maxBuyin ||
-        filters.selectedGames.length > 0 || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || filters.showDeepstacks;
+        filters.selectedGames.length > 0 || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts;
 
       return (
         <div>
@@ -2850,13 +2849,6 @@
                 style={{margin:0}}
               /> Restarts
             </label>
-            <span className={`filter-chip ${filters.showDeepstacks ? 'active' : ''}`}
-              onClick={() => setFilters(f => ({...f, showDeepstacks: !f.showDeepstacks}))}
-              style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
-              <input type="checkbox" checked={!!filters.showDeepstacks} readOnly
-                style={{margin:0, pointerEvents:'none'}}
-              /> Deepstacks
-            </span>
             {filters.selectedGames.length > 0 && (
               <span className="filter-chip active">
                 {filters.selectedGames.length === 1 ? filters.selectedGames[0] : `${filters.selectedGames.length} games`}
@@ -2946,7 +2938,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',selectedGames:[],venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true,showDeepstacks:false})
+                    setFilters({minBuyin:'',maxBuyin:'',selectedGames:[],venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -2961,7 +2953,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true, showDeepstacks: false
+        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
       });
       const [focusEventId, setFocusEventId] = useState(null);
 
@@ -2986,42 +2978,34 @@
         return m;
       }, [mySchedule]);
 
-      function applyCommonFilters(t) {
-        if (search) {
-          const q = search.toLowerCase();
-          if (!t.event_name?.toLowerCase().includes(q) &&
-              !String(t.event_number).includes(q) &&
-              !t.game_variant?.toLowerCase().includes(q)) return false;
-        }
-        if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
-        if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
-        if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
-        if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
-        if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
-        if (filters.hideSatellites && t.is_satellite) return false;
-        if (filters.hideRestarts && t.is_restart) return false;
-        return true;
-      }
-
-      function chronoSort(a, b) {
-        const da = normaliseDate(a.date);
-        const db2 = normaliseDate(b.date);
-        if (da !== db2) return da < db2 ? -1 : 1;
-        const ta = (a.time && a.time !== 'TBD') ? a.time : '12:00 AM';
-        const tb = (b.time && b.time !== 'TBD') ? b.time : '12:00 AM';
-        if (ta !== tb) return ta < tb ? -1 : 1;
-        const na = (a.event_number || '').startsWith('SAT') ? 10000 + parseInt((a.event_number || '').slice(4)) : (parseInt(a.event_number) || 9999);
-        const nb = (b.event_number || '').startsWith('SAT') ? 10000 + parseInt((b.event_number || '').slice(4)) : (parseInt(b.event_number) || 9999);
-        return na - nb;
-      }
-
       const filtered = useMemo(() => {
-        const base = tournaments.filter(t => Number(t.is_deepstack) !== 1).filter(applyCommonFilters);
-        if (filters.showDeepstacks) {
-          const ds = tournaments.filter(t => Number(t.is_deepstack) === 1).filter(applyCommonFilters);
-          return [...base, ...ds].sort(chronoSort);
-        }
-        return base.sort(chronoSort);
+        return tournaments
+          .filter(t => {
+            if (search) {
+              const q = search.toLowerCase();
+              if (!t.event_name?.toLowerCase().includes(q) &&
+                  !String(t.event_number).includes(q) &&
+                  !t.game_variant?.toLowerCase().includes(q)) return false;
+            }
+            if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
+            if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
+            if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
+            if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
+            if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
+            if (filters.hideSatellites && t.is_satellite) return false;
+            if (filters.hideRestarts && t.is_restart) return false;
+            return true;
+          })
+          .sort((a, b) => {
+            // Primary: chronological by date, then time
+            const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
+            const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+            if (da.getTime() !== db.getTime()) return da - db;
+            // Tiebreak: numeric event number (SAT-xxx sorted after main events, restarts after those)
+            const na = a.event_number.startsWith('SAT') ? 10000 + parseInt(a.event_number.slice(4)) : (parseInt(a.event_number) || 9999);
+            const nb = b.event_number.startsWith('SAT') ? 10000 + parseInt(b.event_number.slice(4)) : (parseInt(b.event_number) || 9999);
+            return na - nb;
+          });
       }, [tournaments, search, filters]);
 
       function findBestFlight(eventNum, satTournament) {
@@ -3100,12 +3084,9 @@
 
       const sorted = useMemo(() =>
         [...mySchedule].sort((a, b) => {
-          const da = normaliseDate(a.date);
-          const db2 = normaliseDate(b.date);
-          if (da !== db2) return da < db2 ? -1 : 1;
-          const ta = (a.time && a.time !== 'TBD') ? a.time : '12:00 AM';
-          const tb = (b.time && b.time !== 'TBD') ? b.time : '12:00 AM';
-          return ta < tb ? -1 : ta > tb ? 1 : 0;
+          const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
+          const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+          return da - db;
         }), [mySchedule]);
 
       // Find the index of the first event that is today or in the future
@@ -3224,7 +3205,7 @@
         }
       }, [selectedDate]);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true, showDeepstacks: false
+        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
       });
 
       const buyinOptions = useMemo(() =>
@@ -3264,33 +3245,25 @@
 
       // Filter + sort by time
       const sortedEvents = useMemo(() => {
-        function calFilter(t) {
-          if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
-          if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
-          if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
-          if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
-          if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
-          if (filters.hideSatellites && t.is_satellite) return false;
-          if (filters.hideRestarts && t.is_restart) return false;
-          return true;
-        }
-        function calSort(a, b) {
-          const da = normaliseDate(a.date);
-          const db2 = normaliseDate(b.date);
-          if (da !== db2) return da < db2 ? -1 : 1;
-          const ta = (a.time && a.time !== 'TBD') ? a.time : '12:00 AM';
-          const tb = (b.time && b.time !== 'TBD') ? b.time : '12:00 AM';
-          if (ta !== tb) return ta < tb ? -1 : 1;
-          const na = (a.event_number || '').startsWith('SAT') ? 10000 + parseInt((a.event_number || '').slice(4)) : (parseInt(a.event_number) || 9999);
-          const nb = (b.event_number || '').startsWith('SAT') ? 10000 + parseInt((b.event_number || '').slice(4)) : (parseInt(b.event_number) || 9999);
-          return na - nb;
-        }
-        const base = [...todayEvents].filter(t => Number(t.is_deepstack) !== 1).filter(calFilter);
-        if (filters.showDeepstacks) {
-          const ds = [...todayEvents].filter(t => Number(t.is_deepstack) === 1).filter(calFilter);
-          return [...base, ...ds].sort(calSort);
-        }
-        return base.sort(calSort);
+        return [...todayEvents]
+          .filter(t => {
+            if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
+            if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
+            if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
+            if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
+            if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
+            if (filters.hideSatellites && t.is_satellite) return false;
+            if (filters.hideRestarts && t.is_restart) return false;
+            return true;
+          })
+          .sort((a, b) => {
+            const ta = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
+            const tb = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+            if (ta.getTime() !== tb.getTime()) return ta - tb;
+            const na = a.event_number.startsWith('SAT') ? 10000 + parseInt(a.event_number.slice(4)) : (parseInt(a.event_number) || 9999);
+            const nb = b.event_number.startsWith('SAT') ? 10000 + parseInt(b.event_number.slice(4)) : (parseInt(b.event_number) || 9999);
+            return na - nb;
+          });
       }, [todayEvents, filters]);
 
       const myTodayCount = sortedEvents.filter(t => scheduleIds.has(t.id)).length;

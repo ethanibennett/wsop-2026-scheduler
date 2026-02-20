@@ -8,7 +8,6 @@ const fs = require('fs').promises;
 const path = require('path');
 const { PDFParse } = require('pdf-parse');
 const initSqlJs = require('sql.js');
-const XLSX = require('xlsx');
 const { parseWSOP2025Schedule, getWSOPRake } = require('./parsers/wsop-parser');
 const { parseGenericSchedule, detectFormat } = require('./parsers/generic-parser');
 const sampleTournaments = require('./sample-data');
@@ -196,63 +195,6 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
-  // Migrate: add is_deepstack column for daily deepstack events
-  try {
-    db.run('ALTER TABLE tournaments ADD COLUMN is_deepstack INTEGER DEFAULT 0');
-  } catch (e) {
-    // Column already exists — ignore
-  }
-
-  // Migrate: fix deepstack dates from ISO "2026-05-26" to human "May 26, 2026" format
-  try {
-    const checkStmt = db.prepare("SELECT id, date FROM tournaments WHERE is_deepstack = 1 AND date LIKE '____-__-__' LIMIT 1");
-    if (checkStmt.step()) {
-      checkStmt.free();
-      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const dsStmt = db.prepare("SELECT id, date FROM tournaments WHERE is_deepstack = 1 AND date LIKE '____-__-__'");
-      let fixCount = 0;
-      const updates = [];
-      while (dsStmt.step()) {
-        const row = dsStmt.getAsObject();
-        const [y, m, d] = row.date.split('-').map(Number);
-        const newDate = `${monthNames[m - 1]} ${d}, ${y}`;
-        updates.push([newDate, row.id]);
-      }
-      dsStmt.free();
-      for (const [newDate, id] of updates) {
-        db.run("UPDATE tournaments SET date = ? WHERE id = ?", [newDate, id]);
-        fixCount++;
-      }
-      if (fixCount > 0) {
-        await saveDatabase();
-        console.log(`Fixed date format for ${fixCount} deepstack events`);
-      }
-    } else {
-      checkStmt.free();
-    }
-  } catch (e) {
-    // Ignore if migration fails
-  }
-
-  // Migrate: fix deepstack times from "1:00PM" → "1:00 PM" (add space before AM/PM)
-  try {
-    const timeFixStmt = db.prepare("SELECT id, time FROM tournaments WHERE is_deepstack = 1 AND time LIKE '%_M' AND time NOT LIKE '% _M' AND time NOT LIKE '% __M'");
-    const timeUpdates = [];
-    while (timeFixStmt.step()) {
-      const row = timeFixStmt.getAsObject();
-      const fixed = row.time.replace(/(AM|PM)$/i, ' $1');
-      timeUpdates.push([fixed, row.id]);
-    }
-    timeFixStmt.free();
-    for (const [fixedTime, id] of timeUpdates) {
-      db.run("UPDATE tournaments SET time = ? WHERE id = ?", [fixedTime, id]);
-    }
-    if (timeUpdates.length > 0) {
-      await saveDatabase();
-      console.log(`Fixed time format for ${timeUpdates.length} deepstack events`);
-    }
-  } catch (e) {}
-
   // Migrate: add rake breakdown columns for tournament cost analysis
   const rakeColumns = [
     ['prize_pool', 'INTEGER'],
@@ -273,7 +215,7 @@ async function initDatabase() {
   try {
     const backfillStmt = db.prepare(
       `SELECT id, event_number, buyin FROM tournaments
-       WHERE buyin > 0 AND rake_pct IS NULL AND is_deepstack = 0
+       WHERE buyin > 0 AND rake_pct IS NULL
        AND (venue LIKE '%WSOP%' OR venue LIKE '%Horseshoe%' OR venue LIKE '%Paris Las Vegas%')`
     );
     let backfillCount = 0;
@@ -296,11 +238,6 @@ async function initDatabase() {
   } catch (e) {
     console.log('Rake backfill skipped:', e.message);
   }
-
-  // Clear any incorrect rake data from deepstacks (they shouldn't use bracelet event rake)
-  try {
-    db.run(`UPDATE tournaments SET rake_pct = NULL, rake_dollars = NULL, prize_pool = NULL, house_fee = NULL, opt_add_on = NULL WHERE is_deepstack = 1 AND rake_pct IS NOT NULL`);
-  } catch (e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS tracking_entries (
@@ -351,86 +288,6 @@ async function initDatabase() {
     }
     await saveDatabase();
     console.log('WSOP 2026 schedule seeded successfully');
-  }
-
-  // Auto-seed WSOP 2026 Daily Deepstacks from Excel if not already present
-  try {
-    const dsCountStmt = db.prepare("SELECT COUNT(*) as c FROM tournaments WHERE is_deepstack = 1");
-    dsCountStmt.step();
-    const dsCount = dsCountStmt.getAsObject().c;
-    dsCountStmt.free();
-
-    if (dsCount === 0) {
-      const xlsxPath = path.join(__dirname, 'WSOP_2026_Daily_Deepstacks.xlsx');
-      try {
-        await fs.access(xlsxPath);
-        const wb = XLSX.readFile(xlsxPath);
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws).filter(r => r.Time);
-
-        let dsInserted = 0;
-        for (const r of rows) {
-          // Parse date: "Tue 26 May" → "May 26, 2026"
-          const parts = r.Date.trim().split(/\s+/);          // ["Tue","26","May"]
-          const dayNum = parseInt(parts[1]);
-          const monthFull = { Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'May',Jun:'June',Jul:'July',Aug:'August',Sep:'September',Oct:'October',Nov:'November',Dec:'December' };
-          const dateStr = `${monthFull[parts[2]] || parts[2]} ${dayNum}, 2026`;
-
-          // Parse time: "1:00 PM" → "1:00 PM" (keep space before AM/PM for consistency)
-          const timeStr = r.Time.trim().replace(/\s+/g, ' ');
-
-          // Parse buy-in: "$250" → 250
-          const buyin = parseInt(r['Buy-In'].replace(/[^0-9]/g, '')) || 0;
-
-          // Parse chips: "25,000" → 25000
-          const chips = parseInt(String(r.Chips || '').replace(/[^0-9]/g, '')) || null;
-
-          // Parse levels: "30-min" → "30 min"
-          const levels = r.Levels ? r.Levels.replace('-', ' ') : null;
-
-          // Determine game variant
-          let gameVariant = 'NLH';
-          const evName = r.Event || '';
-          if (/Pot Limit Omaha/i.test(evName)) gameVariant = 'PLO';
-          else if (/H\.O\.R\.S\.E/i.test(evName)) gameVariant = 'Mixed';
-
-          // Build event name
-          const eventName = 'Daily Deepstack: ' + evName;
-
-          // Determine reentry — deepstacks are generally re-entry
-          const reentry = 'Unlimited';
-
-          db.run(
-            `INSERT INTO tournaments (
-              event_number, event_name, date, time, buyin,
-              starting_chips, level_duration, reentry,
-              game_variant, venue, notes, is_satellite, is_restart, is_deepstack,
-              source_pdf
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 1, ?)`,
-            [
-              '', eventName, dateStr, timeStr, buyin,
-              chips, levels, reentry,
-              gameVariant, 'Horseshoe / Paris Las Vegas', null,
-              'WSOP 2026 Daily Deepstacks'
-            ]
-          );
-          dsInserted++;
-        }
-
-        if (dsInserted > 0) {
-          await saveDatabase();
-          console.log(`Seeded ${dsInserted} WSOP 2026 Daily Deepstack events`);
-        }
-      } catch (xlErr) {
-        if (xlErr.code === 'ENOENT') {
-          console.log('Daily Deepstacks Excel not found, skipping deepstack seed');
-        } else {
-          console.log('Deepstack seed error:', xlErr.message);
-        }
-      }
-    }
-  } catch (e) {
-    console.log('Deepstack seed check skipped:', e.message);
   }
 
   console.log('Database initialized');
