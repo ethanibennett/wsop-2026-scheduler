@@ -2326,11 +2326,6 @@
               </div>
               <div className="cal-bar-row2">
                 <span className="cal-event-name">{tournament.event_name}</span>
-                {conditions && conditions.length > 0 && conditions.map((c, ci) => (
-                  <span key={ci} className="cal-condition-label">
-                    {formatConditionLabel(c, allTournaments)}
-                  </span>
-                ))}
                 {isBounty && <span className="cal-bounty-icon"><Icon.crosshairs /></span>}
                 {isSat && <span className="cal-bounty-icon"><Icon.satellite /></span>}
                 {isRestart && <span className="cal-bounty-icon"><Icon.restart /></span>}
