@@ -188,6 +188,13 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  // Migrate: add planned_entries column for max entries per event
+  try {
+    db.run('ALTER TABLE user_schedules ADD COLUMN planned_entries INTEGER DEFAULT 1');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
   // Migrate: add rake breakdown columns for tournament cost analysis
   const rakeColumns = [
     ['prize_pool', 'INTEGER'],
@@ -583,6 +590,23 @@ app.put('/api/schedule/:tournamentId/anchor', authenticateToken, async (req, res
   }
 });
 
+// Update planned entries for a scheduled event
+app.put('/api/schedule/:tournamentId/entries', authenticateToken, async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+    const { plannedEntries } = req.body;
+    const entries = Math.max(1, Math.min(99, parseInt(plannedEntries) || 1));
+    db.run(
+      'UPDATE user_schedules SET planned_entries = ? WHERE user_id = ? AND tournament_id = ?',
+      [entries, req.user.id, tournamentId]
+    );
+    await saveDatabase();
+    res.json({ message: 'Planned entries updated', plannedEntries: entries });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Remove condition from a scheduled event (make it firm)
 app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
   try {
@@ -599,7 +623,7 @@ app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (re
 app.get('/api/my-schedule', authenticateToken, (req, res) => {
   try {
     const query = `
-      SELECT t.*, us.added_at, us.is_anchor,
+      SELECT t.*, us.added_at, us.is_anchor, us.planned_entries,
              sc.conditions AS conditions_json,
              sc.is_public AS condition_is_public
       FROM tournaments t
@@ -611,7 +635,7 @@ app.get('/api/my-schedule', authenticateToken, (req, res) => {
 
     const stmt = db.prepare(query);
     stmt.bind([req.user.id]);
-    
+
     const tournaments = [];
     while (stmt.step()) {
       tournaments.push(stmt.getAsObject());
@@ -703,7 +727,7 @@ app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
     }
     
     const query = `
-      SELECT t.*, us.is_anchor,
+      SELECT t.*, us.is_anchor, us.planned_entries,
              sc.conditions AS conditions_json,
              sc.is_public AS condition_is_public
       FROM tournaments t
@@ -747,7 +771,7 @@ app.get('/api/shared/:token', (req, res) => {
     }
 
     const schedStmt = db.prepare(`
-      SELECT t.*, us.is_anchor,
+      SELECT t.*, us.is_anchor, us.planned_entries,
              sc.conditions AS conditions_json,
              sc.is_public AS condition_is_public
       FROM tournaments t

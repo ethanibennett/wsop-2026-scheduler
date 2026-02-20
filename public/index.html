@@ -1345,6 +1345,48 @@
     .cal-action-row .cal-action-btn { border-top: none; }
     .cal-action-btn.condition-btn { color: var(--text-muted); border-left: 1px solid var(--border); }
 
+    /* ── Entries counter ── */
+    .cal-entries-counter {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-left: 1px solid var(--border);
+    }
+    .cal-entries-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
+    }
+    .cal-entries-btn:disabled { opacity: 0.3; cursor: default; }
+    .cal-entries-btn:active:not(:disabled) { background: var(--hover-overlay); }
+    .cal-entries-value {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 18px;
+      text-align: center;
+    }
+    .cal-entries-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 2px;
+    }
+
     /* ── Late reg bar ── */
     .late-reg-wrap {
       margin-top: 10px;
@@ -2249,7 +2291,7 @@
 
     // ── Calendar Event Row (collapsible) ──────────────────────
 
-    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor }) {
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries }) {
       const [open, setOpen] = useState(false);
       const [showConditionUI, setShowConditionUI] = useState(false);
       const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
@@ -2486,6 +2528,21 @@
                       >
                         {conditions && conditions.length > 0 ? '✎ Edit Conditions' : '⚡ Condition'}
                       </button>
+                    )}
+                    {isInSchedule && onSetPlannedEntries && tournament.reentry && tournament.reentry !== 'N/A' && (
+                      <div className="cal-entries-counter" onClick={e => e.stopPropagation()}>
+                        <button
+                          className="cal-entries-btn"
+                          onClick={() => onSetPlannedEntries(tournament.id, Math.max(1, (plannedEntries || 1) - 1))}
+                          disabled={(plannedEntries || 1) <= 1}
+                        >−</button>
+                        <span className="cal-entries-value">{plannedEntries || 1}</span>
+                        <button
+                          className="cal-entries-btn"
+                          onClick={() => onSetPlannedEntries(tournament.id, (plannedEntries || 1) + 1)}
+                        >+</button>
+                        <span className="cal-entries-label">entr{(plannedEntries || 1) === 1 ? 'y' : 'ies'}</span>
+                      </div>
                     )}
                   </div>
                   )}
@@ -2839,7 +2896,7 @@
 
     // ── Tournaments View ───────────────────────────────────────
 
-    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor }) {
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
         minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
@@ -2853,6 +2910,11 @@
 
       const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
       const anchorSet = useMemo(() => new Set(mySchedule.filter(t => t.is_anchor).map(t => t.id)), [mySchedule]);
+      const plannedEntriesMap = useMemo(() => {
+        const m = {};
+        for (const t of mySchedule) m[t.id] = t.planned_entries || 1;
+        return m;
+      }, [mySchedule]);
       const conditionMap = useMemo(() => {
         const m = {};
         for (const t of mySchedule) {
@@ -2947,6 +3009,8 @@
                   allTournaments={tournaments}
                   isAnchor={anchorSet.has(t.id)}
                   onToggleAnchor={onToggleAnchor}
+                  plannedEntries={plannedEntriesMap[t.id] || 1}
+                  onSetPlannedEntries={onSetPlannedEntries}
                 />
               ))}
             </div>
@@ -2957,7 +3021,7 @@
 
     // ── My Schedule View ───────────────────────────────────────
 
-    function ScheduleView({ mySchedule, onToggle, sharedWithMe, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor }) {
+    function ScheduleView({ mySchedule, onToggle, sharedWithMe, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries }) {
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
       const [focusEventId, setFocusEventId] = useState(null);
@@ -3028,6 +3092,8 @@
                     allTournaments={allTournaments}
                     isAnchor={!!t.is_anchor}
                     onToggleAnchor={onToggleAnchor}
+                    plannedEntries={t.planned_entries || 1}
+                    onSetPlannedEntries={onSetPlannedEntries}
                   />
                 </div>
               );
@@ -3065,7 +3131,7 @@
     const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor }) {
+    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries }) {
       const today = getToday();
       const defaultDate = WSOP_DATES.includes(today) ? today : WSOP_DATES[0];
       const [selectedDate, setSelectedDate] = useState(defaultDate);
@@ -3106,6 +3172,11 @@
 
       const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
       const anchorSet = useMemo(() => new Set(mySchedule.filter(t => t.is_anchor).map(t => t.id)), [mySchedule]);
+      const plannedEntriesMap = useMemo(() => {
+        const m = {};
+        for (const t of mySchedule) m[t.id] = t.planned_entries || 1;
+        return m;
+      }, [mySchedule]);
       const conditionMap = useMemo(() => {
         const m = {};
         for (const t of mySchedule) {
@@ -3172,6 +3243,8 @@
           allTournaments={allTournaments}
           isAnchor={anchorSet.has(t.id)}
           onToggleAnchor={onToggleAnchor}
+          plannedEntries={plannedEntriesMap[t.id] || 1}
+          onSetPlannedEntries={onSetPlannedEntries}
         />
       );
 
@@ -4319,6 +4392,17 @@
         } catch { setError('Failed to update anchor status'); }
       };
 
+      const setPlannedEntries = async (tournamentId, plannedEntries) => {
+        try {
+          await fetch(`${API_URL}/schedule/${tournamentId}/entries`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plannedEntries })
+          });
+          fetchMySchedule();
+        } catch { setError('Failed to update planned entries'); }
+      };
+
       const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -4373,15 +4457,16 @@
                 onSetCondition={setCondition}
                 onRemoveCondition={removeCondition}
                 onToggleAnchor={toggleAnchor}
+                onSetPlannedEntries={setPlannedEntries}
               />
             )}
 
             {currentView === 'schedule' && (
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} />
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} />
             )}
 
             {currentView === 'calendar' && (
-              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} />
+              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} />
             )}
 
             {currentView === 'tracking' && (
