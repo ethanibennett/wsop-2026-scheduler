@@ -1302,7 +1302,8 @@
     .cal-detail-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
     .cal-detail-value { font-family: 'Libre Baskerville', Georgia, serif; font-size: 0.82rem; color: var(--text); font-weight: 400; }
 
-    .cal-detail-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .cal-detail-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+    .cal-detail-variants { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 
     .cal-structure-link {
       display: inline-block;
@@ -2368,9 +2369,6 @@
                         onClick={e => { e.stopPropagation(); if (onNavigateToEvent) onNavigateToEvent(tournament.parent_event, tournament); }}
                       >← #{tournament.parent_event}</span>
                     )}
-                    {tournament.game_variant && getGamePills(tournament.game_variant, tournament.event_name).map((g, i) => (
-                      <span key={i} className="badge badge-variant">{g}</span>
-                    ))}
                     {conditions && conditions.length > 0 && conditions.map((c, ci) => (
                       <span key={ci} className="badge badge-condition">
                         {formatConditionBadge(c, allTournaments)}
@@ -2386,6 +2384,13 @@
                       </span>
                     )}
                   </div>
+                  {tournament.game_variant && (
+                  <div className="cal-detail-variants">
+                    {getGamePills(tournament.game_variant, tournament.event_name).map((g, i) => (
+                      <span key={i} className="badge badge-variant">{g}</span>
+                    ))}
+                  </div>
+                  )}
 
                   <div className="cal-detail-grid">
                     {tournament.starting_chips && (
