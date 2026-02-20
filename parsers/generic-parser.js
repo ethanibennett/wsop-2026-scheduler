@@ -381,6 +381,20 @@ function parseRow(rowLines, year, venue) {
   if (isRestart) buyin = 0;
   if (isFreeroll) buyin = 0;
 
+  // ── Compute rake
+  // Rake = everything that doesn't go to the prize pool
+  // House Fee is the explicit house take; Opt Add-On is staff gratuity (not in prize pool).
+  // Rake % = (Total Entry - Prize Pool) / Total Entry
+  // Fine print note: MGM says "no longer withholds auto-gratuity from buy-in... each event
+  // will offer an optional add-on, included in the total buy-in." So the add-on is included
+  // in Total Entry and does NOT go into the prize pool — it's part of the effective rake.
+  let rakePercent = null;
+  let rakeDollars = null;
+  if (totalEntry > 0 && prizePool !== null && prizePool > 0) {
+    rakeDollars = totalEntry - prizePool;
+    rakePercent = Math.round((rakeDollars / totalEntry) * 1000) / 10; // one decimal
+  }
+
   // ── Classify game variant
   const gameVariant = classifyGameVariant(eventName);
 
@@ -390,6 +404,11 @@ function parseRow(rowLines, year, venue) {
     date: dateStr,
     time: time,
     buyin: buyin,
+    prizePool: prizePool,
+    houseFee: houseFee,
+    optAddOn: optAddOn,
+    rakePct: rakePercent,
+    rakeDollars: rakeDollars,
     startingChips: startingChips,
     levelDuration: levelDuration,
     reentry: null, // Generic PDFs often don't have a re-entry column

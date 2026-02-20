@@ -188,6 +188,22 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  // Migrate: add rake breakdown columns for tournament cost analysis
+  const rakeColumns = [
+    ['prize_pool', 'INTEGER'],
+    ['house_fee', 'INTEGER'],
+    ['opt_add_on', 'INTEGER'],
+    ['rake_pct', 'REAL'],
+    ['rake_dollars', 'INTEGER']
+  ];
+  for (const [col, type] of rakeColumns) {
+    try {
+      db.run(`ALTER TABLE tournaments ADD COLUMN ${col} ${type}`);
+    } catch (e) {
+      // Column already exists — ignore
+    }
+  }
+
   db.run(`
     CREATE TABLE IF NOT EXISTS tracking_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -344,8 +360,8 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
     // Insert tournaments into database
     for (const tournament of tournaments) {
       db.run(
-        `INSERT INTO tournaments (event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, uploaded_by, source_pdf)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO tournaments (event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, prize_pool, house_fee, opt_add_on, rake_pct, rake_dollars, uploaded_by, source_pdf)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tournament.eventNumber || '',
           tournament.eventName || 'Unknown Event',
@@ -363,6 +379,11 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
           tournament.targetEvent || null,
           tournament.isRestart ? 1 : 0,
           tournament.parentEvent || null,
+          tournament.prizePool || null,
+          tournament.houseFee || null,
+          tournament.optAddOn || null,
+          tournament.rakePct || null,
+          tournament.rakeDollars || null,
           req.user.id,
           req.file.originalname
         ]
