@@ -2244,6 +2244,7 @@
     function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor }) {
       const [open, setOpen] = useState(false);
       const [showConditionUI, setShowConditionUI] = useState(false);
+      const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
       const rowRef = React.useRef(null);
 
       // Scroll a row to just below the sticky header
@@ -2370,9 +2371,6 @@
                     {tournament.game_variant && getGamePills(tournament.game_variant, tournament.event_name).map((g, i) => (
                       <span key={i} className="badge badge-variant">{g}</span>
                     ))}
-                    {isAnchor && (
-                      <span className="badge badge-anchor">🔒 Priority Event</span>
-                    )}
                     {conditions && conditions.length > 0 && conditions.map((c, ci) => (
                       <span key={ci} className="badge badge-condition">
                         {formatConditionBadge(c, allTournaments)}
@@ -2388,12 +2386,9 @@
                       </div>
                     )}
                     {tournament.rake_pct != null && tournament.rake_pct > 0 && (
-                      <div className="cal-detail-item">
-                        <span className="cal-detail-label">Rake</span>
-                        <span className="cal-detail-value">
-                          <span className={`badge badge-rake ${tournament.rake_pct <= 8 ? 'rake-low' : tournament.rake_pct <= 13 ? 'rake-mid' : 'rake-high'}`}>
-                            {tournament.rake_pct}% · ${Number(tournament.rake_dollars).toLocaleString()}
-                          </span>
+                      <div className="cal-detail-item badge-clickable" style={{justifyContent:'center', cursor:'pointer'}} onClick={e => { e.stopPropagation(); setShowRakeBreakdown(v => !v); }}>
+                        <span className={`badge badge-rake ${tournament.rake_pct <= 8 ? 'rake-low' : tournament.rake_pct <= 13 ? 'rake-mid' : 'rake-high'}`}>
+                          {tournament.rake_pct}% rake {showRakeBreakdown ? '▾' : '▸'}
                         </span>
                       </div>
                     )}
@@ -2415,19 +2410,19 @@
                         <span className="cal-detail-value">{tournament.late_reg}</span>
                       </div>
                     )}
-                    {tournament.prize_pool > 0 && (
+                    {showRakeBreakdown && tournament.prize_pool > 0 && (
                       <div className="cal-detail-item">
                         <span className="cal-detail-label">Prize Pool</span>
                         <span className="cal-detail-value">${Number(tournament.prize_pool).toLocaleString()}</span>
                       </div>
                     )}
-                    {tournament.house_fee > 0 && (
+                    {showRakeBreakdown && tournament.house_fee > 0 && (
                       <div className="cal-detail-item">
                         <span className="cal-detail-label">House Fee</span>
                         <span className="cal-detail-value">${Number(tournament.house_fee).toLocaleString()}</span>
                       </div>
                     )}
-                    {tournament.opt_add_on > 0 && (
+                    {showRakeBreakdown && tournament.opt_add_on > 0 && (
                       <div className="cal-detail-item">
                         <span className="cal-detail-label">Staff Fee</span>
                         <span className="cal-detail-value">${Number(tournament.opt_add_on).toLocaleString()}</span>
