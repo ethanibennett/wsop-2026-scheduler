@@ -28,17 +28,20 @@ const upload = multer({ dest: 'uploads/' });
 // Database initialization
 let db;
 let SQL;
+const DB_PATH = process.env.DB_PATH || 'poker-tournaments.db';
 
 async function initDatabase() {
   SQL = await initSqlJs();
-  
+
   // Try to load existing database
   try {
-    const filebuffer = await fs.readFile('poker-tournaments.db');
+    const filebuffer = await fs.readFile(DB_PATH);
     db = new SQL.Database(filebuffer);
+    console.log(`Loaded database from ${DB_PATH}`);
   } catch (err) {
     // Create new database
     db = new SQL.Database();
+    console.log(`Created new database (will save to ${DB_PATH})`);
   }
 
   // Create tables
@@ -229,7 +232,7 @@ async function initDatabase() {
 async function saveDatabase() {
   const data = db.export();
   const buffer = Buffer.from(data);
-  await fs.writeFile('poker-tournaments.db', buffer);
+  await fs.writeFile(DB_PATH, buffer);
 }
 
 // Authentication middleware
