@@ -2386,11 +2386,6 @@
                           {tournament.rake_pct}% rake {showRakeBreakdown ? '▾' : '▸'}
                         </span>
                       )}
-                      {conditions && conditions.length > 0 && conditions.map((c, ci) => (
-                        <span key={ci} className="badge badge-condition">
-                          {formatConditionBadge(c, allTournaments)}
-                        </span>
-                      ))}
                     </div>
                   </div>
 
@@ -2438,6 +2433,16 @@
                       </div>
                     )}
                   </div>
+
+                  {conditions && conditions.length > 0 && (
+                    <div style={{display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'10px'}}>
+                      {conditions.map((c, ci) => (
+                        <span key={ci} className="badge badge-condition">
+                          {formatConditionBadge(c, allTournaments)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {tournament.notes && (
                     <p style={{fontSize:'0.78rem', color:'var(--text-muted)', fontStyle:'italic', marginBottom:'10px'}}>
