@@ -1380,7 +1380,7 @@
       font-weight: 600;
       color: var(--accent);
     }
-    .cal-entries-display .minus.disabled { opacity: 0.25; }
+    .cal-entries-display .minus.disabled, .cal-entries-display .plus.disabled { opacity: 0.25; }
     .cal-entries-display .value {
       font-size: 1rem;
       line-height: 1;
@@ -1686,6 +1686,15 @@
     };
     function getVenueClass(t) {
       return VENUE_CLASS_MAP[t.venue] || '';
+    }
+
+    // Parse reentry string to max allowed entries (initial + re-entries)
+    function getMaxEntries(reentry) {
+      if (!reentry || reentry === 'N/A') return 1;
+      if (/unlimited/i.test(reentry)) return 99;
+      const num = parseInt(reentry);
+      if (!isNaN(num)) return num + 1;
+      return 2; // Bust-A-Play-B etc: treat as 1 re-entry
     }
 
     // ── Helpers ──────────────────────────────────────────────
@@ -2557,29 +2566,34 @@
                         <span className="cal-action-label">Condition</span>
                       </button>
                     )}
-                    {isInSchedule && onSetPlannedEntries && tournament.reentry && tournament.reentry !== 'N/A' && (
+                    {isInSchedule && onSetPlannedEntries && tournament.reentry && tournament.reentry !== 'N/A' && (() => {
+                      const maxE = getMaxEntries(tournament.reentry);
+                      const cur = plannedEntries || 1;
+                      return (
                       <div className="cal-entries-counter" onClick={e => e.stopPropagation()}>
                         <div className="cal-entries-stepper">
                           <div className="cal-entries-display">
-                            <span className={`minus ${(plannedEntries || 1) <= 1 ? 'disabled' : ''}`}>−</span>
-                            <span className="value">{plannedEntries || 1}</span>
-                            <span className="plus">+</span>
+                            <span className={`minus ${cur <= 1 ? 'disabled' : ''}`}>−</span>
+                            <span className="value">{cur}</span>
+                            <span className={`plus ${cur >= maxE ? 'disabled' : ''}`}>+</span>
                           </div>
                           <div className="cal-entries-overlay">
                             <button
-                              onClick={() => onSetPlannedEntries(tournament.id, Math.max(1, (plannedEntries || 1) - 1))}
-                              disabled={(plannedEntries || 1) <= 1}
+                              onClick={() => onSetPlannedEntries(tournament.id, Math.max(1, cur - 1))}
+                              disabled={cur <= 1}
                               aria-label="Decrease entries"
                             />
                             <button
-                              onClick={() => onSetPlannedEntries(tournament.id, (plannedEntries || 1) + 1)}
+                              onClick={() => onSetPlannedEntries(tournament.id, Math.min(maxE, cur + 1))}
+                              disabled={cur >= maxE}
                               aria-label="Increase entries"
                             />
                           </div>
                         </div>
                         <span className="cal-action-label">Max Entries</span>
                       </div>
-                    )}
+                      );
+                    })()}
                   </div>
                   )}
                   {showConditionUI && isInSchedule && onSetCondition && (
