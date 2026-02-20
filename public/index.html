@@ -1336,6 +1336,7 @@
       flex-direction: column;
       align-items: center;
       gap: 0;
+      font-family: inherit;
     }
     .cal-entries-counter { cursor: default; }
     .cal-action-btn + .cal-action-btn,
@@ -1350,6 +1351,7 @@
       justify-content: center;
     }
     .cal-action-label {
+      font-family: inherit;
       font-size: 0.55rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -2544,7 +2546,7 @@
                             onClick={() => onSetPlannedEntries(tournament.id, (plannedEntries || 1) + 1)}
                           >+</button>
                         </div>
-                        <span className="cal-action-label">Entries</span>
+                        <span className="cal-action-label">Max Entries</span>
                       </div>
                     )}
                   </div>
