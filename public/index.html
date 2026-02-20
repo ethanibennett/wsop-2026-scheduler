@@ -921,6 +921,39 @@
       color: var(--text-muted);
       border: 1px solid rgba(136,136,136,0.3);
     }
+    .badge-rake {
+      font-variant-numeric: tabular-nums;
+    }
+    .badge-rake.rake-low {
+      background: rgba(34,197,94,0.12);
+      color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+    .badge-rake.rake-mid {
+      background: rgba(234,179,8,0.12);
+      color: #facc15;
+      border: 1px solid rgba(234,179,8,0.25);
+    }
+    .badge-rake.rake-high {
+      background: rgba(239,68,68,0.12);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.25);
+    }
+    [data-theme="light"] .badge-rake.rake-low {
+      color: #15803d;
+      background: rgba(34,197,94,0.1);
+      border-color: rgba(34,197,94,0.3);
+    }
+    [data-theme="light"] .badge-rake.rake-mid {
+      color: #a16207;
+      background: rgba(234,179,8,0.1);
+      border-color: rgba(234,179,8,0.3);
+    }
+    [data-theme="light"] .badge-rake.rake-high {
+      color: #dc2626;
+      background: rgba(239,68,68,0.1);
+      border-color: rgba(239,68,68,0.3);
+    }
     .condition-picker {
       border-top: 1px solid var(--border);
       padding: 12px;
@@ -2338,6 +2371,11 @@
                     {tournament.game_variant && getGamePills(tournament.game_variant, tournament.event_name).map((g, i) => (
                       <span key={i} className="badge badge-variant">{g}</span>
                     ))}
+                    {tournament.rake_pct != null && tournament.rake_pct > 0 && (
+                      <span className={`badge badge-rake ${tournament.rake_pct <= 8 ? 'rake-low' : tournament.rake_pct <= 13 ? 'rake-mid' : 'rake-high'}`}>
+                        {tournament.rake_pct}% rake
+                      </span>
+                    )}
                     {isInSchedule && (
                       <span className="badge badge-saved">✓ Saved</span>
                     )}
@@ -2374,6 +2412,24 @@
                       <div className="cal-detail-item">
                         <span className="cal-detail-label">Late Reg</span>
                         <span className="cal-detail-value">{tournament.late_reg}</span>
+                      </div>
+                    )}
+                    {tournament.prize_pool > 0 && (
+                      <div className="cal-detail-item">
+                        <span className="cal-detail-label">Prize Pool</span>
+                        <span className="cal-detail-value">${Number(tournament.prize_pool).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {tournament.house_fee > 0 && (
+                      <div className="cal-detail-item">
+                        <span className="cal-detail-label">House Fee</span>
+                        <span className="cal-detail-value">${Number(tournament.house_fee).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {tournament.opt_add_on > 0 && (
+                      <div className="cal-detail-item">
+                        <span className="cal-detail-label">Staff Fee</span>
+                        <span className="cal-detail-value">${Number(tournament.opt_add_on).toLocaleString()}</span>
                       </div>
                     )}
                   </div>

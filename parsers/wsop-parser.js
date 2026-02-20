@@ -2,6 +2,101 @@
 // Strategy: The PDF extracts as columns, but we know the structure:
 // Each page has a fixed number of rows, and columns are in fixed order
 
+// ── WSOP 2026 Rake Table by Buy-In Tier ────────────────────
+// Source: Official WSOP 2026 structure sheets PDF
+// Entry Fee = house/registration fee; Dealer/Staff = tokes/gratuity
+// Both are withheld from total entry pool (the full buy-in amount)
+// Ratio is consistently ~70/30 (entry fees to dealer/staff) across all tiers
+const WSOP_RAKE_BY_BUYIN = {
+  300:    { entryFeePct: 12.6, dealerStaffPct: 5.4, totalPct: 18.0 },
+  400:    { entryFeePct: 12.25, dealerStaffPct: 5.25, totalPct: 17.5 },
+  500:    { entryFeePct: 11.9, dealerStaffPct: 5.1, totalPct: 17.0 },
+  550:    { entryFeePct: 11.9, dealerStaffPct: 5.1, totalPct: 17.0 },
+  600:    { entryFeePct: 11.2, dealerStaffPct: 4.8, totalPct: 16.0 },
+  800:    { entryFeePct: 8.75, dealerStaffPct: 3.75, totalPct: 12.5 },
+  1000:   { entryFeePct: 8.4,  dealerStaffPct: 3.6, totalPct: 12.0 },
+  1500:   { entryFeePct: 8.05, dealerStaffPct: 3.45, totalPct: 11.5 },
+  1700:   { entryFeePct: 8.05, dealerStaffPct: 3.45, totalPct: 11.5 },
+  2000:   { entryFeePct: 7.7,  dealerStaffPct: 3.3, totalPct: 11.0 },
+  2500:   { entryFeePct: 7.7,  dealerStaffPct: 3.3, totalPct: 11.0 },
+  3000:   { entryFeePct: 7.7,  dealerStaffPct: 3.3, totalPct: 11.0 },
+  5000:   { entryFeePct: 5.6,  dealerStaffPct: 2.4, totalPct: 8.0 },
+  10000:  { entryFeePct: 4.9,  dealerStaffPct: 2.1, totalPct: 7.0 },
+  25000:  { entryFeePct: 4.2,  dealerStaffPct: 1.8, totalPct: 6.0 },
+  50000:  { entryFeePct: 3.5,  dealerStaffPct: 1.5, totalPct: 5.0 },
+  100000: { entryFeePct: 2.8,  dealerStaffPct: 1.2, totalPct: 4.0 },
+  250000: { entryFeePct: 1.4,  dealerStaffPct: 0.6, totalPct: 2.0 },
+};
+
+// Special-case events with non-standard rake
+const WSOP_RAKE_OVERRIDES = {
+  // Event #59 Salute to Warriors ($500) — charity event, reduced rake
+  '59': { entryFeePct: 7.0, dealerStaffPct: 3.0, totalPct: 10.0 },
+};
+
+/**
+ * Look up rake for a WSOP event by buy-in amount and optional event number.
+ * Returns { rakePct, rakeDollars, prizePool, houseFee, optAddOn } or nulls if unknown.
+ */
+function getWSOPRake(buyin, eventNumber) {
+  // Check for event-specific override first
+  if (eventNumber && WSOP_RAKE_OVERRIDES[eventNumber]) {
+    const override = WSOP_RAKE_OVERRIDES[eventNumber];
+    const rakeDollars = Math.round(buyin * override.totalPct / 100);
+    const houseFee = Math.round(buyin * override.entryFeePct / 100);
+    const dealerStaff = Math.round(buyin * override.dealerStaffPct / 100);
+    return {
+      rakePct: override.totalPct,
+      rakeDollars: rakeDollars,
+      prizePool: buyin - rakeDollars,
+      houseFee: houseFee,
+      optAddOn: dealerStaff  // WSOP calls it "dealer/staff" but maps to our optAddOn field
+    };
+  }
+
+  // Look up by buy-in tier
+  const tier = WSOP_RAKE_BY_BUYIN[buyin];
+  if (tier) {
+    const rakeDollars = Math.round(buyin * tier.totalPct / 100);
+    const houseFee = Math.round(buyin * tier.entryFeePct / 100);
+    const dealerStaff = Math.round(buyin * tier.dealerStaffPct / 100);
+    return {
+      rakePct: tier.totalPct,
+      rakeDollars: rakeDollars,
+      prizePool: buyin - rakeDollars,
+      houseFee: houseFee,
+      optAddOn: dealerStaff
+    };
+  }
+
+  // Fallback: find the nearest tier (lower preferred, smallest if below all tiers)
+  const tiers = Object.keys(WSOP_RAKE_BY_BUYIN).map(Number).sort((a, b) => a - b);
+  let bestTier = null;
+  for (const t of tiers) {
+    if (t <= buyin) bestTier = t;
+    else break;
+  }
+  // If buyin is below all tiers, use the lowest tier (e.g. $300 for satellites < $300)
+  if (bestTier === null && tiers.length > 0) {
+    bestTier = tiers[0];
+  }
+  if (bestTier !== null) {
+    const tier = WSOP_RAKE_BY_BUYIN[bestTier];
+    const rakeDollars = Math.round(buyin * tier.totalPct / 100);
+    const houseFee = Math.round(buyin * tier.entryFeePct / 100);
+    const dealerStaff = Math.round(buyin * tier.dealerStaffPct / 100);
+    return {
+      rakePct: tier.totalPct,
+      rakeDollars: rakeDollars,
+      prizePool: buyin - rakeDollars,
+      houseFee: houseFee,
+      optAddOn: dealerStaff
+    };
+  }
+
+  return { rakePct: null, rakeDollars: null, prizePool: null, houseFee: null, optAddOn: null };
+}
+
 function parseWSOP2025Schedule(text, year = 2026) {
   const tournaments = [];
   const pages = text.split(/-- \d+ of \d+ --/).filter(p => p.trim());
@@ -61,12 +156,20 @@ function parsePage(pageText, year) {
     const buyin = sections.allBuyins[rowIdx];
     if (!buyin || buyin < 100) continue;
 
+    // Look up rake for this event
+    const rake = getWSOPRake(buyin, eventNum);
+
     tournaments.push({
       eventNumber: eventNum,
       eventName: eventName,
       date: sections.dates[rowIdx] ? `${sections.dates[rowIdx]}, ${year}` : '',
       time: sections.times[rowIdx] || 'TBD',
       buyin: buyin,
+      prizePool: rake.prizePool,
+      houseFee: rake.houseFee,
+      optAddOn: rake.optAddOn,
+      rakePct: rake.rakePct,
+      rakeDollars: rake.rakeDollars,
       startingChips: sections.chips[i] || null,
       levelDuration: sections.durations[i] || '',
       reentry: sections.reentries[i] || '',
@@ -269,4 +372,4 @@ function classifyGameVariant(eventName) {
   return 'NLHE';
 }
 
-module.exports = { parseWSOP2025Schedule, classifyGameVariant };
+module.exports = { parseWSOP2025Schedule, classifyGameVariant, getWSOPRake, WSOP_RAKE_BY_BUYIN };

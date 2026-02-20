@@ -8,7 +8,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { PDFParse } = require('pdf-parse');
 const initSqlJs = require('sql.js');
-const { parseWSOP2025Schedule } = require('./parsers/wsop-parser');
+const { parseWSOP2025Schedule, getWSOPRake } = require('./parsers/wsop-parser');
 const { parseGenericSchedule, detectFormat } = require('./parsers/generic-parser');
 const sampleTournaments = require('./sample-data');
 
@@ -204,6 +204,34 @@ async function initDatabase() {
     }
   }
 
+  // Backfill rake data for existing WSOP events that are missing it
+  try {
+    const backfillStmt = db.prepare(
+      `SELECT id, event_number, buyin FROM tournaments
+       WHERE buyin > 0 AND rake_pct IS NULL
+       AND (venue LIKE '%WSOP%' OR venue LIKE '%Horseshoe%' OR venue LIKE '%Paris Las Vegas%')`
+    );
+    let backfillCount = 0;
+    while (backfillStmt.step()) {
+      const row = backfillStmt.getAsObject();
+      const rake = getWSOPRake(row.buyin, row.event_number);
+      if (rake.rakePct !== null) {
+        db.run(
+          `UPDATE tournaments SET prize_pool = ?, house_fee = ?, opt_add_on = ?,
+           rake_pct = ?, rake_dollars = ? WHERE id = ?`,
+          [rake.prizePool, rake.houseFee, rake.optAddOn, rake.rakePct, rake.rakeDollars, row.id]
+        );
+        backfillCount++;
+      }
+    }
+    backfillStmt.free();
+    if (backfillCount > 0) {
+      console.log(`Backfilled rake data for ${backfillCount} WSOP events`);
+    }
+  } catch (e) {
+    console.log('Rake backfill skipped:', e.message);
+  }
+
   db.run(`
     CREATE TABLE IF NOT EXISTS tracking_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -235,8 +263,9 @@ async function initDatabase() {
           event_number, event_name, date, time, buyin,
           starting_chips, level_duration, reentry, late_reg, late_reg_end,
           game_variant, venue, notes, category, is_satellite, target_event,
-          is_restart, parent_event, source_pdf
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          is_restart, parent_event, prize_pool, house_fee, opt_add_on,
+          rake_pct, rake_dollars, source_pdf
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           t.eventNumber, t.eventName, t.date, t.time, t.buyin,
           t.startingChips || null, t.levelDuration || null,
@@ -244,6 +273,8 @@ async function initDatabase() {
           t.gameVariant, t.venue, t.notes || null,
           t.category || null, t.isSatellite ? 1 : 0, t.targetEvent || null,
           t.isRestart ? 1 : 0, t.parentEvent || null,
+          t.prizePool || null, t.houseFee || null, t.optAddOn || null,
+          t.rakePct || null, t.rakeDollars || null,
           'WSOP 2026 Official Schedule'
         ]
       );
