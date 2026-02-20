@@ -2405,7 +2405,7 @@
                     {tournament.reentry && (
                       <div className="cal-detail-item">
                         <span className="cal-detail-label">Re-entry</span>
-                        <span className="cal-detail-value">{tournament.reentry}</span>
+                        <span className="cal-detail-value">{tournament.reentry === 'N/A' ? 'Freezeout' : tournament.reentry}</span>
                       </div>
                     )}
                     {tournament.late_reg && (
@@ -2564,7 +2564,7 @@
               {tournament.reentry && (
                 <div className="t-meta-item">
                   <span className="t-meta-label">Re-entry</span>
-                  <span className="t-meta-value">{tournament.reentry}</span>
+                  <span className="t-meta-value">{tournament.reentry === 'N/A' ? 'Freezeout' : tournament.reentry}</span>
                 </div>
               )}
               {tournament.late_reg && (
