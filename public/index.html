@@ -898,9 +898,7 @@
     [data-theme="light"] .badge-anchor {
       color: #2563eb;
     }
-    .cal-action-btn.anchor-btn { color: var(--text-muted); border-left: 1px solid var(--border); }
-    .cal-action-btn.anchor-btn.locked { color: #60a5fa; }
-    [data-theme="light"] .cal-action-btn.anchor-btn.locked { color: #2563eb; }
+    /* anchor icon color handled via .cal-action-icon in new layout */
 
     /* conditional saved border color applied inline via venue brand color */
     .cal-condition-label {
@@ -1325,55 +1323,60 @@
       display: flex;
       border-top: 1px solid var(--border);
       margin: 0 -12px;
+      align-items: stretch;
     }
 
     .cal-action-btn {
       flex: 1;
-      padding: 10px;
+      padding: 8px 4px 6px;
       background: none;
       border: none;
-      font-size: 0.82rem;
-      font-weight: 700;
       cursor: pointer;
-      color: var(--accent);
-      letter-spacing: 0.02em;
-    }
-
-    .cal-action-btn:active { background: rgba(160,160,160,0.1); }
-    .cal-action-btn.remove { color: var(--accent2); }
-    .cal-action-btn.remove:active { background: rgba(136,136,136,0.1); }
-    .cal-action-row .cal-action-btn { border-top: none; }
-    .cal-action-btn.condition-btn { color: var(--text-muted); border-left: 1px solid var(--border); }
-
-    /* ── Entries counter ── */
-    .cal-entries-counter {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2px;
-      padding: 4px 8px;
-      border-left: 1px solid var(--border);
-      flex: 0 0 auto;
+      gap: 3px;
     }
-    .cal-entries-label {
+    .cal-action-btn + .cal-action-btn,
+    .cal-action-btn + .cal-entries-counter,
+    .cal-entries-counter + .cal-action-btn { border-left: 1px solid var(--border); }
+    .cal-action-icon { font-size: 1rem; line-height: 1; }
+    .cal-action-label {
       font-size: 0.55rem;
-      color: var(--text-muted);
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+    }
+    .cal-action-btn:active { background: rgba(160,160,160,0.1); }
+    .cal-action-btn.remove .cal-action-icon { color: var(--accent2); }
+    .cal-action-btn.anchor-btn.locked .cal-action-icon { color: #60a5fa; }
+    [data-theme="light"] .cal-action-btn.anchor-btn.locked .cal-action-icon { color: #2563eb; }
+
+    /* ── Entries counter ── */
+    .cal-entries-counter {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 8px 4px 6px;
+      cursor: default;
     }
     .cal-entries-stepper {
       display: flex;
       align-items: center;
       gap: 3px;
+      height: 1rem;
     }
     .cal-entries-btn {
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
       border: 1px solid var(--border);
       background: var(--surface2);
       color: var(--text);
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       font-weight: 700;
       cursor: pointer;
       display: flex;
@@ -1389,7 +1392,7 @@
       font-size: 0.7rem;
       font-weight: 600;
       color: var(--text);
-      min-width: 14px;
+      min-width: 12px;
       text-align: center;
     }
 
@@ -2517,14 +2520,16 @@
                       className={`cal-action-btn ${isInSchedule ? 'remove' : ''}`}
                       onClick={() => onToggle(tournament.id)}
                     >
-                      {isInSchedule ? '✕ Remove' : '+ Add to My Schedule'}
+                      <span className="cal-action-icon">{isInSchedule ? '✕' : '+'}</span>
+                      <span className="cal-action-label">{isInSchedule ? 'Remove' : 'Add'}</span>
                     </button>
                     {isInSchedule && onToggleAnchor && (
                       <button
                         className={`cal-action-btn anchor-btn ${isAnchor ? 'locked' : ''}`}
                         onClick={() => onToggleAnchor(tournament.id, !isAnchor)}
                       >
-                        {isAnchor ? '🔒 Priority' : '🔒 Priority'}
+                        <span className="cal-action-icon">🔒</span>
+                        <span className="cal-action-label">Priority</span>
                       </button>
                     )}
                     {isInSchedule && onSetCondition && (
@@ -2532,12 +2537,12 @@
                         className="cal-action-btn condition-btn"
                         onClick={() => setShowConditionUI(prev => !prev)}
                       >
-                        {conditions && conditions.length > 0 ? '✎ Edit Conditions' : '⚡ Condition'}
+                        <span className="cal-action-icon">{conditions && conditions.length > 0 ? '✎' : '⚡'}</span>
+                        <span className="cal-action-label">Condition</span>
                       </button>
                     )}
                     {isInSchedule && onSetPlannedEntries && tournament.reentry && tournament.reentry !== 'N/A' && (
                       <div className="cal-entries-counter" onClick={e => e.stopPropagation()}>
-                        <span className="cal-entries-label">entr{(plannedEntries || 1) === 1 ? 'y' : 'ies'}</span>
                         <div className="cal-entries-stepper">
                           <button
                             className="cal-entries-btn"
@@ -2550,6 +2555,7 @@
                             onClick={() => onSetPlannedEntries(tournament.id, (plannedEntries || 1) + 1)}
                           >+</button>
                         </div>
+                        <span className="cal-action-label">Max Entries</span>
                       </div>
                     )}
                   </div>
