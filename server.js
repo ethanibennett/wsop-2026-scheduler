@@ -19,6 +19,9 @@ const JWT_SECRET = 'your-secret-key-change-in-production';
 app.use(cors());
 app.use(express.json());
 
+// Health check for zero-downtime deploys
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 // Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
