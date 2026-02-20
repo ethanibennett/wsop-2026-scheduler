@@ -243,17 +243,20 @@ function classifyGameVariant(eventName) {
 
   const lower = main.toLowerCase();
 
-  // Mixed games first
+  // Mixed games first — but check "mixed plo" before generic "mixed" to avoid misclassification
   if (lower.includes('dealers choice')) return 'Dealers Choice';
-  if (lower.includes('8-game') || lower.includes('nine game')) return 'Mixed Games';
+  if (lower.includes('8-game') || lower.includes('8 game mix') || lower.includes('nine game')) return 'Mixed Games';
   if (lower.includes('h.o.r.s.e')) return 'H.O.R.S.E.';
-  if (lower.includes('t.o.r.s.e')) return 'T.O.R.S.E.';
-  if (lower.match(/^mixed[:\s]/)) return 'Mixed Games';
+  if (/\bt\.?o\.?r\.?s\.?e\.?\b/i.test(lower) || lower.includes('torse')) return 'T.O.R.S.E.';
+  if (lower.includes('mixed plo')) return 'PLO'; // Must come before generic "mixed" check
 
-  // Specific games
-  if (lower.includes('pot-limit omaha hi-lo')) return 'PLO Hi-Lo';
+  // Specific games — order matters (more specific patterns first)
+  if (/^mixed[:\s]/i.test(lower) || /\bmixed game/i.test(lower)) return 'Mixed Games';
+  if (lower.includes('pot-limit omaha hi-lo') || lower.includes('plo hi-lo')) return 'PLO Hi-Lo';
+  if (/\bplo\s*8\b/i.test(lower) || lower.includes('plo hi/lo')) return 'PLO Hi-Lo';
+  if (lower.includes('5 card plo') || lower.includes('5-card plo')) return '5-Card PLO';
   if (lower.includes('pot-limit omaha') || /\bplo\b/i.test(lower)) return 'PLO';
-  if (lower.includes('big o')) return 'Big O';
+  if (/\bbig[- ]?o\b/i.test(lower)) return 'Big O';
   if (lower.includes('omaha hi-lo')) return 'Omaha Hi-Lo';
   if (lower.includes('2-7') && lower.includes('triple draw')) return '2-7 Triple Draw';
   if (lower.includes('2-7') && lower.includes('lowball')) return '2-7 Lowball';

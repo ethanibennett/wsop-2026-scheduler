@@ -43,6 +43,7 @@
       --venue-south-point:   #5e4430;
       --venue-orleans:       #944828;
       --venue-mgm-grand:     #2a6a3e;
+      --venue-mgm-nh:        #8a7020;
     }
 
     [data-theme="light"] {
@@ -68,6 +69,7 @@
       --venue-south-point:   #6b4226;
       --venue-orleans:       #c2410c;
       --venue-mgm-grand:     #15803d;
+      --venue-mgm-nh:        #b8860b;
     }
 
     /* High contrast — dark */
@@ -1533,6 +1535,7 @@
       'South Point':                 { abbr: 'SOUTH POINT', color: '#6b4226', longName: 'South Point Hotel & Casino' },
       'Orleans':                     { abbr: 'ORLEANS', color: '#c2410c', longName: 'The Orleans' },
       'MGM Grand':                   { abbr: 'MGM GRAND', color: '#15803d', longName: 'MGM Grand' },
+      'MGM National Harbor':         { abbr: 'MGM NH',    color: '#b8860b', longName: 'MGM National Harbor' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -1547,6 +1550,7 @@
       'SOUTH POINT':   '--venue-south-point',
       'ORLEANS':       '--venue-orleans',
       'MGM GRAND':     '--venue-mgm-grand',
+      'MGM NH':        '--venue-mgm-nh',
     };
     function getVenueBrandColor(abbr) {
       if (abbr === 'WSOP') return '#e8e8e8';
@@ -3198,14 +3202,16 @@
 
     // ── Upload View ────────────────────────────────────────────
 
-    function UploadView({ onUpload, success, error }) {
+    function UploadView({ onUpload, success, error, uploadVenue, onUploadVenueChange }) {
       return (
         <div className="upload-card">
           <h2>Upload Schedule PDF</h2>
-          <p>Upload a PDF schedule (WSOP, WPT, etc.) to automatically parse and import tournaments.</p>
+          <p>Upload a PDF schedule from any poker series. The format is auto-detected.</p>
 
           {error && <div className="alert alert-error">{error}</div>}
           {success && <div className="alert alert-success">{success}</div>}
+
+          <input type="text" placeholder="Venue (optional — auto-detected from PDF)" value={uploadVenue} onChange={e => onUploadVenueChange(e.target.value)} style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.85rem',width:'100%',boxSizing:'border-box',marginBottom:'12px'}} />
 
           <div className="drop-zone">
             <Icon.upload />
@@ -3781,7 +3787,7 @@
 
     // ── Settings View ──────────────────────────────────────────
 
-    function SettingsView({ username, theme, toggleTheme, contrast, toggleContrast, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, shareToken, onGenerateShareToken, onRevokeShareToken, grantedViewers, onGrantPermission, onRevokePermission, shareError, shareSuccess }) {
+    function SettingsView({ username, theme, toggleTheme, contrast, toggleContrast, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, grantedViewers, onGrantPermission, onRevokePermission, shareError, shareSuccess }) {
       const [debugInput, setDebugInput] = useState(_debugNow);
 
       const applyDebugTime = (val) => {
@@ -3887,8 +3893,9 @@
               <div className="settings-row" style={{flexDirection:'column',alignItems:'stretch',gap:'8px'}}>
                 <span className="settings-row-label">Upload schedule PDF</span>
                 <p style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.4}}>
-                  Import a PDF schedule (WSOP, WPT, etc.) to parse and add tournaments.
+                  Import a PDF schedule from any poker series. The format is auto-detected.
                 </p>
+                <input type="text" placeholder="Venue (optional — auto-detected from PDF)" value={uploadVenue} onChange={e => onUploadVenueChange(e.target.value)} style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.8rem',width:'100%',boxSizing:'border-box'}} />
                 {uploadError && <div className="alert alert-error" style={{margin:'4px 0'}}>{uploadError}</div>}
                 {uploadSuccess && <div className="alert alert-success" style={{margin:'4px 0'}}>{uploadSuccess}</div>}
                 <input type="file" id="pdf-upload-settings" className="file-input" accept=".pdf" onChange={onUpload} />
@@ -3950,6 +3957,7 @@
       const [success, setSuccess] = useState('');
       const [uploadError, setUploadError] = useState('');
       const [uploadSuccess, setUploadSuccess] = useState('');
+      const [uploadVenue, setUploadVenue] = useState('');
       const [debugTimeKey, setDebugTimeKey] = useState(0);
 
       // ── Sharing state ──
@@ -4254,6 +4262,7 @@
         setUploadError(''); setUploadSuccess('');
         const fd = new FormData();
         fd.append('pdf', file);
+        if (uploadVenue) fd.append('venue', uploadVenue);
         try {
           setUploadSuccess('Uploading and parsing PDF…');
           const res = await fetch(`${API_URL}/upload-schedule`, {
@@ -4262,7 +4271,8 @@
             body: fd
           });
           const data = await res.json();
-          setUploadSuccess(`Successfully imported ${data.tournamentsCount} tournaments!`);
+          setUploadSuccess(`Successfully imported ${data.tournamentsCount} tournaments from ${data.format === 'wsop' ? 'WSOP' : 'generic'} format!`);
+          setUploadVenue('');
           fetchTournaments();
         } catch { setUploadError('Failed to upload schedule'); }
       };
@@ -4334,6 +4344,8 @@
                 onUpload={handleFileUpload}
                 uploadError={uploadError}
                 uploadSuccess={uploadSuccess}
+                uploadVenue={uploadVenue}
+                onUploadVenueChange={setUploadVenue}
                 shareToken={shareToken}
                 onGenerateShareToken={handleGenerateShareToken}
                 onRevokeShareToken={handleRevokeShareToken}

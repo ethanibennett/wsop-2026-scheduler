@@ -9,6 +9,7 @@ const path = require('path');
 const { PDFParse } = require('pdf-parse');
 const initSqlJs = require('sql.js');
 const { parseWSOP2025Schedule } = require('./parsers/wsop-parser');
+const { parseGenericSchedule, detectFormat } = require('./parsers/generic-parser');
 const sampleTournaments = require('./sample-data');
 
 const app = express();
@@ -329,14 +330,22 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
     const result = await parser.getText();
     const pdfText = result.text;
 
-    // Parse tournaments from PDF (using 2026 year)
-    const tournaments = parseWSOP2025Schedule(pdfText, 2026);
+    // Auto-detect format and parse with appropriate parser
+    const format = detectFormat(pdfText);
+    const userVenue = req.body && req.body.venue ? req.body.venue : null;
+    let tournaments;
+
+    if (format === 'wsop') {
+      tournaments = parseWSOP2025Schedule(pdfText, 2026);
+    } else {
+      tournaments = parseGenericSchedule(pdfText, { venue: userVenue });
+    }
 
     // Insert tournaments into database
     for (const tournament of tournaments) {
       db.run(
-        `INSERT INTO tournaments (event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, uploaded_by, source_pdf)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO tournaments (event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, uploaded_by, source_pdf)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tournament.eventNumber || '',
           tournament.eventName || 'Unknown Event',
@@ -350,6 +359,10 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
           tournament.gameVariant,
           tournament.venue || 'Horseshoe / Paris Las Vegas',
           tournament.notes || null,
+          tournament.isSatellite ? 1 : 0,
+          tournament.targetEvent || null,
+          tournament.isRestart ? 1 : 0,
+          tournament.parentEvent || null,
           req.user.id,
           req.file.originalname
         ]
@@ -363,6 +376,7 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
 
     res.json({
       message: 'Schedule uploaded successfully',
+      format: format,
       tournamentsCount: tournaments.length,
       tournaments: tournaments.slice(0, 5) // Return first 5 as preview
     });
