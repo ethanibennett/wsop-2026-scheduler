@@ -2338,7 +2338,7 @@
                       <span className="badge badge-saved">✓ Saved</span>
                     )}
                     {isAnchor && (
-                      <span className="badge badge-anchor">🔒 Must-Play</span>
+                      <span className="badge badge-anchor">🔒 Priority Event</span>
                     )}
                     {conditions && conditions.length > 0 && conditions.map((c, ci) => (
                       <span key={ci} className="badge badge-condition">
@@ -2406,7 +2406,7 @@
                         className={`cal-action-btn anchor-btn ${isAnchor ? 'locked' : ''}`}
                         onClick={() => onToggleAnchor(tournament.id, !isAnchor)}
                       >
-                        {isAnchor ? '🔒 Locked In' : '🔒 Lock In'}
+                        {isAnchor ? '🔒 Priority' : '🔒 Priority'}
                       </button>
                     )}
                     {isInSchedule && onSetCondition && (
