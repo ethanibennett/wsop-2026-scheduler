@@ -1370,9 +1370,35 @@
       width: 100%;
       position: relative;
       height: 1rem;
+    }
+    .cal-entries-display {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      height: 100%;
+      pointer-events: none;
+    }
+    .cal-entries-display .minus, .cal-entries-display .plus {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .cal-entries-display .minus.disabled { opacity: 0.25; }
+    .cal-entries-display .value {
+      font-size: 1rem;
+      line-height: 1;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 10px;
+      text-align: center;
+    }
+    .cal-entries-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
       display: flex;
     }
-    .cal-entries-stepper .cal-entries-btn {
+    .cal-entries-overlay button {
       flex: 1;
       background: none;
       border: none;
@@ -1381,20 +1407,8 @@
       font-size: 0;
       padding: 0;
     }
-    .cal-entries-stepper .cal-entries-btn:disabled { cursor: default; }
-    .cal-entries-stepper .cal-entries-btn:active:not(:disabled) { background: rgba(160,160,160,0.06); }
-    .cal-entries-value {
-      position: absolute;
-      left: 0; right: 0; top: 0; bottom: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1rem;
-      line-height: 1;
-      font-weight: 600;
-      color: var(--text);
-      pointer-events: none;
-    }
+    .cal-entries-overlay button:disabled { cursor: default; }
+    .cal-entries-overlay button:active:not(:disabled) { background: rgba(160,160,160,0.08); }
 
     /* ── Late reg bar ── */
     .late-reg-wrap {
@@ -2549,18 +2563,22 @@
                     {isInSchedule && onSetPlannedEntries && tournament.reentry && tournament.reentry !== 'N/A' && (
                       <div className="cal-entries-counter" onClick={e => e.stopPropagation()}>
                         <div className="cal-entries-stepper">
-                          <button
-                            className="cal-entries-btn"
-                            onClick={() => onSetPlannedEntries(tournament.id, Math.max(1, (plannedEntries || 1) - 1))}
-                            disabled={(plannedEntries || 1) <= 1}
-                            aria-label="Decrease entries"
-                          />
-                          <span className="cal-entries-value">{plannedEntries || 1}</span>
-                          <button
-                            className="cal-entries-btn"
-                            onClick={() => onSetPlannedEntries(tournament.id, (plannedEntries || 1) + 1)}
-                            aria-label="Increase entries"
-                          />
+                          <div className="cal-entries-display">
+                            <span className={`minus ${(plannedEntries || 1) <= 1 ? 'disabled' : ''}`}>−</span>
+                            <span className="value">{plannedEntries || 1}</span>
+                            <span className="plus">+</span>
+                          </div>
+                          <div className="cal-entries-overlay">
+                            <button
+                              onClick={() => onSetPlannedEntries(tournament.id, Math.max(1, (plannedEntries || 1) - 1))}
+                              disabled={(plannedEntries || 1) <= 1}
+                              aria-label="Decrease entries"
+                            />
+                            <button
+                              onClick={() => onSetPlannedEntries(tournament.id, (plannedEntries || 1) + 1)}
+                              aria-label="Increase entries"
+                            />
+                          </div>
                         </div>
                         <span className="cal-action-label">Max Entries</span>
                       </div>
