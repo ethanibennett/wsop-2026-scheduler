@@ -177,6 +177,13 @@ async function initDatabase() {
     // ignore migration errors
   }
 
+  // Migrate: add is_anchor column for must-play events
+  try {
+    db.run('ALTER TABLE user_schedules ADD COLUMN is_anchor INTEGER DEFAULT 0');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
   db.run(`
     CREATE TABLE IF NOT EXISTS tracking_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -491,6 +498,22 @@ app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, 
   }
 });
 
+// Toggle anchor/must-play status on a scheduled event
+app.put('/api/schedule/:tournamentId/anchor', authenticateToken, async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+    const { isAnchor } = req.body;
+    db.run(
+      'UPDATE user_schedules SET is_anchor = ? WHERE user_id = ? AND tournament_id = ?',
+      [isAnchor ? 1 : 0, req.user.id, tournamentId]
+    );
+    await saveDatabase();
+    res.json({ message: isAnchor ? 'Event locked in' : 'Event unlocked' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Remove condition from a scheduled event (make it firm)
 app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
   try {
@@ -507,7 +530,7 @@ app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (re
 app.get('/api/my-schedule', authenticateToken, (req, res) => {
   try {
     const query = `
-      SELECT t.*, us.added_at,
+      SELECT t.*, us.added_at, us.is_anchor,
              sc.conditions AS conditions_json,
              sc.is_public AS condition_is_public
       FROM tournaments t
@@ -611,7 +634,7 @@ app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
     }
     
     const query = `
-      SELECT t.*,
+      SELECT t.*, us.is_anchor,
              sc.conditions AS conditions_json,
              sc.is_public AS condition_is_public
       FROM tournaments t
@@ -655,7 +678,7 @@ app.get('/api/shared/:token', (req, res) => {
     }
 
     const schedStmt = db.prepare(`
-      SELECT t.*,
+      SELECT t.*, us.is_anchor,
              sc.conditions AS conditions_json,
              sc.is_public AS condition_is_public
       FROM tournaments t

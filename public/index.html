@@ -885,6 +885,22 @@
       border-bottom: 1.5px dashed var(--border);
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     }
+    /* Anchor / must-play events — bolder border */
+    .cal-event-row.anchor {
+      border-width: 2.5px;
+    }
+    .badge-anchor {
+      background: rgba(59,130,246,0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59,130,246,0.3);
+    }
+    [data-theme="light"] .badge-anchor {
+      color: #2563eb;
+    }
+    .cal-action-btn.anchor-btn { color: var(--text-muted); border-left: 1px solid var(--border); }
+    .cal-action-btn.anchor-btn.locked { color: #60a5fa; }
+    [data-theme="light"] .cal-action-btn.anchor-btn.locked { color: #2563eb; }
+
     /* conditional saved border color applied inline via venue brand color */
     .cal-condition-label {
       font-family: 'Oswald', sans-serif;
@@ -2189,7 +2205,7 @@
 
     // ── Calendar Event Row (collapsible) ──────────────────────
 
-    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments }) {
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor }) {
       const [open, setOpen] = useState(false);
       const [showConditionUI, setShowConditionUI] = useState(false);
       const rowRef = React.useRef(null);
@@ -2245,7 +2261,7 @@
         'cal-event-row',
         open ? 'open' : '',
         isInSchedule ? 'saved' : '',
-        conditions && conditions.length > 0 ? 'conditional' : '',
+        isAnchor ? 'anchor' : (conditions && conditions.length > 0 ? 'conditional' : ''),
         venueClass,
         bracelet ? 'bracelet' : '',
         isPast ? 'past' : '',
@@ -2321,6 +2337,9 @@
                     {isInSchedule && (
                       <span className="badge badge-saved">✓ Saved</span>
                     )}
+                    {isAnchor && (
+                      <span className="badge badge-anchor">🔒 Must-Play</span>
+                    )}
                     {conditions && conditions.length > 0 && conditions.map((c, ci) => (
                       <span key={ci} className="badge badge-condition">
                         {formatConditionBadge(c, allTournaments)}
@@ -2382,6 +2401,14 @@
                     >
                       {isInSchedule ? '✕ Remove' : '+ Add to My Schedule'}
                     </button>
+                    {isInSchedule && onToggleAnchor && (
+                      <button
+                        className={`cal-action-btn anchor-btn ${isAnchor ? 'locked' : ''}`}
+                        onClick={() => onToggleAnchor(tournament.id, !isAnchor)}
+                      >
+                        {isAnchor ? '🔒 Locked In' : '🔒 Lock In'}
+                      </button>
+                    )}
                     {isInSchedule && onSetCondition && (
                       <button
                         className="cal-action-btn condition-btn"
@@ -2745,7 +2772,7 @@
 
     // ── Tournaments View ───────────────────────────────────────
 
-    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition }) {
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
         minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
@@ -2758,6 +2785,7 @@
       );
 
       const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
+      const anchorSet = useMemo(() => new Set(mySchedule.filter(t => t.is_anchor).map(t => t.id)), [mySchedule]);
       const conditionMap = useMemo(() => {
         const m = {};
         for (const t of mySchedule) {
@@ -2850,6 +2878,8 @@
                   onSetCondition={onSetCondition}
                   onRemoveCondition={onRemoveCondition}
                   allTournaments={tournaments}
+                  isAnchor={anchorSet.has(t.id)}
+                  onToggleAnchor={onToggleAnchor}
                 />
               ))}
             </div>
@@ -2860,7 +2890,7 @@
 
     // ── My Schedule View ───────────────────────────────────────
 
-    function ScheduleView({ mySchedule, onToggle, sharedWithMe, token, onSetCondition, onRemoveCondition, allTournaments }) {
+    function ScheduleView({ mySchedule, onToggle, sharedWithMe, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor }) {
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
       const [focusEventId, setFocusEventId] = useState(null);
@@ -2929,6 +2959,8 @@
                     onSetCondition={onSetCondition}
                     onRemoveCondition={onRemoveCondition}
                     allTournaments={allTournaments}
+                    isAnchor={!!t.is_anchor}
+                    onToggleAnchor={onToggleAnchor}
                   />
                 </div>
               );
@@ -2966,7 +2998,7 @@
     const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition }) {
+    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor }) {
       const today = getToday();
       const defaultDate = WSOP_DATES.includes(today) ? today : WSOP_DATES[0];
       const [selectedDate, setSelectedDate] = useState(defaultDate);
@@ -3006,6 +3038,7 @@
       }, [allTournaments]);
 
       const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
+      const anchorSet = useMemo(() => new Set(mySchedule.filter(t => t.is_anchor).map(t => t.id)), [mySchedule]);
       const conditionMap = useMemo(() => {
         const m = {};
         for (const t of mySchedule) {
@@ -3070,6 +3103,8 @@
           onSetCondition={onSetCondition}
           onRemoveCondition={onRemoveCondition}
           allTournaments={allTournaments}
+          isAnchor={anchorSet.has(t.id)}
+          onToggleAnchor={onToggleAnchor}
         />
       );
 
@@ -3261,6 +3296,7 @@
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
                   conditions={extractConditions(t, true)}
+                  isAnchor={!!t.is_anchor}
                 />
               ))
             )}
@@ -3313,6 +3349,7 @@
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
                   conditions={extractConditions(t, true)}
+                  isAnchor={!!t.is_anchor}
                 />
               ))}
             </div>
@@ -4200,6 +4237,17 @@
         } catch { setError('Failed to remove condition'); }
       };
 
+      const toggleAnchor = async (tournamentId, isAnchor) => {
+        try {
+          await fetch(`${API_URL}/schedule/${tournamentId}/anchor`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isAnchor })
+          });
+          fetchMySchedule();
+        } catch { setError('Failed to update anchor status'); }
+      };
+
       const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -4251,15 +4299,16 @@
                 venues={venues}
                 onSetCondition={setCondition}
                 onRemoveCondition={removeCondition}
+                onToggleAnchor={toggleAnchor}
               />
             )}
 
             {currentView === 'schedule' && (
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} />
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} />
             )}
 
             {currentView === 'calendar' && (
-              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} />
+              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} />
             )}
 
             {currentView === 'tracking' && (
