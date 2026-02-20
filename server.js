@@ -203,6 +203,56 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  // Migrate: fix deepstack dates from ISO "2026-05-26" to human "May 26, 2026" format
+  try {
+    const checkStmt = db.prepare("SELECT id, date FROM tournaments WHERE is_deepstack = 1 AND date LIKE '____-__-__' LIMIT 1");
+    if (checkStmt.step()) {
+      checkStmt.free();
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const dsStmt = db.prepare("SELECT id, date FROM tournaments WHERE is_deepstack = 1 AND date LIKE '____-__-__'");
+      let fixCount = 0;
+      const updates = [];
+      while (dsStmt.step()) {
+        const row = dsStmt.getAsObject();
+        const [y, m, d] = row.date.split('-').map(Number);
+        const newDate = `${monthNames[m - 1]} ${d}, ${y}`;
+        updates.push([newDate, row.id]);
+      }
+      dsStmt.free();
+      for (const [newDate, id] of updates) {
+        db.run("UPDATE tournaments SET date = ? WHERE id = ?", [newDate, id]);
+        fixCount++;
+      }
+      if (fixCount > 0) {
+        await saveDatabase();
+        console.log(`Fixed date format for ${fixCount} deepstack events`);
+      }
+    } else {
+      checkStmt.free();
+    }
+  } catch (e) {
+    // Ignore if migration fails
+  }
+
+  // Migrate: fix deepstack times from "1:00PM" → "1:00 PM" (add space before AM/PM)
+  try {
+    const timeFixStmt = db.prepare("SELECT id, time FROM tournaments WHERE is_deepstack = 1 AND time LIKE '%_M' AND time NOT LIKE '% _M' AND time NOT LIKE '% __M'");
+    const timeUpdates = [];
+    while (timeFixStmt.step()) {
+      const row = timeFixStmt.getAsObject();
+      const fixed = row.time.replace(/(AM|PM)$/i, ' $1');
+      timeUpdates.push([fixed, row.id]);
+    }
+    timeFixStmt.free();
+    for (const [fixedTime, id] of timeUpdates) {
+      db.run("UPDATE tournaments SET time = ? WHERE id = ?", [fixedTime, id]);
+    }
+    if (timeUpdates.length > 0) {
+      await saveDatabase();
+      console.log(`Fixed time format for ${timeUpdates.length} deepstack events`);
+    }
+  } catch (e) {}
+
   // Migrate: add rake breakdown columns for tournament cost analysis
   const rakeColumns = [
     ['prize_pool', 'INTEGER'],
@@ -223,7 +273,7 @@ async function initDatabase() {
   try {
     const backfillStmt = db.prepare(
       `SELECT id, event_number, buyin FROM tournaments
-       WHERE buyin > 0 AND rake_pct IS NULL
+       WHERE buyin > 0 AND rake_pct IS NULL AND is_deepstack = 0
        AND (venue LIKE '%WSOP%' OR venue LIKE '%Horseshoe%' OR venue LIKE '%Paris Las Vegas%')`
     );
     let backfillCount = 0;
@@ -246,6 +296,11 @@ async function initDatabase() {
   } catch (e) {
     console.log('Rake backfill skipped:', e.message);
   }
+
+  // Clear any incorrect rake data from deepstacks (they shouldn't use bracelet event rake)
+  try {
+    db.run(`UPDATE tournaments SET rake_pct = NULL, rake_dollars = NULL, prize_pool = NULL, house_fee = NULL, opt_add_on = NULL WHERE is_deepstack = 1 AND rake_pct IS NOT NULL`);
+  } catch (e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS tracking_entries (
@@ -315,15 +370,14 @@ async function initDatabase() {
 
         let dsInserted = 0;
         for (const r of rows) {
-          // Parse date: "Tue 26 May" → "2026-05-26"
+          // Parse date: "Tue 26 May" → "May 26, 2026"
           const parts = r.Date.trim().split(/\s+/);          // ["Tue","26","May"]
           const dayNum = parseInt(parts[1]);
-          const monthNames = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
-          const month = monthNames[parts[2]] || 1;
-          const dateStr = `2026-${String(month).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+          const monthFull = { Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'May',Jun:'June',Jul:'July',Aug:'August',Sep:'September',Oct:'October',Nov:'November',Dec:'December' };
+          const dateStr = `${monthFull[parts[2]] || parts[2]} ${dayNum}, 2026`;
 
-          // Parse time: "1:00 PM" → "1:00PM"
-          const timeStr = r.Time.replace(/\s+/g, '');
+          // Parse time: "1:00 PM" → "1:00 PM" (keep space before AM/PM for consistency)
+          const timeStr = r.Time.trim().replace(/\s+/g, ' ');
 
           // Parse buy-in: "$250" → 250
           const buyin = parseInt(r['Buy-In'].replace(/[^0-9]/g, '')) || 0;
