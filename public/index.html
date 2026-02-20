@@ -882,9 +882,9 @@
       border-bottom: 1.5px dashed var(--border);
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     }
-    /* Anchor / must-play events — bolder border */
+    /* Anchor / must-play events — inset bold border (no size change) */
     .cal-event-row.anchor {
-      border-width: 2.5px;
+      box-shadow: inset 0 0 0 1.5px var(--border);
     }
     .badge-anchor {
       background: rgba(59,130,246,0.15);
@@ -2395,7 +2395,7 @@
       const stripTextColor = venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)';
 
       return (
-        <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor} : undefined}>
+        <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor, ...(isAnchor ? {boxShadow: `inset 0 0 0 1.5px ${stripColor}`} : {})} : undefined}>
           <div
             className={`cal-venue-strip venue-strip-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}
             style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
