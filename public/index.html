@@ -1302,8 +1302,15 @@
     .cal-detail-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
     .cal-detail-value { font-family: 'Libre Baskerville', Georgia, serif; font-size: 0.82rem; color: var(--text); font-weight: 400; }
 
-    .cal-detail-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
-    .cal-detail-variants { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .cal-detail-badges {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 12px;
+      margin-bottom: 10px;
+      align-items: start;
+    }
+    .cal-badges-left { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cal-badges-right { display: flex; align-items: flex-start; }
 
     .cal-structure-link {
       display: inline-block;
@@ -2349,43 +2356,43 @@
               <div className="cal-event-detail-inner">
                 <div className="cal-event-detail">
                   <div className="cal-detail-badges">
-                    {tournament.event_number && (
-                      <span className={`badge badge-event venue-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}>#{tournament.event_number}</span>
-                    )}
-                    {tournament.target_event && (
-                      <span
-                        className="badge badge-target badge-clickable"
-                        onClick={e => { e.stopPropagation(); if (onNavigateToEvent) onNavigateToEvent(tournament.target_event, tournament); }}
-                      >→ #{tournament.target_event}</span>
-                    )}
-                    {tournament.parent_event && (
-                      <span
-                        className="badge badge-target badge-clickable"
-                        onClick={e => { e.stopPropagation(); if (onNavigateToEvent) onNavigateToEvent(tournament.parent_event, tournament); }}
-                      >← #{tournament.parent_event}</span>
-                    )}
-                    {conditions && conditions.length > 0 && conditions.map((c, ci) => (
-                      <span key={ci} className="badge badge-condition">
-                        {formatConditionBadge(c, allTournaments)}
-                      </span>
-                    ))}
-                    {tournament.rake_pct != null && tournament.rake_pct > 0 && (
-                      <span
-                        className={`badge badge-rake badge-clickable ${tournament.rake_pct <= 8 ? 'rake-low' : tournament.rake_pct <= 13 ? 'rake-mid' : 'rake-high'}`}
-                        style={{cursor:'pointer'}}
-                        onClick={e => { e.stopPropagation(); setShowRakeBreakdown(v => !v); }}
-                      >
-                        {tournament.rake_pct}% rake {showRakeBreakdown ? '▾' : '▸'}
-                      </span>
-                    )}
+                    <div className="cal-badges-left">
+                      {tournament.event_number && (
+                        <span className={`badge badge-event venue-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}>#{tournament.event_number}</span>
+                      )}
+                      {tournament.target_event && (
+                        <span
+                          className="badge badge-target badge-clickable"
+                          onClick={e => { e.stopPropagation(); if (onNavigateToEvent) onNavigateToEvent(tournament.target_event, tournament); }}
+                        >→ #{tournament.target_event}</span>
+                      )}
+                      {tournament.parent_event && (
+                        <span
+                          className="badge badge-target badge-clickable"
+                          onClick={e => { e.stopPropagation(); if (onNavigateToEvent) onNavigateToEvent(tournament.parent_event, tournament); }}
+                        >← #{tournament.parent_event}</span>
+                      )}
+                      {conditions && conditions.length > 0 && conditions.map((c, ci) => (
+                        <span key={ci} className="badge badge-condition">
+                          {formatConditionBadge(c, allTournaments)}
+                        </span>
+                      ))}
+                      {tournament.game_variant && getGamePills(tournament.game_variant, tournament.event_name).map((g, i) => (
+                        <span key={i} className="badge badge-variant">{g}</span>
+                      ))}
+                    </div>
+                    <div className="cal-badges-right">
+                      {tournament.rake_pct != null && tournament.rake_pct > 0 && (
+                        <span
+                          className={`badge badge-rake badge-clickable ${tournament.rake_pct <= 8 ? 'rake-low' : tournament.rake_pct <= 13 ? 'rake-mid' : 'rake-high'}`}
+                          style={{cursor:'pointer'}}
+                          onClick={e => { e.stopPropagation(); setShowRakeBreakdown(v => !v); }}
+                        >
+                          {tournament.rake_pct}% rake {showRakeBreakdown ? '▾' : '▸'}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {tournament.game_variant && (
-                  <div className="cal-detail-variants">
-                    {getGamePills(tournament.game_variant, tournament.event_name).map((g, i) => (
-                      <span key={i} className="badge badge-variant">{g}</span>
-                    ))}
-                  </div>
-                  )}
 
                   <div className="cal-detail-grid">
                     {tournament.starting_chips && (
