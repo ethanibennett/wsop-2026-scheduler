@@ -1418,6 +1418,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       margin-bottom: 5px;
     }
 
@@ -1434,6 +1435,7 @@
     .late-reg-label.closed { color: var(--text-muted); }
     .late-reg-label.pending { color: var(--text-muted); }
     .late-reg-time.pending  { color: var(--text-muted); }
+    .late-reg-sep { width: 1px; height: 10px; background: var(--border); flex-shrink: 0; }
 
     .late-reg-time {
       font-size: 0.82rem;
@@ -2012,6 +2014,7 @@
             <div className="late-reg-wrap">
               <div className="late-reg-label-row">
                 <span className="late-reg-label pending">Until Start</span>
+                <span className="late-reg-sep"></span>
                 <span className="late-reg-time pending">{parts.join(', ')}</span>
               </div>
             </div>
