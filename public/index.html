@@ -1659,11 +1659,28 @@
       return Math.round(C * buyinRoot * lnPow * 10) / 10;
     }
 
-    function extractCondition(t, sharedView) {
-      if (!t.condition_type) return null;
+    function extractConditions(t, sharedView) {
+      if (!t.conditions_json) return [];
       const isPublic = !!t.condition_is_public;
-      if (sharedView && !isPublic) return null;
-      return { type: t.condition_type, dependsOnId: t.depends_on_tournament_id, dependsOnEventNumber: t.depends_on_event_number, dependsOnEventName: t.depends_on_event_name, isPublic, profitThreshold: t.condition_profit_threshold };
+      if (sharedView && !isPublic) return [];
+      try {
+        const conditions = JSON.parse(t.conditions_json);
+        return Array.isArray(conditions) ? conditions : [];
+      } catch { return []; }
+    }
+
+    function formatConditionLabel(c, allTournaments) {
+      if (c.type === 'PROFIT_THRESHOLD') return `If up $${Number(c.profitThreshold).toLocaleString()}`;
+      const dep = allTournaments && allTournaments.find(t => t.id === c.dependsOnId);
+      const num = dep ? dep.event_number : '?';
+      return c.type === 'IF_WIN_SEAT' ? `If seat #${num}` : `If no seat #${num}`;
+    }
+
+    function formatConditionBadge(c, allTournaments) {
+      if (c.type === 'PROFIT_THRESHOLD') return `💰 If up $${Number(c.profitThreshold).toLocaleString()}`;
+      const dep = allTournaments && allTournaments.find(t => t.id === c.dependsOnId);
+      const num = dep ? dep.event_number : '?';
+      return c.type === 'IF_WIN_SEAT' ? `🎯 If seat from #${num}` : `🔄 If no seat from #${num}`;
     }
 
     function detectConflicts(schedule) {
@@ -1678,7 +1695,7 @@
           const a = sorted[i], b = sorted[j];
           if (a.date !== b.date) break;
           if (a.time === b.time) {
-            if (a.condition_type || b.condition_type) {
+            if (extractConditions(a).length > 0 || extractConditions(b).length > 0) {
               expectedConflicts.add(a.id);
               expectedConflicts.add(b.id);
             } else {
@@ -1987,14 +2004,22 @@
 
     // ── Condition Picker (inline in expanded card) ─────────────
 
-    function ConditionPicker({ tournament, condition, allTournaments, onSet, onRemove, onClose }) {
-      const [condType, setCondType] = useState(condition ? condition.type : 'IF_WIN_SEAT');
-      const [selectedId, setSelectedId] = useState(condition ? condition.dependsOnId : null);
-      const [search, setSearch] = useState('');
-      const [isPublic, setIsPublic] = useState(condition ? condition.isPublic !== false : true);
-      const [profitAmount, setProfitAmount] = useState(condition?.profitThreshold || '');
+    function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemove, onClose }) {
+      // Parse existing conditions to initialize state
+      const existingSat = conditions.find(c => c.type === 'IF_WIN_SEAT' || c.type === 'IF_NO_SEAT');
+      const existingProfit = conditions.find(c => c.type === 'PROFIT_THRESHOLD');
 
-      const needsEvent = condType === 'IF_WIN_SEAT' || condType === 'IF_NO_SEAT';
+      const [satEnabled, setSatEnabled] = useState(!!existingSat);
+      const [satType, setSatType] = useState(existingSat ? existingSat.type : 'IF_WIN_SEAT');
+      const [selectedSatId, setSelectedSatId] = useState(existingSat ? existingSat.dependsOnId : null);
+      const [satSearch, setSatSearch] = useState('');
+      const [profitEnabled, setProfitEnabled] = useState(!!existingProfit);
+      const [profitAmount, setProfitAmount] = useState(existingProfit ? existingProfit.profitThreshold : '');
+      const [isPublic, setIsPublic] = useState(
+        tournament.condition_is_public !== undefined && tournament.condition_is_public !== null
+          ? !!tournament.condition_is_public
+          : true
+      );
 
       const suggestedSatellites = useMemo(() =>
         allTournaments.filter(t => t.is_satellite && t.target_event === tournament.event_number),
@@ -2002,30 +2027,33 @@
       );
 
       const searchResults = useMemo(() => {
-        if (!search.trim()) return [];
-        const q = search.toLowerCase();
+        if (!satSearch.trim()) return [];
+        const q = satSearch.toLowerCase();
         return allTournaments.filter(t =>
           t.id !== tournament.id &&
           ((t.event_number || '').toLowerCase().includes(q) || (t.event_name || '').toLowerCase().includes(q))
         ).slice(0, 8);
-      }, [allTournaments, search, tournament.id]);
+      }, [allTournaments, satSearch, tournament.id]);
 
-      const canSubmit = needsEvent ? !!selectedId : (profitAmount && parseInt(profitAmount) !== 0);
+      const canSubmit = (satEnabled && selectedSatId) || (profitEnabled && profitAmount && parseInt(profitAmount) !== 0);
 
       const handleSubmit = () => {
         if (!canSubmit) return;
-        if (needsEvent) {
-          onSet(selectedId, condType, isPublic, null);
-        } else {
-          onSet(null, condType, isPublic, parseInt(profitAmount));
+        const result = [];
+        if (satEnabled && selectedSatId) {
+          result.push({ type: satType, dependsOnId: selectedSatId });
         }
+        if (profitEnabled && profitAmount && parseInt(profitAmount) !== 0) {
+          result.push({ type: 'PROFIT_THRESHOLD', profitThreshold: parseInt(profitAmount) });
+        }
+        onSet(result, isPublic);
       };
 
       const renderItem = (t) => (
         <div
           key={t.id}
-          className={`condition-sat-item ${selectedId === t.id ? 'selected' : ''}`}
-          onClick={() => setSelectedId(t.id)}
+          className={`condition-sat-item ${selectedSatId === t.id ? 'selected' : ''}`}
+          onClick={() => setSelectedSatId(t.id)}
         >
           <span style={{fontWeight:600,flexShrink:0}}>#{t.event_number}</span>
           <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.event_name}</span>
@@ -2033,24 +2061,34 @@
         </div>
       );
 
+      const checkboxStyle = {
+        width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer'
+      };
+      const sectionLabelStyle = {
+        fontSize: '0.82rem', fontFamily: "'Oswald',sans-serif", fontWeight: 600, color: 'var(--text)', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: '8px'
+      };
+
       return (
         <div className="condition-picker">
-          <div className="condition-picker-title">Set Condition</div>
+          <div className="condition-picker-title">Set Conditions</div>
 
-          <div className="condition-type-row">
-            <button className={`condition-type-btn ${condType === 'IF_WIN_SEAT' ? 'active' : ''}`} onClick={() => setCondType('IF_WIN_SEAT')}>
-              If I win a seat
-            </button>
-            <button className={`condition-type-btn ${condType === 'IF_NO_SEAT' ? 'active' : ''}`} onClick={() => setCondType('IF_NO_SEAT')}>
-              If I don't win a seat
-            </button>
-            <button className={`condition-type-btn ${condType === 'PROFIT_THRESHOLD' ? 'active' : ''}`} onClick={() => setCondType('PROFIT_THRESHOLD')}>
-              If I'm up $X
-            </button>
-          </div>
+          {/* Satellites checkbox */}
+          <label style={{...sectionLabelStyle, marginBottom: satEnabled ? '8px' : '12px'}}>
+            <input type="checkbox" checked={satEnabled} onChange={e => setSatEnabled(e.target.checked)} style={checkboxStyle} />
+            Satellites
+          </label>
 
-          {needsEvent && (
-            <React.Fragment>
+          {satEnabled && (
+            <div style={{paddingLeft:'24px',marginBottom:'12px'}}>
+              <div className="condition-type-row" style={{marginBottom:'8px'}}>
+                <button className={`condition-type-btn ${satType === 'IF_WIN_SEAT' ? 'active' : ''}`} onClick={() => setSatType('IF_WIN_SEAT')}>
+                  If I win a seat
+                </button>
+                <button className={`condition-type-btn ${satType === 'IF_NO_SEAT' ? 'active' : ''}`} onClick={() => setSatType('IF_NO_SEAT')}>
+                  If I don't win a seat
+                </button>
+              </div>
+
               {suggestedSatellites.length > 0 && (
                 <React.Fragment>
                   <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
@@ -2068,19 +2106,25 @@
               <input
                 className="condition-search"
                 placeholder="Event name or number..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
+                value={satSearch}
+                onChange={e => setSatSearch(e.target.value)}
               />
               {searchResults.length > 0 && (
                 <div className="condition-sat-list">
                   {searchResults.map(renderItem)}
                 </div>
               )}
-            </React.Fragment>
+            </div>
           )}
 
-          {condType === 'PROFIT_THRESHOLD' && (
-            <div style={{marginBottom:'8px'}}>
+          {/* Profit / Loss checkbox */}
+          <label style={{...sectionLabelStyle, marginBottom: profitEnabled ? '8px' : '12px'}}>
+            <input type="checkbox" checked={profitEnabled} onChange={e => setProfitEnabled(e.target.checked)} style={checkboxStyle} />
+            Profit / Loss
+          </label>
+
+          {profitEnabled && (
+            <div style={{paddingLeft:'24px',marginBottom:'12px'}}>
               <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
                 Profit threshold ($)
               </div>
@@ -2097,8 +2141,9 @@
             </div>
           )}
 
+          {/* Public toggle */}
           <div
-            style={{display:'flex',alignItems:'center',gap:'8px',marginTop:'10px',fontSize:'0.75rem',fontFamily:"'Oswald',sans-serif",color:'var(--text-muted)',cursor:'pointer',userSelect:'none'}}
+            style={{display:'flex',alignItems:'center',gap:'8px',marginTop:'4px',fontSize:'0.75rem',fontFamily:"'Oswald',sans-serif",color:'var(--text-muted)',cursor:'pointer',userSelect:'none'}}
             onClick={() => setIsPublic(p => !p)}
           >
             <div style={{
@@ -2113,28 +2158,29 @@
                 transition:'left 0.2s'
               }} />
             </div>
-            <span style={{color:'var(--text)'}}>Show condition on shared schedule</span>
+            <span style={{color:'var(--text)'}}>Show conditions on shared schedule</span>
           </div>
 
+          {/* Action buttons */}
           <div style={{display:'flex',gap:'8px',marginTop:'8px'}}>
             <button
               className="condition-type-btn active"
               style={{flex:1,opacity:canSubmit ? 1 : 0.4,pointerEvents:canSubmit ? 'auto' : 'none'}}
               onClick={handleSubmit}
             >
-              Set Condition
+              Set Conditions
             </button>
             <button className="condition-type-btn" style={{flex:'0 0 auto'}} onClick={onClose}>
               Cancel
             </button>
           </div>
 
-          {condition && (
+          {conditions.length > 0 && (
             <button
               style={{marginTop:'8px',background:'none',border:'none',color:'var(--accent2)',fontSize:'0.75rem',cursor:'pointer',padding:'4px 0',fontFamily:"'Oswald',sans-serif",fontWeight:600}}
               onClick={onRemove}
             >
-              Remove Condition
+              Remove All Conditions
             </button>
           )}
         </div>
@@ -2143,7 +2189,7 @@
 
     // ── Calendar Event Row (collapsible) ──────────────────────
 
-    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, condition, onSetCondition, onRemoveCondition, allTournaments }) {
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments }) {
       const [open, setOpen] = useState(false);
       const [showConditionUI, setShowConditionUI] = useState(false);
       const rowRef = React.useRef(null);
@@ -2199,7 +2245,7 @@
         'cal-event-row',
         open ? 'open' : '',
         isInSchedule ? 'saved' : '',
-        condition ? 'conditional' : '',
+        conditions && conditions.length > 0 ? 'conditional' : '',
         venueClass,
         bracelet ? 'bracelet' : '',
         isPast ? 'past' : '',
@@ -2215,7 +2261,7 @@
             style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
             onClick={() => setOpen(o => !o)}
           >{open && venue.longName ? venue.longName : venue.abbr}</div>
-          <div className="cal-event-row-content" style={isInSchedule && condition ? {borderColor: venue.abbr === 'WSOP' ? (document.documentElement.dataset.theme === 'light' ? '#444' : '#999') : stripColor} : undefined}>
+          <div className="cal-event-row-content" style={isInSchedule && conditions && conditions.length > 0 ? {borderColor: venue.abbr === 'WSOP' ? (document.documentElement.dataset.theme === 'light' ? '#444' : '#999') : stripColor} : undefined}>
             {/* Collapsed bar — always visible */}
             <div className="cal-event-bar" onClick={() => setOpen(o => !o)}>
               <div className="cal-bar-row1">
@@ -2226,11 +2272,11 @@
               </div>
               <div className="cal-bar-row2">
                 <span className="cal-event-name">{tournament.event_name}</span>
-                {condition && (
-                  <span className="cal-condition-label">
-                    {condition.type === 'PROFIT_THRESHOLD' ? `If up $${Number(condition.profitThreshold).toLocaleString()}` : `${condition.type === 'IF_WIN_SEAT' ? 'If seat' : 'If no seat'} #${condition.dependsOnEventNumber}`}
+                {conditions && conditions.length > 0 && conditions.map((c, ci) => (
+                  <span key={ci} className="cal-condition-label">
+                    {formatConditionLabel(c, allTournaments)}
                   </span>
-                )}
+                ))}
                 {isBounty && <span className="cal-bounty-icon"><Icon.crosshairs /></span>}
                 {isSat && <span className="cal-bounty-icon"><Icon.satellite /></span>}
                 {isRestart && <span className="cal-bounty-icon"><Icon.restart /></span>}
@@ -2275,11 +2321,11 @@
                     {isInSchedule && (
                       <span className="badge badge-saved">✓ Saved</span>
                     )}
-                    {condition && (
-                      <span className="badge badge-condition">
-                        {condition.type === 'PROFIT_THRESHOLD' ? `💰 If up $${Number(condition.profitThreshold).toLocaleString()}` : `${condition.type === 'IF_WIN_SEAT' ? '🎯 If seat from' : '🔄 If no seat from'} #${condition.dependsOnEventNumber}`}
+                    {conditions && conditions.length > 0 && conditions.map((c, ci) => (
+                      <span key={ci} className="badge badge-condition">
+                        {formatConditionBadge(c, allTournaments)}
                       </span>
-                    )}
+                    ))}
                   </div>
 
                   <div className="cal-detail-grid">
@@ -2341,7 +2387,7 @@
                         className="cal-action-btn condition-btn"
                         onClick={() => setShowConditionUI(prev => !prev)}
                       >
-                        {condition ? '✎ Edit Condition' : '⚡ Condition'}
+                        {conditions && conditions.length > 0 ? '✎ Edit Conditions' : '⚡ Condition'}
                       </button>
                     )}
                   </div>
@@ -2349,9 +2395,9 @@
                   {showConditionUI && isInSchedule && onSetCondition && (
                     <ConditionPicker
                       tournament={tournament}
-                      condition={condition}
+                      conditions={conditions || []}
                       allTournaments={allTournaments || []}
-                      onSet={(depId, type, pub, profitThreshold) => { onSetCondition(tournament.id, depId, type, pub, profitThreshold); setShowConditionUI(false); }}
+                      onSet={(conditionsArr, pub) => { onSetCondition(tournament.id, conditionsArr, pub); setShowConditionUI(false); }}
                       onRemove={() => { onRemoveCondition(tournament.id); setShowConditionUI(false); }}
                       onClose={() => setShowConditionUI(false)}
                     />
@@ -2715,8 +2761,8 @@
       const conditionMap = useMemo(() => {
         const m = {};
         for (const t of mySchedule) {
-          const c = extractCondition(t);
-          if (c) m[t.id] = c;
+          const c = extractConditions(t);
+          if (c.length > 0) m[t.id] = c;
         }
         return m;
       }, [mySchedule]);
@@ -2800,7 +2846,7 @@
                     const targetId = findBestFlight(num, sat);
                     if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
                   }}
-                  condition={conditionMap[t.id] || null}
+                  conditions={conditionMap[t.id] || []}
                   onSetCondition={onSetCondition}
                   onRemoveCondition={onRemoveCondition}
                   allTournaments={tournaments}
@@ -2879,7 +2925,7 @@
                       const targetId = findBestFlightSchedule(num, sat);
                       if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
                     }}
-                    condition={extractCondition(t)}
+                    conditions={extractConditions(t)}
                     onSetCondition={onSetCondition}
                     onRemoveCondition={onRemoveCondition}
                     allTournaments={allTournaments}
@@ -2963,8 +3009,8 @@
       const conditionMap = useMemo(() => {
         const m = {};
         for (const t of mySchedule) {
-          const c = extractCondition(t);
-          if (c) m[t.id] = c;
+          const c = extractConditions(t);
+          if (c.length > 0) m[t.id] = c;
         }
         return m;
       }, [mySchedule]);
@@ -3077,7 +3123,7 @@
                       setTimeout(() => setFocusEventId(best.id), 50);
                     }
                   }}
-                  condition={conditionMap[t.id] || null}
+                  conditions={conditionMap[t.id] || []}
                   onSetCondition={onSetCondition}
                   onRemoveCondition={onRemoveCondition}
                   allTournaments={allTournaments}
@@ -3188,7 +3234,7 @@
                   showDate={true}
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
-                  condition={extractCondition(t, true)}
+                  conditions={extractConditions(t, true)}
                 />
               ))
             )}
@@ -3240,7 +3286,7 @@
                   showDate={true}
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
-                  condition={extractCondition(t, true)}
+                  conditions={extractConditions(t, true)}
                 />
               ))}
             </div>
@@ -4107,12 +4153,12 @@
         } catch { setError('Failed to update schedule'); }
       };
 
-      const setCondition = async (tournamentId, dependsOnTournamentId, conditionType, isPublic, profitThreshold) => {
+      const setCondition = async (tournamentId, conditions, isPublic) => {
         try {
           await fetch(`${API_URL}/schedule/${tournamentId}/condition`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dependsOnTournamentId, conditionType, isPublic, profitThreshold })
+            body: JSON.stringify({ conditions, isPublic })
           });
           fetchMySchedule();
         } catch { setError('Failed to set condition'); }

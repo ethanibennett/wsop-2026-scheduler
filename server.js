@@ -147,6 +147,33 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  // Migrate: add conditions JSON column for multi-condition support
+  try {
+    db.run('ALTER TABLE schedule_conditions ADD COLUMN conditions TEXT');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
+  // Migrate legacy single-condition rows to JSON conditions column
+  try {
+    const migStmt = db.prepare('SELECT id, condition_type, depends_on_tournament_id, profit_threshold FROM schedule_conditions WHERE conditions IS NULL AND condition_type IS NOT NULL');
+    const legacyRows = [];
+    while (migStmt.step()) legacyRows.push(migStmt.getAsObject());
+    migStmt.free();
+    for (const row of legacyRows) {
+      const cond = { type: row.condition_type };
+      if (row.depends_on_tournament_id) cond.dependsOnId = row.depends_on_tournament_id;
+      if (row.profit_threshold) cond.profitThreshold = row.profit_threshold;
+      db.run('UPDATE schedule_conditions SET conditions = ? WHERE id = ?', [JSON.stringify([cond]), row.id]);
+    }
+    if (legacyRows.length > 0) {
+      await saveDatabase();
+      console.log(`Migrated ${legacyRows.length} legacy condition rows to JSON format`);
+    }
+  } catch (e) {
+    // ignore migration errors
+  }
+
   db.run(`
     CREATE TABLE IF NOT EXISTS tracking_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -421,7 +448,7 @@ app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) =>
 app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.params;
-    const { dependsOnTournamentId, conditionType, isPublic, profitThreshold } = req.body;
+    const { conditions, isPublic, dependsOnTournamentId, conditionType, profitThreshold } = req.body;
     const publicFlag = isPublic === undefined ? 1 : (isPublic ? 1 : 0);
 
     // Verify event is on user's schedule
@@ -433,11 +460,25 @@ app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, 
       return res.status(400).json({ error: 'Event not on your schedule' });
     }
 
+    // Build conditions JSON — support new array format or legacy single-condition format
+    let conditionsJson;
+    if (Array.isArray(conditions)) {
+      conditionsJson = JSON.stringify(conditions);
+    } else if (conditionType) {
+      // Backward compat: construct array from legacy fields
+      const cond = { type: conditionType };
+      if (dependsOnTournamentId) cond.dependsOnId = dependsOnTournamentId;
+      if (profitThreshold) cond.profitThreshold = profitThreshold;
+      conditionsJson = JSON.stringify([cond]);
+    } else {
+      return res.status(400).json({ error: 'No conditions provided' });
+    }
+
     // Upsert: delete existing then insert
     db.run('DELETE FROM schedule_conditions WHERE user_id = ? AND tournament_id = ?', [req.user.id, tournamentId]);
     db.run(
-      'INSERT INTO schedule_conditions (user_id, tournament_id, depends_on_tournament_id, condition_type, is_public, profit_threshold) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.user.id, tournamentId, dependsOnTournamentId || null, conditionType, publicFlag, profitThreshold || null]
+      'INSERT INTO schedule_conditions (user_id, tournament_id, condition_type, is_public, conditions) VALUES (?, ?, ?, ?, ?)',
+      [req.user.id, tournamentId, 'MULTI', publicFlag, conditionsJson]
     );
 
     await saveDatabase();
@@ -464,20 +505,15 @@ app.get('/api/my-schedule', authenticateToken, (req, res) => {
   try {
     const query = `
       SELECT t.*, us.added_at,
-             sc.condition_type,
-             sc.depends_on_tournament_id,
-             sc.is_public AS condition_is_public,
-             sc.profit_threshold AS condition_profit_threshold,
-             dep.event_number AS depends_on_event_number,
-             dep.event_name AS depends_on_event_name
+             sc.conditions AS conditions_json,
+             sc.is_public AS condition_is_public
       FROM tournaments t
       JOIN user_schedules us ON t.id = us.tournament_id
       LEFT JOIN schedule_conditions sc ON sc.tournament_id = t.id AND sc.user_id = us.user_id
-      LEFT JOIN tournaments dep ON dep.id = sc.depends_on_tournament_id
       WHERE us.user_id = ?
       ORDER BY t.date, t.time
     `;
-    
+
     const stmt = db.prepare(query);
     stmt.bind([req.user.id]);
     
@@ -573,16 +609,11 @@ app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
     
     const query = `
       SELECT t.*,
-             sc.condition_type,
-             sc.depends_on_tournament_id,
-             sc.is_public AS condition_is_public,
-             sc.profit_threshold AS condition_profit_threshold,
-             dep.event_number AS depends_on_event_number,
-             dep.event_name AS depends_on_event_name
+             sc.conditions AS conditions_json,
+             sc.is_public AS condition_is_public
       FROM tournaments t
       JOIN user_schedules us ON t.id = us.tournament_id
       LEFT JOIN schedule_conditions sc ON sc.tournament_id = t.id AND sc.user_id = us.user_id
-      LEFT JOIN tournaments dep ON dep.id = sc.depends_on_tournament_id
       WHERE us.user_id = ?
       ORDER BY t.date, t.time
     `;
@@ -622,16 +653,11 @@ app.get('/api/shared/:token', (req, res) => {
 
     const schedStmt = db.prepare(`
       SELECT t.*,
-             sc.condition_type,
-             sc.depends_on_tournament_id,
-             sc.is_public AS condition_is_public,
-             sc.profit_threshold AS condition_profit_threshold,
-             dep.event_number AS depends_on_event_number,
-             dep.event_name AS depends_on_event_name
+             sc.conditions AS conditions_json,
+             sc.is_public AS condition_is_public
       FROM tournaments t
       JOIN user_schedules us ON t.id = us.tournament_id
       LEFT JOIN schedule_conditions sc ON sc.tournament_id = t.id AND sc.user_id = us.user_id
-      LEFT JOIN tournaments dep ON dep.id = sc.depends_on_tournament_id
       WHERE us.user_id = ?
       ORDER BY t.date, t.time
     `);
