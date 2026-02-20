@@ -1350,6 +1350,7 @@
       align-items: center;
       justify-content: center;
     }
+    .cal-action-icon svg { width: 1rem; height: 1rem; }
     .cal-action-label {
       font-family: inherit;
       font-size: 0.55rem;
@@ -1907,6 +1908,11 @@
       user: () => (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+      ),
+      condition: () => (
+        <svg viewBox="9 7 78 82" fill="currentColor">
+          <path d="M81.08,15.66H71.19V12.08a4.5,4.5,0,0,0-4.5-4.5H29.31a4.5,4.5,0,0,0-4.5,4.5V22.24a4.51,4.51,0,0,0,4.5,4.5H66.69a4.51,4.51,0,0,0,4.5-4.5V18.66h9.89a2.61,2.61,0,0,1,2.61,2.61V43.89a2.61,2.61,0,0,1-2.61,2.61H78.56a1.5,1.5,0,0,0,0,3h2.52a5.61,5.61,0,0,0,5.61-5.61V21.27A5.61,5.61,0,0,0,81.08,15.66Zm-24.77,3H39.69a1.5,1.5,0,0,1,0-3H56.31a1.5,1.5,0,0,1,0,3ZM68.66,42.87,50.28,34.7a5.58,5.58,0,0,0-4.56,0L27.34,42.87a5.61,5.61,0,0,0,0,10.26L45.72,61.3a5.65,5.65,0,0,0,4.56,0l18.38-8.17a5.61,5.61,0,0,0,0-10.26ZM56.31,49.5H39.69a1.5,1.5,0,0,1,0-3H56.31a1.5,1.5,0,0,1,0,3ZM66.69,69.26H29.31a4.51,4.51,0,0,0-4.5,4.5v3.58H14.92a2.61,2.61,0,0,1-2.61-2.61V52.11a2.61,2.61,0,0,1,2.61-2.61h2.52a1.5,1.5,0,0,0,0-3H14.92a5.61,5.61,0,0,0-5.61,5.61V74.73a5.61,5.61,0,0,0,5.61,5.61h9.89v3.58a4.5,4.5,0,0,0,4.5,4.5H66.69a4.5,4.5,0,0,0,4.5-4.5V73.76A4.51,4.51,0,0,0,66.69,69.26ZM56.31,80.34H39.69a1.5,1.5,0,0,1,0-3H56.31a1.5,1.5,0,0,1,0,3Z"/>
         </svg>
       ),
       crosshairs: () => (
@@ -2536,7 +2542,7 @@
                         className="cal-action-btn condition-btn"
                         onClick={() => setShowConditionUI(prev => !prev)}
                       >
-                        <span className="cal-action-icon">{conditions && conditions.length > 0 ? '✎' : '⚡'}</span>
+                        <span className="cal-action-icon"><Icon.condition /></span>
                         <span className="cal-action-label">Condition</span>
                       </button>
                     )}
