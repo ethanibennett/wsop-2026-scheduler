@@ -1365,26 +1365,34 @@
     [data-theme="light"] .cal-action-btn.anchor-btn.locked .cal-action-icon { color: #2563eb; }
 
     /* ── Entries stepper ── */
-    .cal-entries-stepper { gap: 2px; }
-    .cal-entries-btn {
+    .cal-entries-stepper {
+      width: 100%;
+      position: relative;
+      height: 1rem;
+      display: flex;
+    }
+    .cal-entries-stepper .cal-entries-btn {
+      flex: 1;
       background: none;
       border: none;
-      color: var(--text-muted);
-      font-size: 0.75rem;
-      font-weight: 600;
       cursor: pointer;
-      padding: 0 2px;
-      line-height: 1;
+      color: transparent;
+      font-size: 0;
+      padding: 0;
     }
-    .cal-entries-btn:disabled { opacity: 0.25; cursor: default; }
-    .cal-entries-btn:active:not(:disabled) { color: var(--text); }
+    .cal-entries-stepper .cal-entries-btn:disabled { cursor: default; }
+    .cal-entries-stepper .cal-entries-btn:active:not(:disabled) { background: rgba(160,160,160,0.06); }
     .cal-entries-value {
+      position: absolute;
+      left: 0; right: 0; top: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 1rem;
       line-height: 1;
       font-weight: 600;
       color: var(--text);
-      min-width: 10px;
-      text-align: center;
+      pointer-events: none;
     }
 
     /* ── Late reg bar ── */
@@ -2539,12 +2547,14 @@
                             className="cal-entries-btn"
                             onClick={() => onSetPlannedEntries(tournament.id, Math.max(1, (plannedEntries || 1) - 1))}
                             disabled={(plannedEntries || 1) <= 1}
-                          >−</button>
+                            aria-label="Decrease entries"
+                          />
                           <span className="cal-entries-value">{plannedEntries || 1}</span>
                           <button
                             className="cal-entries-btn"
                             onClick={() => onSetPlannedEntries(tournament.id, (plannedEntries || 1) + 1)}
-                          >+</button>
+                            aria-label="Increase entries"
+                          />
                         </div>
                         <span className="cal-action-label">Max Entries</span>
                       </div>
