@@ -36,6 +36,10 @@
       --tab-h:     56px;
       --header-h:  60px;
       /* Venue brand colors — muted for dark mode */
+      --venue-wsop:          #e8e8e8;
+      --venue-wsop-cond:     #999;
+      --venue-ipo:           #1a6b3c;
+      --venue-personal:      #4a9eff;
       --venue-wynn:          #8a3030;
       --venue-aria:          #5a3a9a;
       --venue-golden-nugget: #7a6520;
@@ -44,6 +48,7 @@
       --venue-orleans:       #944828;
       --venue-mgm-grand:     #2a6a3e;
       --venue-mgm-nh:        #8a7020;
+      --venue-ts:            #8a6508;
     }
 
     [data-theme="light"] {
@@ -62,6 +67,10 @@
       --venue-gn-bg:   #eeeeee;
       --hover-overlay: rgba(0,0,0,0.04);
       /* Venue brand colors — full saturation for light mode */
+      --venue-wsop:          #111111;
+      --venue-wsop-cond:     #444;
+      --venue-ipo:           #0d8a3e;
+      --venue-personal:      #2563eb;
       --venue-wynn:          #b91c1c;
       --venue-aria:          #6d28d9;
       --venue-golden-nugget: #92700a;
@@ -70,6 +79,7 @@
       --venue-orleans:       #c2410c;
       --venue-mgm-grand:     #15803d;
       --venue-mgm-nh:        #b8860b;
+      --venue-ts:            #7a5a06;
     }
 
     /* High contrast — dark */
@@ -1074,6 +1084,18 @@
       left: -3px;
     }
 
+    .cal-ring-icon {
+      width: 18px;
+      height: 18px;
+      color: #c9a227;
+      opacity: 0.85;
+      pointer-events: none;
+      flex-shrink: 0;
+      align-self: center;
+      position: relative;
+      top: -3px;
+    }
+
     .cal-bracelet-icon {
       width: 21px;
       height: 21px;
@@ -1099,23 +1121,6 @@
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-
-    .cal-event-date {
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: var(--text-muted);
-      flex-shrink: 0;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-    }
-
-    .cal-event-dow {
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      flex-shrink: 0;
-      opacity: 0.7;
     }
 
     .cal-event-time {
@@ -1156,49 +1161,40 @@
       flex-shrink: 0;
       /* color and background set via inline style */
     }
-    /* Venue-branded pills (chip + event badge) */
-    .venue-wsop.cal-venue-chip,
-    .venue-wsop.badge-event {
+    /* Venue-branded pills (chip) */
+    .venue-wsop.cal-venue-chip {
       color: #111111 !important;
       background: #e8e8e8 !important;
     }
-    [data-theme="light"] .venue-wsop.cal-venue-chip,
-    [data-theme="light"] .venue-wsop.badge-event {
+    [data-theme="light"] .venue-wsop.cal-venue-chip {
       color: #ffffff !important;
       background: #111111 !important;
     }
-    .venue-wynn.cal-venue-chip,
-    .venue-wynn.badge-event {
+    .venue-wynn.cal-venue-chip {
       color: #ffffff !important;
       background: var(--venue-wynn) !important;
     }
-    .venue-aria.cal-venue-chip,
-    .venue-aria.badge-event {
+    .venue-aria.cal-venue-chip {
       color: #ffffff !important;
       background: var(--venue-aria) !important;
     }
-    .venue-golden-nugget.cal-venue-chip,
-    .venue-golden-nugget.badge-event {
+    .venue-golden-nugget.cal-venue-chip {
       color: #ffffff !important;
       background: var(--venue-golden-nugget) !important;
     }
-    .venue-resorts-world.cal-venue-chip,
-    .venue-resorts-world.badge-event {
+    .venue-resorts-world.cal-venue-chip {
       color: #ffffff !important;
       background: var(--venue-resorts-world) !important;
     }
-    .venue-south-point.cal-venue-chip,
-    .venue-south-point.badge-event {
+    .venue-south-point.cal-venue-chip {
       color: #ffffff !important;
       background: var(--venue-south-point) !important;
     }
-    .venue-orleans.cal-venue-chip,
-    .venue-orleans.badge-event {
+    .venue-orleans.cal-venue-chip {
       color: #ffffff !important;
       background: var(--venue-orleans) !important;
     }
-    .venue-mgm-grand.cal-venue-chip,
-    .venue-mgm-grand.badge-event {
+    .venue-mgm-grand.cal-venue-chip {
       color: #ffffff !important;
       background: var(--venue-mgm-grand) !important;
     }
@@ -1238,6 +1234,24 @@
     }
     .tracking-poy { color: #fbbf24; }
     [data-theme="light"] .tracking-poy { color: #d97706; }
+
+    @keyframes lfg-pop {
+      0%   { opacity: 0; transform: scale(0.3) rotate(-30deg); }
+      30%  { opacity: 1; transform: scale(1.15) rotate(-30deg); }
+      60%  { opacity: 1; transform: scale(1) rotate(-30deg); }
+      100% { opacity: 0; transform: scale(4.0) rotate(-30deg); }
+    }
+    .lfg-burst {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-weight: 700;
+      color: #4ade80;
+      pointer-events: none;
+      animation: lfg-pop 1s ease-out forwards;
+      position: relative;
+      left: 15px;
+      top: -40px;
+    }
+    [data-theme="light"] .lfg-burst { color: #16a34a; }
 
     .cal-event-chevron {
       display: flex;
@@ -1641,6 +1655,9 @@
       'Orleans':                     { abbr: 'ORLEANS', color: '#c2410c', longName: 'The Orleans' },
       'MGM Grand':                   { abbr: 'MGM GRAND', color: '#15803d', longName: 'MGM Grand' },
       'MGM National Harbor':         { abbr: 'MGM NH',    color: '#b8860b', longName: 'MGM National Harbor' },
+      'Irish Poker Open':            { abbr: 'IPO',       color: '#1a6b3c', longName: 'Irish Poker Open' },
+      'Personal':                    { abbr: 'PERSONAL',  color: '#4a9eff', longName: 'Personal' },
+      'Turning Stone Casino':        { abbr: 'Turning Stone', color: '#8b0000', longName: 'WSOP Circuit - Turning Stone Casino' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -1648,6 +1665,9 @@
 
     // Actual branded pill colors for mini late-reg bar
     const VENUE_BRAND_VAR = {
+      'WSOP':          '--venue-wsop',
+      'IPO':           '--venue-ipo',
+      'PERSONAL':      '--venue-personal',
       'WYNN':          '--venue-wynn',
       'ARIA':          '--venue-aria',
       'GOLDEN NUGGET': '--venue-golden-nugget',
@@ -1656,12 +1676,12 @@
       'ORLEANS':       '--venue-orleans',
       'MGM GRAND':     '--venue-mgm-grand',
       'MGM NH':        '--venue-mgm-nh',
+      'Turning Stone': '--venue-ts',
     };
     function getVenueBrandColor(abbr) {
-      if (abbr === 'WSOP') return '#e8e8e8';
       const cssVar = VENUE_BRAND_VAR[abbr];
       if (!cssVar) return '#808080';
-      return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim() || '#808080';
+      return `var(${cssVar})`;
     }
 
     // ── Bracelet Event Detection ──────────────────────────────
@@ -1670,6 +1690,7 @@
     const NON_BRACELET_KEYWORDS = ['satellite', 'mega sat', 'super sat', 'qualifier', 'freeroll', 'charity', 'side event'];
     function isBraceletEvent(t) {
       if (t.is_satellite) return false;
+      if (t.is_deepstack) return false;
       const v = (t.venue || '').toLowerCase();
       if (!v.includes('horseshoe') && !v.includes('paris')) return false;
       const name = (t.event_name || '').toLowerCase();
@@ -1823,7 +1844,7 @@
       // conflicts: overlaps between two firm events (show warning)
       const conflicts = new Set();
       const expectedConflicts = new Set();
-      const sorted = [...schedule].sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`));
+      const sorted = [...schedule].filter(t => t.venue !== 'Personal').sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`));
       for (let i = 0; i < sorted.length; i++) {
         for (let j = i + 1; j < sorted.length; j++) {
           const a = sorted[i], b = sorted[j];
@@ -1952,6 +1973,11 @@
           <path d="M32.891 20.781l-6.953 6.953c-0.301 0.289-0.473 0.688-0.48 1.106-0.008 0.418 0.152 0.82 0.441 1.121 0.606 0.625 1.602 0.645 2.227 0.039l6.953-6.953c0.465-0.621 0.406-1.492-0.145-2.043-0.551-0.551-1.422-0.609-2.043-0.145z"/>
           <path d="M78.75 63.125c-0.609-0.594-1.578-0.594-2.188 0l-7.031 7.031c-0.363 0.273-0.59 0.688-0.621 1.141-0.031 0.449 0.133 0.895 0.453 1.215 0.32 0.32 0.766 0.484 1.215 0.453 0.453-0.031 0.867-0.258 1.141-0.621l7.031-7.031c0.594-0.609 0.594-1.578 0-2.188z"/>
           <path d="M86.016 71.562l-6.953 6.953c-0.363 0.273-0.59 0.688-0.621 1.141-0.031 0.449 0.133 0.895 0.453 1.215 0.32 0.32 0.766 0.484 1.215 0.453 0.453-0.031 0.867-0.258 1.141-0.621l6.953-6.953c0.465-0.621 0.406-1.492-0.145-2.043-0.551-0.551-1.422-0.609-2.043-0.145z"/>
+        </svg>
+      ),
+      ring: () => (
+        <svg viewBox="-5 -10 110 110" fill="currentColor">
+          <path d="m50 85.391c17.43 0 31.621-14.18 31.621-31.621 0-14.488-9.8086-26.73-23.141-30.449l2.2188-8.7109h-21.398l2.2188 8.7109c-13.328 3.7109-23.141 15.949-23.141 30.449 0 17.441 14.191 31.621 31.621 31.621zm0-59.242c15.23 0 27.621 12.391 27.621 27.621s-12.391 27.621-27.621 27.621-27.621-12.391-27.621-27.621 12.391-27.621 27.621-27.621z"/>
         </svg>
       ),
       bracelet: () => (
@@ -2329,10 +2355,11 @@
 
     // ── Calendar Event Row (collapsible) ──────────────────────
 
-    function CalendarEventRow({ tournament, isInSchedule, onToggle, showDate, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries }) {
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent }) {
       const [open, setOpen] = useState(false);
       const [showConditionUI, setShowConditionUI] = useState(false);
       const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
+      const [travelNotes, setTravelNotes] = useState(tournament.notes || '');
       const rowRef = React.useRef(null);
 
       // Scroll a row to just below the sticky header
@@ -2371,16 +2398,7 @@
       const isBounty   = /bounty|mystery millions/i.test(tournament.event_name);
       const isSat      = !!tournament.is_satellite;
       const isRestart  = !!tournament.is_restart;
-
-      // Short date for events list: "May 26, 2026" → "May 26"
-      const shortDate = showDate && tournament.date
-        ? tournament.date.replace(/,?\s*\d{4}$/, '')
-        : null;
-
-      // Day of week: "May 26, 2026" → "Mon"
-      const dayOfWeek = tournament.date
-        ? new Date(tournament.date).toLocaleDateString('en-US', { weekday: 'short' })
-        : null;
+      const isRingEvent = tournament.venue === 'Turning Stone Casino' && !!tournament.event_number;
 
       const rowClasses = [
         'cal-event-row',
@@ -2392,8 +2410,9 @@
         isPast ? 'past' : '',
       ].filter(Boolean).join(' ');
 
-      const stripColor = getVenueBrandColor(venue.abbr);
-      const stripTextColor = venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)';
+      const isDeepstack = !!tournament.is_deepstack;
+      const stripColor = isDeepstack ? '#666666' : getVenueBrandColor(venue.abbr);
+      const stripTextColor = isDeepstack ? '#ffffff' : (venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)');
 
       return (
         <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor, ...(isAnchor ? {boxShadow: `inset 0 0 0 1.5px ${stripColor}`} : {})} : undefined}>
@@ -2402,22 +2421,36 @@
             style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
             onClick={() => setOpen(o => !o)}
           >{open && venue.longName ? venue.longName : venue.abbr}</div>
-          <div className="cal-event-row-content" style={isInSchedule && conditions && conditions.length > 0 ? {borderColor: venue.abbr === 'WSOP' ? (document.documentElement.dataset.theme === 'light' ? '#444' : '#999') : stripColor} : undefined}>
+          <div className="cal-event-row-content" style={isInSchedule && conditions && conditions.length > 0 ? {borderColor: venue.abbr === 'WSOP' ? 'var(--venue-wsop-cond)' : stripColor} : undefined}>
             {/* Collapsed bar — always visible */}
             <div className="cal-event-bar" onClick={() => setOpen(o => !o)}>
-              <div className="cal-bar-row1">
-                {shortDate && <span className="cal-event-date">{shortDate}</span>}
-                {dayOfWeek && <span className="cal-event-dow">{dayOfWeek}</span>}
-                <span className="cal-event-time">{timeLabel}</span>
-                <span className="cal-event-buyin">${Number(tournament.buyin).toLocaleString()}</span>
-              </div>
-              <div className="cal-bar-row2">
-                <span className="cal-event-name">{tournament.event_name}</span>
-                {isBounty && <span className="cal-bounty-icon"><Icon.crosshairs /></span>}
-                {isSat && <span className="cal-bounty-icon"><Icon.satellite /></span>}
-                {isRestart && <span className="cal-bounty-icon"><Icon.restart /></span>}
-                {bracelet && <span className="cal-bracelet-icon"><Icon.bracelet /></span>}
-              </div>
+              {tournament.venue === 'Personal' ? (
+                <div className="cal-bar-row2" style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                  <span className="cal-event-name" style={{fontSize:'0.88rem'}}>
+                    {tournament.event_name === 'Travel Day' ? '✈️' : '🏖️'} {tournament.event_name}
+                  </span>
+                  {tournament.notes && (
+                    <span style={{fontSize:'0.78rem', color:'var(--text-muted)', fontStyle:'italic', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                      — {tournament.notes}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="cal-bar-row1">
+                    <span className="cal-event-time">{timeLabel}</span>
+                    <span className="cal-event-buyin">${Number(tournament.buyin).toLocaleString()}</span>
+                  </div>
+                  <div className="cal-bar-row2">
+                    <span className="cal-event-name">{tournament.event_name}</span>
+                    {isBounty && !isSat && <span className="cal-bounty-icon"><Icon.crosshairs /></span>}
+                    {isSat && <span className="cal-bounty-icon"><Icon.satellite /></span>}
+                    {isRestart && <span className="cal-bounty-icon"><Icon.restart /></span>}
+                    {bracelet && <span className="cal-bracelet-icon"><Icon.bracelet /></span>}
+                    {isRingEvent && <span className="cal-ring-icon"><Icon.ring /></span>}
+                  </div>
+                </>
+              )}
             </div>
             {showMiniLateReg && !open && <MiniLateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />}
             <div className={`cal-event-chevron ${open ? 'open' : ''}`} onClick={() => setOpen(o => !o)}>
@@ -2435,10 +2468,50 @@
             }}>
               <div className="cal-event-detail-inner">
                 <div className="cal-event-detail">
+                  {tournament.venue === 'Personal' ? (
+                    <>
+                      {tournament.event_name === 'Travel Day' && !readOnly && onUpdatePersonalEvent ? (
+                        <div style={{marginBottom:'12px'}}>
+                          <label style={{fontSize:'0.78rem', color:'var(--text-muted)', display:'block', marginBottom:'4px'}}>Travel details</label>
+                          <div style={{display:'flex', gap:'6px', alignItems:'center'}}>
+                            <input
+                              type="text"
+                              value={travelNotes}
+                              onChange={e => setTravelNotes(e.target.value)}
+                              onBlur={() => { if (travelNotes !== (tournament.notes || '')) onUpdatePersonalEvent(tournament.id, travelNotes); }}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.target.blur(); }}}
+                              placeholder="e.g. 6h flight LAX → LAS"
+                              style={{
+                                flex:1, padding:'6px 10px', fontSize:'0.83rem',
+                                borderRadius:'6px', border:'1px solid var(--border)',
+                                background:'var(--surface)', color:'var(--text)',
+                                outline:'none'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <p style={{fontSize:'0.85rem', color:'var(--text-muted)', marginBottom:'12px'}}>
+                          {tournament.event_name === 'Travel Day'
+                            ? (tournament.notes || 'Travel day — no tournaments planned')
+                            : 'Day off — rest and recover'}
+                        </p>
+                      )}
+                      {!readOnly && (
+                        <div className="cal-action-row">
+                          <button className="cal-action-btn remove" onClick={() => onToggle(tournament.id)}>
+                            <span className="cal-action-icon">✕</span>
+                            <span className="cal-action-label">Remove</span>
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                  <>
                   <div className="cal-detail-badges">
                     <div className="cal-badges-left">
                       {tournament.event_number && (
-                        <span className={`badge badge-event venue-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}>#{tournament.event_number}</span>
+                        <span className="badge badge-event" style={{background: stripColor, color: stripTextColor}}>#{tournament.event_number.replace(/^[A-Za-z]+-/, '')}</span>
                       )}
                       {tournament.target_event && (
                         <span
@@ -2610,6 +2683,8 @@
                       onClose={() => setShowConditionUI(false)}
                     />
                   )}
+                  </>
+                  )}
                 </div>
               </div>
             </div>
@@ -2625,6 +2700,10 @@
       const bracelet   = isBraceletEvent(tournament);
       const venueClass = getVenueClass(tournament);
       const venue      = getVenueInfo(tournament.venue);
+      const isDeepstack = !!tournament.is_deepstack;
+      const isRingEvent = tournament.venue === 'Turning Stone Casino' && !!tournament.event_number;
+      const stripColor = isDeepstack ? '#666666' : getVenueBrandColor(venue.abbr);
+      const stripTextColor = isDeepstack ? '#ffffff' : (venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)');
 
       const cardClasses = [
         't-card',
@@ -2640,11 +2719,13 @@
             <div className="t-card-top">
               <div className="t-card-badges">
                 {tournament.event_number && (
-                  <span className={`badge badge-event venue-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}>#{tournament.event_number}</span>
+                  <span className="badge badge-event" style={{background: stripColor, color: stripTextColor}}>#{tournament.event_number.replace(/^[A-Za-z]+-/, '')}</span>
                 )}
                 {tournament.game_variant && getGamePills(tournament.game_variant, tournament.event_name).map((g, i) => (
                   <span key={i} className="badge badge-variant">{g}</span>
                 ))}
+                {isRingEvent && <span className="cal-ring-icon" style={{marginLeft:'2px'}}><Icon.ring /></span>}
+                {bracelet && <span className="cal-bracelet-icon" style={{position:'static',margin:'0 0 0 2px'}}><Icon.bracelet /></span>}
               </div>
               <span className="t-buyin">{formatBuyin(tournament.buyin)}</span>
             </div>
@@ -2826,7 +2907,7 @@
       const [open, setOpen] = useState(false);
 
       const hasActive = filters.minBuyin || filters.maxBuyin ||
-        filters.selectedGames.length > 0 || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts;
+        filters.selectedGames.length > 0 || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideDeepstacks;
 
       return (
         <div>
@@ -2848,6 +2929,12 @@
                 onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
                 style={{margin:0}}
               /> Restarts
+            </label>
+            <label className={`filter-chip ${!filters.hideDeepstacks ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
+              <input type="checkbox" checked={!filters.hideDeepstacks}
+                onChange={e => setFilters(f => ({...f, hideDeepstacks:!e.target.checked}))}
+                style={{margin:0}}
+              /> Deepstacks
             </label>
             {filters.selectedGames.length > 0 && (
               <span className="filter-chip active">
@@ -2938,7 +3025,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',selectedGames:[],venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true})
+                    setFilters({minBuyin:'',maxBuyin:'',selectedGames:[],venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true,hideDeepstacks:true})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -2953,7 +3040,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
+        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true
       });
       const [focusEventId, setFocusEventId] = useState(null);
 
@@ -2994,6 +3081,7 @@
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
+            if (filters.hideDeepstacks && t.is_deepstack) return false;
             return true;
           })
           .sort((a, b) => {
@@ -3044,41 +3132,180 @@
             </div>
           ) : (
             <div style={{minHeight:'100vh'}}>
-              {filtered.map(t => (
-                <CalendarEventRow
-                  key={t.id}
-                  tournament={t}
-                  isInSchedule={scheduleIds.has(t.id)}
-                  onToggle={onToggle}
-                  showDate
-                  isPast={normaliseDate(t.date) < getToday()}
-                  focusEventId={focusEventId}
-                  onNavigateToEvent={(num, sat) => {
-                    const targetId = findBestFlight(num, sat);
-                    if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
-                  }}
-                  conditions={conditionMap[t.id] || []}
-                  onSetCondition={onSetCondition}
-                  onRemoveCondition={onRemoveCondition}
-                  allTournaments={tournaments}
-                  isAnchor={anchorSet.has(t.id)}
-                  onToggleAnchor={onToggleAnchor}
-                  plannedEntries={plannedEntriesMap[t.id] || 1}
-                  onSetPlannedEntries={onSetPlannedEntries}
-                />
-              ))}
+              {(() => {
+                const todayISO = getToday();
+                const groups = [];
+                let cur = null;
+                for (const t of filtered) {
+                  const d = normaliseDate(t.date);
+                  if (!cur || cur.date !== d) {
+                    cur = { date: d, events: [] };
+                    groups.push(cur);
+                  }
+                  cur.events.push(t);
+                }
+                return groups.map((group, gi) => {
+                  const isToday = group.date === todayISO;
+                  const past = group.date < todayISO;
+                  const dateObj = new Date(group.date + 'T12:00:00');
+                  const dateLabel = `${DOW[dateObj.getDay()]}, ${MONTHS[dateObj.getMonth()]} ${dateObj.getDate()}`;
+                  return (
+                    <div key={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
+                      <div className="schedule-date-break" style={{
+                        position: 'sticky', top: '-12px', zIndex: 5,
+                        padding: '20px 12px 8px 2px',
+                        background: 'var(--bg)',
+                        color: 'var(--text)',
+                        fontWeight: 700, fontSize: '0.85rem',
+                        borderBottom: '1px solid var(--border)',
+                        display: 'flex', alignItems: 'center', gap: '8px'
+                      }}>
+                        {dateLabel}
+                        {isToday && <span style={{
+                          background: 'var(--accent)', color: '#fff',
+                          fontSize: '0.7rem', fontWeight: 700,
+                          padding: '2px 8px', borderRadius: '999px',
+                          lineHeight: 1.4
+                        }}>Today</span>}
+                      </div>
+                      {group.events.map(t => (
+                        <CalendarEventRow
+                          key={t.id}
+                          tournament={t}
+                          isInSchedule={scheduleIds.has(t.id)}
+                          onToggle={onToggle}
+                          isPast={past}
+                          focusEventId={focusEventId}
+                          onNavigateToEvent={(num, sat) => {
+                            const targetId = findBestFlight(num, sat);
+                            if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
+                          }}
+                          conditions={conditionMap[t.id] || []}
+                          onSetCondition={onSetCondition}
+                          onRemoveCondition={onRemoveCondition}
+                          allTournaments={tournaments}
+                          isAnchor={anchorSet.has(t.id)}
+                          onToggleAnchor={onToggleAnchor}
+                          plannedEntries={plannedEntriesMap[t.id] || 1}
+                          onSetPlannedEntries={onSetPlannedEntries}
+                        />
+                      ))}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
         </div>
       );
     }
 
+    // ── Travel Day Picker ─────────────────────────────────────
+    function TravelDayPicker({ onSave, onCancel }) {
+      const [date, setDate] = useState('');
+      const [depHour, setDepHour] = useState(8);
+      const [depMinute, setDepMinute] = useState(0);
+      const [depAmPm, setDepAmPm] = useState('AM');
+      const [arrHour, setArrHour] = useState(2);
+      const [arrMinute, setArrMinute] = useState(0);
+      const [arrAmPm, setArrAmPm] = useState('PM');
+      const dateRef = React.useRef(null);
+
+      const hours = [1,2,3,4,5,6,7,8,9,10,11,12];
+      const minutes = [0, 15, 30, 45];
+
+      const fmtTime = (h, m, ap) => `${h}:${String(m).padStart(2,'0')} ${ap}`;
+
+      const handleSave = () => {
+        if (!date) return;
+        const notes = `Depart ${fmtTime(depHour, depMinute, depAmPm)} → Arrive ${fmtTime(arrHour, arrMinute, arrAmPm)}`;
+        onSave(date, notes);
+      };
+
+      const selectStyle = {
+        padding: '6px 4px', fontSize: '0.85rem', borderRadius: '6px',
+        border: '1px solid var(--border)', background: 'var(--surface)',
+        color: 'var(--text)', outline: 'none', cursor: 'pointer',
+        WebkitAppearance: 'none', MozAppearance: 'none', appearance: 'none',
+        textAlign: 'center', minWidth: '44px'
+      };
+
+      const TimeSelector = ({ hour, minute, amPm, onHour, onMinute, onAmPm, label }) => (
+        <div>
+          <div style={{fontSize:'0.72rem', color:'var(--text-muted)', marginBottom:'4px', fontWeight:600}}>{label}</div>
+          <div style={{display:'flex', gap:'3px', alignItems:'center'}}>
+            <select value={hour} onChange={e => onHour(Number(e.target.value))} style={selectStyle}>
+              {hours.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+            <span style={{color:'var(--text-muted)', fontWeight:700}}>:</span>
+            <select value={minute} onChange={e => onMinute(Number(e.target.value))} style={selectStyle}>
+              {minutes.map(m => <option key={m} value={m}>{String(m).padStart(2,'0')}</option>)}
+            </select>
+            <select value={amPm} onChange={e => onAmPm(e.target.value)} style={{...selectStyle, minWidth:'50px'}}>
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+        </div>
+      );
+
+      return (
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: '10px', padding: '14px', marginBottom: '12px'
+        }}>
+          <div style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'12px'}}>
+            <span style={{fontSize:'1rem'}}>✈️</span>
+            <span style={{fontWeight:700, fontSize:'0.88rem', color:'var(--text)'}}>Add Travel Day</span>
+          </div>
+
+          {/* Date picker */}
+          <div style={{marginBottom:'14px'}}>
+            <div style={{fontSize:'0.72rem', color:'var(--text-muted)', marginBottom:'4px', fontWeight:600}}>Date</div>
+            <input ref={dateRef} type="date" value={date} onChange={e => setDate(e.target.value)}
+              style={{
+                padding:'6px 10px', fontSize:'0.85rem', borderRadius:'6px',
+                border:'1px solid var(--border)', background:'var(--surface)',
+                color:'var(--text)', outline:'none', width:'100%', boxSizing:'border-box'
+              }}
+            />
+          </div>
+
+          {/* Time selectors */}
+          <div style={{display:'flex', gap:'16px', marginBottom:'14px', flexWrap:'wrap'}}>
+            <TimeSelector label="DEPART" hour={depHour} minute={depMinute} amPm={depAmPm}
+              onHour={setDepHour} onMinute={setDepMinute} onAmPm={setDepAmPm} />
+            <div style={{display:'flex', alignItems:'flex-end', paddingBottom:'2px'}}>
+              <span style={{color:'var(--text-muted)', fontSize:'0.9rem'}}>→</span>
+            </div>
+            <TimeSelector label="ARRIVE" hour={arrHour} minute={arrMinute} amPm={arrAmPm}
+              onHour={setArrHour} onMinute={setArrMinute} onAmPm={setArrAmPm} />
+          </div>
+
+          {/* Actions */}
+          <div style={{display:'flex', gap:'8px', justifyContent:'flex-end'}}>
+            <button className="btn btn-ghost btn-sm" onClick={onCancel}
+              style={{fontSize:'0.8rem'}}>Cancel</button>
+            <button className="btn btn-sm" onClick={handleSave}
+              style={{
+                fontSize:'0.8rem', background:'var(--accent)', color:'#fff',
+                border:'none', borderRadius:'6px', padding:'6px 16px', cursor:'pointer',
+                opacity: date ? 1 : 0.4
+              }}
+              disabled={!date}>Save</button>
+          </div>
+        </div>
+      );
+    }
+
     // ── My Schedule View ───────────────────────────────────────
 
-    function ScheduleView({ mySchedule, onToggle, sharedWithMe, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries }) {
+    function ScheduleView({ mySchedule, onToggle, sharedWithMe, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent }) {
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
+      const dayOffDateRef = React.useRef(null);
       const [focusEventId, setFocusEventId] = useState(null);
+      const [showTravelPicker, setShowTravelPicker] = useState(false);
 
       const todayISO = getToday();
 
@@ -3124,57 +3351,109 @@
             <h2>My Schedule</h2>
             <span style={{fontSize:'0.82rem',color:'var(--text-muted)'}}>{sorted.length} event{sorted.length !== 1 ? 's' : ''}</span>
           </div>
+          {onAddPersonalEvent && (
+            <>
+              <div style={{display:'flex', gap:'8px', marginBottom: showTravelPicker ? '0' : '12px', padding:'0 2px'}}>
+                <button className="btn btn-ghost btn-sm"
+                  style={{display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'0.8rem'}}
+                  onClick={() => setShowTravelPicker(v => !v)}>
+                  ✈️ Travel Day
+                </button>
+                <button className="btn btn-ghost btn-sm"
+                  style={{display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'0.8rem'}}
+                  onClick={() => dayOffDateRef.current?.showPicker()}>
+                  🏖️ Day Off
+                </button>
+                <input ref={dayOffDateRef} type="date"
+                  style={{position:'absolute', opacity:0, pointerEvents:'none', width:0, height:0}}
+                  onChange={e => { if (e.target.value) { onAddPersonalEvent(e.target.value, 'Day Off'); e.target.value = ''; }}} />
+              </div>
+              {showTravelPicker && (
+                <div style={{padding:'0 2px', marginBottom:'12px'}}>
+                  <TravelDayPicker
+                    onSave={(date, notes) => {
+                      onAddPersonalEvent(date, 'Travel Day', notes);
+                      setShowTravelPicker(false);
+                    }}
+                    onCancel={() => setShowTravelPicker(false)}
+                  />
+                </div>
+              )}
+            </>
+          )}
           {conflicts.size > 0 && (
             <div className="alert alert-error" style={{marginBottom:'12px'}}>
               <Icon.warn /> {conflicts.size} event{conflicts.size !== 1 ? 's have' : ' has'} a time conflict
             </div>
           )}
           <div style={{minHeight:'100vh'}}>
-            {sorted.map((t, i) => {
-              const past = normaliseDate(t.date) < todayISO;
-              const curDate = normaliseDate(t.date);
-              const prevDate = i > 0 ? normaliseDate(sorted[i - 1].date) : null;
-              const showDateBreak = curDate !== prevDate;
-              const isToday = curDate === todayISO;
-              const dateObj = new Date(curDate + 'T12:00:00');
-              const dateLabel = `${DOW[dateObj.getDay()]}, ${MONTHS[dateObj.getMonth()]} ${dateObj.getDate()}`;
-              return (
-                <div key={t.id} ref={i === firstCurrentIdx ? todayRef : null}>
-                  {showDateBreak && (
-                    <div className="schedule-date-break" style={{
-                      position: 'sticky', top: 0, zIndex: 5,
-                      padding: '8px 12px', marginTop: i === 0 ? 0 : '8px',
-                      background: isToday ? 'var(--accent)' : 'var(--bg-card)',
-                      color: isToday ? '#fff' : 'var(--text-primary)',
+            {(() => {
+              // Group sorted events by date so each group is its own sticky container
+              const groups = [];
+              let currentGroup = null;
+              let globalIdx = 0;
+              for (const t of sorted) {
+                const d = normaliseDate(t.date);
+                if (!currentGroup || currentGroup.date !== d) {
+                  currentGroup = { date: d, events: [] };
+                  groups.push(currentGroup);
+                }
+                currentGroup.events.push({ t, globalIdx });
+                globalIdx++;
+              }
+              return groups.map((group, gi) => {
+                const isGroupToday = group.date === todayISO;
+                const dateObj = new Date(group.date + 'T12:00:00');
+                const dateLabel = `${DOW[dateObj.getDay()]}, ${MONTHS[dateObj.getMonth()]} ${dateObj.getDate()}`;
+                const past = group.date < todayISO;
+                return (
+                  <div key={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
+                    <div ref={group.events[0].globalIdx === firstCurrentIdx ? todayRef : null}
+                      className="schedule-date-break" style={{
+                      position: 'sticky', top: '-12px', zIndex: 5,
+                      padding: '20px 12px 8px 2px',
+                      background: 'var(--bg)',
+                      color: 'var(--text)',
                       fontWeight: 700, fontSize: '0.85rem',
-                      borderBottom: '1px solid var(--border-color)',
-                      borderRadius: '6px 6px 0 0'
+                      borderBottom: '1px solid var(--border)',
+                      display: 'flex', alignItems: 'center', gap: '8px'
                     }}>
-                      {dateLabel}{isToday ? ' — Today' : ''}
+                      {dateLabel}
+                      {isGroupToday && <span style={{
+                        background: 'var(--accent)', color: '#fff',
+                        fontSize: '0.7rem', fontWeight: 700,
+                        padding: '2px 8px', borderRadius: '999px',
+                        lineHeight: 1.4
+                      }}>Today</span>}
                     </div>
-                  )}
-                  <CalendarEventRow
-                    tournament={t}
-                    isInSchedule={true}
-                    onToggle={onToggle}
-                    isPast={past}
-                    focusEventId={focusEventId}
-                    onNavigateToEvent={(num, sat) => {
-                      const targetId = findBestFlightSchedule(num, sat);
-                      if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
-                    }}
-                    conditions={extractConditions(t)}
-                    onSetCondition={onSetCondition}
-                    onRemoveCondition={onRemoveCondition}
-                    allTournaments={allTournaments}
-                    isAnchor={!!t.is_anchor}
-                    onToggleAnchor={onToggleAnchor}
-                    plannedEntries={t.planned_entries || 1}
-                    onSetPlannedEntries={onSetPlannedEntries}
-                  />
-                </div>
-              );
-            })}
+                    {group.events.map(({ t, globalIdx: gIdx }) => (
+                      <div key={t.id} ref={gIdx === firstCurrentIdx && gIdx !== group.events[0].globalIdx ? todayRef : null}>
+                        <CalendarEventRow
+                          tournament={t}
+                          isInSchedule={true}
+                          onToggle={onToggle}
+                          isPast={past}
+                          focusEventId={focusEventId}
+                          onNavigateToEvent={(num, sat) => {
+                            const targetId = findBestFlightSchedule(num, sat);
+                            if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
+                          }}
+                          conditions={extractConditions(t)}
+                          onSetCondition={onSetCondition}
+                          onRemoveCondition={onRemoveCondition}
+                          allTournaments={allTournaments}
+                          isAnchor={!!t.is_anchor}
+                          onToggleAnchor={onToggleAnchor}
+                          plannedEntries={t.planned_entries || 1}
+                          onSetPlannedEntries={onSetPlannedEntries}
+                          onUpdatePersonalEvent={onUpdatePersonalEvent}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              });
+            })()}
           </div>
 
           {sharedWithMe && sharedWithMe.length > 0 && (
@@ -3228,7 +3507,7 @@
         }
       }, [selectedDate]);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true
+        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true
       });
 
       const buyinOptions = useMemo(() =>
@@ -3277,6 +3556,7 @@
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
+            if (filters.hideDeepstacks && t.is_deepstack) return false;
             return true;
           })
           .sort((a, b) => {
@@ -3511,7 +3791,7 @@
                   tournament={t}
                   isInSchedule={true}
                   onToggle={() => {}}
-                  showDate={true}
+
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
                   conditions={extractConditions(t, true)}
@@ -3564,7 +3844,7 @@
                   tournament={t}
                   isInSchedule={false}
                   onToggle={() => {}}
-                  showDate={true}
+
                   isPast={normaliseDate(t.date) < todayISO}
                   readOnly={true}
                   conditions={extractConditions(t, true)}
@@ -3643,6 +3923,7 @@
       const [cashAmount, setCashAmount] = useState(initialValues?.cashAmount || '');
       const [notes, setNotes] = useState(initialValues?.notes || '');
       const [totalFieldSize, setTotalFieldSize] = useState(initialValues?.totalEntries || '');
+      const [showLfg, setShowLfg] = useState(false);
 
       const tournamentOptions = useMemo(() => {
         if (isEdit) return [];
@@ -3706,11 +3987,12 @@
             </div>
             <div className="filter-group">
               <label>Cashed?</label>
-              <div style={{display:'flex',gap:'8px',marginTop:'4px'}}>
+              <div style={{display:'flex',gap:'8px',marginTop:'4px',alignItems:'center'}}>
                 <button type="button" className={`filter-chip ${!cashed ? 'active' : ''}`}
-                  onClick={() => setCashed(false)}>No</button>
+                  onClick={() => { setCashed(false); setShowLfg(false); }}>No</button>
                 <button type="button" className={`filter-chip ${cashed ? 'active' : ''}`}
-                  onClick={() => setCashed(true)}>Yes</button>
+                  onClick={() => { if (!cashed) { setCashed(true); setShowLfg(true); setTimeout(() => setShowLfg(false), 1000); } }}>Yes</button>
+                {showLfg && <span className="lfg-burst" style={{fontSize:'0.9rem',marginLeft:'4px'}}>lfg!</span>}
               </div>
             </div>
           </div>
@@ -3870,6 +4152,7 @@
     function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, onDelete }) {
       const [showAddForm, setShowAddForm] = useState(false);
       const [editingId, setEditingId] = useState(null);
+      const [pendingFormId, setPendingFormId] = useState(null);
 
       const stats = useMemo(() => {
         let totalBuyins = 0, totalCashes = 0, eventsCashed = 0;
@@ -3891,6 +4174,19 @@
       }, [trackingData]);
 
       const existingEntryIds = useMemo(() => new Set(trackingData.map(e => e.tournament_id)), [trackingData]);
+
+      // Find most recent scheduled event that hasn't been tracked yet
+      const pendingEvent = useMemo(() => {
+        if (!mySchedule || mySchedule.length === 0) return null;
+        const todayISO = getToday();
+        return [...mySchedule]
+          .filter(t => t.venue !== 'Personal' && !existingEntryIds.has(t.id) && normaliseDate(t.date) <= todayISO)
+          .sort((a, b) => {
+            const da = parseTournamentTime(a);
+            const db = parseTournamentTime(b);
+            return db - da; // most recent first
+          })[0] || null;
+      }, [mySchedule, existingEntryIds]);
 
       return (
         <div>
@@ -3938,6 +4234,42 @@
             </div>
           )}
 
+          {pendingEvent && !showAddForm && pendingFormId !== pendingEvent.id && (
+            <div className="tracking-card" style={{padding:'14px', marginBottom:'12px', border:'1.5px dashed var(--accent)'}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontSize:'0.7rem', color:'var(--text-muted)', fontFamily:"'Oswald',sans-serif", letterSpacing:'0.03em'}}>
+                    {pendingEvent.date} · #{pendingEvent.event_number?.replace(/^[A-Za-z]+-/, '')}
+                  </div>
+                  <div style={{fontSize:'0.85rem', fontWeight:600, color:'var(--text)', marginTop:'2px', fontFamily:"'Oswald',sans-serif", overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                    {pendingEvent.event_name}
+                  </div>
+                  <div style={{fontSize:'0.72rem', color:'var(--text-muted)', marginTop:'2px'}}>
+                    Awaiting result
+                  </div>
+                </div>
+                <button className="btn btn-primary btn-sm" style={{flexShrink:0, marginLeft:'12px'}}
+                  onClick={() => setPendingFormId(pendingEvent.id)}>
+                  Log Result
+                </button>
+              </div>
+            </div>
+          )}
+
+          {pendingFormId && pendingEvent && (
+            <TrackingEntryForm
+              tournaments={tournaments}
+              mySchedule={mySchedule}
+              existingEntryIds={existingEntryIds}
+              initialValues={{ tournamentId: pendingFormId }}
+              tournamentLabel={`#${(pendingEvent.event_number || '').replace(/^[A-Za-z]+-/, '')} ${pendingEvent.event_name}`}
+              entryForPOY={pendingEvent}
+              onSubmit={(data) => { onAdd({ ...data, tournamentId: pendingFormId }); setPendingFormId(null); }}
+              onCancel={() => setPendingFormId(null)}
+              isEdit
+            />
+          )}
+
           {showAddForm && (
             <TrackingEntryForm
               tournaments={tournaments}
@@ -3948,7 +4280,7 @@
             />
           )}
 
-          {trackingData.length === 0 && !showAddForm ? (
+          {trackingData.length === 0 && !showAddForm && !pendingFormId ? (
             <div className="empty-state">
               <Icon.tracking />
               <h3>No results tracked yet</h3>
@@ -4419,13 +4751,21 @@
       };
 
       const toggleTournament = async (tournamentId) => {
-        const isIn = mySchedule.some(t => t.id === tournamentId);
+        const existing = mySchedule.find(t => t.id === tournamentId);
+        const isIn = !!existing;
         try {
           if (isIn) {
-            await fetch(`${API_URL}/schedule/${tournamentId}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${token}` }
-            });
+            if (existing.venue === 'Personal') {
+              await fetch(`${API_URL}/personal-event/${tournamentId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+              });
+            } else {
+              await fetch(`${API_URL}/schedule/${tournamentId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+              });
+            }
           } else {
             await fetch(`${API_URL}/schedule`, {
               method: 'POST',
@@ -4435,6 +4775,33 @@
           }
           fetchMySchedule();
         } catch { setError('Failed to update schedule'); }
+      };
+
+      const addPersonalEvent = async (date, type, notes) => {
+        try {
+          const res = await fetch(`${API_URL}/personal-event`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date, type, notes: notes || '' })
+          });
+          if (!res.ok) {
+            const data = await res.json();
+            setError(data.error || 'Failed to create personal event');
+            return;
+          }
+          fetchMySchedule();
+        } catch { setError('Failed to create personal event'); }
+      };
+
+      const updatePersonalEvent = async (tournamentId, notes) => {
+        try {
+          await fetch(`${API_URL}/personal-event/${tournamentId}`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes })
+          });
+          fetchMySchedule();
+        } catch { setError('Failed to update personal event'); }
       };
 
       const setCondition = async (tournamentId, conditions, isPublic) => {
@@ -4539,7 +4906,7 @@
             )}
 
             {currentView === 'schedule' && (
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} />
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} />
             )}
 
             {currentView === 'calendar' && (

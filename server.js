@@ -239,6 +239,67 @@ async function initDatabase() {
     console.log('Rake backfill skipped:', e.message);
   }
 
+  // Migrate: add is_deepstack column
+  try {
+    db.run('ALTER TABLE tournaments ADD COLUMN is_deepstack INTEGER DEFAULT 0');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
+  // Auto-seed deepstacks from Excel if none exist
+  try {
+    const dsCountStmt = db.prepare("SELECT COUNT(*) as cnt FROM tournaments WHERE is_deepstack = 1");
+    dsCountStmt.step();
+    const { cnt: dsCount } = dsCountStmt.getAsObject();
+    dsCountStmt.free();
+    if (dsCount === 0) {
+      const XLSX = require('xlsx');
+      const dsPath = path.join(__dirname, 'WSOP_2026_Daily_Deepstacks.xlsx');
+      if (require('fs').existsSync(dsPath)) {
+        const wb = XLSX.readFile(dsPath);
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet).filter(r => r.Time && r['Buy-In'] && r.Date && /\d/.test(r.Date));
+        const monthMap = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+        let dsInserted = 0;
+        for (const r of rows) {
+          // Parse date: "Tue 26 May" → "May 26, 2026"
+          const parts = r.Date.trim().split(/\s+/);
+          const day = parts[1];
+          const mon = parts[2];
+          const humanDate = `${mon} ${day}, 2026`;
+          // Parse time: "1:00 PM" → "1:00 PM"
+          const time = r.Time.replace(/\s+/g, ' ').trim();
+          // Parse buyin: "$250" or "$1,500" → 250 or 1500
+          const buyin = parseInt(r['Buy-In'].replace(/[$,]/g, ''));
+          // Parse chips and levels
+          const chips = r.Chips ? parseInt(String(r.Chips).replace(/,/g, '')) : null;
+          const levels = r.Levels ? r.Levels.replace(/-/g, ' ').trim() : null;
+          // Detect game variant
+          const evName = r.Event || '';
+          let variant = 'NLH';
+          if (/PLO|Pot Limit Omaha/i.test(evName)) variant = 'PLO';
+          else if (/HORSE/i.test(evName)) variant = 'HORSE';
+          const eventName = 'Daily Deepstack: ' + evName.replace('NLH - Accelerated', 'NLH Turbo').replace(' - ', ' ');
+
+          db.run(
+            `INSERT INTO tournaments (event_number, event_name, date, time, buyin,
+             starting_chips, level_duration, reentry, game_variant, venue, is_deepstack)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ['', eventName, humanDate, time, buyin, chips, levels,
+             'Unlimited', variant, 'Horseshoe / Paris Las Vegas', 1]
+          );
+          dsInserted++;
+        }
+        if (dsInserted > 0) {
+          console.log(`Seeded ${dsInserted} daily deepstack events`);
+          await saveDatabase();
+        }
+      }
+    }
+  } catch (e) {
+    console.log('Deepstack seeding skipped:', e.message);
+  }
+
   db.run(`
     CREATE TABLE IF NOT EXISTS tracking_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -450,7 +511,7 @@ app.get('/api/tournaments', authenticateToken, (req, res) => {
   try {
     const { minBuyin, maxBuyin, gameVariant, venue, startDate, endDate } = req.query;
     
-    let query = 'SELECT * FROM tournaments WHERE 1=1';
+    let query = "SELECT * FROM tournaments WHERE venue != 'Personal'";
     const params = [];
     
     if (minBuyin) {
@@ -614,6 +675,117 @@ app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (re
     db.run('DELETE FROM schedule_conditions WHERE user_id = ? AND tournament_id = ?', [req.user.id, tournamentId]);
     await saveDatabase();
     res.json({ message: 'Condition removed' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create a personal event (Travel Day / Day Off)
+app.post('/api/personal-event', authenticateToken, async (req, res) => {
+  try {
+    const { date, type, notes } = req.body;
+    if (!['Travel Day', 'Day Off'].includes(type)) {
+      return res.status(400).json({ error: 'Invalid event type' });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    // Convert ISO to human-readable format
+    const dateObj = new Date(date + 'T12:00:00');
+    const months = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+    const humanDate = `${months[dateObj.getMonth()]} ${dateObj.getDate()}, ${dateObj.getFullYear()}`;
+
+    // Check for duplicate
+    const dupStmt = db.prepare(
+      `SELECT t.id FROM tournaments t
+       JOIN user_schedules us ON t.id = us.tournament_id
+       WHERE us.user_id = ? AND t.event_name = ? AND t.date = ? AND t.venue = 'Personal'`
+    );
+    dupStmt.bind([req.user.id, type, humanDate]);
+    const isDup = dupStmt.step();
+    dupStmt.free();
+    if (isDup) {
+      return res.status(409).json({ error: `${type} already exists on this date` });
+    }
+
+    // Insert synthetic tournament
+    db.run(
+      `INSERT INTO tournaments (event_number, event_name, date, time, buyin, game_variant, venue, notes, uploaded_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ['', type, humanDate, '12:00 AM', 0, 'Personal', 'Personal', notes || '', req.user.id]
+    );
+
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id: tournamentId } = idStmt.getAsObject();
+    idStmt.free();
+
+    // Add to user's schedule
+    db.run('INSERT INTO user_schedules (user_id, tournament_id) VALUES (?, ?)',
+      [req.user.id, tournamentId]);
+
+    await saveDatabase();
+    res.status(201).json({ message: `${type} created`, tournamentId });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update a personal event (e.g. travel time notes)
+app.put('/api/personal-event/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    // Verify this is a personal event owned by this user
+    const checkStmt = db.prepare(
+      `SELECT t.id FROM tournaments t
+       JOIN user_schedules us ON t.id = us.tournament_id
+       WHERE t.id = ? AND us.user_id = ? AND t.venue = 'Personal'`
+    );
+    checkStmt.bind([id, req.user.id]);
+    const isOwned = checkStmt.step();
+    checkStmt.free();
+
+    if (!isOwned) {
+      return res.status(404).json({ error: 'Personal event not found' });
+    }
+
+    db.run('UPDATE tournaments SET notes = ? WHERE id = ?', [notes || '', id]);
+    await saveDatabase();
+    res.json({ message: 'Personal event updated' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a personal event (removes tournament row + schedule link)
+app.delete('/api/personal-event/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify this is a personal event owned by this user
+    const checkStmt = db.prepare(
+      `SELECT t.id FROM tournaments t
+       JOIN user_schedules us ON t.id = us.tournament_id
+       WHERE t.id = ? AND us.user_id = ? AND t.venue = 'Personal'`
+    );
+    checkStmt.bind([id, req.user.id]);
+    const isOwned = checkStmt.step();
+    checkStmt.free();
+
+    if (!isOwned) {
+      return res.status(404).json({ error: 'Personal event not found' });
+    }
+
+    db.run('DELETE FROM schedule_conditions WHERE tournament_id = ? AND user_id = ?', [id, req.user.id]);
+    db.run('DELETE FROM user_schedules WHERE tournament_id = ? AND user_id = ?', [id, req.user.id]);
+    db.run("DELETE FROM tournaments WHERE id = ? AND venue = 'Personal'", [id]);
+
+    await saveDatabase();
+    res.json({ message: 'Personal event deleted' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -872,7 +1044,7 @@ app.delete('/api/permissions/:viewerId', authenticateToken, async (req, res) => 
 // Get available game variants
 app.get('/api/game-variants', authenticateToken, (req, res) => {
   try {
-    const stmt = db.prepare('SELECT DISTINCT game_variant FROM tournaments ORDER BY game_variant');
+    const stmt = db.prepare("SELECT DISTINCT game_variant FROM tournaments WHERE venue != 'Personal' ORDER BY game_variant");
     
     const variants = [];
     while (stmt.step()) {
@@ -890,7 +1062,7 @@ app.get('/api/game-variants', authenticateToken, (req, res) => {
 // Get available venues
 app.get('/api/venues', authenticateToken, (req, res) => {
   try {
-    const stmt = db.prepare('SELECT DISTINCT venue FROM tournaments ORDER BY venue');
+    const stmt = db.prepare("SELECT DISTINCT venue FROM tournaments WHERE venue != 'Personal' ORDER BY venue");
     
     const venues = [];
     while (stmt.step()) {
