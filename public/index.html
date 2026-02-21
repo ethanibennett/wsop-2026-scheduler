@@ -3094,7 +3094,12 @@
         return sorted.findIndex(t => normaliseDate(t.date) >= todayISO);
       }, [sorted, todayISO]);
 
-      // No auto-scroll — start at the top so the title is visible
+      // Auto-scroll to first event of today (or first upcoming event)
+      useEffect(() => {
+        if (todayRef.current) {
+          todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, [firstCurrentIdx]);
 
       // Find best flight: closest on or after satellite date within my schedule
       function findBestFlightSchedule(eventNum, sat) {
@@ -3127,13 +3132,31 @@
           <div style={{minHeight:'100vh'}}>
             {sorted.map((t, i) => {
               const past = normaliseDate(t.date) < todayISO;
+              const curDate = normaliseDate(t.date);
+              const prevDate = i > 0 ? normaliseDate(sorted[i - 1].date) : null;
+              const showDateBreak = curDate !== prevDate;
+              const isToday = curDate === todayISO;
+              const dateObj = new Date(curDate + 'T12:00:00');
+              const dateLabel = `${DOW[dateObj.getDay()]}, ${MONTHS[dateObj.getMonth()]} ${dateObj.getDate()}`;
               return (
                 <div key={t.id} ref={i === firstCurrentIdx ? todayRef : null}>
+                  {showDateBreak && (
+                    <div className="schedule-date-break" style={{
+                      position: 'sticky', top: 0, zIndex: 5,
+                      padding: '8px 12px', marginTop: i === 0 ? 0 : '8px',
+                      background: isToday ? 'var(--accent)' : 'var(--bg-card)',
+                      color: isToday ? '#fff' : 'var(--text-primary)',
+                      fontWeight: 700, fontSize: '0.85rem',
+                      borderBottom: '1px solid var(--border-color)',
+                      borderRadius: '6px 6px 0 0'
+                    }}>
+                      {dateLabel}{isToday ? ' — Today' : ''}
+                    </div>
+                  )}
                   <CalendarEventRow
                     tournament={t}
                     isInSchedule={true}
                     onToggle={onToggle}
-                    showDate
                     isPast={past}
                     focusEventId={focusEventId}
                     onNavigateToEvent={(num, sat) => {
