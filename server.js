@@ -246,58 +246,48 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
-  // Auto-seed deepstacks from Excel if none exist
-  try {
-    const dsCountStmt = db.prepare("SELECT COUNT(*) as cnt FROM tournaments WHERE is_deepstack = 1");
-    dsCountStmt.step();
-    const { cnt: dsCount } = dsCountStmt.getAsObject();
-    dsCountStmt.free();
-    if (dsCount === 0) {
-      const XLSX = require('xlsx');
-      const dsPath = path.join(__dirname, 'WSOP_2026_Daily_Deepstacks.xlsx');
-      if (require('fs').existsSync(dsPath)) {
-        const wb = XLSX.readFile(dsPath);
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet).filter(r => r.Time && r['Buy-In'] && r.Date && /\d/.test(r.Date));
-        const monthMap = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
-        let dsInserted = 0;
-        for (const r of rows) {
-          // Parse date: "Tue 26 May" → "May 26, 2026"
-          const parts = r.Date.trim().split(/\s+/);
-          const day = parts[1];
-          const mon = parts[2];
-          const humanDate = `${mon} ${day}, 2026`;
-          // Parse time: "1:00 PM" → "1:00 PM"
-          const time = r.Time.replace(/\s+/g, ' ').trim();
-          // Parse buyin: "$250" or "$1,500" → 250 or 1500
-          const buyin = parseInt(r['Buy-In'].replace(/[$,]/g, ''));
-          // Parse chips and levels
-          const chips = r.Chips ? parseInt(String(r.Chips).replace(/,/g, '')) : null;
-          const levels = r.Levels ? r.Levels.replace(/-/g, ' ').trim() : null;
-          // Detect game variant
-          const evName = r.Event || '';
-          let variant = 'NLH';
-          if (/PLO|Pot Limit Omaha/i.test(evName)) variant = 'PLO';
-          else if (/HORSE/i.test(evName)) variant = 'HORSE';
-          const eventName = 'Daily Deepstack: ' + evName.replace('NLH - Accelerated', 'NLH Turbo').replace(' - ', ' ');
-
-          db.run(
-            `INSERT INTO tournaments (event_number, event_name, date, time, buyin,
-             starting_chips, level_duration, reentry, game_variant, venue, is_deepstack)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            ['', eventName, humanDate, time, buyin, chips, levels,
-             'Unlimited', variant, 'Horseshoe / Paris Las Vegas', 1]
-          );
-          dsInserted++;
-        }
-        if (dsInserted > 0) {
-          console.log(`Seeded ${dsInserted} daily deepstack events`);
+  // Auto-seed extra venue data from JSON seed files
+  const seedFiles = [
+    { file: 'deepstack-events.json', label: 'deepstacks', check: "is_deepstack = 1" },
+    { file: 'ipo-events.json', label: 'Irish Poker Open', check: "venue = 'Irish Poker Open'" },
+    { file: 'turning-stone-events.json', label: 'Turning Stone', check: "venue = 'Turning Stone Casino'" },
+  ];
+  for (const seed of seedFiles) {
+    try {
+      const chk = db.prepare(`SELECT COUNT(*) as cnt FROM tournaments WHERE ${seed.check}`);
+      chk.step();
+      const { cnt } = chk.getAsObject();
+      chk.free();
+      if (cnt === 0) {
+        const seedPath = path.join(__dirname, seed.file);
+        if (require('fs').existsSync(seedPath)) {
+          const rows = JSON.parse(require('fs').readFileSync(seedPath, 'utf8'));
+          for (const t of rows) {
+            db.run(
+              `INSERT INTO tournaments (event_number, event_name, date, time, buyin,
+               starting_chips, level_duration, reentry, late_reg, late_reg_end,
+               game_variant, venue, notes, category, is_satellite, target_event,
+               is_restart, parent_event, prize_pool, house_fee, opt_add_on,
+               rake_pct, rake_dollars, source_pdf, is_deepstack)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                t.event_number || '', t.event_name, t.date, t.time, t.buyin,
+                t.starting_chips, t.level_duration, t.reentry,
+                t.late_reg, t.late_reg_end, t.game_variant, t.venue,
+                t.notes, t.category, t.is_satellite || 0, t.target_event,
+                t.is_restart || 0, t.parent_event, t.prize_pool, t.house_fee,
+                t.opt_add_on, t.rake_pct, t.rake_dollars, t.source_pdf,
+                t.is_deepstack || 0
+              ]
+            );
+          }
+          console.log(`Seeded ${rows.length} ${seed.label} events`);
           await saveDatabase();
         }
       }
+    } catch (e) {
+      console.log(`${seed.label} seeding skipped:`, e.message);
     }
-  } catch (e) {
-    console.log('Deepstack seeding skipped:', e.message);
   }
 
   db.run(`
