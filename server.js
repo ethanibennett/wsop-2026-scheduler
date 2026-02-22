@@ -246,6 +246,13 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  // Migrate: add last_seen_shares to users
+  try {
+    db.run('ALTER TABLE users ADD COLUMN last_seen_shares DATETIME');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
   // Auto-seed extra venue data from JSON seed files
   const seedFiles = [
     { file: 'deepstack-events.json', label: 'deepstacks', check: "is_deepstack = 1" },
@@ -851,17 +858,35 @@ app.get('/api/shared-schedules', authenticateToken, (req, res) => {
       JOIN users u ON sp.owner_id = u.id
       WHERE sp.viewer_id = ?
     `;
-    
+
     const stmt = db.prepare(query);
     stmt.bind([req.user.id]);
-    
+
     const users = [];
     while (stmt.step()) {
       users.push(stmt.getAsObject());
     }
     stmt.free();
-    
-    res.json(users);
+
+    // Also return the viewer's last_seen_shares timestamp
+    const lss = db.prepare('SELECT last_seen_shares FROM users WHERE id = ?');
+    lss.bind([req.user.id]);
+    let lastSeenShares = null;
+    if (lss.step()) { lastSeenShares = lss.getAsObject().last_seen_shares; }
+    lss.free();
+
+    res.json({ shares: users, lastSeenShares });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark all shared schedules as seen
+app.put('/api/seen-shares', authenticateToken, async (req, res) => {
+  try {
+    db.run('UPDATE users SET last_seen_shares = CURRENT_TIMESTAMP WHERE id = ?', [req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'ok' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -3300,7 +3300,7 @@
 
     // ── My Schedule View ───────────────────────────────────────
 
-    function ScheduleView({ mySchedule, onToggle, sharedWithMe, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent }) {
+    function ScheduleView({ mySchedule, onToggle, sharedWithMe, lastSeenShares, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent }) {
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
       const dayOffDateRef = React.useRef(null);
@@ -3456,16 +3456,20 @@
             })()}
           </div>
 
-          {sharedWithMe && sharedWithMe.length > 0 && (
-            <div style={{marginTop:'24px'}}>
-              <div className="section-header">
-                <h2>Shared With Me</h2>
-              </div>
-              {sharedWithMe.map(user => (
-                <SharedUserSchedule key={user.id} user={user} token={token} />
-              ))}
+          <div style={{marginTop:'24px'}}>
+            <div className="section-header">
+              <h2>Shared With Me</h2>
             </div>
-          )}
+            {sharedWithMe && sharedWithMe.length > 0 ? (
+              sharedWithMe.map(user => (
+                <SharedUserSchedule key={user.id} user={user} token={token} isNew={!lastSeenShares || user.granted_at > lastSeenShares} />
+              ))
+            ) : (
+              <p style={{fontSize:'0.82rem',color:'var(--text-muted)',padding:'12px 0'}}>
+                No one has shared their schedule with you yet.
+              </p>
+            )}
+          </div>
         </div>
       );
     }
@@ -3807,7 +3811,7 @@
 
     // ── Shared User Schedule (collapsible in Me tab) ──────────
 
-    function SharedUserSchedule({ user, token }) {
+    function SharedUserSchedule({ user, token, isNew }) {
       const [open, setOpen] = useState(false);
       const [schedule, setSchedule] = useState([]);
       const [loaded, setLoaded] = useState(false);
@@ -3833,7 +3837,15 @@
               borderRadius:'var(--radius-sm)',padding:'10px 12px',cursor:'pointer',
               fontSize:'0.85rem',color:'var(--text)'}}
           >
-            <span>{user.username}'s schedule</span>
+            <span style={{display:'flex',alignItems:'center',gap:'8px'}}>
+              {user.username}'s schedule
+              {isNew && (
+                <span style={{
+                  background:'#ef4444', color:'#fff', fontSize:'0.6rem', fontWeight:700,
+                  padding:'1px 6px', borderRadius:'8px', letterSpacing:'0.5px'
+                }}>NEW</span>
+              )}
+            </span>
             <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>{open ? '▲' : '▼'}</span>
           </div>
           {open && schedule.length > 0 && (
@@ -4305,10 +4317,10 @@
 
     // ── Bottom Nav ─────────────────────────────────────────────
 
-    function BottomNav({ current, onChange, scheduleCount }) {
+    function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
       const tabs = [
         { id: 'tournaments', label: 'Schedule', icon: Icon.list },
-        { id: 'schedule', label: `Me${scheduleCount ? ` (${scheduleCount})` : ''}`, icon: Icon.user },
+        { id: 'schedule', label: `Me${scheduleCount ? ` (${scheduleCount})` : ''}`, icon: Icon.user, badge: newShareCount },
         { id: 'calendar', label: 'Today', icon: Icon.calendar },
         { id: 'tracking', label: 'Tracking', icon: Icon.tracking },
         { id: 'settings', label: 'Settings', icon: Icon.gear },
@@ -4321,9 +4333,19 @@
               key={tab.id}
               className={`nav-tab ${current === tab.id ? 'active' : ''}`}
               onClick={() => onChange(tab.id)}
+              style={{position:'relative'}}
             >
               <tab.icon />
               {tab.label}
+              {tab.badge > 0 && (
+                <span style={{
+                  position:'absolute', top:'4px', right:'50%', marginRight:'-16px',
+                  background:'#ef4444', color:'#fff', fontSize:'0.55rem', fontWeight:700,
+                  width:'14px', height:'14px', borderRadius:'50%',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  lineHeight:1
+                }}>{tab.badge}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -4509,6 +4531,8 @@
       const [shareToken, setShareToken] = useState(null);
       const [grantedViewers, setGrantedViewers] = useState([]);
       const [sharedWithMe, setSharedWithMe] = useState([]);
+      const [lastSeenShares, setLastSeenShares] = useState(null);
+      const [newShareCount, setNewShareCount] = useState(0);
       const [shareError, setShareError] = useState('');
       const [shareSuccess, setShareSuccess] = useState('');
 
@@ -4668,7 +4692,13 @@
       const fetchSharedWithMe = async () => {
         try {
           const res = await fetch(`${API_URL}/shared-schedules`, { headers: { Authorization: `Bearer ${token}` } });
-          setSharedWithMe(await res.json());
+          const data = await res.json();
+          const shares = data.shares || data; // backwards compat
+          const lss = data.lastSeenShares || null;
+          setSharedWithMe(shares);
+          setLastSeenShares(lss);
+          const unseen = shares.filter(s => !lss || s.granted_at > lss).length;
+          setNewShareCount(unseen);
         } catch {}
       };
       const handleGenerateShareToken = async () => {
@@ -4906,7 +4936,7 @@
             )}
 
             {currentView === 'schedule' && (
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} />
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} lastSeenShares={lastSeenShares} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} />
             )}
 
             {currentView === 'calendar' && (
@@ -4952,8 +4982,17 @@
 
           <BottomNav
             current={currentView}
-            onChange={v => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }}
+            onChange={v => {
+              setCurrentView(v);
+              const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
+              if (v === 'schedule' && newShareCount > 0) {
+                fetch(`${API_URL}/seen-shares`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } })
+                  .then(() => { setNewShareCount(0); setLastSeenShares(new Date().toISOString()); })
+                  .catch(() => {});
+              }
+            }}
             scheduleCount={mySchedule.length}
+            newShareCount={newShareCount}
           />
         </div>
       );
