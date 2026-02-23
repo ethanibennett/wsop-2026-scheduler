@@ -262,6 +262,9 @@
       width: 14px;
       height: 14px;
     }
+    .live-update-row-indent {
+      padding-left: 19px;
+    }
 
     .live-update-last {
       font-size: 0.7rem;
@@ -2635,7 +2638,7 @@
       return parts.join(' · ');
     }
 
-    function LiveUpdateButton({ mySchedule, myLiveUpdate, onPost }) {
+    function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost }) {
       const containerRef = useRef(null);
       const panelRef = useRef(null);
       const toggleRef = useRef(null);
@@ -2661,6 +2664,12 @@
       const [bagDay, setBagDay] = useState('');
 
       const todayISO = getToday();
+      const activeUpdateMap = useMemo(() => {
+        const map = {};
+        (myActiveUpdates || []).forEach(u => { map[u.tournament_id] = u; });
+        return map;
+      }, [myActiveUpdates]);
+
       const todayTournaments = useMemo(() =>
         (mySchedule || []).filter(t =>
           normaliseDate(t.date) === todayISO && t.venue !== 'Personal'
@@ -2668,12 +2677,33 @@
         [mySchedule, todayISO]
       );
 
-      const resetFields = (prefill) => {
+      // Previous tournaments with active (non-busted) updates not already in today's list
+      const previousActive = useMemo(() => {
+        const todayIds = new Set(todayTournaments.map(t => t.id));
+        return (myActiveUpdates || []).filter(u => !todayIds.has(u.tournament_id));
+      }, [myActiveUpdates, todayTournaments]);
+
+      const allOptions = useMemo(() => {
+        const today = todayTournaments.map(t => ({ id: t.id, name: t.event_name, group: 'Today' }));
+        const prev = previousActive.map(u => ({ id: u.tournament_id, name: u.event_name, group: 'In Progress' }));
+        return [...today, ...prev];
+      }, [todayTournaments, previousActive]);
+
+      const isRegPastClose = (tournamentId) => {
+        const t = todayTournaments.find(x => x.id === tournamentId);
+        if (!t?.late_reg_end) return false;
+        const now = new Date();
+        const [h, m] = t.late_reg_end.split(':').map(Number);
+        const closeTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+        return now >= closeTime;
+      };
+
+      const resetFields = (prefill, tournamentId) => {
         setStack(prefill?.stack || '');
         setSb(prefill?.sb || '');
         setBb(prefill?.bb || '');
         setBbAnte(prefill?.bb_ante || '');
-        setIsRegClosed(!!prefill?.is_reg_closed);
+        setIsRegClosed(prefill ? !!prefill.is_reg_closed : isRegPastClose(tournamentId));
         setBubble(prefill?.bubble || '');
         setIsItm(!!prefill?.is_itm);
         setLockedAmount(prefill?.locked_amount || '');
@@ -2691,17 +2721,19 @@
 
       useEffect(() => {
         if (!open) return;
-        if (myLiveUpdate && todayTournaments.find(t => t.id === myLiveUpdate.tournament_id)) {
-          setSelectedTournamentId(myLiveUpdate.tournament_id);
-          resetFields(myLiveUpdate);
-        } else if (todayTournaments.length === 1) {
-          setSelectedTournamentId(todayTournaments[0].id);
-          resetFields(null);
+        // Auto-select: most recent active update's tournament, or single today tournament
+        const mostRecent = (myActiveUpdates || [])[0];
+        if (mostRecent && allOptions.find(o => o.id === mostRecent.tournament_id)) {
+          setSelectedTournamentId(mostRecent.tournament_id);
+          resetFields(mostRecent, mostRecent.tournament_id);
+        } else if (allOptions.length === 1) {
+          setSelectedTournamentId(allOptions[0].id);
+          resetFields(activeUpdateMap[allOptions[0].id] || null, allOptions[0].id);
         } else {
           setSelectedTournamentId(null);
-          resetFields(null);
+          resetFields(null, null);
         }
-      }, [open, todayTournaments, myLiveUpdate]);
+      }, [open, allOptions, myActiveUpdates]);
 
       useEffect(() => {
         if (!open) return;
@@ -2724,7 +2756,7 @@
         <div ref={containerRef} style={{position:'relative'}}>
           <button
             ref={toggleRef}
-            className={`btn btn-ghost btn-sm live-update-btn ${myLiveUpdate ? 'has-update' : ''}`}
+            className={`btn btn-ghost btn-sm live-update-btn ${myActiveUpdates.length > 0 ? 'has-update' : ''}`}
             onClick={() => setOpen(o => !o)}
             title="Post live update"
           >
@@ -2732,29 +2764,40 @@
           </button>
           {open && (
             <div ref={panelRef} className="live-update-panel">
-              {todayTournaments.length === 0 ? (
+              {allOptions.length === 0 ? (
                 <div className="live-update-empty">No tournaments on your schedule today</div>
               ) : (
                 <>
-                  {todayTournaments.length > 1 ? (
+                  {allOptions.length > 1 ? (
                     <select
                       value={selectedTournamentId || ''}
-                      onChange={e => { setSelectedTournamentId(Number(e.target.value)); resetFields(null); }}
+                      onChange={e => { const id = Number(e.target.value); setSelectedTournamentId(id); resetFields(activeUpdateMap[id] || null, id); }}
                     >
                       <option value="">Select tournament...</option>
-                      {todayTournaments.map(t => (
-                        <option key={t.id} value={t.id}>{t.event_name}</option>
-                      ))}
+                      {todayTournaments.length > 0 && (
+                        <optgroup label="Today">
+                          {todayTournaments.map(t => (
+                            <option key={t.id} value={t.id}>{t.event_name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {previousActive.length > 0 && (
+                        <optgroup label="In Progress">
+                          {previousActive.map(u => (
+                            <option key={u.tournament_id} value={u.tournament_id}>{u.event_name}</option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   ) : (
                     <div className="live-update-tournament-label">
-                      {todayTournaments[0].event_name}
+                      {allOptions[0].name}
                     </div>
                   )}
 
-                  {myLiveUpdate && myLiveUpdate.tournament_id === selectedTournamentId && (
+                  {activeUpdateMap[selectedTournamentId] && (
                     <div className="live-update-last">
-                      Last: {formatLiveUpdate(myLiveUpdate)}
+                      Last: {formatLiveUpdate(activeUpdateMap[selectedTournamentId])}
                     </div>
                   )}
 
@@ -2826,7 +2869,7 @@
                   )}
 
                   {isRegClosed && isItm && (
-                    <div className="live-update-row">
+                    <div className="live-update-row live-update-row-indent">
                       <label className="live-update-toggle">
                         <input type="checkbox" checked={isFinalTable} onChange={e => { setIsFinalTable(e.target.checked); if (!e.target.checked) { setPlacesLeft(''); setFirstPlacePrize(''); } }} />
                         Final Table
@@ -2847,7 +2890,7 @@
                   )}
 
                   {isRegClosed && isItm && (
-                    <div className="live-update-row">
+                    <div className="live-update-row live-update-row-indent">
                       <label className="live-update-toggle">
                         <input type="checkbox" checked={isDeal} onChange={e => { setIsDeal(e.target.checked); if (!e.target.checked) { setDealPlace(''); setDealPayout(''); } }} />
                         Deal
@@ -5454,7 +5497,7 @@
       const [trackingData, setTrackingData] = useState([]);
 
       // ── Live Update state ──
-      const [myLiveUpdate, setMyLiveUpdate] = useState(null);
+      const [myActiveUpdates, setMyActiveUpdates] = useState([]);
       const [buddyLiveUpdates, setBuddyLiveUpdates] = useState({});
 
       // ── Theme ──
@@ -5558,11 +5601,11 @@
 
       const fetchMyLiveUpdate = async () => {
         try {
-          const res = await guardedFetch(`${API_URL}/live-update/mine`, {
+          const res = await guardedFetch(`${API_URL}/live-updates/active`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (!res) return;
-          setMyLiveUpdate(await res.json());
+          setMyActiveUpdates(await res.json());
         } catch {}
       };
 
@@ -5941,7 +5984,7 @@
               </span>
               <LiveUpdateButton
                 mySchedule={mySchedule}
-                myLiveUpdate={myLiveUpdate}
+                myActiveUpdates={myActiveUpdates}
                 onPost={postLiveUpdate}
               />
               <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>

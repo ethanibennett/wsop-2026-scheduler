@@ -2236,6 +2236,35 @@ app.get('/api/live-update/mine', authenticateToken, (req, res) => {
   }
 });
 
+app.get('/api/live-updates/active', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT lu.id, lu.tournament_id, lu.stack, lu.sb, lu.bb, lu.bb_ante,
+             lu.is_reg_closed, lu.bubble, lu.is_itm, lu.locked_amount,
+             lu.is_final_table, lu.places_left, lu.first_place_prize,
+             lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
+             lu.total_entries, lu.is_bagged, lu.bag_day,
+             lu.created_at, t.event_name, t.venue, t.date
+      FROM live_updates lu
+      JOIN tournaments t ON lu.tournament_id = t.id
+      WHERE lu.user_id = ?
+        AND lu.id IN (
+          SELECT MAX(id) FROM live_updates WHERE user_id = ? GROUP BY tournament_id
+        )
+        AND lu.is_busted = 0
+      ORDER BY lu.created_at DESC
+    `);
+    stmt.bind([req.user.id, req.user.id]);
+    const results = [];
+    while (stmt.step()) results.push(stmt.getAsObject());
+    stmt.free();
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
 app.delete('/api/live-update/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
