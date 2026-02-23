@@ -3432,7 +3432,7 @@
           <>
           <div className="section-header">
             <h2>My Schedule</h2>
-            <span style={{fontSize:'0.82rem',color:'var(--text-muted)'}}>{sorted.length} event{sorted.length !== 1 ? 's' : ''}</span>
+            <span style={{fontSize:'0.82rem',color:'var(--text-muted)'}}>{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
           </div>
           {onAddPersonalEvent && (
             <>
@@ -3876,7 +3876,7 @@
                 <Avatar src={data.avatar} username={data.username} size={26} />
                 {data.username}'s Schedule
               </h2>
-              <span className="event-count-badge">{sorted.length} event{sorted.length !== 1 ? 's' : ''}</span>
+              <span className="event-count-badge">{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
             </div>
             <div style={{minHeight:'100vh'}}>
             {sorted.length === 0 ? (
@@ -5199,7 +5199,7 @@
                   .catch(() => {});
               }
             }}
-            scheduleCount={mySchedule.length}
+            scheduleCount={mySchedule.filter(t => !t.is_restart).length}
             newShareCount={newShareCount}
           />
         </div>
