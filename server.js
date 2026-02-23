@@ -1481,6 +1481,23 @@ app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
   }
 });
 
+// Admin: list users (secret key protected)
+app.get('/api/admin/users', (req, res) => {
+  const key = req.query.key;
+  if (key !== (process.env.ADMIN_KEY || 'shonabish2026')) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const stmt = db.prepare('SELECT id, username, email, created_at FROM users ORDER BY id');
+    const users = [];
+    while (stmt.step()) users.push(stmt.getAsObject());
+    stmt.free();
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // SPA catch-all for /shared/* routes
 app.get('/shared/:token', serveIndex);
 
