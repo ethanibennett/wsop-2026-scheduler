@@ -492,6 +492,10 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
+      max-height: 60vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
 
     .filter-group { display: flex; flex-direction: column; gap: 6px; }
