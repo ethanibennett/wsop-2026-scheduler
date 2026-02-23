@@ -2967,6 +2967,7 @@
       const [open, setOpen] = useState(false);
       const [whenOpen, setWhenOpen] = useState(false);
       const [whereOpen, setWhereOpen] = useState(false);
+      const [howMuchOpen, setHowMuchOpen] = useState(false);
 
       const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const VENUE_TO_SERIES = {
@@ -3159,39 +3160,47 @@
                   })}
                 </div>)}
               </div>
-              <div className="filter-group">
-                <label>Min Buy-in ($)</label>
-                <select value={filters.minBuyin}
-                  onChange={e => setFilters(f => {
-                    const min = e.target.value;
-                    const max = f.maxBuyin && Number(min) > Number(f.maxBuyin) ? min : f.maxBuyin;
-                    return {...f, minBuyin: min, maxBuyin: max};
-                  })}>
-                  <option value="">Any</option>
-                  {(buyinOptions || []).map(b => (
-                    <option key={b} value={b}>${Number(b).toLocaleString()}</option>
-                  ))}
-                </select>
-                <input type="number" value={filters.minBuyin}
-                  onChange={e => setFilters(f => {
-                    const min = e.target.value;
-                    const max = f.maxBuyin && min && Number(min) > Number(f.maxBuyin) ? min : f.maxBuyin;
-                    return {...f, minBuyin: min, maxBuyin: max};
-                  })}
-                  placeholder="Custom" min="0" style={{marginTop:'4px'}} />
-              </div>
-              <div className="filter-group">
-                <label>Max Buy-in ($)</label>
-                <select value={filters.maxBuyin}
-                  onChange={e => setFilters(f => ({...f, maxBuyin: e.target.value}))}>
-                  <option value="">Any</option>
-                  {(buyinOptions || []).filter(b => !filters.minBuyin || Number(b) >= Number(filters.minBuyin)).map(b => (
-                    <option key={b} value={b}>${Number(b).toLocaleString()}</option>
-                  ))}
-                </select>
-                <input type="number" value={filters.maxBuyin}
-                  onChange={e => setFilters(f => ({...f, maxBuyin: e.target.value}))}
-                  placeholder="Custom" min="0" style={{marginTop:'4px'}} />
+              <div className="filter-group filter-span2">
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setHowMuchOpen(h => !h)}>
+                  How Much?
+                  <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: howMuchOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
+                </label>
+                {howMuchOpen && (<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                  <div>
+                    <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'4px',display:'block'}}>Min ($)</label>
+                    <select value={filters.minBuyin}
+                      onChange={e => setFilters(f => {
+                        const min = e.target.value;
+                        const max = f.maxBuyin && Number(min) > Number(f.maxBuyin) ? min : f.maxBuyin;
+                        return {...f, minBuyin: min, maxBuyin: max};
+                      })}>
+                      <option value="">Any</option>
+                      {(buyinOptions || []).map(b => (
+                        <option key={b} value={b}>${Number(b).toLocaleString()}</option>
+                      ))}
+                    </select>
+                    <input type="number" value={filters.minBuyin}
+                      onChange={e => setFilters(f => {
+                        const min = e.target.value;
+                        const max = f.maxBuyin && min && Number(min) > Number(f.maxBuyin) ? min : f.maxBuyin;
+                        return {...f, minBuyin: min, maxBuyin: max};
+                      })}
+                      placeholder="Custom" min="0" style={{marginTop:'4px'}} />
+                  </div>
+                  <div>
+                    <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'4px',display:'block'}}>Max ($)</label>
+                    <select value={filters.maxBuyin}
+                      onChange={e => setFilters(f => ({...f, maxBuyin: e.target.value}))}>
+                      <option value="">Any</option>
+                      {(buyinOptions || []).filter(b => !filters.minBuyin || Number(b) >= Number(filters.minBuyin)).map(b => (
+                        <option key={b} value={b}>${Number(b).toLocaleString()}</option>
+                      ))}
+                    </select>
+                    <input type="number" value={filters.maxBuyin}
+                      onChange={e => setFilters(f => ({...f, maxBuyin: e.target.value}))}
+                      placeholder="Custom" min="0" style={{marginTop:'4px'}} />
+                  </div>
+                </div>)}
               </div>
               <GameVariantFilter selectedGames={filters.selectedGames} setFilters={setFilters} />
               <div className="filter-group">
