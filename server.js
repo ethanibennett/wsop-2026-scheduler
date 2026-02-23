@@ -604,6 +604,83 @@ async function initDatabase() {
         console.log(`IPO full reconcile: inserted ${inserted}, updated ${updated} events`);
       }
     },
+    {
+      name: 'ipo-dedup-stale-2026-02',
+      fn: () => {
+        // Delete old "Final Day/Final" entries that overlap with proper API entries
+        const oldFinals = db.prepare(
+          `SELECT id, event_number, date FROM tournaments
+           WHERE venue = 'Irish Poker Open'
+           AND (event_name LIKE '%Final Day%' OR event_name LIKE '%- Final')
+           AND late_reg_end IS NULL`
+        );
+        let deletedFinals = 0;
+        const finalsToDelete = [];
+        while (oldFinals.step()) {
+          const r = oldFinals.getAsObject();
+          const chk = db.prepare(
+            `SELECT COUNT(*) as cnt FROM tournaments
+             WHERE venue = 'Irish Poker Open' AND event_number = ? AND date = ? AND id != ?
+             AND event_name NOT LIKE '%Final Day%' AND event_name NOT LIKE '%- Final'`
+          );
+          chk.bind([r.event_number, r.date, r.id]);
+          chk.step();
+          if (chk.getAsObject().cnt > 0) finalsToDelete.push(r.id);
+          chk.free();
+        }
+        oldFinals.free();
+        for (const id of finalsToDelete) {
+          db.run('DELETE FROM tournaments WHERE id = ?', [id]);
+          deletedFinals++;
+        }
+
+        // Delete old "Guaranteed" entries with NULL late_reg_end duplicated by API entries
+        const oldGuaranteed = db.prepare(
+          `SELECT id, event_number, date FROM tournaments
+           WHERE venue = 'Irish Poker Open'
+           AND event_name LIKE '%Guaranteed%'
+           AND late_reg_end IS NULL`
+        );
+        let deletedOld = 0;
+        const oldToDelete = [];
+        while (oldGuaranteed.step()) {
+          const r = oldGuaranteed.getAsObject();
+          const chk = db.prepare(
+            `SELECT COUNT(*) as cnt FROM tournaments
+             WHERE venue = 'Irish Poker Open' AND event_number = ? AND date = ? AND id != ?
+             AND late_reg_end IS NOT NULL`
+          );
+          chk.bind([r.event_number, r.date, r.id]);
+          chk.step();
+          if (chk.getAsObject().cnt > 0) oldToDelete.push(r.id);
+          chk.free();
+        }
+        oldGuaranteed.free();
+        for (const id of oldToDelete) {
+          db.run('DELETE FROM tournaments WHERE id = ?', [id]);
+          deletedOld++;
+        }
+
+        // Delete exact duplicate entries (same event_number + date + time + event_name)
+        const dups = db.prepare(
+          `SELECT MIN(id) as keep_id, GROUP_CONCAT(id) as all_ids
+           FROM tournaments WHERE venue = 'Irish Poker Open'
+           GROUP BY event_number, date, time, event_name HAVING COUNT(*) > 1`
+        );
+        let deletedDups = 0;
+        while (dups.step()) {
+          const r = dups.getAsObject();
+          const ids = r.all_ids.split(',').map(Number).filter(id => id !== r.keep_id);
+          for (const id of ids) {
+            db.run('DELETE FROM tournaments WHERE id = ?', [id]);
+            deletedDups++;
+          }
+        }
+        dups.free();
+
+        console.log(`IPO dedup: deleted ${deletedFinals} stale finals, ${deletedOld} old Guaranteed, ${deletedDups} exact dups`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
