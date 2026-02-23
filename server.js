@@ -495,6 +495,37 @@ async function initDatabase() {
         console.log(`Applied IPO rake data to ${rows.length} events`);
       }
     },
+    {
+      name: 'ipo-cleanup-finals-2026-02',
+      fn: () => {
+        // Delete duplicate IPO entries (same event_number + date + time)
+        const dupStmt = db.prepare(
+          `SELECT event_number, date, time, MIN(id) as keep_id, GROUP_CONCAT(id) as all_ids
+           FROM tournaments WHERE venue = 'Irish Poker Open'
+           GROUP BY event_number, date, time HAVING COUNT(*) > 1`
+        );
+        let deletedDups = 0;
+        while (dupStmt.step()) {
+          const d = dupStmt.getAsObject();
+          const ids = d.all_ids.split(',').map(Number).filter(id => id !== d.keep_id);
+          for (const id of ids) {
+            db.run('DELETE FROM tournaments WHERE id = ?', [id]);
+            deletedDups++;
+          }
+        }
+        dupStmt.free();
+
+        // Mark "Final Day" / "Final Round" / "Final" events as restarts
+        db.run(
+          `UPDATE tournaments SET is_restart = 1, parent_event = event_number
+           WHERE venue = 'Irish Poker Open'
+           AND (event_name LIKE '%- Final Day' OR event_name LIKE '%- Final Round'
+                OR event_name LIKE '%- Final' OR event_name LIKE '%- Final day')`
+        );
+
+        console.log(`IPO cleanup: deleted ${deletedDups} duplicates, marked finals as restarts`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
