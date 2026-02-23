@@ -2378,6 +2378,27 @@
       }, initial);
     }
 
+    function BuddyAvatarRow({ buddies }) {
+      const [expanded, setExpanded] = useState(false);
+      return (
+        <div
+          style={{display:'flex',alignItems:'center',gap: expanded ? '8px' : '0',marginBottom:'10px',flexWrap:'wrap',cursor:'pointer'}}
+          onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
+        >
+          {buddies.map((b, i) => (
+            <div key={b.id} style={{
+              display:'flex',alignItems:'center',gap:'4px',
+              marginLeft: !expanded && i > 0 ? '-6px' : '0',
+              transition: 'margin 0.15s ease'
+            }}>
+              <Avatar src={b.avatar} username={b.username} size={22} />
+              {expanded && <span style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>{b.username}</span>}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     // ── Calendar Event Row (collapsible) ──────────────────────
 
     function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents }) {
@@ -2631,15 +2652,7 @@
                   <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />
 
                   {buddyEvents && buddyEvents[tournament.id] && buddyEvents[tournament.id].length > 0 && (
-                    <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'10px',flexWrap:'wrap'}}>
-                      <span style={{fontSize:'0.72rem',color:'var(--text-muted)',marginRight:'2px'}}>Also playing:</span>
-                      {buddyEvents[tournament.id].map(b => (
-                        <div key={b.id} style={{display:'flex',alignItems:'center',gap:'4px'}} title={b.username}>
-                          <Avatar src={b.avatar} username={b.username} size={22} />
-                          <span style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>{b.username}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <BuddyAvatarRow buddies={buddyEvents[tournament.id]} />
                   )}
 
                   {venue.abbr === 'WSOP' && (
