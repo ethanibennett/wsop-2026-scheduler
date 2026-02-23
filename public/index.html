@@ -2968,6 +2968,7 @@
       const [whenOpen, setWhenOpen] = useState(false);
       const [whereOpen, setWhereOpen] = useState(false);
       const [howMuchOpen, setHowMuchOpen] = useState(false);
+      const [whichOpen, setWhichOpen] = useState(false);
 
       const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const VENUE_TO_SERIES = {
@@ -3202,14 +3203,74 @@
                   </div>
                 </div>)}
               </div>
-              <GameVariantFilter selectedGames={filters.selectedGames} setFilters={setFilters} />
-              <div className="filter-group">
-                <label>Format</label>
-                <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
-                  <input type="checkbox" checked={filters.bountyOnly}
-                    onChange={e => setFilters(f => ({...f, bountyOnly:e.target.checked}))}
-                  /> Bounty only
+              <div className="filter-group filter-span2">
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setWhichOpen(w => !w)}>
+                  Which?
+                  <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: whichOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
                 </label>
+                {whichOpen && (() => {
+                  const allSelected = filters.selectedGames.length === 0;
+                  const toggleGroup = (group, checked) => {
+                    setFilters(f => {
+                      const without = f.selectedGames.filter(v => !group.variants.includes(v));
+                      return {...f, selectedGames: checked ? [...without, ...group.variants] : without};
+                    });
+                  };
+                  const toggleVariant = (v, checked) => {
+                    setFilters(f => ({...f, selectedGames: checked ? [...f.selectedGames, v] : f.selectedGames.filter(g => g !== v)}));
+                  };
+                  return (<div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                    <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:600,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                      <input type="checkbox" checked={allSelected}
+                        onChange={() => setFilters(f => ({...f, selectedGames:[]}))}
+                        style={{marginTop:'1px'}}
+                      /> All
+                    </label>
+                    {GAME_GROUPS.map(group => {
+                      const isSingle = group.variants.length === 1;
+                      const groupChecked = group.variants.every(v => filters.selectedGames.includes(v));
+                      const groupPartial = group.variants.some(v => filters.selectedGames.includes(v)) && !groupChecked;
+                      if (isSingle) {
+                        const v = group.variants[0];
+                        return (
+                          <label key={group.label} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)',paddingLeft:'21px'}}>
+                            <input type="checkbox" checked={filters.selectedGames.includes(v)}
+                              onChange={e => toggleVariant(v, e.target.checked)}
+                              style={{marginTop:'1px'}}
+                            /> {group.label}
+                          </label>
+                        );
+                      }
+                      return (
+                        <div key={group.label} style={{paddingLeft:'21px'}}>
+                          <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:600,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                            <input type="checkbox" checked={groupChecked}
+                              ref={el => { if (el) el.indeterminate = groupPartial; }}
+                              onChange={e => toggleGroup(group, e.target.checked)}
+                              style={{marginTop:'1px'}}
+                            /> {group.label}
+                          </label>
+                          <div style={{display:'flex',flexDirection:'column',gap:'2px',paddingLeft:'21px',marginTop:'2px'}}>
+                            {group.variants.map(v => (
+                              <label key={v} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.78rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text-muted)'}}>
+                                <input type="checkbox" checked={filters.selectedGames.includes(v)}
+                                  onChange={e => toggleVariant(v, e.target.checked)}
+                                  style={{marginTop:'1px'}}
+                                /> {v}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)',paddingLeft:'21px'}}>
+                      <input type="checkbox" checked={filters.bountyOnly}
+                        onChange={e => setFilters(f => ({...f, bountyOnly:e.target.checked}))}
+                        style={{marginTop:'1px'}}
+                      /> Bounty only
+                    </label>
+                  </div>);
+                })()}
               </div>
               {hasActive && (
                 <div className="filter-group filter-span2">
