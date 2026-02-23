@@ -23,14 +23,26 @@ app.use(express.json());
 // Health check for zero-downtime deploys
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Serve frontend — no caching on HTML to prevent stale app versions
+// Serve frontend — static assets can cache, but HTML must not
 app.use(express.static(path.join(__dirname, 'public'), {
+  index: false, // Don't auto-serve index.html — we handle it explicitly below
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
-      res.set('Cache-Control', 'no-store');
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      res.set('Surrogate-Control', 'no-store');
     }
   }
 }));
+
+// Explicitly serve index.html for root with no-cache headers
+app.get('/', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // File upload configuration
 const upload = multer({ dest: 'uploads/' });
@@ -1379,6 +1391,9 @@ app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
 
 // SPA catch-all for /shared/* routes
 app.get('/shared/:token', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
