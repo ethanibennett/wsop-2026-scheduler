@@ -2997,14 +2997,16 @@
       }, [tournaments]);
 
       const availableVenues = useMemo(() => {
-        const vSet = new Set();
+        const countMap = {};
         (tournaments || []).forEach(t => {
           if (t.is_satellite || t.is_restart || t.is_deepstack) return;
           const m = new Date(t.date).getMonth();
           if (filters.hiddenMonths && filters.hiddenMonths.includes(m)) return;
-          vSet.add(t.venue);
+          countMap[t.venue] = (countMap[t.venue] || 0) + 1;
         });
-        return [...vSet].sort().map(v => ({ venue: v, series: VENUE_TO_SERIES[v] || v }));
+        return Object.keys(countMap)
+          .sort((a, b) => countMap[b] - countMap[a])
+          .map(v => ({ venue: v, series: VENUE_TO_SERIES[v] || v, count: countMap[v] }));
       }, [tournaments, filters.hiddenMonths]);
 
       const hasActive = filters.minBuyin || filters.maxBuyin ||
@@ -3140,7 +3142,7 @@
                       style={{marginTop:'1px'}}
                     /> All
                   </label>
-                  {availableVenues.map(({ venue, series }) => {
+                  {availableVenues.map(({ venue, series, count }) => {
                     const hidden = (filters.hiddenVenues || []).includes(venue);
                     return (
                       <label key={venue} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
@@ -3151,7 +3153,7 @@
                           })}
                           style={{marginTop:'1px'}}
                         />
-                        <span>{series}</span>
+                        <span>{series} <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>({count})</span></span>
                       </label>
                     );
                   })}
