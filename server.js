@@ -1376,6 +1376,32 @@ app.get('/shared/:token', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Temporary debug: inspect share_requests and users (REMOVE after debugging)
+app.get('/api/debug/shares', (req, res) => {
+  try {
+    const users = [];
+    const uStmt = db.prepare('SELECT id, username, email FROM users');
+    while (uStmt.step()) users.push(uStmt.getAsObject());
+    uStmt.free();
+
+    const requests = [];
+    const srStmt = db.prepare(`
+      SELECT sr.*,
+             fu.username AS from_username, fu.email AS from_email,
+             tu.username AS to_username, tu.email AS to_email
+      FROM share_requests sr
+      LEFT JOIN users fu ON sr.from_user_id = fu.id
+      LEFT JOIN users tu ON sr.to_user_id = tu.id
+    `);
+    while (srStmt.step()) requests.push(srStmt.getAsObject());
+    srStmt.free();
+
+    res.json({ users, requests });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Start server
 initDatabase().then(() => {
   app.listen(PORT, () => {
