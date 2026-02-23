@@ -1737,7 +1737,42 @@
     // Parse a tournament's date + time into a ms timestamp for comparison
     function parseTournamentTime(t) {
       const time = (t.time && t.time !== 'TBD') ? t.time : '12:00 AM';
-      return new Date(`${t.date} ${time}`).getTime();
+      return parseDateTime(t.date, time);
+    }
+
+    // Safely parse a date + time into a ms timestamp.
+    // Handles both ISO ("2026-03-26") and human ("March 26, 2026") dates,
+    // and both 12h ("1:00 PM") and 24h ("13:00") times.
+    function parseDateTime(date, time) {
+      if (!date) return NaN;
+      const t = (time && time !== 'TBD') ? time : '12:00 AM';
+      // If date is already ISO, combine properly
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        // Convert 12h time to 24h for ISO format
+        const m24 = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (m24) {
+          let h = parseInt(m24[1]);
+          if (m24[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+          if (m24[3].toUpperCase() === 'AM' && h === 12) h = 0;
+          return new Date(`${date}T${String(h).padStart(2,'0')}:${m24[2]}:00`).getTime();
+        }
+        // Already 24h
+        return new Date(`${date}T${t}:00`).getTime();
+      }
+      // Human-readable date — space-separated parsing works
+      return new Date(`${date} ${t}`).getTime();
+    }
+
+    // Parse a late_reg_end value into a ms timestamp.
+    // WSOP stores full ISO ("2026-05-26T18:00:00"), IPO stores bare time ("16:00").
+    function parseLateRegEnd(lateRegEnd, eventDate) {
+      if (!lateRegEnd) return NaN;
+      // If it looks like a full datetime, parse directly
+      if (lateRegEnd.length > 10) return new Date(lateRegEnd).getTime();
+      // Bare time like "16:00" — combine with the event date
+      const isoDate = normaliseDate(eventDate);
+      if (isoDate) return new Date(`${isoDate}T${lateRegEnd}:00`).getTime();
+      return NaN;
     }
 
     // Find the best flight of a multi-flight event: the first flight strictly after satDateTime
@@ -1759,7 +1794,7 @@
     }
 
     function calculateCountdown(date, time) {
-      const d = new Date(`${date}T${time || '00:00'}:00`);
+      const d = parseDateTime(date, time);
       const diff = d - getNow();
       if (diff < 0) return null;
       const days = Math.floor(diff / 86400000);
@@ -1849,7 +1884,7 @@
       // conflicts: overlaps between two firm events (show warning)
       const conflicts = new Set();
       const expectedConflicts = new Set();
-      const sorted = [...schedule].filter(t => t.venue !== 'Personal').sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`));
+      const sorted = [...schedule].filter(t => t.venue !== 'Personal').sort((a, b) => parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time));
       for (let i = 0; i < sorted.length; i++) {
         for (let j = i + 1; j < sorted.length; j++) {
           const a = sorted[i], b = sorted[j];
@@ -2056,12 +2091,13 @@
 
       if (!lateRegEnd) return null;
 
-      const endMs   = new Date(lateRegEnd).getTime();
+      const endMs   = parseLateRegEnd(lateRegEnd, date);
+      if (isNaN(endMs)) return null;
       const diffMs  = endMs - now;
       const diffMin = Math.floor(diffMs / 60000);
 
       // Format end time as clock: "5:00 PM"
-      const endDate = new Date(lateRegEnd);
+      const endDate = new Date(endMs);
       const endClock = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
       // Determine status bucket
@@ -2140,10 +2176,11 @@
 
       if (!lateRegEnd) return null;
 
-      const endMs  = new Date(lateRegEnd).getTime();
+      const endMs  = parseLateRegEnd(lateRegEnd, date);
+      if (isNaN(endMs)) return null;
       const diffMs = endMs - now;
       const diffMin = Math.floor(diffMs / 60000);
-      const endClock = new Date(lateRegEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const endClock = new Date(endMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
       if (diffMs <= 0) {
         return (
