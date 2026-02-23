@@ -4933,10 +4933,10 @@
         }
       }, [token]);
 
-      // Auto-logout on 401 (expired/invalid token)
+      // Auto-logout on 401/403 (expired/invalid token)
       const guardedFetch = async (url, opts) => {
         const res = await fetch(url, opts);
-        if (res.status === 401) {
+        if (res.status === 401 || res.status === 403) {
           localStorage.removeItem('token');
           localStorage.removeItem('username');
           setToken(null);
