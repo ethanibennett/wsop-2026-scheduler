@@ -267,6 +267,13 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  // Migrate: add avatar to users
+  try {
+    db.run('ALTER TABLE users ADD COLUMN avatar TEXT');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
   // Migrate: move schedule_permissions into share_requests
   try {
     const migChk = db.prepare("SELECT COUNT(*) as cnt FROM share_requests");
@@ -468,7 +475,7 @@ app.post('/api/login', async (req, res) => {
       expiresIn: '7d'
     });
     
-    res.json({ token, username: user.username, userId: user.id });
+    res.json({ token, username: user.username, userId: user.id, avatar: user.avatar || null });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -858,6 +865,52 @@ app.get('/api/my-schedule', authenticateToken, (req, res) => {
   }
 });
 
+// ── Avatar Endpoints ─────────────────────────────────────────
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 200 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\/(jpeg|png|webp)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Only JPEG, PNG, and WebP images are allowed'));
+  }
+});
+
+app.put('/api/avatar', authenticateToken, avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image provided' });
+    const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    db.run('UPDATE users SET avatar = ? WHERE id = ?', [dataUri, req.user.id]);
+    await saveDatabase();
+    res.json({ avatar: dataUri });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/avatar', authenticateToken, async (req, res) => {
+  try {
+    db.run('UPDATE users SET avatar = NULL WHERE id = ?', [req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Avatar removed' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/avatar/:userId', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT avatar FROM users WHERE id = ?');
+    stmt.bind([req.params.userId]);
+    let avatar = null;
+    if (stmt.step()) avatar = stmt.getAsObject().avatar;
+    stmt.free();
+    res.json({ avatar });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ── Share Request Endpoints ───────────────────────────────────
 
 // Send a share request to another user
@@ -906,7 +959,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
 
     // Accepted buddies (either direction)
     const buddyStmt = db.prepare(`
-      SELECT u.id, u.username, sr.responded_at AS since
+      SELECT u.id, u.username, u.avatar, sr.responded_at AS since
       FROM share_requests sr
       JOIN users u ON u.id = CASE WHEN sr.from_user_id = ? THEN sr.to_user_id ELSE sr.from_user_id END
       WHERE sr.status = 'accepted'
@@ -919,7 +972,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
 
     // Pending incoming
     const pendStmt = db.prepare(`
-      SELECT sr.id, u.id AS from_user_id, u.username, sr.created_at
+      SELECT sr.id, u.id AS from_user_id, u.username, u.avatar, sr.created_at
       FROM share_requests sr
       JOIN users u ON sr.from_user_id = u.id
       WHERE sr.to_user_id = ? AND sr.status = 'pending'
@@ -931,7 +984,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
 
     // Pending outgoing
     const outStmt = db.prepare(`
-      SELECT sr.id, u.id AS to_user_id, u.username, sr.created_at
+      SELECT sr.id, u.id AS to_user_id, u.username, u.avatar, sr.created_at
       FROM share_requests sr
       JOIN users u ON sr.to_user_id = u.id
       WHERE sr.from_user_id = ? AND sr.status = 'pending'
@@ -1075,7 +1128,7 @@ app.get('/api/shared/:token', (req, res) => {
   try {
     const { token } = req.params;
     const tokenStmt = db.prepare(
-      'SELECT st.user_id, u.username FROM share_tokens st JOIN users u ON st.user_id = u.id WHERE st.token = ?'
+      'SELECT st.user_id, u.username, u.avatar FROM share_tokens st JOIN users u ON st.user_id = u.id WHERE st.token = ?'
     );
     tokenStmt.bind([token]);
     let tokenRow = null;
@@ -1101,7 +1154,7 @@ app.get('/api/shared/:token', (req, res) => {
     while (schedStmt.step()) { tournaments.push(schedStmt.getAsObject()); }
     schedStmt.free();
 
-    res.json({ username: tokenRow.username, tournaments });
+    res.json({ username: tokenRow.username, avatar: tokenRow.avatar || null, tournaments });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
