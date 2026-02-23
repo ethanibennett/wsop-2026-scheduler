@@ -2996,7 +2996,7 @@
             <CameraOverlay
               updateData={buildUpdateData()}
               tournamentName={selectedTournamentName}
-              onClose={() => setCameraOpen(false)}
+              onClose={() => { setCameraOpen(false); setOpen(true); }}
             />,
             document.body
           )}
