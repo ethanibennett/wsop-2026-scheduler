@@ -1054,7 +1054,20 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
     if (lss.step()) lastSeenShares = lss.getAsObject().last_seen_shares;
     lss.free();
 
-    res.json({ buddies, pendingIncoming, pendingOutgoing, lastSeenShares });
+    // Build map of tournament_id -> buddies playing it
+    const buddyEvents = {};
+    for (const b of buddies) {
+      const bsStmt = db.prepare('SELECT tournament_id FROM user_schedules WHERE user_id = ?');
+      bsStmt.bind([b.id]);
+      while (bsStmt.step()) {
+        const tid = bsStmt.getAsObject().tournament_id;
+        if (!buddyEvents[tid]) buddyEvents[tid] = [];
+        buddyEvents[tid].push({ id: b.id, username: b.username, avatar: b.avatar || null });
+      }
+      bsStmt.free();
+    }
+
+    res.json({ buddies, pendingIncoming, pendingOutgoing, lastSeenShares, buddyEvents });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

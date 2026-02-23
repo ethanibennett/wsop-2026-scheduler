@@ -2380,7 +2380,7 @@
 
     // ── Calendar Event Row (collapsible) ──────────────────────
 
-    function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent }) {
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents }) {
       const [open, setOpen] = useState(false);
       const [showConditionUI, setShowConditionUI] = useState(false);
       const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
@@ -2629,6 +2629,18 @@
                   )}
 
                   <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />
+
+                  {buddyEvents && buddyEvents[tournament.id] && buddyEvents[tournament.id].length > 0 && (
+                    <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'10px',flexWrap:'wrap'}}>
+                      <span style={{fontSize:'0.72rem',color:'var(--text-muted)',marginRight:'2px'}}>Also playing:</span>
+                      {buddyEvents[tournament.id].map(b => (
+                        <div key={b.id} style={{display:'flex',alignItems:'center',gap:'4px'}} title={b.username}>
+                          <Avatar src={b.avatar} username={b.username} size={22} />
+                          <span style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>{b.username}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {venue.abbr === 'WSOP' && (
                     <a
@@ -3062,7 +3074,7 @@
 
     // ── Tournaments View ───────────────────────────────────────
 
-    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries }) {
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
         minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true
@@ -3213,6 +3225,7 @@
                           onToggleAnchor={onToggleAnchor}
                           plannedEntries={plannedEntriesMap[t.id] || 1}
                           onSetPlannedEntries={onSetPlannedEntries}
+                          buddyEvents={buddyEvents}
                         />
                       ))}
                     </div>
@@ -3325,7 +3338,7 @@
 
     // ── My Schedule View ───────────────────────────────────────
 
-    function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent }) {
+    function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents }) {
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
       const dayOffDateRef = React.useRef(null);
@@ -3494,6 +3507,7 @@
                           plannedEntries={t.planned_entries || 1}
                           onSetPlannedEntries={onSetPlannedEntries}
                           onUpdatePersonalEvent={onUpdatePersonalEvent}
+                          buddyEvents={buddyEvents}
                         />
                       </div>
                     ))}
@@ -3540,7 +3554,7 @@
     const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries }) {
+    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents }) {
       const today = getToday();
       const defaultDate = WSOP_DATES.includes(today) ? today : WSOP_DATES[0];
       const [selectedDate, setSelectedDate] = useState(defaultDate);
@@ -3655,6 +3669,7 @@
           onToggleAnchor={onToggleAnchor}
           plannedEntries={plannedEntriesMap[t.id] || 1}
           onSetPlannedEntries={onSetPlannedEntries}
+          buddyEvents={buddyEvents}
         />
       );
 
@@ -4625,6 +4640,7 @@
       const [pendingIncoming, setPendingIncoming] = useState([]);
       const [pendingOutgoing, setPendingOutgoing] = useState([]);
       const [lastSeenShares, setLastSeenShares] = useState(null);
+      const [buddyEvents, setBuddyEvents] = useState({});
       const [newShareCount, setNewShareCount] = useState(0);
       const [shareError, setShareError] = useState('');
       const [shareSuccess, setShareSuccess] = useState('');
@@ -4777,13 +4793,12 @@
       };
       const fetchShareBuddies = async () => {
         try {
-          console.log('[v2] fetchShareBuddies called');
           const res = await fetch(`${API_URL}/share-buddies`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
-          console.log('[v2] share-buddies response:', JSON.stringify(data));
           setShareBuddies(data.buddies || []);
           setPendingIncoming(data.pendingIncoming || []);
           setPendingOutgoing(data.pendingOutgoing || []);
+          setBuddyEvents(data.buddyEvents || {});
           const lss = data.lastSeenShares || null;
           setLastSeenShares(lss);
           // Unseen = new buddies since last seen + pending incoming
@@ -4903,6 +4918,7 @@
         setShareError('');
         setShareSuccess('');
         setTrackingData([]);
+        setBuddyEvents({});
       };
 
       const handleAvatarUpload = async (e) => {
@@ -5091,15 +5107,16 @@
                 onRemoveCondition={removeCondition}
                 onToggleAnchor={toggleAnchor}
                 onSetPlannedEntries={setPlannedEntries}
+                buddyEvents={buddyEvents}
               />
             )}
 
             {currentView === 'schedule' && (
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} />
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} buddyEvents={buddyEvents} />
             )}
 
             {currentView === 'calendar' && (
-              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} />
+              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} buddyEvents={buddyEvents} />
             )}
 
             {currentView === 'tracking' && (
