@@ -2861,22 +2861,20 @@
                     </div>
                   )}
 
-                  {isRegClosed && (
-                    <div className="live-update-row">
-                      <label className="live-update-toggle">
-                        <input type="checkbox" checked={isItm} onChange={e => { setIsItm(e.target.checked); if (!e.target.checked) { setLockedAmount(''); setIsFinalTable(false); setPlacesLeft(''); setFirstPlacePrize(''); setIsDeal(false); setDealPlace(''); setDealPayout(''); } if (e.target.checked) setBubble(''); }} />
-                        ITM?
-                      </label>
-                      {isItm && (
-                        <div className="live-update-field" style={{flex:'0 0 100px'}}>
-                          <label>Locked $</label>
-                          <input type="number" placeholder="5000" value={lockedAmount} onChange={e => setLockedAmount(e.target.value)} />
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <div className="live-update-row">
+                    <label className="live-update-toggle">
+                      <input type="checkbox" checked={isItm} onChange={e => { setIsItm(e.target.checked); if (e.target.checked) { setIsRegClosed(true); setBubble(''); } if (!e.target.checked) { setLockedAmount(''); setIsFinalTable(false); setPlacesLeft(''); setFirstPlacePrize(''); setIsDeal(false); setDealPlace(''); setDealPayout(''); } }} />
+                      ITM?
+                    </label>
+                    {isItm && (
+                      <div className="live-update-field" style={{flex:'0 0 100px'}}>
+                        <label>Locked $</label>
+                        <input type="number" placeholder="5000" value={lockedAmount} onChange={e => setLockedAmount(e.target.value)} />
+                      </div>
+                    )}
+                  </div>
 
-                  {isRegClosed && isItm && (
+                  {isItm && (
                     <div className="live-update-row live-update-row-indent">
                       <label className="live-update-toggle">
                         <input type="checkbox" checked={isFinalTable} onChange={e => { setIsFinalTable(e.target.checked); if (!e.target.checked) { setPlacesLeft(''); setFirstPlacePrize(''); } }} />
@@ -2897,7 +2895,7 @@
                     </div>
                   )}
 
-                  {isRegClosed && isItm && (
+                  {isItm && (
                     <div className="live-update-row live-update-row-indent">
                       <label className="live-update-toggle">
                         <input type="checkbox" checked={isDeal} onChange={e => { setIsDeal(e.target.checked); if (!e.target.checked) { setDealPlace(''); setDealPayout(''); } }} />
