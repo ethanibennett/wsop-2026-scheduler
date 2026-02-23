@@ -114,6 +114,21 @@ let db;
 let SQL;
 const DB_PATH = process.env.DB_PATH || 'poker-tournaments.db';
 
+// ── Re-entry normalization ──
+function normalizeReentry(val) {
+  if (!val) return val;
+  const v = val.trim();
+  const lower = v.toLowerCase();
+  if (lower === 'n/a' || lower === 'none' || lower === 'freezeout') return 'Freezeout';
+  if (lower === 'unlimited re-entry' || lower === 'unlimited re entry'
+      || lower === 'unlimited reentry' || lower === 'unlimited') return 'Unlimited';
+  if (lower === 'single re-entry' || lower === 'single re entry'
+      || lower === 'single reentry' || lower === 're-entry'
+      || lower === 'reentry' || lower === '1 re-entry') return '1';
+  // Already normalized: "1", "2", "1 Per Flight", "2 Per Flight", "Bust A Play B", etc.
+  return v;
+}
+
 // ── Event name normalization (WSOP format) ──
 // gameVariant is optional — when provided, ensures name starts with the variant abbreviation
 function normalizeEventName(name, gameVariant) {
@@ -914,6 +929,26 @@ async function initDatabase() {
         console.log(`Variant dedup normalization: ${updates.length} rows updated`);
       }
     },
+    {
+      name: 'normalize-reentry-2026-02',
+      fn: () => {
+        const stmt = db.prepare('SELECT id, reentry FROM tournaments WHERE reentry IS NOT NULL');
+        let updated = 0;
+        const updates = [];
+        while (stmt.step()) {
+          const { id, reentry } = stmt.getAsObject();
+          const normalized = normalizeReentry(reentry);
+          if (normalized !== reentry) {
+            updates.push([normalized, id]);
+          }
+        }
+        stmt.free();
+        for (const [val, id] of updates) {
+          db.run('UPDATE tournaments SET reentry = ? WHERE id = ?', [val, id]);
+        }
+        console.log(`Reentry normalization: ${updates.length} rows updated`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -971,7 +1006,7 @@ async function initDatabase() {
         [
           t.eventNumber, normalizeEventName(t.eventName, t.gameVariant), t.date, t.time, t.buyin,
           t.startingChips || null, t.levelDuration || null,
-          t.reentry || null, t.lateReg || null, t.lateRegEnd || null,
+          normalizeReentry(t.reentry) || null, t.lateReg || null, t.lateRegEnd || null,
           t.gameVariant, t.venue, t.notes || null,
           t.category || null, t.isSatellite ? 1 : 0, t.targetEvent || null,
           t.isRestart ? 1 : 0, t.parentEvent || null,
@@ -1129,7 +1164,7 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
           tournament.buyin,
           tournament.startingChips || null,
           tournament.levelDuration || null,
-          tournament.reentry || null,
+          normalizeReentry(tournament.reentry) || null,
           tournament.lateReg || null,
           tournament.gameVariant,
           tournament.venue || 'Horseshoe / Paris Las Vegas',
