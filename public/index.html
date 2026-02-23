@@ -1484,6 +1484,12 @@
     .late-reg-bar-fill.soon   { background: #909090; }
     .late-reg-bar-fill.urgent { background: #707070; }
     .late-reg-bar-fill.closed { background: var(--border); width: 0% !important; }
+    .late-reg-bar-fill.critical { background: #c0392b; animation: regPulse 1.2s ease-in-out infinite; }
+
+    @keyframes regPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
 
     /* ── Mini late-reg bar (collapsed calendar row) ── */
     .mini-late-reg {
@@ -1518,6 +1524,7 @@
       border-radius: 1.5px;
       transition: width 1s linear;
     }
+    .mini-late-reg-fill.critical { background: #c0392b !important; animation: regPulse 1.2s ease-in-out infinite; }
 
     /* ── Conflict warning ── */
     .conflict-badge {
@@ -2128,6 +2135,7 @@
       const windowMs = 12 * 60 * 60 * 1000;
       const pct      = status === 'closed' ? 0 : Math.min(100, Math.max(0, (diffMs / windowMs) * 100));
       const brandColor = getVenueBrandColor(venueAbbr);
+      const critical = status !== 'closed' && pct <= 15;
 
       return (
         <div className="late-reg-wrap">
@@ -2137,8 +2145,8 @@
           </div>
           <div className="late-reg-bar-bg">
             <div
-              className="late-reg-bar-fill"
-              style={{ width: `${pct}%`, background: status === 'closed' ? 'var(--border)' : brandColor }}
+              className={`late-reg-bar-fill ${critical ? 'critical' : ''}`}
+              style={{ width: `${pct}%`, background: critical ? undefined : (status === 'closed' ? 'var(--border)' : brandColor) }}
             />
           </div>
         </div>
@@ -2200,11 +2208,12 @@
       const pct = Math.min(100, Math.max(0, (diffMs / windowMs) * 100));
       const brandColor = getVenueBrandColor(venueAbbr);
 
+      const critical = pct <= 15;
       return (
         <div className="mini-late-reg">
           <span className="mini-late-reg-time">late reg {timeStr}</span>
           <div className="mini-late-reg-track">
-            <div className="mini-late-reg-fill" style={{ width: `${pct}%`, background: brandColor }} />
+            <div className={`mini-late-reg-fill ${critical ? 'critical' : ''}`} style={{ width: `${pct}%`, background: critical ? undefined : brandColor }} />
           </div>
         </div>
       );
