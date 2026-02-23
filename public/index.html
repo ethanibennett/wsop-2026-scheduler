@@ -49,7 +49,7 @@
       --venue-mgm-grand:     #2a6a3e;
       --venue-mgm-nh:        #8a7020;
       --venue-ts:            #8a6508;
-      --venue-tch:           #bf5700;
+      --venue-tch:           #a0522d;
     }
 
     [data-theme="light"] {
@@ -81,7 +81,7 @@
       --venue-mgm-grand:     #15803d;
       --venue-mgm-nh:        #b8860b;
       --venue-ts:            #7a5a06;
-      --venue-tch:           #cc5500;
+      --venue-tch:           #b5603a;
     }
 
     /* High contrast — dark */
@@ -1667,8 +1667,8 @@
       'MGM National Harbor':         { abbr: 'MGM NH',    color: '#b8860b', longName: 'MGM National Harbor' },
       'Irish Poker Open':            { abbr: 'IPO',       color: '#1a6b3c', longName: 'Irish Poker Open' },
       'Personal':                    { abbr: 'PERSONAL',  color: '#4a9eff', longName: 'Personal' },
-      'Turning Stone Casino':        { abbr: 'Turning Stone', color: '#8b0000', longName: 'WSOP Circuit - Turning Stone Casino' },
-      'Texas Card House':            { abbr: 'TCH', color: '#bf5700', longName: 'WSOPC Texas Card House' },
+      'Turning Stone Casino':        { abbr: 'Turning Stone', color: '#8b0000', longName: 'WSOPC Turning Stone' },
+      'Texas Card House':            { abbr: 'TCH', color: '#a0522d', longName: 'WSOPC Texas Card House' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -2508,7 +2508,7 @@
       const isBounty   = /bounty|mystery millions/i.test(tournament.event_name);
       const isSat      = !!tournament.is_satellite;
       const isRestart  = !!tournament.is_restart;
-      const isRingEvent = tournament.venue === 'Turning Stone Casino' && !!tournament.event_number;
+      const isRingEvent = /^WSOPC/.test(getVenueInfo(tournament.venue).longName) && !!tournament.event_number && !tournament.is_satellite;
 
       const rowClasses = [
         'cal-event-row',
@@ -2815,7 +2815,7 @@
       const venueClass = getVenueClass(tournament);
       const venue      = getVenueInfo(tournament.venue);
       const isDeepstack = !!tournament.is_deepstack;
-      const isRingEvent = tournament.venue === 'Turning Stone Casino' && !!tournament.event_number;
+      const isRingEvent = /^WSOPC/.test(getVenueInfo(tournament.venue).longName) && !!tournament.event_number && !tournament.is_satellite;
       const stripColor = isDeepstack ? '#666666' : getVenueBrandColor(venue.abbr);
       const stripTextColor = isDeepstack ? '#ffffff' : (venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)');
 
@@ -3388,6 +3388,8 @@
         minBuyin: '', maxBuyin: '', maxRake: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true, hiddenMonths: []
       });
       const [focusEventId, setFocusEventId] = useState(null);
+      const todayScrollRef = useRef(null);
+      const hasScrolled = useRef(false);
 
       const buyinOptions = useMemo(() =>
         [...new Set(tournaments.map(t => parseInt(t.buyin, 10)).filter(n => n > 0 && !isNaN(n)))].sort((a, b) => a - b),
@@ -3452,6 +3454,23 @@
         return best ? best.id : null;
       }
 
+      // Auto-scroll to today's date group on first render
+      useEffect(() => {
+        if (!hasScrolled.current && todayScrollRef.current) {
+          hasScrolled.current = true;
+          requestAnimationFrame(() => {
+            const el = todayScrollRef.current;
+            if (!el) return;
+            const container = el.closest('.content-area') || document.querySelector('.content-area');
+            if (!container) return;
+            const sticky = container.querySelector('.sticky-filters');
+            const stickyH = sticky ? sticky.offsetHeight : 0;
+            const elTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+            container.scrollTo({ top: Math.max(0, elTop - stickyH - 8), behavior: 'smooth' });
+          });
+        }
+      }, [filtered]);
+
       return (
         <div>
           <div className="sticky-filters">
@@ -3494,13 +3513,17 @@
                   }
                   cur.events.push(t);
                 }
+                let scrollRefAssigned = false;
                 return groups.map((group, gi) => {
                   const isToday = group.date === todayISO;
                   const past = group.date < todayISO;
                   const dateObj = new Date(group.date + 'T12:00:00');
                   const dateLabel = `${DOW[dateObj.getDay()]}, ${MONTHS[dateObj.getMonth()]} ${dateObj.getDate()}`;
+                  // Assign scroll ref to first group that is today or future
+                  const needsRef = !scrollRefAssigned && group.date >= todayISO;
+                  if (needsRef) scrollRefAssigned = true;
                   return (
-                    <div key={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
+                    <div key={group.date} ref={needsRef ? todayScrollRef : undefined} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                       <div className="schedule-date-break" style={{
                         position: 'sticky', top: '-12px', zIndex: 5,
                         padding: '20px 12px 8px 2px',
@@ -3852,24 +3875,30 @@
 
     // ── Calendar View ──────────────────────────────────────────
 
-    // Build the list of unique dates that have WSOP events (May 26 – July 15 2026)
-    function buildWsopDates() {
-      const start = new Date('2026-05-26');
-      const end = new Date('2026-07-15');
+    // Build a contiguous list of dates spanning all tournaments
+    function buildAllDates(tournaments) {
+      if (!tournaments || tournaments.length === 0) return [];
+      let min = null, max = null;
+      for (const t of tournaments) {
+        const d = normaliseDate(t.date);
+        if (!d) continue;
+        if (!min || d < min) min = d;
+        if (!max || d > max) max = d;
+      }
+      if (!min || !max) return [];
       const dates = [];
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      for (let d = new Date(min + 'T12:00:00'); d <= new Date(max + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
         dates.push(d.toISOString().slice(0, 10));
       }
       return dates;
     }
-
-    const WSOP_DATES = buildWsopDates();
     const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents }) {
+      const allDates = useMemo(() => buildAllDates(allTournaments), [allTournaments]);
       const today = getToday();
-      const defaultDate = WSOP_DATES.includes(today) ? today : WSOP_DATES[0];
+      const defaultDate = allDates.includes(today) ? today : allDates[0] || today;
       const [selectedDate, setSelectedDate] = useState(defaultDate);
       const activeDateRef = React.useRef(null);
       const [focusEventId, setFocusEventId] = useState(null);
@@ -3877,7 +3906,7 @@
       // Always snap to today when the tab is visited
       useEffect(() => {
         const t = getToday();
-        if (WSOP_DATES.includes(t)) setSelectedDate(t);
+        if (allDates.includes(t)) setSelectedDate(t);
       }, []);
 
       // Scroll the active date button into view in the carousel
@@ -3988,9 +4017,9 @@
       );
 
       function move(dir) {
-        const idx  = WSOP_DATES.indexOf(selectedDate);
+        const idx  = allDates.indexOf(selectedDate);
         const next = idx + dir;
-        if (next >= 0 && next < WSOP_DATES.length) setSelectedDate(WSOP_DATES[next]);
+        if (next >= 0 && next < allDates.length) setSelectedDate(allDates[next]);
       }
 
       return (
@@ -4014,7 +4043,7 @@
 
             {/* Scrollable date strip */}
             <div className="cal-date-strip">
-              {WSOP_DATES.map(d => {
+              {allDates.map(d => {
                 const dObj  = new Date(d + 'T12:00:00');
                 const hasEv = (byDate[d] || []).length > 0;
                 const isSel = d === selectedDate;

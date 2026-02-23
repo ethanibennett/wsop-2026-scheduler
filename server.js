@@ -681,6 +681,59 @@ async function initDatabase() {
         console.log(`IPO dedup: deleted ${deletedFinals} stale finals, ${deletedOld} old Guaranteed, ${deletedDups} exact dups`);
       }
     },
+    {
+      name: 'tch-normalize-names-2026-02',
+      fn: () => {
+        const nameMap = {
+          'The First Lone Star Ring': 'NLH The First Lone Star',
+          'Mini Main Ring Event - Flight A': 'NLH Mini Main - Flight A',
+          'Mini Main Ring Event - Flight B': 'NLH Mini Main - Flight B',
+          'Mini Main Ring Event - Flight C': 'NLH Mini Main - Flight C',
+          'Mini Main Ring Event - Flight D': 'NLH Mini Main - Flight D',
+          'Mini Main Ring Event - Flight E': 'NLH Mini Main - Flight E',
+          'Big O Ring Event': 'Big O',
+          'Ladies NLH Ring Event': 'NLH Ladies',
+          'The Showdown At The Capitol NLH Ring Event': 'NLH The Showdown At The Capitol',
+          'Seniors 50+ NLH Ring Event': 'NLH Seniors (50+)',
+          'Big Tex High Roller Ring Event': 'NLH Big Tex High Roller',
+          '8-Game Mix Ring Event': '8-Game Mix',
+          'Monster Stack Ring Event - Flight A': 'NLH Monster Stack - Flight A',
+          'Monster Stack Ring Event - Flight B': 'NLH Monster Stack - Flight B',
+          'Monster Stack Ring Event - Flight C': 'NLH Monster Stack - Flight C',
+          'H.O.R.S.E. Ring Event': 'HORSE',
+          'Texas Trailblazer Ring Event': 'NLH Texas Trailblazer',
+          'No Limit 2-7 Single Draw Ring Event': 'NL 2-7 Single Draw',
+          'Pot Limit Omaha Ring Event': 'PLO',
+          'Black Chip Bounty Turbo Ring Event': 'NLH Black Chip Bounty Turbo',
+          'The Texas Stack Ring Event': 'NLH The Texas Stack',
+          'Double Board Bomb Pot Ring Event': 'NLH Double Board Bomb Pot',
+          'The Final Lone Star Ring Event': 'NLH The Final Lone Star',
+          'WSOPC $1,700 Main Event - Flight A': 'NLH Main Event - Flight A',
+          'WSOPC $1,700 Main Event - Flight B': 'NLH Main Event - Flight B',
+          'WSOPC $1,700 Main Event - Flight C': 'NLH Main Event - Flight C',
+          'The First Lone Star Ring Event Restart Livestream FT': 'NLH The First Lone Star - Final',
+          'Mini Main Event Day 2 Restart': 'NLH Mini Main - Day 2',
+          'Mini Main Event Day 3 Restart FT Livestream': 'NLH Mini Main - Final',
+          'Big Tex High Roller Restart FT Livestream': 'NLH Big Tex High Roller - Final',
+          'Monster Stack Ring Event Day 2 Restart': 'NLH Monster Stack - Day 2',
+          'Texas Trailblazer Ring Event Restart Livestream FT': 'NLH Texas Trailblazer - Final',
+          'WSOPC $1,700 Main Event Day 2 Restart': 'NLH Main Event - Day 2',
+          'WSOPC $1,700 Main Event Day 3 Restart FT Stream': 'NLH Main Event - Final',
+          '$600 Ring Event Milestone Satellite 1:6': 'NLH Satellite - $600 Ring Event',
+          '$1,100 Texas Trailblazer Mega Satellite': 'NLH Satellite - Texas Trailblazer',
+          '$1,700 Main Event Milestone Satellite 1:8': 'NLH Satellite - Main Event',
+        };
+        let updated = 0;
+        for (const [oldName, newName] of Object.entries(nameMap)) {
+          const result = db.run(
+            `UPDATE tournaments SET event_name = ? WHERE event_name = ? AND venue = 'Texas Card House'`,
+            [newName, oldName]
+          );
+          updated += db.getRowsModified();
+        }
+        console.log(`TCH name normalization: ${updated} rows updated`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {

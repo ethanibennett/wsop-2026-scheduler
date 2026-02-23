@@ -2,7 +2,7 @@
   {
     "id": 1103,
     "event_number": "TCH-1",
-    "event_name": "The First Lone Star Ring",
+    "event_name": "NLH The First Lone Star",
     "date": "April 23, 2026",
     "time": "10:00 AM",
     "buyin": 400,
@@ -35,7 +35,7 @@
   {
     "id": 1104,
     "event_number": "TCH-2A",
-    "event_name": "Mini Main Ring Event - Flight A",
+    "event_name": "NLH Mini Main - Flight A",
     "date": "April 23, 2026",
     "time": "4:00 PM",
     "buyin": 600,
@@ -68,7 +68,7 @@
   {
     "id": 1105,
     "event_number": "",
-    "event_name": "$600 Ring Event Milestone Satellite 1:6",
+    "event_name": "NLH Satellite - $600 Ring Event",
     "date": "April 23, 2026",
     "time": "9:00 PM",
     "buyin": 130,
@@ -101,7 +101,7 @@
   {
     "id": 1106,
     "event_number": "",
-    "event_name": "$600 Ring Event Milestone Satellite 1:6",
+    "event_name": "NLH Satellite - $600 Ring Event",
     "date": "April 24, 2026",
     "time": "9:00 AM",
     "buyin": 130,
@@ -134,7 +134,7 @@
   {
     "id": 1107,
     "event_number": "TCH-2B",
-    "event_name": "Mini Main Ring Event - Flight B",
+    "event_name": "NLH Mini Main - Flight B",
     "date": "April 24, 2026",
     "time": "10:00 AM",
     "buyin": 600,
@@ -167,7 +167,7 @@
   {
     "id": 1108,
     "event_number": "TCH-3",
-    "event_name": "Big O Ring Event",
+    "event_name": "Big O",
     "date": "April 24, 2026",
     "time": "1:00 PM",
     "buyin": 600,
@@ -200,7 +200,7 @@
   {
     "id": 1109,
     "event_number": "TCH-1.2",
-    "event_name": "The First Lone Star Ring Event Restart Livestream FT",
+    "event_name": "NLH The First Lone Star - Final",
     "date": "April 24, 2026",
     "time": "2:00 PM",
     "buyin": 400,
@@ -233,7 +233,7 @@
   {
     "id": 1110,
     "event_number": "TCH-2C",
-    "event_name": "Mini Main Ring Event - Flight C",
+    "event_name": "NLH Mini Main - Flight C",
     "date": "April 24, 2026",
     "time": "4:00 PM",
     "buyin": 600,
@@ -266,7 +266,7 @@
   {
     "id": 1111,
     "event_number": "",
-    "event_name": "$600 Ring Event Milestone Satellite 1:6",
+    "event_name": "NLH Satellite - $600 Ring Event",
     "date": "April 24, 2026",
     "time": "9:00 PM",
     "buyin": 130,
@@ -299,7 +299,7 @@
   {
     "id": 1112,
     "event_number": "TCH-2D",
-    "event_name": "Mini Main Ring Event - Flight D",
+    "event_name": "NLH Mini Main - Flight D",
     "date": "April 25, 2026",
     "time": "10:00 AM",
     "buyin": 600,
@@ -332,7 +332,7 @@
   {
     "id": 1113,
     "event_number": "TCH-2E",
-    "event_name": "Mini Main Ring Event - Flight E",
+    "event_name": "NLH Mini Main - Flight E",
     "date": "April 25, 2026",
     "time": "4:00 PM",
     "buyin": 600,
@@ -365,7 +365,7 @@
   {
     "id": 1114,
     "event_number": "TCH-4",
-    "event_name": "Ladies NLH Ring Event",
+    "event_name": "NLH Ladies",
     "date": "April 26, 2026",
     "time": "10:00 AM",
     "buyin": 400,
@@ -398,7 +398,7 @@
   {
     "id": 1115,
     "event_number": "TCH-5",
-    "event_name": "The Showdown At The Capitol NLH Ring Event",
+    "event_name": "NLH The Showdown At The Capitol",
     "date": "April 26, 2026",
     "time": "11:00 AM",
     "buyin": 400,
@@ -431,7 +431,7 @@
   {
     "id": 1116,
     "event_number": "TCH-2.2",
-    "event_name": "Mini Main Event Day 2 Restart",
+    "event_name": "NLH Mini Main - Day 2",
     "date": "April 26, 2026",
     "time": "12:00 PM",
     "buyin": 600,
@@ -497,7 +497,7 @@
   {
     "id": 1118,
     "event_number": "",
-    "event_name": "$600 Ring Event Milestone Satellite 1:6",
+    "event_name": "NLH Satellite - $600 Ring Event",
     "date": "April 26, 2026",
     "time": "9:30 PM",
     "buyin": 130,
@@ -530,7 +530,7 @@
   {
     "id": 1119,
     "event_number": "TCH-6",
-    "event_name": "Seniors 50+ NLH Ring Event",
+    "event_name": "NLH Seniors (50+)",
     "date": "April 27, 2026",
     "time": "10:00 AM",
     "buyin": 400,
@@ -563,7 +563,7 @@
   {
     "id": 1120,
     "event_number": "TCH-7",
-    "event_name": "Big Tex High Roller Ring Event",
+    "event_name": "NLH Big Tex High Roller",
     "date": "April 27, 2026",
     "time": "12:00 PM",
     "buyin": 3250,
@@ -596,7 +596,7 @@
   {
     "id": 1121,
     "event_number": "TCH-8",
-    "event_name": "8-Game Mix Ring Event",
+    "event_name": "8-Game Mix",
     "date": "April 27, 2026",
     "time": "3:00 PM",
     "buyin": 600,
@@ -629,7 +629,7 @@
   {
     "id": 1122,
     "event_number": "TCH-2.3",
-    "event_name": "Mini Main Event Day 3 Restart FT Livestream",
+    "event_name": "NLH Mini Main - Final",
     "date": "April 27, 2026",
     "time": "4:00 PM",
     "buyin": 600,
@@ -662,7 +662,7 @@
   {
     "id": 1123,
     "event_number": "TCH-9A",
-    "event_name": "Monster Stack Ring Event - Flight A",
+    "event_name": "NLH Monster Stack - Flight A",
     "date": "April 27, 2026",
     "time": "4:00 PM",
     "buyin": 400,
@@ -695,7 +695,7 @@
   {
     "id": 1124,
     "event_number": "",
-    "event_name": "$600 Ring Event Milestone Satellite 1:6",
+    "event_name": "NLH Satellite - $600 Ring Event",
     "date": "April 27, 2026",
     "time": "9:00 PM",
     "buyin": 130,
@@ -728,7 +728,7 @@
   {
     "id": 1125,
     "event_number": "TCH-9B",
-    "event_name": "Monster Stack Ring Event - Flight B",
+    "event_name": "NLH Monster Stack - Flight B",
     "date": "April 28, 2026",
     "time": "10:00 AM",
     "buyin": 400,
@@ -761,7 +761,7 @@
   {
     "id": 1126,
     "event_number": "TCH-7.2",
-    "event_name": "Big Tex High Roller Restart FT Livestream",
+    "event_name": "NLH Big Tex High Roller - Final",
     "date": "April 28, 2026",
     "time": "12:00 PM",
     "buyin": 3250,
@@ -794,7 +794,7 @@
   {
     "id": 1127,
     "event_number": "TCH-10",
-    "event_name": "H.O.R.S.E. Ring Event",
+    "event_name": "HORSE",
     "date": "April 28, 2026",
     "time": "3:00 PM",
     "buyin": 600,
@@ -827,7 +827,7 @@
   {
     "id": 1128,
     "event_number": "TCH-9C",
-    "event_name": "Monster Stack Ring Event - Flight C",
+    "event_name": "NLH Monster Stack - Flight C",
     "date": "April 28, 2026",
     "time": "4:00 PM",
     "buyin": 400,
@@ -860,7 +860,7 @@
   {
     "id": 1129,
     "event_number": "",
-    "event_name": "$1,100 Texas Trailblazer Mega Satellite",
+    "event_name": "NLH Satellite - Texas Trailblazer",
     "date": "April 28, 2026",
     "time": "9:00 PM",
     "buyin": 180,
@@ -893,7 +893,7 @@
   {
     "id": 1130,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "April 29, 2026",
     "time": "10:00 AM",
     "buyin": 250,
@@ -926,7 +926,7 @@
   {
     "id": 1131,
     "event_number": "TCH-11",
-    "event_name": "Texas Trailblazer Ring Event",
+    "event_name": "NLH Texas Trailblazer",
     "date": "April 29, 2026",
     "time": "11:00 AM",
     "buyin": 1100,
@@ -959,7 +959,7 @@
   {
     "id": 1132,
     "event_number": "TCH-9.2",
-    "event_name": "Monster Stack Ring Event Day 2 Restart",
+    "event_name": "NLH Monster Stack - Day 2",
     "date": "April 29, 2026",
     "time": "2:00 PM",
     "buyin": 400,
@@ -992,7 +992,7 @@
   {
     "id": 1133,
     "event_number": "TCH-12",
-    "event_name": "No Limit 2-7 Single Draw Ring Event",
+    "event_name": "NL 2-7 Single Draw",
     "date": "April 29, 2026",
     "time": "3:00 PM",
     "buyin": 600,
@@ -1025,7 +1025,7 @@
   {
     "id": 1134,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "April 29, 2026",
     "time": "4:00 PM",
     "buyin": 250,
@@ -1058,7 +1058,7 @@
   {
     "id": 1135,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "April 29, 2026",
     "time": "9:00 PM",
     "buyin": 250,
@@ -1091,7 +1091,7 @@
   {
     "id": 1136,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "April 30, 2026",
     "time": "10:00 AM",
     "buyin": 250,
@@ -1124,7 +1124,7 @@
   {
     "id": 1137,
     "event_number": "TCH-13A",
-    "event_name": "WSOPC $1,700 Main Event - Flight A",
+    "event_name": "NLH Main Event - Flight A",
     "date": "April 30, 2026",
     "time": "11:00 AM",
     "buyin": 1700,
@@ -1157,7 +1157,7 @@
   {
     "id": 1138,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "April 30, 2026",
     "time": "12:00 PM",
     "buyin": 250,
@@ -1190,7 +1190,7 @@
   {
     "id": 1139,
     "event_number": "TCH-11.2",
-    "event_name": "Texas Trailblazer Ring Event Restart Livestream FT",
+    "event_name": "NLH Texas Trailblazer - Final",
     "date": "April 30, 2026",
     "time": "2:00 PM",
     "buyin": 1100,
@@ -1223,7 +1223,7 @@
   {
     "id": 1140,
     "event_number": "TCH-14",
-    "event_name": "Pot Limit Omaha Ring Event",
+    "event_name": "PLO",
     "date": "April 30, 2026",
     "time": "3:00 PM",
     "buyin": 600,
@@ -1256,7 +1256,7 @@
   {
     "id": 1141,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "April 30, 2026",
     "time": "5:00 PM",
     "buyin": 250,
@@ -1289,7 +1289,7 @@
   {
     "id": 1142,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "April 30, 2026",
     "time": "9:00 PM",
     "buyin": 250,
@@ -1322,7 +1322,7 @@
   {
     "id": 1143,
     "event_number": "TCH-13B",
-    "event_name": "WSOPC $1,700 Main Event - Flight B",
+    "event_name": "NLH Main Event - Flight B",
     "date": "May 1, 2026",
     "time": "11:00 AM",
     "buyin": 1700,
@@ -1355,7 +1355,7 @@
   {
     "id": 1144,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "May 1, 2026",
     "time": "12:00 PM",
     "buyin": 250,
@@ -1388,7 +1388,7 @@
   {
     "id": 1145,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "May 1, 2026",
     "time": "5:00 PM",
     "buyin": 250,
@@ -1421,7 +1421,7 @@
   {
     "id": 1146,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "May 1, 2026",
     "time": "9:00 PM",
     "buyin": 250,
@@ -1454,7 +1454,7 @@
   {
     "id": 1147,
     "event_number": "",
-    "event_name": "$1,700 Main Event Milestone Satellite 1:8",
+    "event_name": "NLH Satellite - Main Event",
     "date": "May 2, 2026",
     "time": "10:00 AM",
     "buyin": 250,
@@ -1487,7 +1487,7 @@
   {
     "id": 1148,
     "event_number": "TCH-13C",
-    "event_name": "WSOPC $1,700 Main Event - Flight C",
+    "event_name": "NLH Main Event - Flight C",
     "date": "May 2, 2026",
     "time": "11:00 AM",
     "buyin": 1700,
@@ -1520,7 +1520,7 @@
   {
     "id": 1149,
     "event_number": "TCH-15",
-    "event_name": "Black Chip Bounty Turbo Ring Event",
+    "event_name": "NLH Black Chip Bounty Turbo",
     "date": "May 2, 2026",
     "time": "4:00 PM",
     "buyin": 400,
@@ -1586,7 +1586,7 @@
   {
     "id": 1151,
     "event_number": "TCH-16",
-    "event_name": "The Texas Stack Ring Event",
+    "event_name": "NLH The Texas Stack",
     "date": "May 3, 2026",
     "time": "11:00 AM",
     "buyin": 600,
@@ -1619,7 +1619,7 @@
   {
     "id": 1152,
     "event_number": "TCH-13.2",
-    "event_name": "WSOPC $1,700 Main Event Day 2 Restart",
+    "event_name": "NLH Main Event - Day 2",
     "date": "May 3, 2026",
     "time": "12:00 PM",
     "buyin": 1700,
@@ -1652,7 +1652,7 @@
   {
     "id": 1153,
     "event_number": "TCH-17",
-    "event_name": "Double Board Bomb Pot Ring Event",
+    "event_name": "NLH Double Board Bomb Pot",
     "date": "May 3, 2026",
     "time": "4:00 PM",
     "buyin": 400,
@@ -1685,7 +1685,7 @@
   {
     "id": 1154,
     "event_number": "TCH-18",
-    "event_name": "The Final Lone Star Ring Event",
+    "event_name": "NLH The Final Lone Star",
     "date": "May 4, 2026",
     "time": "11:00 AM",
     "buyin": 400,
@@ -1718,7 +1718,7 @@
   {
     "id": 1155,
     "event_number": "TCH-13.3",
-    "event_name": "WSOPC $1,700 Main Event Day 3 Restart FT Stream",
+    "event_name": "NLH Main Event - Final",
     "date": "May 4, 2026",
     "time": "2:00 PM",
     "buyin": 1700,
