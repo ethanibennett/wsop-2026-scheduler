@@ -5605,7 +5605,8 @@
             headers: { Authorization: `Bearer ${token}` }
           });
           if (!res) return;
-          setMyActiveUpdates(await res.json());
+          const data = await res.json();
+          setMyActiveUpdates(Array.isArray(data) ? data : []);
         } catch {}
       };
 
