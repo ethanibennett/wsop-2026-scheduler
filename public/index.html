@@ -3300,7 +3300,7 @@
 
     // ── My Schedule View ───────────────────────────────────────
 
-    function ScheduleView({ mySchedule, onToggle, sharedWithMe, lastSeenShares, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent }) {
+    function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent }) {
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
       const dayOffDateRef = React.useRef(null);
@@ -3456,17 +3456,40 @@
             })()}
           </div>
 
+          {pendingIncoming && pendingIncoming.length > 0 && (
+            <div style={{marginTop:'24px'}}>
+              <div className="section-header">
+                <h2>Share Requests</h2>
+              </div>
+              {pendingIncoming.map(req => (
+                <div key={req.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                  background:'var(--surface)',border:'1px solid var(--border)',
+                  borderRadius:'var(--radius-sm)',padding:'10px 12px',marginBottom:'8px',
+                  fontSize:'0.85rem',color:'var(--text)'}}>
+                  <span style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                    <strong>{req.username}</strong>
+                    <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>wants to share schedules</span>
+                  </span>
+                  <span style={{display:'flex',gap:'6px'}}>
+                    <button className="btn btn-ghost btn-sm" style={{color:'#22c55e',padding:'4px 10px',fontWeight:600}} onClick={() => onAcceptRequest(req.id)}>Accept</button>
+                    <button className="btn btn-ghost btn-sm" style={{color:'#b91c1c',padding:'4px 8px'}} onClick={() => onRejectRequest(req.id)}>Decline</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{marginTop:'24px'}}>
             <div className="section-header">
-              <h2>Shared With Me</h2>
+              <h2>Shared Schedules</h2>
             </div>
-            {sharedWithMe && sharedWithMe.length > 0 ? (
-              sharedWithMe.map(user => (
-                <SharedUserSchedule key={user.id} user={user} token={token} isNew={!lastSeenShares || user.granted_at > lastSeenShares} />
+            {shareBuddies && shareBuddies.length > 0 ? (
+              shareBuddies.map(user => (
+                <SharedUserSchedule key={user.id} user={user} token={token} isNew={!lastSeenShares || user.since > lastSeenShares} />
               ))
             ) : (
               <p style={{fontSize:'0.82rem',color:'var(--text-muted)',padding:'12px 0'}}>
-                No one has shared their schedule with you yet.
+                No shared schedules yet. Send a request in Settings.
               </p>
             )}
           </div>
@@ -4354,7 +4377,7 @@
 
     // ── Settings View ──────────────────────────────────────────
 
-    function SettingsView({ username, theme, toggleTheme, contrast, toggleContrast, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, grantedViewers, onGrantPermission, onRevokePermission, shareError, shareSuccess }) {
+    function SettingsView({ username, theme, toggleTheme, contrast, toggleContrast, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess }) {
       const [debugInput, setDebugInput] = useState(_debugNow);
 
       const applyDebugTime = (val) => {
@@ -4409,23 +4432,36 @@
               </div>
               <div style={{borderTop:'1px solid var(--border)'}} />
               <div className="settings-row" style={{flexDirection:'column',alignItems:'stretch',gap:'8px'}}>
-                <span className="settings-row-label">Share with a user</span>
+                <span className="settings-row-label">Connect with a user</span>
                 <p style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.4}}>
-                  Grant another user permission to see your schedule in their app.
+                  Send a request — if they accept, you both see each other's schedules.
                 </p>
-                <form onSubmit={onGrantPermission} style={{display:'flex',gap:'6px'}}>
-                  <input className="settings-debug-input" name="viewerUsername" placeholder="Enter username" style={{flex:1}} />
-                  <button type="submit" className="btn btn-ghost btn-sm">Grant</button>
+                <form onSubmit={onSendShareRequest} style={{display:'flex',gap:'6px'}}>
+                  <input className="settings-debug-input" name="shareUsername" placeholder="Enter username" style={{flex:1}} />
+                  <button type="submit" className="btn btn-ghost btn-sm">Send</button>
                 </form>
                 {shareError && <div className="alert alert-error" style={{margin:'4px 0'}}>{shareError}</div>}
                 {shareSuccess && <div className="alert alert-success" style={{margin:'4px 0'}}>{shareSuccess}</div>}
-                {grantedViewers && grantedViewers.length > 0 && (
+                {pendingOutgoing && pendingOutgoing.length > 0 && (
                   <div style={{marginTop:'4px'}}>
-                    {grantedViewers.map(v => (
-                      <div key={v.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    <span style={{fontSize:'0.7rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px'}}>Pending</span>
+                    {pendingOutgoing.map(r => (
+                      <div key={r.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
                         padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:'0.82rem',color:'var(--text)'}}>
-                        <span>{v.username}</span>
-                        <button className="btn btn-ghost btn-sm" style={{color:'#b91c1c',padding:'4px 8px'}} onClick={() => onRevokePermission(v.id)}>Revoke</button>
+                        <span style={{color:'var(--text-muted)'}}>{r.username}</span>
+                        <button className="btn btn-ghost btn-sm" style={{color:'#b91c1c',padding:'4px 8px'}} onClick={() => onCancelRequest(r.id)}>Cancel</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {shareBuddies && shareBuddies.length > 0 && (
+                  <div style={{marginTop:'8px'}}>
+                    <span style={{fontSize:'0.7rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px'}}>Connected</span>
+                    {shareBuddies.map(b => (
+                      <div key={b.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                        padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:'0.82rem',color:'var(--text)'}}>
+                        <span>{b.username}</span>
+                        <button className="btn btn-ghost btn-sm" style={{color:'#b91c1c',padding:'4px 8px'}} onClick={() => onRemoveBuddy(b.id)}>Remove</button>
                       </div>
                     ))}
                   </div>
@@ -4529,8 +4565,9 @@
 
       // ── Sharing state ──
       const [shareToken, setShareToken] = useState(null);
-      const [grantedViewers, setGrantedViewers] = useState([]);
-      const [sharedWithMe, setSharedWithMe] = useState([]);
+      const [shareBuddies, setShareBuddies] = useState([]);
+      const [pendingIncoming, setPendingIncoming] = useState([]);
+      const [pendingOutgoing, setPendingOutgoing] = useState([]);
       const [lastSeenShares, setLastSeenShares] = useState(null);
       const [newShareCount, setNewShareCount] = useState(0);
       const [shareError, setShareError] = useState('');
@@ -4565,8 +4602,7 @@
           fetchGameVariants();
           fetchVenues();
           fetchShareToken();
-          fetchGrantedViewers();
-          fetchSharedWithMe();
+          fetchShareBuddies();
           fetchTracking();
         }
       }, [token]);
@@ -4683,22 +4719,18 @@
           setShareToken(data.token);
         } catch {}
       };
-      const fetchGrantedViewers = async () => {
+      const fetchShareBuddies = async () => {
         try {
-          const res = await fetch(`${API_URL}/permissions/mine`, { headers: { Authorization: `Bearer ${token}` } });
-          setGrantedViewers(await res.json());
-        } catch {}
-      };
-      const fetchSharedWithMe = async () => {
-        try {
-          const res = await fetch(`${API_URL}/shared-schedules`, { headers: { Authorization: `Bearer ${token}` } });
+          const res = await fetch(`${API_URL}/share-buddies`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
-          const shares = data.shares || data; // backwards compat
+          setShareBuddies(data.buddies || []);
+          setPendingIncoming(data.pendingIncoming || []);
+          setPendingOutgoing(data.pendingOutgoing || []);
           const lss = data.lastSeenShares || null;
-          setSharedWithMe(shares);
           setLastSeenShares(lss);
-          const unseen = shares.filter(s => !lss || s.granted_at > lss).length;
-          setNewShareCount(unseen);
+          // Unseen = new buddies since last seen + pending incoming
+          const newBuddies = (data.buddies || []).filter(b => !lss || b.since > lss).length;
+          setNewShareCount(newBuddies + (data.pendingIncoming || []).length);
         } catch {}
       };
       const handleGenerateShareToken = async () => {
@@ -4714,28 +4746,46 @@
           setShareToken(null);
         } catch {}
       };
-      const handleGrantPermission = async (e) => {
+      const handleSendShareRequest = async (e) => {
         e.preventDefault();
         setShareError(''); setShareSuccess('');
-        const viewerUsername = new FormData(e.target).get('viewerUsername');
-        if (!viewerUsername) return;
+        const username = new FormData(e.target).get('shareUsername');
+        if (!username) return;
         try {
-          const res = await fetch(`${API_URL}/permissions`, {
+          const res = await fetch(`${API_URL}/share-request`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ viewerUsername })
+            body: JSON.stringify({ username })
           });
           const data = await res.json();
           if (!res.ok) { setShareError(data.error); return; }
-          setShareSuccess(`Shared with ${viewerUsername}`);
+          setShareSuccess(data.message);
           e.target.reset();
-          fetchGrantedViewers();
-        } catch { setShareError('Failed to grant permission'); }
+          fetchShareBuddies();
+        } catch { setShareError('Failed to send request'); }
       };
-      const handleRevokePermission = async (viewerId) => {
+      const handleAcceptRequest = async (id) => {
         try {
-          await fetch(`${API_URL}/permissions/${viewerId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-          fetchGrantedViewers();
+          await fetch(`${API_URL}/share-request/${id}/accept`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+          fetchShareBuddies();
+        } catch {}
+      };
+      const handleRejectRequest = async (id) => {
+        try {
+          await fetch(`${API_URL}/share-request/${id}/reject`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+          fetchShareBuddies();
+        } catch {}
+      };
+      const handleCancelRequest = async (id) => {
+        try {
+          await fetch(`${API_URL}/share-request/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+          fetchShareBuddies();
+        } catch {}
+      };
+      const handleRemoveBuddy = async (userId) => {
+        try {
+          await fetch(`${API_URL}/share-buddy/${userId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+          fetchShareBuddies();
         } catch {}
       };
 
@@ -4936,7 +4986,7 @@
             )}
 
             {currentView === 'schedule' && (
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} sharedWithMe={sharedWithMe} lastSeenShares={lastSeenShares} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} />
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} />
             )}
 
             {currentView === 'calendar' && (
@@ -4971,9 +5021,11 @@
                 shareToken={shareToken}
                 onGenerateShareToken={handleGenerateShareToken}
                 onRevokeShareToken={handleRevokeShareToken}
-                grantedViewers={grantedViewers}
-                onGrantPermission={handleGrantPermission}
-                onRevokePermission={handleRevokePermission}
+                onSendShareRequest={handleSendShareRequest}
+                pendingOutgoing={pendingOutgoing}
+                onCancelRequest={handleCancelRequest}
+                shareBuddies={shareBuddies}
+                onRemoveBuddy={handleRemoveBuddy}
                 shareError={shareError}
                 shareSuccess={shareSuccess}
               />
@@ -4987,7 +5039,11 @@
               const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
               if (v === 'schedule' && newShareCount > 0) {
                 fetch(`${API_URL}/seen-shares`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } })
-                  .then(() => { setNewShareCount(0); setLastSeenShares(new Date().toISOString()); })
+                  .then(() => {
+                    // Clear "new buddy" count but keep pending incoming in the badge
+                    setLastSeenShares(new Date().toISOString());
+                    setNewShareCount(pendingIncoming.length);
+                  })
                   .catch(() => {});
               }
             }}

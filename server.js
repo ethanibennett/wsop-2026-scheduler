@@ -114,6 +114,20 @@ async function initDatabase() {
   `);
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS share_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_user_id INTEGER NOT NULL,
+      to_user_id INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      responded_at DATETIME,
+      FOREIGN KEY (from_user_id) REFERENCES users(id),
+      FOREIGN KEY (to_user_id) REFERENCES users(id),
+      UNIQUE(from_user_id, to_user_id)
+    )
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS share_tokens (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER UNIQUE NOT NULL,
@@ -251,6 +265,33 @@ async function initDatabase() {
     db.run('ALTER TABLE users ADD COLUMN last_seen_shares DATETIME');
   } catch (e) {
     // Column already exists — ignore
+  }
+
+  // Migrate: move schedule_permissions into share_requests
+  try {
+    const migChk = db.prepare("SELECT COUNT(*) as cnt FROM share_requests");
+    migChk.step();
+    const { cnt: srCount } = migChk.getAsObject();
+    migChk.free();
+    if (srCount === 0) {
+      const oldPerms = db.prepare("SELECT owner_id, viewer_id, granted_at FROM schedule_permissions");
+      let migrated = 0;
+      while (oldPerms.step()) {
+        const { owner_id, viewer_id, granted_at } = oldPerms.getAsObject();
+        db.run(
+          "INSERT OR IGNORE INTO share_requests (from_user_id, to_user_id, status, created_at, responded_at) VALUES (?, ?, 'accepted', ?, ?)",
+          [owner_id, viewer_id, granted_at, granted_at]
+        );
+        migrated++;
+      }
+      oldPerms.free();
+      if (migrated > 0) {
+        console.log(`Migrated ${migrated} old permissions to share_requests`);
+        await saveDatabase();
+      }
+    }
+  } catch (e) {
+    console.log('Permission migration skipped:', e.message);
   }
 
   // Auto-seed extra venue data from JSON seed files
@@ -817,65 +858,154 @@ app.get('/api/my-schedule', authenticateToken, (req, res) => {
   }
 });
 
-// Grant schedule viewing permission
-app.post('/api/permissions', authenticateToken, async (req, res) => {
+// ── Share Request Endpoints ───────────────────────────────────
+
+// Send a share request to another user
+app.post('/api/share-request', authenticateToken, async (req, res) => {
   try {
-    const { viewerUsername } = req.body;
-    
-    // Find viewer by username
+    const { username } = req.body;
     const stmt = db.prepare('SELECT id FROM users WHERE username = ?');
-    stmt.bind([viewerUsername]);
-    
-    let viewer = null;
-    if (stmt.step()) {
-      viewer = stmt.getAsObject();
-    }
+    stmt.bind([username]);
+    let target = null;
+    if (stmt.step()) target = stmt.getAsObject();
     stmt.free();
-    
-    if (!viewer) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    db.run(
-      'INSERT OR IGNORE INTO schedule_permissions (owner_id, viewer_id) VALUES (?, ?)',
-      [req.user.id, viewer.id]
+
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (target.id === req.user.id) return res.status(400).json({ error: "Can't share with yourself" });
+
+    // Check if already connected or pending (either direction)
+    const chk = db.prepare(
+      `SELECT id, status FROM share_requests
+       WHERE (from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?)`
     );
-    
+    chk.bind([req.user.id, target.id, target.id, req.user.id]);
+    let existing = null;
+    if (chk.step()) existing = chk.getAsObject();
+    chk.free();
+
+    if (existing) {
+      if (existing.status === 'accepted') return res.status(400).json({ error: 'Already connected' });
+      if (existing.status === 'pending') return res.status(400).json({ error: 'Request already pending' });
+    }
+
+    db.run(
+      "INSERT INTO share_requests (from_user_id, to_user_id, status) VALUES (?, ?, 'pending')",
+      [req.user.id, target.id]
+    );
     await saveDatabase();
-    
-    res.json({ message: 'Permission granted' });
+    res.json({ message: `Request sent to ${username}` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get schedules user has permission to view
-app.get('/api/shared-schedules', authenticateToken, (req, res) => {
+// Get share buddies + pending counts
+app.get('/api/share-buddies', authenticateToken, (req, res) => {
   try {
-    const query = `
-      SELECT u.id, u.username, sp.granted_at
-      FROM schedule_permissions sp
-      JOIN users u ON sp.owner_id = u.id
-      WHERE sp.viewer_id = ?
-    `;
+    const uid = req.user.id;
 
-    const stmt = db.prepare(query);
-    stmt.bind([req.user.id]);
+    // Accepted buddies (either direction)
+    const buddyStmt = db.prepare(`
+      SELECT u.id, u.username, sr.responded_at AS since
+      FROM share_requests sr
+      JOIN users u ON u.id = CASE WHEN sr.from_user_id = ? THEN sr.to_user_id ELSE sr.from_user_id END
+      WHERE sr.status = 'accepted'
+        AND (sr.from_user_id = ? OR sr.to_user_id = ?)
+    `);
+    buddyStmt.bind([uid, uid, uid]);
+    const buddies = [];
+    while (buddyStmt.step()) buddies.push(buddyStmt.getAsObject());
+    buddyStmt.free();
 
-    const users = [];
-    while (stmt.step()) {
-      users.push(stmt.getAsObject());
-    }
-    stmt.free();
+    // Pending incoming
+    const pendStmt = db.prepare(`
+      SELECT sr.id, u.id AS from_user_id, u.username, sr.created_at
+      FROM share_requests sr
+      JOIN users u ON sr.from_user_id = u.id
+      WHERE sr.to_user_id = ? AND sr.status = 'pending'
+    `);
+    pendStmt.bind([uid]);
+    const pendingIncoming = [];
+    while (pendStmt.step()) pendingIncoming.push(pendStmt.getAsObject());
+    pendStmt.free();
 
-    // Also return the viewer's last_seen_shares timestamp
+    // Pending outgoing
+    const outStmt = db.prepare(`
+      SELECT sr.id, u.id AS to_user_id, u.username, sr.created_at
+      FROM share_requests sr
+      JOIN users u ON sr.to_user_id = u.id
+      WHERE sr.from_user_id = ? AND sr.status = 'pending'
+    `);
+    outStmt.bind([uid]);
+    const pendingOutgoing = [];
+    while (outStmt.step()) pendingOutgoing.push(outStmt.getAsObject());
+    outStmt.free();
+
+    // Last seen shares
     const lss = db.prepare('SELECT last_seen_shares FROM users WHERE id = ?');
-    lss.bind([req.user.id]);
+    lss.bind([uid]);
     let lastSeenShares = null;
-    if (lss.step()) { lastSeenShares = lss.getAsObject().last_seen_shares; }
+    if (lss.step()) lastSeenShares = lss.getAsObject().last_seen_shares;
     lss.free();
 
-    res.json({ shares: users, lastSeenShares });
+    res.json({ buddies, pendingIncoming, pendingOutgoing, lastSeenShares });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Accept a share request
+app.put('/api/share-request/:id/accept', authenticateToken, async (req, res) => {
+  try {
+    const sr = db.prepare('SELECT * FROM share_requests WHERE id = ? AND to_user_id = ? AND status = ?');
+    sr.bind([req.params.id, req.user.id, 'pending']);
+    let row = null;
+    if (sr.step()) row = sr.getAsObject();
+    sr.free();
+    if (!row) return res.status(404).json({ error: 'Request not found' });
+
+    db.run("UPDATE share_requests SET status = 'accepted', responded_at = CURRENT_TIMESTAMP WHERE id = ?", [row.id]);
+    await saveDatabase();
+    res.json({ message: 'Request accepted' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reject a share request (deletes so sender can retry)
+app.put('/api/share-request/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    db.run('DELETE FROM share_requests WHERE id = ? AND to_user_id = ? AND status = ?',
+      [req.params.id, req.user.id, 'pending']);
+    await saveDatabase();
+    res.json({ message: 'Request rejected' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cancel an outgoing share request
+app.delete('/api/share-request/:id', authenticateToken, async (req, res) => {
+  try {
+    db.run('DELETE FROM share_requests WHERE id = ? AND from_user_id = ? AND status = ?',
+      [req.params.id, req.user.id, 'pending']);
+    await saveDatabase();
+    res.json({ message: 'Request cancelled' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Remove a share buddy (both directions)
+app.delete('/api/share-buddy/:userId', authenticateToken, async (req, res) => {
+  try {
+    const other = req.params.userId;
+    db.run(
+      "DELETE FROM share_requests WHERE status = 'accepted' AND ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?))",
+      [req.user.id, other, other, req.user.id]
+    );
+    await saveDatabase();
+    res.json({ message: 'Removed' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -892,27 +1022,28 @@ app.put('/api/seen-shares', authenticateToken, async (req, res) => {
   }
 });
 
-// Get specific user's schedule (if permission granted)
+// Get specific user's schedule (if share buddy or own)
 app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
   try {
     const { userId } = req.params;
-    
-    // Check permission
-    const permStmt = db.prepare(
-      'SELECT * FROM schedule_permissions WHERE owner_id = ? AND viewer_id = ?'
-    );
-    permStmt.bind([userId, req.user.id]);
-    
-    let hasPermission = false;
-    if (permStmt.step()) {
-      hasPermission = true;
+
+    // Check permission via share_requests
+    if (parseInt(userId) !== req.user.id) {
+      const permStmt = db.prepare(
+        `SELECT id FROM share_requests
+         WHERE status = 'accepted'
+           AND ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?))`
+      );
+      permStmt.bind([userId, req.user.id, req.user.id, userId]);
+      let hasPermission = false;
+      if (permStmt.step()) hasPermission = true;
+      permStmt.free();
+
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'No permission to view this schedule' });
+      }
     }
-    permStmt.free();
-    
-    if (!hasPermission && parseInt(userId) !== req.user.id) {
-      return res.status(403).json({ error: 'No permission to view this schedule' });
-    }
-    
+
     const query = `
       SELECT t.*, us.is_anchor, us.planned_entries,
              sc.conditions AS conditions_json,
@@ -926,13 +1057,11 @@ app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
 
     const stmt = db.prepare(query);
     stmt.bind([userId]);
-    
+
     const tournaments = [];
-    while (stmt.step()) {
-      tournaments.push(stmt.getAsObject());
-    }
+    while (stmt.step()) tournaments.push(stmt.getAsObject());
     stmt.free();
-    
+
     res.json(tournaments);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1018,39 +1147,6 @@ app.delete('/api/share-token', authenticateToken, async (req, res) => {
     db.run('DELETE FROM share_tokens WHERE user_id = ?', [req.user.id]);
     await saveDatabase();
     res.json({ message: 'Share link revoked' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get users I've granted permission to
-app.get('/api/permissions/mine', authenticateToken, (req, res) => {
-  try {
-    const stmt = db.prepare(`
-      SELECT u.id, u.username, sp.granted_at
-      FROM schedule_permissions sp
-      JOIN users u ON sp.viewer_id = u.id
-      WHERE sp.owner_id = ?
-    `);
-    stmt.bind([req.user.id]);
-    const viewers = [];
-    while (stmt.step()) { viewers.push(stmt.getAsObject()); }
-    stmt.free();
-    res.json(viewers);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Revoke permission from a viewer
-app.delete('/api/permissions/:viewerId', authenticateToken, async (req, res) => {
-  try {
-    db.run(
-      'DELETE FROM schedule_permissions WHERE owner_id = ? AND viewer_id = ?',
-      [req.user.id, req.params.viewerId]
-    );
-    await saveDatabase();
-    res.json({ message: 'Permission revoked' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
