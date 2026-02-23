@@ -49,6 +49,7 @@
       --venue-mgm-grand:     #2a6a3e;
       --venue-mgm-nh:        #8a7020;
       --venue-ts:            #8a6508;
+      --venue-tch:           #bf5700;
     }
 
     [data-theme="light"] {
@@ -80,6 +81,7 @@
       --venue-mgm-grand:     #15803d;
       --venue-mgm-nh:        #b8860b;
       --venue-ts:            #7a5a06;
+      --venue-tch:           #cc5500;
     }
 
     /* High contrast — dark */
@@ -1658,6 +1660,7 @@
       'Irish Poker Open':            { abbr: 'IPO',       color: '#1a6b3c', longName: 'Irish Poker Open' },
       'Personal':                    { abbr: 'PERSONAL',  color: '#4a9eff', longName: 'Personal' },
       'Turning Stone Casino':        { abbr: 'Turning Stone', color: '#8b0000', longName: 'WSOP Circuit - Turning Stone Casino' },
+      'Texas Card House':            { abbr: 'TCH', color: '#bf5700', longName: 'WSOPC Texas Card House' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -1677,6 +1680,7 @@
       'MGM GRAND':     '--venue-mgm-grand',
       'MGM NH':        '--venue-mgm-nh',
       'Turning Stone': '--venue-ts',
+      'TCH':           '--venue-tch',
     };
     function getVenueBrandColor(abbr) {
       const cssVar = VENUE_BRAND_VAR[abbr];

@@ -348,6 +348,7 @@ async function initDatabase() {
     { file: 'deepstack-events.json', label: 'deepstacks', check: "is_deepstack = 1" },
     { file: 'ipo-events.json', label: 'Irish Poker Open', check: "venue = 'Irish Poker Open'" },
     { file: 'turning-stone-events.json', label: 'Turning Stone', check: "venue = 'Turning Stone Casino'" },
+    { file: 'tch-events.json', label: 'Texas Card House', check: "venue = 'Texas Card House'" },
   ];
   for (const seed of seedFiles) {
     try {
@@ -384,6 +385,77 @@ async function initDatabase() {
       }
     } catch (e) {
       console.log(`${seed.label} seeding skipped:`, e.message);
+    }
+  }
+
+  // ── Data migrations (for updating existing persistent-disk DBs) ──
+  db.run(`CREATE TABLE IF NOT EXISTS _applied_migrations (
+    name TEXT PRIMARY KEY,
+    applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  const dataMigrations = [
+    {
+      name: 'ipo-rake-2026-02',
+      fn: () => {
+        // Update IPO events with rake data from the updated seed file
+        const seedPath = path.join(__dirname, 'ipo-events.json');
+        if (!require('fs').existsSync(seedPath)) return;
+        const rows = JSON.parse(require('fs').readFileSync(seedPath, 'utf8'));
+        for (const t of rows) {
+          // Update rake + fixes by event_number
+          db.run(
+            `UPDATE tournaments SET
+              rake_pct = ?, rake_dollars = ?, house_fee = ?, prize_pool = ?,
+              event_name = ?, buyin = ?, time = ?
+            WHERE venue = 'Irish Poker Open' AND event_number = ?`,
+            [t.rake_pct, t.rake_dollars, t.house_fee, t.prize_pool,
+             t.event_name, t.buyin, t.time, t.event_number]
+          );
+        }
+        // Insert any new IPO events not in DB yet (e.g. Mini Irish Open Day 1/I, Select Invitational)
+        for (const t of rows) {
+          const chk = db.prepare(`SELECT COUNT(*) as cnt FROM tournaments WHERE venue = 'Irish Poker Open' AND event_number = ?`);
+          chk.bind([t.event_number]);
+          chk.step();
+          const { cnt } = chk.getAsObject();
+          chk.free();
+          if (cnt === 0) {
+            db.run(
+              `INSERT INTO tournaments (event_number, event_name, date, time, buyin,
+               starting_chips, level_duration, reentry, late_reg, late_reg_end,
+               game_variant, venue, notes, category, is_satellite, target_event,
+               is_restart, parent_event, prize_pool, house_fee, opt_add_on,
+               rake_pct, rake_dollars, source_pdf, is_deepstack)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [t.event_number || '', t.event_name, t.date, t.time, t.buyin,
+               t.starting_chips, t.level_duration, t.reentry, t.late_reg, t.late_reg_end,
+               t.game_variant, t.venue, t.notes, t.category, t.is_satellite || 0, t.target_event,
+               t.is_restart || 0, t.parent_event, t.prize_pool, t.house_fee, t.opt_add_on,
+               t.rake_pct, t.rake_dollars, t.source_pdf, t.is_deepstack || 0]
+            );
+          }
+        }
+        console.log(`Applied IPO rake data to ${rows.length} events`);
+      }
+    },
+  ];
+
+  for (const mig of dataMigrations) {
+    try {
+      const chk = db.prepare('SELECT COUNT(*) as cnt FROM _applied_migrations WHERE name = ?');
+      chk.bind([mig.name]);
+      chk.step();
+      const { cnt } = chk.getAsObject();
+      chk.free();
+      if (cnt === 0) {
+        mig.fn();
+        db.run('INSERT INTO _applied_migrations (name) VALUES (?)', [mig.name]);
+        await saveDatabase();
+        console.log(`Migration "${mig.name}" applied`);
+      }
+    } catch (e) {
+      console.log(`Migration "${mig.name}" failed:`, e.message);
     }
   }
 

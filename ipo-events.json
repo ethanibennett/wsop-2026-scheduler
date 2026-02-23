@@ -26,10 +26,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 150,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 150,
     "is_deepstack": 0
   },
   {
@@ -59,10 +59,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -92,10 +92,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 30,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 15,
+    "rake_dollars": 30,
     "is_deepstack": 0
   },
   {
@@ -125,10 +125,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -158,10 +158,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -191,10 +191,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -224,10 +224,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 6,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -257,10 +257,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 17,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -290,10 +290,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -323,10 +323,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -356,10 +356,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 150,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 150,
     "is_deepstack": 0
   },
   {
@@ -389,10 +389,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 30,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 15,
+    "rake_dollars": 30,
     "is_deepstack": 0
   },
   {
@@ -422,10 +422,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 6,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -455,10 +455,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -488,10 +488,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -521,10 +521,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -554,10 +554,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 250,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 250,
     "is_deepstack": 0
   },
   {
@@ -587,10 +587,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -620,10 +620,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 17,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -653,10 +653,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -686,10 +686,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -719,10 +719,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -752,10 +752,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 150,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 150,
     "is_deepstack": 0
   },
   {
@@ -785,10 +785,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -818,10 +818,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -851,10 +851,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -884,10 +884,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -917,10 +917,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -950,10 +950,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -983,10 +983,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
@@ -1016,10 +1016,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -1049,10 +1049,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -1082,10 +1082,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 150,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 150,
     "is_deepstack": 0
   },
   {
@@ -1115,10 +1115,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -1148,10 +1148,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -1181,10 +1181,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -1214,10 +1214,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 150,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 150,
     "is_deepstack": 0
   },
   {
@@ -1247,10 +1247,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 6,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -1280,10 +1280,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -1313,10 +1313,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -1325,7 +1325,7 @@
     "event_name": "Deaf NLH High Roller",
     "date": "March 29, 2026",
     "time": "2:00 PM",
-    "buyin": 300,
+    "buyin": 350,
     "starting_chips": 30000,
     "level_duration": "25",
     "reentry": "1",
@@ -1346,10 +1346,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -1379,10 +1379,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -1412,10 +1412,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 250,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 250,
     "is_deepstack": 0
   },
   {
@@ -1445,10 +1445,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -1478,10 +1478,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -1511,10 +1511,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -1544,10 +1544,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 15,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 15,
     "is_deepstack": 0
   },
   {
@@ -1577,10 +1577,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -1610,16 +1610,16 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
     "id": 770,
     "event_number": "IPO-35",
-    "event_name": "Deuce to 7 Single Draw Championship",
+    "event_name": "Deuce-to-Seven Triple Draw Championship",
     "date": "March 30, 2026",
     "time": "12:00 PM",
     "buyin": 350,
@@ -1643,10 +1643,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -1676,10 +1676,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -1709,10 +1709,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -1742,10 +1742,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -1775,10 +1775,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 7,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -1808,10 +1808,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -1841,10 +1841,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 250,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 5,
+    "rake_dollars": 250,
     "is_deepstack": 0
   },
   {
@@ -1874,10 +1874,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -1907,10 +1907,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -1940,10 +1940,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
@@ -1973,10 +1973,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -2006,10 +2006,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2039,10 +2039,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
@@ -2072,10 +2072,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -2105,10 +2105,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2138,10 +2138,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2171,10 +2171,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
@@ -2204,10 +2204,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 7,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -2237,10 +2237,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -2270,10 +2270,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2303,10 +2303,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 250,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 5,
+    "rake_dollars": 250,
     "is_deepstack": 0
   },
   {
@@ -2336,10 +2336,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -2369,10 +2369,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -2402,10 +2402,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2435,10 +2435,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2468,10 +2468,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
@@ -2501,10 +2501,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -2534,10 +2534,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2567,10 +2567,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -2600,10 +2600,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 150,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 150,
     "is_deepstack": 0
   },
   {
@@ -2633,10 +2633,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2666,10 +2666,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2699,10 +2699,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2732,16 +2732,16 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
     "id": 804,
     "event_number": "IPO-52",
-    "event_name": "OFC Championship",
+    "event_name": "OFC Pineapple Championship",
     "date": "April 1, 2026",
     "time": "12:00 PM",
     "buyin": 350,
@@ -2765,10 +2765,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -2798,10 +2798,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2831,10 +2831,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 4,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -2864,10 +2864,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -2897,10 +2897,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -2930,10 +2930,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 250,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 3,
+    "rake_dollars": 250,
     "is_deepstack": 0
   },
   {
@@ -2963,10 +2963,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -2996,10 +2996,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -3029,10 +3029,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -3062,10 +3062,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -3095,10 +3095,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -3128,10 +3128,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 15,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 15,
     "is_deepstack": 0
   },
   {
@@ -3161,10 +3161,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -3194,10 +3194,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 150,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 150,
     "is_deepstack": 0
   },
   {
@@ -3227,10 +3227,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -3260,10 +3260,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -3293,10 +3293,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -3326,10 +3326,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -3359,16 +3359,16 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
     "id": 823,
     "event_number": "IPO-62",
-    "event_name": "NLH Mystery Bounty",
+    "event_name": "NLH Spraggy Mystery Bounty",
     "date": "April 2, 2026",
     "time": "2:00 PM",
     "buyin": 550,
@@ -3392,10 +3392,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 50,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 50,
     "is_deepstack": 0
   },
   {
@@ -3425,10 +3425,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
@@ -3458,10 +3458,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -3491,10 +3491,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -3524,10 +3524,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -3557,10 +3557,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -3590,10 +3590,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 150,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 150,
     "is_deepstack": 0
   },
   {
@@ -3623,10 +3623,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -3656,10 +3656,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -3689,10 +3689,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 50,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 50,
     "is_deepstack": 0
   },
   {
@@ -3722,10 +3722,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -3755,10 +3755,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -3788,10 +3788,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 50,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 50,
     "is_deepstack": 0
   },
   {
@@ -3821,10 +3821,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -3854,10 +3854,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 20,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 20,
     "is_deepstack": 0
   },
   {
@@ -3887,10 +3887,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -3920,16 +3920,16 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 150,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 150,
     "is_deepstack": 0
   },
   {
     "id": 840,
     "event_number": "IPO-6",
-    "event_name": "Mini Irish Open - €1,000,000 Guaranteed - Day 1/I",
+    "event_name": "Mini Irish Open - €1,000,000 Guaranteed - Day 1/J",
     "date": "April 4, 2026",
     "time": "11:00 AM",
     "buyin": 250,
@@ -3953,10 +3953,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -3986,10 +3986,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4019,10 +4019,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 6,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -4052,10 +4052,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 50,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 50,
     "is_deepstack": 0
   },
   {
@@ -4085,16 +4085,16 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 250,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 8,
+    "rake_dollars": 250,
     "is_deepstack": 0
   },
   {
     "id": 845,
     "event_number": "IPO-6",
-    "event_name": "Mini Irish Open - €1,000,000 Day 1/J",
+    "event_name": "Mini Irish Open - €1,000,000 Guaranteed - Day 1/K",
     "date": "April 4, 2026",
     "time": "6:00 PM",
     "buyin": 250,
@@ -4118,10 +4118,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -4151,10 +4151,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -4184,10 +4184,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -4217,16 +4217,16 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
     "id": 849,
     "event_number": "IPO-6",
-    "event_name": "Mini Irish Open - €1,000,000 Guaranteed - Day 1/K",
+    "event_name": "Mini Irish Open - €1,000,000 Guaranteed - Day 1/L",
     "date": "April 5, 2026",
     "time": "11:00 AM",
     "buyin": 250,
@@ -4250,10 +4250,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -4283,10 +4283,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4316,10 +4316,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4349,10 +4349,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4382,10 +4382,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
@@ -4415,10 +4415,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4448,10 +4448,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4481,16 +4481,16 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
     "id": 857,
     "event_number": "IPO-6",
-    "event_name": "Mini Irish Open - €1,000,000 Day 1/L",
+    "event_name": "Mini Irish Open - €1,000,000 Guaranteed - Day 1/M",
     "date": "April 5, 2026",
     "time": "3:00 PM",
     "buyin": 250,
@@ -4514,10 +4514,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -4547,10 +4547,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 50,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 50,
     "is_deepstack": 0
   },
   {
@@ -4580,16 +4580,16 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
     "id": 860,
     "event_number": "IPO-6",
-    "event_name": "Mini Irish Open - €1,000,000 Guaranteed - Day 1/M Turbo",
+    "event_name": "Mini Irish Open - €1,000,000 Guaranteed - Day 1/N Turbo",
     "date": "April 5, 2026",
     "time": "8:00 PM",
     "buyin": 250,
@@ -4613,10 +4613,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
     "is_deepstack": 0
   },
   {
@@ -4646,10 +4646,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 15,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 13,
+    "rake_dollars": 15,
     "is_deepstack": 0
   },
   {
@@ -4679,10 +4679,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4712,10 +4712,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4745,10 +4745,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4778,10 +4778,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -4811,10 +4811,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4844,10 +4844,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 50,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 50,
     "is_deepstack": 0
   },
   {
@@ -4877,10 +4877,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4888,7 +4888,7 @@
     "event_number": "IPO-80",
     "event_name": "Seniors Championship - Final Day",
     "date": "April 6, 2026",
-    "time": "11:00 AM",
+    "time": "1:00 PM",
     "buyin": 0,
     "starting_chips": null,
     "level_duration": "30",
@@ -4910,10 +4910,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 0,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   },
   {
@@ -4943,10 +4943,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 100,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 9,
+    "rake_dollars": 100,
     "is_deepstack": 0
   },
   {
@@ -4976,10 +4976,10 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 40,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 11,
+    "rake_dollars": 40,
     "is_deepstack": 0
   },
   {
@@ -5009,10 +5009,76 @@
     "created_at": "2026-02-21 04:57:17",
     "total_entries": null,
     "prize_pool": null,
-    "house_fee": null,
+    "house_fee": 35,
     "opt_add_on": null,
-    "rake_pct": null,
-    "rake_dollars": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
+    "is_deepstack": 0
+  },
+  {
+    "id": 1101,
+    "event_number": "IPO-6",
+    "event_name": "Mini Irish Open - €1,000,000 Guaranteed - Day 1/I",
+    "date": "April 3, 2026",
+    "time": "6:00 PM",
+    "buyin": 250,
+    "starting_chips": 30000,
+    "level_duration": null,
+    "reentry": "Unlimited Re-Entry",
+    "late_reg": "10:00 PM",
+    "late_reg_end": null,
+    "game_variant": "NLH",
+    "venue": "Irish Poker Open",
+    "notes": null,
+    "category": null,
+    "is_satellite": 0,
+    "target_event": null,
+    "is_restart": 0,
+    "parent_event": null,
+    "day_length": null,
+    "structure_sheet_path": null,
+    "source_pdf": null,
+    "uploaded_by": null,
+    "created_at": "2026-02-23 03:39:50",
+    "total_entries": null,
+    "prize_pool": null,
+    "house_fee": 35,
+    "opt_add_on": null,
+    "rake_pct": 14,
+    "rake_dollars": 35,
+    "is_deepstack": 0
+  },
+  {
+    "id": 1102,
+    "event_number": "IPO-101",
+    "event_name": "Select Invitational Tournament",
+    "date": "March 29, 2026",
+    "time": "11:00 AM",
+    "buyin": 0,
+    "starting_chips": 10000,
+    "level_duration": null,
+    "reentry": null,
+    "late_reg": null,
+    "late_reg_end": null,
+    "game_variant": "NLH",
+    "venue": "Irish Poker Open",
+    "notes": null,
+    "category": null,
+    "is_satellite": 0,
+    "target_event": null,
+    "is_restart": 0,
+    "parent_event": null,
+    "day_length": null,
+    "structure_sheet_path": null,
+    "source_pdf": null,
+    "uploaded_by": null,
+    "created_at": "2026-02-23 03:39:50",
+    "total_entries": null,
+    "prize_pool": null,
+    "house_fee": 0,
+    "opt_add_on": null,
+    "rake_pct": 0,
+    "rake_dollars": 0,
     "is_deepstack": 0
   }
 ]
