@@ -26,18 +26,10 @@ if (!JWT_SECRET) {
 
 // ── Security middleware ──────────────────────────────────────
 
-// Helmet — security headers (CSP customized for inline React/Babel)
+// Helmet — security headers (CSP disabled: single-file React app with Babel standalone
+// requires unsafe-inline + unsafe-eval + script-src-attr which defeats CSP purpose)
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-    }
-  }
+  contentSecurityPolicy: false,
 }));
 
 // CORS — restrict to known origins
