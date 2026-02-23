@@ -115,7 +115,8 @@ let SQL;
 const DB_PATH = process.env.DB_PATH || 'poker-tournaments.db';
 
 // ── Event name normalization (WSOP format) ──
-function normalizeEventName(name) {
+// gameVariant is optional — when provided, ensures name starts with the variant abbreviation
+function normalizeEventName(name, gameVariant) {
   if (!name) return name;
   let n = name;
 
@@ -130,8 +131,8 @@ function normalizeEventName(name) {
     if (n.startsWith(p)) { n = n.slice(p.length); break; }
   }
 
-  // Strip re-entry policies
-  n = n.replace(/\s*[-–]\s*(Single|Unlimited)\s+Re[\s-]?Entr(y|ies)\s*(per Flight)?\s*/gi, ' ');
+  // Strip ALL re-entry policies (dash optional — catches "Single Re-Entry" anywhere)
+  n = n.replace(/\s*[-–]?\s*(Single|Unlimited)\s+Re[\s-]?Entr(y|ies)\s*(per Flight)?\s*/gi, ' ');
 
   // Strip GTD amounts (€ or $)
   n = n.replace(/\s*[-–]\s*[€$][\d,]+\s*(GTD|Guaranteed)\s*/gi, ' ');
@@ -161,6 +162,9 @@ function normalizeEventName(name) {
   // Normalize age qualifiers: "(50 Years Young)" → "(50+)", "(60 Years Young)" → "(60+)"
   n = n.replace(/\((\d+)\s+Years?\s+Young\)/gi, '($1+)');
 
+  // Normalize "Deuce-to-Seven Triple Draw" → "2-7 Triple Draw"
+  n = n.replace(/Deuce-to-Seven Triple Draw/gi, '2-7 Triple Draw');
+
   // Clean satellite target format: "Satellite to #14 €3,000 ..." → "Satellite - ..."
   n = n.replace(/Satellite to\s+#\d+\s*[€$][\d,]+\s*/gi, 'Satellite - ');
   n = n.replace(/Satellite to\s+#\d+\s+/gi, 'Satellite - ');
@@ -169,7 +173,7 @@ function normalizeEventName(name) {
   // Fix inconsistent dash styles (en-dash → hyphen-minus)
   n = n.replace(/\s*–\s*/g, ' – ');
 
-  // Collapse multiple spaces
+  // Collapse multiple spaces and trim
   n = n.replace(/\s{2,}/g, ' ').trim();
 
   // Clean trailing/leading dashes
@@ -177,6 +181,58 @@ function normalizeEventName(name) {
 
   // Clean "- -" artifacts
   n = n.replace(/\s*[-–]\s+[-–]\s*/g, ' - ');
+
+  // Ensure " - " before Flight/Day/Final/Round suffixes (WSOP format)
+  n = n.replace(/([^\s-])\s+(Flight\s+[A-Z])/g, '$1 - $2');
+  n = n.replace(/([^\s-])\s+(Day\s+\d)/g, '$1 - $2');
+  n = n.replace(/([^\s-])\s+(Final)\s*$/g, '$1 - $2');
+  n = n.replace(/([^\s-])\s+(Round\s+\d)/g, '$1 - $2');
+
+  // Prepend variant abbreviation if name doesn't already start with a known one
+  if (gameVariant) {
+    const VARIANT_MAP = {
+      'NLH': 'NLH', 'PLO': 'PLO', 'PLO8': 'PLO8', 'O8': 'O8',
+      'HORSE': 'HORSE', 'Mixed': 'Mixed', 'Big O': 'Big O',
+      'Razz': 'Razz', 'Badugi': 'Badugi', 'Stud8': 'Stud8',
+      '7-Card Stud': '7-Card Stud', 'Limit Hold\'em': 'Limit Hold\'em',
+      'NL 2-7 Single Draw': 'NL 2-7 Single Draw',
+      'NL 2-7 Triple Draw': '2-7 Triple Draw',
+      'OFC Pineapple': 'OFC Pineapple', 'Sviten Special': 'Sviten Special',
+      'TORSE': 'TORSE', 'Dealer\'s Choice': 'Dealer\'s Choice',
+    };
+    const abbrev = VARIANT_MAP[gameVariant] || gameVariant;
+    const KNOWN_STARTS = [
+      'NLH', 'PLO8', 'PLO', 'O8', 'HORSE', 'Mixed', 'Big O', 'Razz',
+      'Badugi', 'Stud8', '7-Card', 'Limit', 'NL 2-7', '2-7', 'OFC',
+      'Sviten', 'TORSE', 'Dealer', '5-Card', '8-Game', '9-Game',
+      'Pick Your', 'Daily Deepstack', 'WSOP',
+    ];
+    const startsWithKnown = KNOWN_STARTS.some(s => n.startsWith(s));
+    if (!startsWithKnown) {
+      // Before prepending, strip redundant variant from middle of name
+      // e.g. "Cuatro NLH High Roller" → prepend NLH → "NLH Cuatro High Roller"
+      const variantWord = abbrev.split(' ')[0]; // "NLH", "PLO", etc.
+      n = n.replace(new RegExp('\\b' + variantWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b\\s*', 'g'), '');
+      n = abbrev + ' ' + n.trim();
+    }
+  }
+
+  // Deduplicate variant in name: "NLH Cuatro NLH High Roller" → "NLH Cuatro High Roller"
+  // "PLO Irish Open PLO Deaf" → "PLO Irish Open Deaf"
+  const DEDUP_VARIANTS = ['NLH', 'PLO8', 'PLO', 'O8'];
+  for (const v of DEDUP_VARIANTS) {
+    const re = new RegExp('^(' + v + '\\b.+?)\\b' + v + '\\b\\s*', 'i');
+    if (re.test(n)) {
+      n = n.replace(re, '$1');
+    }
+  }
+
+  // Strip "PLO HR" step/landmark satellite noise with redundant variant
+  // "PLO High Roller PLO/NL Landmark Satellite" → "PLO High Roller Landmark Satellite"
+  n = n.replace(/(\bHigh Roller)\s+(?:PLO|NLH|NL)\/(?:PLO|NLH|NL)\s+/g, '$1 ');
+
+  // Final cleanup
+  n = n.replace(/\s{2,}/g, ' ').trim();
 
   return n;
 }
@@ -820,6 +876,44 @@ async function initDatabase() {
         console.log(`Event name normalization: ${updates.length} rows updated`);
       }
     },
+    {
+      name: 'normalize-variant-prefix-2026-02',
+      fn: () => {
+        const stmt = db.prepare('SELECT id, event_name, game_variant FROM tournaments WHERE venue != \'Personal\'');
+        const updates = [];
+        while (stmt.step()) {
+          const { id, event_name, game_variant } = stmt.getAsObject();
+          const normalized = normalizeEventName(event_name, game_variant);
+          if (normalized !== event_name) {
+            updates.push([normalized, id]);
+          }
+        }
+        stmt.free();
+        for (const [name, id] of updates) {
+          db.run('UPDATE tournaments SET event_name = ? WHERE id = ?', [name, id]);
+        }
+        console.log(`Variant prefix normalization: ${updates.length} rows updated`);
+      }
+    },
+    {
+      name: 'normalize-dedup-variant-v2-2026-02',
+      fn: () => {
+        const stmt = db.prepare('SELECT id, event_name, game_variant FROM tournaments WHERE venue != \'Personal\'');
+        const updates = [];
+        while (stmt.step()) {
+          const { id, event_name, game_variant } = stmt.getAsObject();
+          const normalized = normalizeEventName(event_name, game_variant);
+          if (normalized !== event_name) {
+            updates.push([normalized, id]);
+          }
+        }
+        stmt.free();
+        for (const [name, id] of updates) {
+          db.run('UPDATE tournaments SET event_name = ? WHERE id = ?', [name, id]);
+        }
+        console.log(`Variant dedup normalization: ${updates.length} rows updated`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -875,7 +969,7 @@ async function initDatabase() {
           rake_pct, rake_dollars, source_pdf
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          t.eventNumber, normalizeEventName(t.eventName), t.date, t.time, t.buyin,
+          t.eventNumber, normalizeEventName(t.eventName, t.gameVariant), t.date, t.time, t.buyin,
           t.startingChips || null, t.levelDuration || null,
           t.reentry || null, t.lateReg || null, t.lateRegEnd || null,
           t.gameVariant, t.venue, t.notes || null,
@@ -1029,7 +1123,7 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tournament.eventNumber || '',
-          normalizeEventName(tournament.eventName || 'Unknown Event'),
+          normalizeEventName(tournament.eventName || 'Unknown Event', tournament.gameVariant),
           tournament.date,
           tournament.time || '12:00PM',
           tournament.buyin,
