@@ -6,6 +6,8 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const fs = require('fs').promises;
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { PDFParse } = require('pdf-parse');
 const initSqlJs = require('sql.js');
 const { parseWSOP2025Schedule, getWSOPRake } = require('./parsers/wsop-parser');
@@ -14,10 +16,72 @@ const sampleTournaments = require('./sample-data');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = 'your-secret-key-change-in-production';
 
-// Middleware
-app.use(cors());
+// ── Secrets ──────────────────────────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is required.');
+  process.exit(1);
+}
+
+// ── Security middleware ──────────────────────────────────────
+
+// Helmet — security headers (CSP customized for inline React/Babel)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+    }
+  }
+}));
+
+// CORS — restrict to known origins
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3001', 'http://localhost:3000'];
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, same-origin)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow but log — tighten later if needed
+      console.log(`CORS: request from unlisted origin ${origin}`);
+    }
+  },
+  credentials: true,
+}));
+
+// Rate limiting — global
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+}));
+
+// Rate limiters for sensitive endpoints (applied per-route below)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later.' },
+});
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts.' },
+});
+
 app.use(express.json());
 
 // Health check for zero-downtime deploys
@@ -541,7 +605,7 @@ function authenticateToken(req, res, next) {
 // API Routes
 
 // User registration
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authLimiter, async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
@@ -556,53 +620,68 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ error: 'Username can only contain letters, numbers, underscores, hyphens, and dots' });
     }
 
+    // Validate email
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Valid email address required' });
+    }
+
+    // Validate password
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     // Insert user
     db.run(
       'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
       [username, email, hashedPassword]
     );
-    
+
     await saveDatabase();
-    
+
     res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    if (error.message && error.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Username or email already taken' });
+    }
+    console.error('Register error:', error);
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
   }
 });
 
 // User login
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
     stmt.bind([email]);
-    
+
     let user = null;
     while (stmt.step()) {
       user = stmt.getAsObject();
     }
     stmt.free();
-    
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
+
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
+
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
-      expiresIn: '7d'
+      expiresIn: '24h'
     });
-    
+
     res.json({ token, username: user.username, userId: user.id, avatar: user.avatar || null });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed. Please try again.' });
   }
 });
 
@@ -672,7 +751,8 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
     });
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -717,7 +797,8 @@ app.get('/api/tournaments', authenticateToken, (req, res) => {
     
     res.json(tournaments);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -735,7 +816,8 @@ app.post('/api/schedule', authenticateToken, async (req, res) => {
     
     res.json({ message: 'Tournament added to schedule' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -757,7 +839,8 @@ app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) =>
 
     res.json({ message: 'Tournament removed from schedule' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -801,7 +884,8 @@ app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, 
     await saveDatabase();
     res.json({ message: 'Condition set' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -817,7 +901,8 @@ app.put('/api/schedule/:tournamentId/anchor', authenticateToken, async (req, res
     await saveDatabase();
     res.json({ message: isAnchor ? 'Event locked in' : 'Event unlocked' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -834,7 +919,8 @@ app.put('/api/schedule/:tournamentId/entries', authenticateToken, async (req, re
     await saveDatabase();
     res.json({ message: 'Planned entries updated', plannedEntries: entries });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -846,7 +932,8 @@ app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (re
     await saveDatabase();
     res.json({ message: 'Condition removed' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -899,7 +986,8 @@ app.post('/api/personal-event', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.status(201).json({ message: `${type} created`, tournamentId });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -927,7 +1015,8 @@ app.put('/api/personal-event/:id', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: 'Personal event updated' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -957,7 +1046,8 @@ app.delete('/api/personal-event/:id', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: 'Personal event deleted' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -986,7 +1076,8 @@ app.get('/api/my-schedule', authenticateToken, (req, res) => {
     
     res.json(tournaments);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1009,7 +1100,8 @@ app.put('/api/avatar', authenticateToken, avatarUpload.single('avatar'), async (
     await saveDatabase();
     res.json({ avatar: dataUri });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1019,7 +1111,8 @@ app.delete('/api/avatar', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: 'Avatar removed' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1032,7 +1125,8 @@ app.get('/api/avatar/:userId', (req, res) => {
     stmt.free();
     res.json({ avatar });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1073,7 +1167,8 @@ app.post('/api/share-request', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: `Request sent to ${username}` });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1142,7 +1237,8 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
 
     res.json({ buddies, pendingIncoming, pendingOutgoing, lastSeenShares, buddyEvents });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1160,7 +1256,8 @@ app.put('/api/share-request/:id/accept', authenticateToken, async (req, res) => 
     await saveDatabase();
     res.json({ message: 'Request accepted' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1172,7 +1269,8 @@ app.put('/api/share-request/:id/reject', authenticateToken, async (req, res) => 
     await saveDatabase();
     res.json({ message: 'Request rejected' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1184,7 +1282,8 @@ app.delete('/api/share-request/:id', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: 'Request cancelled' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1199,7 +1298,8 @@ app.delete('/api/share-buddy/:userId', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: 'Removed' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1210,7 +1310,8 @@ app.put('/api/seen-shares', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: 'ok' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1256,7 +1357,8 @@ app.get('/api/schedule/:userId', authenticateToken, (req, res) => {
 
     res.json(tournaments);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1295,7 +1397,8 @@ app.get('/api/shared/:token', (req, res) => {
 
     res.json({ username: tokenRow.username, avatar: tokenRow.avatar || null, tournaments });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1309,7 +1412,8 @@ app.get('/api/share-token', authenticateToken, (req, res) => {
     stmt.free();
     res.json({ token: existing ? existing.token : null });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1329,7 +1433,8 @@ app.post('/api/share-token', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ token });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1340,7 +1445,8 @@ app.delete('/api/share-token', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: 'Share link revoked' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1358,7 +1464,8 @@ app.get('/api/game-variants', authenticateToken, (req, res) => {
     
     res.json(variants);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1376,7 +1483,8 @@ app.get('/api/venues', authenticateToken, (req, res) => {
     
     res.json(venues);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1399,7 +1507,8 @@ app.put('/api/tournaments/:id/total-entries', authenticateToken, async (req, res
     await saveDatabase();
     res.json({ message: 'Total entries updated' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1422,7 +1531,8 @@ app.get('/api/tracking', authenticateToken, (req, res) => {
     stmt.free();
     res.json(entries);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1445,7 +1555,8 @@ app.post('/api/tracking', authenticateToken, async (req, res) => {
     if (error.message && error.message.includes('UNIQUE')) {
       return res.status(409).json({ error: 'Entry already tracked for this tournament' });
     }
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1466,7 +1577,8 @@ app.put('/api/tracking/:entryId', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: 'Entry updated' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
@@ -1477,14 +1589,18 @@ app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
     await saveDatabase();
     res.json({ message: 'Entry removed' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
 // Admin: list users (secret key protected)
-app.get('/api/admin/users', (req, res) => {
+app.get('/api/admin/users', adminLimiter, (req, res) => {
+  if (!process.env.ADMIN_KEY) {
+    return res.status(503).json({ error: 'Admin endpoint not configured' });
+  }
   const key = req.query.key;
-  if (key !== (process.env.ADMIN_KEY || 'shonabish2026')) {
+  if (key !== process.env.ADMIN_KEY) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -1494,7 +1610,8 @@ app.get('/api/admin/users', (req, res) => {
     stmt.free();
     res.json(users);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Admin users error:', error);
+    res.status(500).json({ error: 'Internal error' });
   }
 });
 
