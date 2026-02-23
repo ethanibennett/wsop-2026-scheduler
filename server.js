@@ -114,6 +114,73 @@ let db;
 let SQL;
 const DB_PATH = process.env.DB_PATH || 'poker-tournaments.db';
 
+// ── Event name normalization (WSOP format) ──
+function normalizeEventName(name) {
+  if (!name) return name;
+  let n = name;
+
+  // Strip venue/series prefixes (venue is already a separate column)
+  const prefixes = [
+    'Aria Poker Classic ', 'Golden Nugget Grand ',
+    'MGM Grand Poker Championship ', 'Orleans Open ',
+    'Resorts World Summer Series ', 'South Point Summer Poker ',
+    'Wynn Summer Classic ',
+  ];
+  for (const p of prefixes) {
+    if (n.startsWith(p)) { n = n.slice(p.length); break; }
+  }
+
+  // Strip re-entry policies
+  n = n.replace(/\s*[-–]\s*(Single|Unlimited)\s+Re[\s-]?Entr(y|ies)\s*(per Flight)?\s*/gi, ' ');
+
+  // Strip GTD amounts (€ or $)
+  n = n.replace(/\s*[-–]\s*[€$][\d,]+\s*(GTD|Guaranteed)\s*/gi, ' ');
+  n = n.replace(/\s*[€$][\d,]+\s*(GTD|Guaranteed)\s*/gi, ' ');
+
+  // Strip "Milestone 50K/100K" noise
+  n = n.replace(/\s*[-–]\s*Milestone\s+\d+K\s*/gi, ' ');
+
+  // Strip "N Seats GTD" / "N Seats Gtd"
+  n = n.replace(/\s*[-–]\s*\d+\s+Seats?\s+GTD?\s*/gi, ' ');
+
+  // Strip "(Capped N)" annotations
+  n = n.replace(/\s*\(Capped\s+\d+\)\s*/gi, ' ');
+
+  // Strip "(Open to all Players)" and similar parenthetical notes
+  n = n.replace(/\s*\(Open to all Players\)\s*/gi, ' ');
+
+  // Convert "Day 1/A" → "Flight A" (IPO format → WSOP format)
+  n = n.replace(/Day\s*1\s*\/\s*([A-Z])/gi, (_, letter) => `Flight ${letter.toUpperCase()}`);
+
+  // Normalize "Final Day" → "Final"
+  n = n.replace(/\bFinal Day\b/gi, 'Final');
+
+  // Convert "8-Max" → "8-Handed", "6-Max" → "6-Handed"
+  n = n.replace(/(\d)-Max\b/gi, '$1-Handed');
+
+  // Normalize age qualifiers: "(50 Years Young)" → "(50+)", "(60 Years Young)" → "(60+)"
+  n = n.replace(/\((\d+)\s+Years?\s+Young\)/gi, '($1+)');
+
+  // Clean satellite target format: "Satellite to #14 €3,000 ..." → "Satellite - ..."
+  n = n.replace(/Satellite to\s+#\d+\s*[€$][\d,]+\s*/gi, 'Satellite - ');
+  n = n.replace(/Satellite to\s+#\d+\s+/gi, 'Satellite - ');
+  n = n.replace(/Satellite to\s+/gi, 'Satellite - ');
+
+  // Fix inconsistent dash styles (en-dash → hyphen-minus)
+  n = n.replace(/\s*–\s*/g, ' – ');
+
+  // Collapse multiple spaces
+  n = n.replace(/\s{2,}/g, ' ').trim();
+
+  // Clean trailing/leading dashes
+  n = n.replace(/\s*[-–]\s*$/, '').replace(/^\s*[-–]\s*/, '');
+
+  // Clean "- -" artifacts
+  n = n.replace(/\s*[-–]\s+[-–]\s*/g, ' - ');
+
+  return n;
+}
+
 async function initDatabase() {
   SQL = await initSqlJs();
 
@@ -734,6 +801,25 @@ async function initDatabase() {
         console.log(`TCH name normalization: ${updated} rows updated`);
       }
     },
+    {
+      name: 'normalize-all-event-names-2026-02',
+      fn: () => {
+        const stmt = db.prepare('SELECT id, event_name FROM tournaments');
+        const updates = [];
+        while (stmt.step()) {
+          const { id, event_name } = stmt.getAsObject();
+          const normalized = normalizeEventName(event_name);
+          if (normalized !== event_name) {
+            updates.push([normalized, id]);
+          }
+        }
+        stmt.free();
+        for (const [name, id] of updates) {
+          db.run('UPDATE tournaments SET event_name = ? WHERE id = ?', [name, id]);
+        }
+        console.log(`Event name normalization: ${updates.length} rows updated`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -789,7 +875,7 @@ async function initDatabase() {
           rake_pct, rake_dollars, source_pdf
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          t.eventNumber, t.eventName, t.date, t.time, t.buyin,
+          t.eventNumber, normalizeEventName(t.eventName), t.date, t.time, t.buyin,
           t.startingChips || null, t.levelDuration || null,
           t.reentry || null, t.lateReg || null, t.lateRegEnd || null,
           t.gameVariant, t.venue, t.notes || null,
@@ -943,7 +1029,7 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tournament.eventNumber || '',
-          tournament.eventName || 'Unknown Event',
+          normalizeEventName(tournament.eventName || 'Unknown Event'),
           tournament.date,
           tournament.time || '12:00PM',
           tournament.buyin,
