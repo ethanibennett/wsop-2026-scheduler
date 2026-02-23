@@ -2803,7 +2803,7 @@
       }, [allOptions, selectedTournamentId]);
 
       const openCamera = () => {
-        if (!selectedTournamentId || (!isBusted && !stack)) return;
+        if (!selectedTournamentId) return;
         setCameraOpen(true);
       };
 
@@ -2974,7 +2974,7 @@
                     <button
                       className="btn btn-ghost btn-sm"
                       onClick={openCamera}
-                      disabled={!selectedTournamentId || (!isBusted && !stack)}
+                      disabled={!selectedTournamentId}
                       title="Camera overlay"
                       style={{padding:'6px'}}
                     >
