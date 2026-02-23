@@ -315,6 +315,19 @@
     .camera-overlay .camera-preview { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
     .camera-overlay .camera-preview img { max-width:100%; max-height:100%; object-fit:contain; }
     .camera-overlay .camera-error { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Oswald',sans-serif; text-align:center; padding:20px; }
+    .camera-step-indicator { position:absolute; top:14px; left:0; right:0; text-align:center; font-size:0.72rem; color:rgba(255,255,255,0.75); font-family:'Oswald',sans-serif; letter-spacing:0.5px; pointer-events:none; z-index:1; }
+    .camera-btn-next { background:#3b82f6; color:#fff; font-weight:600; }
+
+    /* ── Registration section in live-update-panel ── */
+    .live-update-registered-section { display:flex; flex-direction:column; gap:6px; }
+    .live-update-divider { height:1px; background:var(--border); margin:4px -4px; }
+    .btn-registered {
+      align-self:flex-start; background:var(--surface); border:1.5px solid var(--border);
+      color:var(--text); font-family:'Oswald',sans-serif; font-size:0.78rem;
+      padding:5px 12px; border-radius:var(--radius-sm); cursor:pointer; transition:background 0.15s;
+    }
+    .btn-registered:hover:not(:disabled) { background:var(--hover-overlay, var(--border)); }
+    .btn-registered:disabled { opacity:0.4; cursor:not-allowed; }
 
     /* ── Scrollable content area ── */
     .content-area {
@@ -2612,6 +2625,20 @@
       }, initial);
     }
 
+    const VENUE_TO_SERIES = {
+      'Aria Resort & Casino': 'Aria Poker Classic',
+      'Golden Nugget': 'Golden Nugget Grand',
+      'Horseshoe / Paris Las Vegas': 'WSOP',
+      'Irish Poker Open': 'Irish Poker Open',
+      'MGM Grand': 'MGM Grand Championship',
+      'Orleans': 'Orleans Open',
+      'Resorts World': 'Resorts World Summer Series',
+      'South Point': 'South Point Summer Poker',
+      'Texas Card House': 'WSOPC Austin',
+      'Turning Stone Casino': 'WSOPC Turning Stone',
+      'Wynn Las Vegas': 'Wynn Summer Classic'
+    };
+
     function formatChips(n) {
       if (n == null) return '';
       n = Number(n);
@@ -2695,6 +2722,9 @@
       const [isBagged, setIsBagged] = useState(false);
       const [bagDay, setBagDay] = useState('');
       const [cameraOpen, setCameraOpen] = useState(false);
+      const [registrationOpen, setRegistrationOpen] = useState(false);
+      const [guarantee, setGuarantee] = useState('');
+      const [joiningLevel, setJoiningLevel] = useState('');
 
       const todayISO = getToday();
       const activeUpdateMap = useMemo(() => {
@@ -2802,6 +2832,10 @@
         return opt ? opt.name : '';
       }, [allOptions, selectedTournamentId]);
 
+      const selectedTournament = useMemo(() =>
+        (mySchedule || []).find(t => t.id === selectedTournamentId) || null,
+        [mySchedule, selectedTournamentId]);
+
       const openCamera = () => {
         if (!selectedTournamentId) return;
         setCameraOpen(true);
@@ -2855,6 +2889,23 @@
                       Last: {formatLiveUpdate(activeUpdateMap[selectedTournamentId])}
                     </div>
                   )}
+
+                  <div className="live-update-registered-section">
+                    <div className="live-update-row">
+                      <div className="live-update-field" style={{flex:'0 0 55%'}}>
+                        <label>Guarantee $</label>
+                        <input type="number" placeholder="2000000" value={guarantee} onChange={e => setGuarantee(e.target.value)} disabled={!selectedTournamentId} />
+                      </div>
+                      <div className="live-update-field" style={{flex:'0 0 40%'}}>
+                        <label>Joining Lvl</label>
+                        <input type="number" placeholder="1" value={joiningLevel} onChange={e => setJoiningLevel(e.target.value)} disabled={!selectedTournamentId} min="1" />
+                      </div>
+                    </div>
+                    <button className="btn-registered" onClick={() => { if (selectedTournamentId) setRegistrationOpen(true); }} disabled={!selectedTournamentId}>
+                      📋 Registered
+                    </button>
+                  </div>
+                  <div className="live-update-divider" />
 
                   <div className="live-update-field">
                     <label>Stack</label>
@@ -3000,6 +3051,15 @@
             />,
             document.body
           )}
+          {registrationOpen && selectedTournament && ReactDOM.createPortal(
+            <RegistrationCameraFlow
+              tournament={selectedTournament}
+              guarantee={guarantee}
+              joiningLevel={joiningLevel}
+              onClose={() => { setRegistrationOpen(false); setOpen(true); }}
+            />,
+            document.body
+          )}
         </div>
       );
     }
@@ -3023,6 +3083,56 @@
       // Watermark top-left
       const wmSize = Math.round(h * 0.014);
       ctx.font = wmSize + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
+    }
+
+    function drawRegistrationOverlay(ctx, w, h, data) {
+      const barH = Math.round(h * 0.18);
+      const barY = h - barH - Math.round(h * 0.04);
+      const padX = Math.round(w * 0.05);
+      const lineH = Math.round(barH / 5);
+      // Background
+      ctx.fillStyle = 'rgba(0,0,0,0.72)';
+      ctx.fillRect(0, barY, w, barH);
+      // Line 1: Series name
+      const l1s = Math.round(h * 0.020);
+      ctx.font = l1s + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillText(data.seriesName || '', padX, barY + lineH * 0.85);
+      // Line 2: Event # + buyin + name
+      const num = data.eventNumber ? 'Event #' + data.eventNumber + ': ' : '';
+      const buy = data.buyin ? '$' + Number(data.buyin).toLocaleString() + ' ' : '';
+      const l2s = Math.round(h * 0.024);
+      ctx.font = '600 ' + l2s + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(num + buy + (data.eventName || ''), padX, barY + lineH * 1.85);
+      // Line 3: Starting chips + level duration
+      const ss = data.startingChips ? formatChips(data.startingChips) + ' ss' : '';
+      const lvl = data.levelDuration ? data.levelDuration + ' min levels' : '';
+      const l3s = Math.round(h * 0.022);
+      ctx.font = l3s + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.fillText([ss, lvl].filter(Boolean).join(' / '), padX, barY + lineH * 2.85);
+      // Line 4 (optional): guarantee
+      let nextLine = 3.75;
+      if (data.guarantee) {
+        const l4s = Math.round(h * 0.018);
+        ctx.font = l4s + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText('$' + Number(data.guarantee).toLocaleString() + ' guarantee', padX, barY + lineH * nextLine);
+        nextLine += 0.9;
+      }
+      // Line 5 (optional): joining level
+      if (data.joiningLevel) {
+        const l5s = Math.round(h * 0.018);
+        ctx.font = l5s + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText('Joining at level ' + data.joiningLevel, padX, barY + lineH * nextLine);
+      }
+      // Watermark
+      const wms = Math.round(h * 0.014);
+      ctx.font = wms + 'px Oswald, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
     }
@@ -3187,6 +3297,155 @@
             <div className="tournament-name">{tournamentName}</div>
             <div className="stats-line">{statsText}</div>
           </div>
+          <div className="camera-actions">
+            <button className="camera-btn-close" onClick={handleClose}>✕</button>
+            <button className="camera-btn-capture" onClick={handleCapture}>Capture</button>
+          </div>
+        </div>
+      );
+    }
+
+    function RegistrationCameraFlow({ tournament, guarantee, joiningLevel, onClose }) {
+      const videoRef = useRef(null);
+      const canvasRef = useRef(null);
+      const streamRef = useRef(null);
+      const [step, setStep] = useState(1);
+      const [captured, setCaptured] = useState(null);
+      const [error, setError] = useState(null);
+
+      const registrationData = useMemo(() => ({
+        seriesName: VENUE_TO_SERIES[tournament.venue] || tournament.venue,
+        eventNumber: tournament.event_number,
+        buyin: tournament.buyin,
+        eventName: tournament.event_name,
+        startingChips: tournament.starting_chips,
+        levelDuration: tournament.level_duration,
+        guarantee: guarantee || null,
+        joiningLevel: joiningLevel || null,
+      }), [tournament, guarantee, joiningLevel]);
+
+      const startCam = (onErr) => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          (onErr || setError)('Camera requires a secure (HTTPS) connection.');
+          return Promise.resolve(null);
+        }
+        return navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } },
+          audio: false
+        }).catch(() => { (onErr || setError)('Camera access denied. Please allow camera permission.'); return null; });
+      };
+
+      const stopStream = () => {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop());
+          streamRef.current = null;
+        }
+      };
+
+      useEffect(() => {
+        stopStream();
+        setCaptured(null);
+        setError(null);
+        let cancelled = false;
+        startCam(msg => { if (!cancelled) setError(msg); }).then(s => {
+          if (!s || cancelled) { if (s) s.getTracks().forEach(t => t.stop()); return; }
+          streamRef.current = s;
+          if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
+        });
+        return () => { cancelled = true; stopStream(); };
+      }, [step]);
+
+      const handleCapture = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        const vw = video.videoWidth || 1080, vh = video.videoHeight || 1920;
+        const outW = 1080, outH = 1920;
+        const canvas = canvasRef.current || document.createElement('canvas');
+        canvas.width = outW; canvas.height = outH;
+        const ctx = canvas.getContext('2d');
+        const targetRatio = outW / outH, videoRatio = vw / vh;
+        let sx, sy, sw, sh;
+        if (videoRatio > targetRatio) { sh = vh; sw = vh * targetRatio; sx = (vw - sw) / 2; sy = 0; }
+        else { sw = vw; sh = vw / targetRatio; sx = 0; sy = (vh - sh) / 2; }
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outW, outH);
+        if (step === 2) drawRegistrationOverlay(ctx, outW, outH, registrationData);
+        setCaptured(canvas.toDataURL('image/png'));
+        stopStream();
+      };
+
+      const handleRetake = () => {
+        setCaptured(null); setError(null);
+        startCam().then(s => {
+          if (!s) return;
+          streamRef.current = s;
+          if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
+        });
+      };
+
+      const handleShare = async () => {
+        if (!captured) return;
+        const fname = step === 1 ? 'registration-receipt.png' : 'starting-stack.png';
+        try {
+          const blob = await (await fetch(captured)).blob();
+          const file = new File([blob], fname, { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file] });
+          } else {
+            const a = document.createElement('a'); a.href = captured; a.download = fname; a.click();
+          }
+        } catch (e) {
+          if (e.name !== 'AbortError') {
+            const a = document.createElement('a'); a.href = captured; a.download = fname; a.click();
+          }
+        }
+      };
+
+      const handleClose = () => { stopStream(); onClose(); };
+
+      // Overlay preview text for step 2 live viewfinder
+      const overlayLine1 = registrationData.seriesName;
+      const overlayLine2 = (registrationData.eventNumber ? '#' + registrationData.eventNumber + ' · ' : '')
+        + (registrationData.startingChips ? formatChips(registrationData.startingChips) + ' ss' : '')
+        + (registrationData.levelDuration ? ' / ' + registrationData.levelDuration + 'm lvls' : '');
+
+      if (error) {
+        return (
+          <div className="camera-overlay">
+            <div className="camera-error"><div><div style={{fontSize:'2rem',marginBottom:'12px'}}>📷</div><div>{error}</div></div></div>
+            <div className="camera-actions"><button className="camera-btn-close" onClick={handleClose}>Close</button></div>
+          </div>
+        );
+      }
+
+      if (captured) {
+        return (
+          <div className="camera-overlay">
+            <div className="camera-preview"><img src={captured} alt="Captured" /></div>
+            <div className="camera-step-indicator">Step {step} of 2</div>
+            <div className="camera-actions">
+              <button className="camera-btn-retake" onClick={handleRetake}>Retake</button>
+              <button className="camera-btn-share" onClick={handleShare}>Save</button>
+              {step === 1 && <button className="camera-btn-next" onClick={() => setStep(2)}>Next →</button>}
+              {step === 2 && <button className="camera-btn-close" onClick={handleClose}>Done</button>}
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="camera-overlay">
+          <video ref={videoRef} autoPlay playsInline muted />
+          <canvas ref={canvasRef} style={{display:'none'}} />
+          <div className="camera-watermark">snbwsop.com</div>
+          <div className="camera-step-indicator">
+            {step === 1 ? 'Step 1 of 2 — Receipt' : 'Step 2 of 2 — Starting Stack'}
+          </div>
+          {step === 2 && (
+            <div className="camera-stats-bar">
+              <div className="tournament-name">{overlayLine1}</div>
+              <div className="stats-line">{overlayLine2}</div>
+            </div>
+          )}
           <div className="camera-actions">
             <button className="camera-btn-close" onClick={handleClose}>✕</button>
             <button className="camera-btn-capture" onClick={handleCapture}>Capture</button>
@@ -3787,19 +4046,6 @@
 
       const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const VENUE_TO_SERIES = {
-        'Aria Resort & Casino': 'Aria Poker Classic',
-        'Golden Nugget': 'Golden Nugget Grand',
-        'Horseshoe / Paris Las Vegas': 'WSOP',
-        'Irish Poker Open': 'Irish Poker Open',
-        'MGM Grand': 'MGM Grand Championship',
-        'Orleans': 'Orleans Open',
-        'Resorts World': 'Resorts World Summer Series',
-        'South Point': 'South Point Summer Poker',
-        'Texas Card House': 'WSOPC Austin',
-        'Turning Stone Casino': 'WSOPC Turning Stone',
-        'Wynn Las Vegas': 'Wynn Summer Classic'
-      };
       const months = useMemo(() => {
         const map = {};
         const yearMap = {};
