@@ -526,6 +526,84 @@ async function initDatabase() {
         console.log(`IPO cleanup: deleted ${deletedDups} duplicates, marked finals as restarts`);
       }
     },
+    {
+      name: 'ipo-full-reconcile-2026-02',
+      fn: () => {
+        // Full reconciliation from IPO API data — inserts missing events, updates existing
+        const seedPath = path.join(__dirname, 'ipo-events.json');
+        if (!require('fs').existsSync(seedPath)) return;
+        const rows = JSON.parse(require('fs').readFileSync(seedPath, 'utf8'));
+
+        // Build lookup of existing IPO events keyed by event_number + date
+        const existingStmt = db.prepare(
+          `SELECT id, event_number, event_name, date, time, buyin, starting_chips,
+                  level_duration, late_reg_end, is_restart, is_satellite,
+                  rake_dollars, rake_pct, game_variant, reentry
+           FROM tournaments WHERE venue = 'Irish Poker Open'`
+        );
+        const existingMap = new Map();
+        while (existingStmt.step()) {
+          const row = existingStmt.getAsObject();
+          const key = `${row.event_number}|${row.date}`;
+          // For multi-flight same-day events, append flight from name
+          let flight = null;
+          const fm = row.event_name.match(/Day\s*1\s*\/\s*([A-Z])/i);
+          if (fm) flight = fm[1].toUpperCase();
+          const fullKey = flight ? `${key}|${flight}` : key;
+          if (!existingMap.has(fullKey)) existingMap.set(fullKey, row);
+        }
+        existingStmt.free();
+
+        let inserted = 0, updated = 0;
+
+        for (const t of rows) {
+          // Build match key
+          let flight = t.flight || null;
+          if (!flight) {
+            const fm = (t.event_name || '').match(/Day\s*1\s*\/\s*([A-Z])/i);
+            if (fm) flight = fm[1].toUpperCase();
+          }
+          const key = flight
+            ? `${t.event_number}|${t.date}|${flight}`
+            : `${t.event_number}|${t.date}`;
+
+          const existing = existingMap.get(key);
+
+          if (existing) {
+            // Update
+            db.run(
+              `UPDATE tournaments SET
+                event_name = ?, buyin = ?, starting_chips = ?,
+                level_duration = ?, late_reg_end = ?, is_restart = ?,
+                is_satellite = ?, rake_dollars = ?, rake_pct = ?,
+                game_variant = ?, reentry = ?
+              WHERE id = ?`,
+              [t.event_name, t.buyin, t.starting_chips,
+               t.level_duration, t.late_reg_end, t.is_restart || 0,
+               t.is_satellite || 0, t.rake_dollars, t.rake_pct,
+               t.game_variant, t.reentry || null, existing.id]
+            );
+            updated++;
+          } else {
+            // Insert
+            db.run(
+              `INSERT INTO tournaments (event_number, event_name, date, time, buyin,
+               starting_chips, level_duration, reentry, late_reg_end,
+               game_variant, venue, is_satellite, is_restart,
+               rake_pct, rake_dollars, source_pdf)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [t.event_number, t.event_name, t.date, t.time, t.buyin,
+               t.starting_chips, t.level_duration, t.reentry || null,
+               t.late_reg_end, t.game_variant, 'Irish Poker Open',
+               t.is_satellite || 0, t.is_restart || 0,
+               t.rake_pct, t.rake_dollars, 'IPO 2026 API']
+            );
+            inserted++;
+          }
+        }
+        console.log(`IPO full reconcile: inserted ${inserted}, updated ${updated} events`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
