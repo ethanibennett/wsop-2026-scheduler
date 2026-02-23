@@ -23,8 +23,14 @@ app.use(express.json());
 // Health check for zero-downtime deploys
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Serve frontend
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve frontend — no caching on HTML to prevent stale app versions
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.set('Cache-Control', 'no-store');
+    }
+  }
+}));
 
 // File upload configuration
 const upload = multer({ dest: 'uploads/' });
@@ -1374,32 +1380,6 @@ app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
 // SPA catch-all for /shared/* routes
 app.get('/shared/:token', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Temporary debug: inspect share_requests and users (REMOVE after debugging)
-app.get('/api/debug/shares', (req, res) => {
-  try {
-    const users = [];
-    const uStmt = db.prepare('SELECT id, username, email FROM users');
-    while (uStmt.step()) users.push(uStmt.getAsObject());
-    uStmt.free();
-
-    const requests = [];
-    const srStmt = db.prepare(`
-      SELECT sr.*,
-             fu.username AS from_username, fu.email AS from_email,
-             tu.username AS to_username, tu.email AS to_email
-      FROM share_requests sr
-      LEFT JOIN users fu ON sr.from_user_id = fu.id
-      LEFT JOIN users tu ON sr.to_user_id = tu.id
-    `);
-    while (srStmt.step()) requests.push(srStmt.getAsObject());
-    srStmt.free();
-
-    res.json({ users, requests });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
 });
 
 // Start server
