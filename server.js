@@ -36,13 +36,19 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// Explicitly serve index.html for root with no-cache headers
-app.get('/', (req, res) => {
+// Serve index.html with injected build version to bust any cache
+const BUILD_VERSION = Date.now().toString();
+function serveIndex(req, res) {
+  const fs = require('fs');
+  let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+  html = html.replace('</head>', `<meta name="build-version" content="${BUILD_VERSION}">\n</head>`);
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+  res.set('ETag', BUILD_VERSION);
+  res.type('html').send(html);
+}
+app.get('/', serveIndex);
 
 // File upload configuration
 const upload = multer({ dest: 'uploads/' });
@@ -1390,12 +1396,7 @@ app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
 });
 
 // SPA catch-all for /shared/* routes
-app.get('/shared/:token', (req, res) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.get('/shared/:token', serveIndex);
 
 // Start server
 initDatabase().then(() => {
