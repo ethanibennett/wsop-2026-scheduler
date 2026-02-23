@@ -2841,19 +2841,6 @@
                     </label>
                   </div>
 
-                  <div className="live-update-row">
-                    <label className="live-update-toggle">
-                      <input type="checkbox" checked={isBagged} onChange={e => { setIsBagged(e.target.checked); if (!e.target.checked) setBagDay(''); }} />
-                      Bagged
-                    </label>
-                    {isBagged && (
-                      <div className="live-update-field" style={{flex:'0 0 70px'}}>
-                        <label>Day #</label>
-                        <input type="number" placeholder="2" value={bagDay} onChange={e => setBagDay(e.target.value)} min="1" />
-                      </div>
-                    )}
-                  </div>
-
                   {isRegClosed && !isItm && (
                     <div className="live-update-field">
                       <label>Bubble (players from money)</label>
@@ -2870,6 +2857,19 @@
                       <div className="live-update-field" style={{flex:'0 0 100px'}}>
                         <label>Locked $</label>
                         <input type="number" placeholder="5000" value={lockedAmount} onChange={e => setLockedAmount(e.target.value)} />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="live-update-row">
+                    <label className="live-update-toggle">
+                      <input type="checkbox" checked={isBagged} onChange={e => { setIsBagged(e.target.checked); if (!e.target.checked) setBagDay(''); }} />
+                      Bagged
+                    </label>
+                    {isBagged && (
+                      <div className="live-update-field" style={{flex:'0 0 70px'}}>
+                        <label>Day #</label>
+                        <input type="number" placeholder="2" value={bagDay} onChange={e => setBagDay(e.target.value)} min="1" />
                       </div>
                     )}
                   </div>
