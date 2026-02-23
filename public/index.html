@@ -135,7 +135,7 @@
       justify-content: space-between;
       padding: 0 16px;
       flex-shrink: 0;
-      z-index: 10;
+      z-index: 25;
     }
 
     .top-bar-title {
@@ -166,6 +166,125 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    /* ── Live Update dropdown ── */
+    .live-update-btn { padding: 6px 8px !important; min-width: 0; }
+    .live-update-btn.has-update { color: #22c55e; }
+
+    @keyframes luSlideDown {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes luSlideIn {
+      from { opacity: 0; transform: translateX(-12px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .live-update-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      width: 300px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      animation: luSlideDown 0.2s ease-out;
+    }
+    .live-update-panel > div,
+    .live-update-panel > button {
+      animation: luSlideDown 0.15s ease-out;
+    }
+
+    .live-update-panel select,
+    .live-update-panel input[type="text"],
+    .live-update-panel input[type="number"] {
+      padding: 6px 8px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.8rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .live-update-panel input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .live-update-panel input[type="number"] { -moz-appearance: textfield; }
+    .live-update-panel input[type="number"]::-webkit-inner-spin-button,
+    .live-update-panel input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .live-update-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .live-update-row .live-update-field {
+      animation: luSlideIn 0.2s ease-out;
+    }
+    .live-update-field {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+    .live-update-field label {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      font-family: 'Oswald', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .live-update-toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-family: 'Oswald', sans-serif;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .live-update-row:has(.live-update-field) > .live-update-toggle {
+      margin-top: 16px;
+    }
+    .live-update-toggle input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+    }
+
+    .live-update-last {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      padding: 4px 8px;
+      background: var(--surface2, var(--surface));
+      border-radius: 4px;
+      font-family: 'Oswald', sans-serif;
+    }
+
+    .live-update-empty {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 8px;
+    }
+
+    .live-update-tournament-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* ── Scrollable content area ── */
@@ -599,7 +718,6 @@
 
     .badge-event { background: rgba(136,136,136,0.2); color: #999999; }
     .badge-variant { background: rgba(160,160,160,0.12); color: var(--accent); }
-    .badge-target { background: rgba(160,160,160,0.15); color: var(--text-muted); }
     .badge-clickable { cursor: pointer; }
     .badge-clickable:active { opacity: 0.6; }
 
@@ -2012,6 +2130,15 @@
           <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
         </svg>
       ),
+      signal: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:'16px',height:'16px'}}>
+          <path d="M5.636 18.364a9 9 0 010-12.728"/>
+          <path d="M18.364 5.636a9 9 0 010 12.728"/>
+          <path d="M8.464 15.536a5 5 0 010-7.072"/>
+          <path d="M15.536 8.464a5 5 0 010 7.072"/>
+          <circle cx="12" cy="12" r="1.5"/>
+        </svg>
+      ),
       tracking: () => (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
@@ -2450,7 +2577,320 @@
       }, initial);
     }
 
-    function BuddyAvatarRow({ buddies }) {
+    function formatChips(n) {
+      if (n == null) return '';
+      n = Number(n);
+      if (n >= 1000000) return (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1).replace(/\.0$/, '') + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1).replace(/\.0$/, '') + 'k';
+      return String(n);
+    }
+
+    function ordinalSuffix(n) {
+      const s = ['th','st','nd','rd'], v = n % 100;
+      return (s[(v-20)%10] || s[v] || s[0]);
+    }
+
+    function formatLiveUpdate(u) {
+      if (!u) return '';
+      const parts = [];
+      if (u.stack) {
+        let s = formatChips(u.stack);
+        if (u.sb || u.bb) {
+          const blindParts = [u.sb ? formatChips(u.sb) : null, u.bb ? formatChips(u.bb) : null].filter(Boolean);
+          if (u.bb_ante || u.bbAnte) blindParts.push(formatChips(u.bb_ante || u.bbAnte));
+          if (blindParts.length) s += ' @ ' + blindParts.join('/');
+        }
+        parts.push(s);
+      }
+      const bub = u.bubble;
+      if (bub && !(u.is_itm || u.isItm)) parts.push(bub + ' from money');
+      if (u.is_itm || u.isItm) {
+        const locked = u.locked_amount || u.lockedAmount;
+        parts.push('ITM' + (locked ? ' ($' + Number(locked).toLocaleString() + ' locked)' : ''));
+      }
+      const ft = u.is_final_table || u.isFinalTable;
+      if (ft) {
+        let ftStr = 'FT';
+        const pl = u.places_left || u.placesLeft;
+        if (pl) ftStr += ' (' + pl + ' left)';
+        const fp = u.first_place_prize || u.firstPlacePrize;
+        if (fp) ftStr += ' 1st: $' + Number(fp).toLocaleString();
+        parts.push(ftStr);
+      }
+      const deal = u.is_deal || u.isDeal;
+      if (deal) {
+        let dStr = 'Deal';
+        const dp = u.deal_place || u.dealPlace;
+        if (dp) dStr += ' ' + dp + ordinalSuffix(dp);
+        const dpay = u.deal_payout || u.dealPayout;
+        if (dpay) dStr += ' $' + Number(dpay).toLocaleString();
+        parts.push(dStr);
+      }
+      if (u.is_busted || u.isBusted) parts.push('Busted');
+      const entries = u.total_entries || u.totalEntries;
+      if (entries) parts.push(Number(entries).toLocaleString() + ' entries');
+      const bagged = u.is_bagged || u.isBagged;
+      const day = u.bag_day || u.bagDay;
+      if (bagged) parts.push('Bagged' + (day ? ' Day ' + day : ''));
+      return parts.join(' · ');
+    }
+
+    function LiveUpdateButton({ mySchedule, myLiveUpdate, onPost }) {
+      const containerRef = useRef(null);
+      const panelRef = useRef(null);
+      const toggleRef = useRef(null);
+      const [open, setOpen] = useState(false);
+      const [selectedTournamentId, setSelectedTournamentId] = useState(null);
+      const [stack, setStack] = useState('');
+      const [sb, setSb] = useState('');
+      const [bb, setBb] = useState('');
+      const [bbAnte, setBbAnte] = useState('');
+      const [isRegClosed, setIsRegClosed] = useState(false);
+      const [bubble, setBubble] = useState('');
+      const [isItm, setIsItm] = useState(false);
+      const [lockedAmount, setLockedAmount] = useState('');
+      const [isFinalTable, setIsFinalTable] = useState(false);
+      const [placesLeft, setPlacesLeft] = useState('');
+      const [firstPlacePrize, setFirstPlacePrize] = useState('');
+      const [isDeal, setIsDeal] = useState(false);
+      const [dealPlace, setDealPlace] = useState('');
+      const [dealPayout, setDealPayout] = useState('');
+      const [isBusted, setIsBusted] = useState(false);
+      const [totalEntries, setTotalEntries] = useState('');
+      const [isBagged, setIsBagged] = useState(false);
+      const [bagDay, setBagDay] = useState('');
+
+      const todayISO = getToday();
+      const todayTournaments = useMemo(() =>
+        (mySchedule || []).filter(t =>
+          normaliseDate(t.date) === todayISO && t.venue !== 'Personal'
+        ),
+        [mySchedule, todayISO]
+      );
+
+      const resetFields = (prefill) => {
+        setStack(prefill?.stack || '');
+        setSb(prefill?.sb || '');
+        setBb(prefill?.bb || '');
+        setBbAnte(prefill?.bb_ante || '');
+        setIsRegClosed(!!prefill?.is_reg_closed);
+        setBubble(prefill?.bubble || '');
+        setIsItm(!!prefill?.is_itm);
+        setLockedAmount(prefill?.locked_amount || '');
+        setIsFinalTable(!!prefill?.is_final_table);
+        setPlacesLeft(prefill?.places_left || '');
+        setFirstPlacePrize(prefill?.first_place_prize || '');
+        setIsDeal(!!prefill?.is_deal);
+        setDealPlace(prefill?.deal_place || '');
+        setDealPayout(prefill?.deal_payout || '');
+        setIsBusted(!!prefill?.is_busted);
+        setTotalEntries(prefill?.total_entries || '');
+        setIsBagged(!!prefill?.is_bagged);
+        setBagDay(prefill?.bag_day || '');
+      };
+
+      useEffect(() => {
+        if (!open) return;
+        if (myLiveUpdate && todayTournaments.find(t => t.id === myLiveUpdate.tournament_id)) {
+          setSelectedTournamentId(myLiveUpdate.tournament_id);
+          resetFields(myLiveUpdate);
+        } else if (todayTournaments.length === 1) {
+          setSelectedTournamentId(todayTournaments[0].id);
+          resetFields(null);
+        } else {
+          setSelectedTournamentId(null);
+          resetFields(null);
+        }
+      }, [open, todayTournaments, myLiveUpdate]);
+
+      useEffect(() => {
+        if (!open) return;
+        const handler = (e) => {
+          if (panelRef.current && panelRef.current.contains(e.target)) return;
+          if (toggleRef.current && toggleRef.current.contains(e.target)) return;
+          setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+      }, [open]);
+
+      const handleSubmit = () => {
+        if (!selectedTournamentId || !stack) return;
+        onPost({ tournamentId: selectedTournamentId, stack: Number(stack), sb: sb ? Number(sb) : null, bb: bb ? Number(bb) : null, bbAnte: bbAnte ? Number(bbAnte) : null, isRegClosed, bubble: isRegClosed && !isItm && bubble ? Number(bubble) : null, isItm, lockedAmount: isItm && lockedAmount ? Number(lockedAmount) : null, isFinalTable, placesLeft: isFinalTable && placesLeft ? Number(placesLeft) : null, firstPlacePrize: isFinalTable && firstPlacePrize ? Number(firstPlacePrize) : null, isDeal, dealPlace: isDeal && dealPlace ? Number(dealPlace) : null, dealPayout: isDeal && dealPayout ? Number(dealPayout) : null, isBusted, totalEntries: totalEntries ? Number(totalEntries) : null, isBagged, bagDay: isBagged && bagDay ? Number(bagDay) : null });
+        setOpen(false);
+      };
+
+      return (
+        <div ref={containerRef} style={{position:'relative'}}>
+          <button
+            ref={toggleRef}
+            className={`btn btn-ghost btn-sm live-update-btn ${myLiveUpdate ? 'has-update' : ''}`}
+            onClick={() => setOpen(o => !o)}
+            title="Post live update"
+          >
+            <Icon.signal />
+          </button>
+          {open && (
+            <div ref={panelRef} className="live-update-panel">
+              {todayTournaments.length === 0 ? (
+                <div className="live-update-empty">No tournaments on your schedule today</div>
+              ) : (
+                <>
+                  {todayTournaments.length > 1 ? (
+                    <select
+                      value={selectedTournamentId || ''}
+                      onChange={e => { setSelectedTournamentId(Number(e.target.value)); resetFields(null); }}
+                    >
+                      <option value="">Select tournament...</option>
+                      {todayTournaments.map(t => (
+                        <option key={t.id} value={t.id}>{t.event_name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="live-update-tournament-label">
+                      {todayTournaments[0].event_name}
+                    </div>
+                  )}
+
+                  {myLiveUpdate && myLiveUpdate.tournament_id === selectedTournamentId && (
+                    <div className="live-update-last">
+                      Last: {formatLiveUpdate(myLiveUpdate)}
+                    </div>
+                  )}
+
+                  <div className="live-update-field">
+                    <label>Stack</label>
+                    <input type="number" placeholder="250000" value={stack} onChange={e => setStack(e.target.value)} autoFocus />
+                  </div>
+
+                  <div className="live-update-row">
+                    <div className="live-update-field">
+                      <label>SB</label>
+                      <input type="number" placeholder="1000" value={sb} onChange={e => setSb(e.target.value)} />
+                    </div>
+                    <div className="live-update-field">
+                      <label>BB</label>
+                      <input type="number" placeholder="2000" value={bb} onChange={e => setBb(e.target.value)} />
+                    </div>
+                    <div className="live-update-field">
+                      <label>BB Ante</label>
+                      <input type="number" placeholder="2000" value={bbAnte} onChange={e => setBbAnte(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="live-update-field">
+                    <label>Total Entries</label>
+                    <input type="number" placeholder="1234" value={totalEntries} onChange={e => setTotalEntries(e.target.value)} />
+                  </div>
+
+                  <div className="live-update-row">
+                    <label className="live-update-toggle">
+                      <input type="checkbox" checked={isRegClosed} onChange={e => { setIsRegClosed(e.target.checked); if (!e.target.checked) { setBubble(''); setIsItm(false); setLockedAmount(''); setIsFinalTable(false); setPlacesLeft(''); setFirstPlacePrize(''); setIsDeal(false); setDealPlace(''); setDealPayout(''); } }} />
+                      Reg Closed
+                    </label>
+                  </div>
+
+                  <div className="live-update-row">
+                    <label className="live-update-toggle">
+                      <input type="checkbox" checked={isBagged} onChange={e => { setIsBagged(e.target.checked); if (!e.target.checked) setBagDay(''); }} />
+                      Bagged
+                    </label>
+                    {isBagged && (
+                      <div className="live-update-field" style={{flex:'0 0 70px'}}>
+                        <label>Day #</label>
+                        <input type="number" placeholder="2" value={bagDay} onChange={e => setBagDay(e.target.value)} min="1" />
+                      </div>
+                    )}
+                  </div>
+
+                  {isRegClosed && !isItm && (
+                    <div className="live-update-field">
+                      <label>Bubble (players from money)</label>
+                      <input type="number" placeholder="12" value={bubble} onChange={e => setBubble(e.target.value)} min="0" />
+                    </div>
+                  )}
+
+                  {isRegClosed && (
+                    <div className="live-update-row">
+                      <label className="live-update-toggle">
+                        <input type="checkbox" checked={isItm} onChange={e => { setIsItm(e.target.checked); if (!e.target.checked) { setLockedAmount(''); setIsFinalTable(false); setPlacesLeft(''); setFirstPlacePrize(''); setIsDeal(false); setDealPlace(''); setDealPayout(''); } if (e.target.checked) setBubble(''); }} />
+                        ITM?
+                      </label>
+                      {isItm && (
+                        <div className="live-update-field" style={{flex:'0 0 100px'}}>
+                          <label>Locked $</label>
+                          <input type="number" placeholder="5000" value={lockedAmount} onChange={e => setLockedAmount(e.target.value)} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isRegClosed && isItm && (
+                    <div className="live-update-row">
+                      <label className="live-update-toggle">
+                        <input type="checkbox" checked={isFinalTable} onChange={e => { setIsFinalTable(e.target.checked); if (!e.target.checked) { setPlacesLeft(''); setFirstPlacePrize(''); } }} />
+                        Final Table
+                      </label>
+                      {isFinalTable && (
+                        <>
+                          <div className="live-update-field" style={{flex:'0 0 70px'}}>
+                            <label>Places Left</label>
+                            <input type="number" placeholder="6" value={placesLeft} onChange={e => setPlacesLeft(e.target.value)} min="1" />
+                          </div>
+                          <div className="live-update-field" style={{flex:'0 0 90px'}}>
+                            <label>1st Prize $</label>
+                            <input type="number" placeholder="50000" value={firstPlacePrize} onChange={e => setFirstPlacePrize(e.target.value)} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {isRegClosed && isItm && (
+                    <div className="live-update-row">
+                      <label className="live-update-toggle">
+                        <input type="checkbox" checked={isDeal} onChange={e => { setIsDeal(e.target.checked); if (!e.target.checked) { setDealPlace(''); setDealPayout(''); } }} />
+                        Deal
+                      </label>
+                      {isDeal && (
+                        <>
+                          <div className="live-update-field" style={{flex:'0 0 70px'}}>
+                            <label>Place</label>
+                            <input type="number" placeholder="3" value={dealPlace} onChange={e => setDealPlace(e.target.value)} min="1" />
+                          </div>
+                          <div className="live-update-field" style={{flex:'0 0 90px'}}>
+                            <label>Payout $</label>
+                            <input type="number" placeholder="25000" value={dealPayout} onChange={e => setDealPayout(e.target.value)} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="live-update-row">
+                    <label className="live-update-toggle">
+                      <input type="checkbox" checked={isBusted} onChange={e => setIsBusted(e.target.checked)} />
+                      Busted
+                    </label>
+                  </div>
+
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={handleSubmit}
+                    disabled={!selectedTournamentId || !stack}
+                    style={{alignSelf:'flex-end'}}
+                  >
+                    Post Update
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function BuddyAvatarRow({ buddies, liveUpdates }) {
       const [expanded, setExpanded] = useState(false);
       return (
         <div
@@ -2471,9 +2911,16 @@
                 <Avatar src={b.avatar} username={b.username} size={22} />
               </div>
               {expanded && (
-                <span style={{fontSize:'0.72rem',color: b.isAnchor ? 'var(--text)' : 'var(--text-muted)', fontWeight: b.isAnchor ? 600 : 400}}>
-                  {b.username}
-                </span>
+                <div style={{display:'flex',flexDirection:'column'}}>
+                  <span style={{fontSize:'0.72rem',color: b.isAnchor ? 'var(--text)' : 'var(--text-muted)', fontWeight: b.isAnchor ? 600 : 400}}>
+                    {b.username}
+                  </span>
+                  {liveUpdates && liveUpdates[b.id] && (
+                    <span style={{fontSize:'0.62rem',color:'#22c55e',fontFamily:'Oswald, sans-serif'}}>
+                      {formatLiveUpdate(liveUpdates[b.id])}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -2486,7 +2933,7 @@
 
     // ── Calendar Event Row (collapsible) ──────────────────────
 
-    function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, onNavigateToEvent, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents }) {
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates }) {
       const [open, setOpen] = useState(false);
       const [showConditionUI, setShowConditionUI] = useState(false);
       const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
@@ -2541,9 +2988,8 @@
         isPast ? 'past' : '',
       ].filter(Boolean).join(' ');
 
-      const isDeepstack = !!tournament.is_deepstack;
-      const stripColor = isDeepstack ? '#666666' : getVenueBrandColor(venue.abbr);
-      const stripTextColor = isDeepstack ? '#ffffff' : (venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)');
+      const stripColor = getVenueBrandColor(venue.abbr);
+      const stripTextColor = venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)';
 
       return (
         <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor, ...(isAnchor ? {boxShadow: `inset 0 0 0 1.5px ${stripColor}`} : {})} : undefined}>
@@ -2644,18 +3090,6 @@
                       {tournament.event_number && (
                         <span className="badge badge-event" style={{background: stripColor, color: stripTextColor}}>#{tournament.event_number.replace(/^[A-Za-z]+-/, '')}</span>
                       )}
-                      {tournament.target_event && (
-                        <span
-                          className="badge badge-target badge-clickable"
-                          onClick={e => { e.stopPropagation(); if (onNavigateToEvent) onNavigateToEvent(tournament.target_event, tournament); }}
-                        >→ #{tournament.target_event}</span>
-                      )}
-                      {tournament.parent_event && (
-                        <span
-                          className="badge badge-target badge-clickable"
-                          onClick={e => { e.stopPropagation(); if (onNavigateToEvent) onNavigateToEvent(tournament.parent_event, tournament); }}
-                        >← #{tournament.parent_event}</span>
-                      )}
                       {tournament.game_variant && getGamePills(tournament.game_variant, tournament.event_name).map((g, i) => (
                         <span key={i} className="badge badge-variant">{g}</span>
                       ))}
@@ -2737,7 +3171,7 @@
                   <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />
 
                   {buddyEvents && buddyEvents[tournament.id] && buddyEvents[tournament.id].length > 0 && (
-                    <BuddyAvatarRow buddies={buddyEvents[tournament.id]} />
+                    <BuddyAvatarRow buddies={buddyEvents[tournament.id]} liveUpdates={buddyLiveUpdates} />
                   )}
 
                   {venue.abbr === 'WSOP' && (
@@ -2835,10 +3269,9 @@
       const bracelet   = isBraceletEvent(tournament);
       const venueClass = getVenueClass(tournament);
       const venue      = getVenueInfo(tournament.venue);
-      const isDeepstack = !!tournament.is_deepstack;
       const isRingEvent = /^WSOPC/.test(getVenueInfo(tournament.venue).longName) && !!tournament.event_number && !tournament.is_satellite;
-      const stripColor = isDeepstack ? '#666666' : getVenueBrandColor(venue.abbr);
-      const stripTextColor = isDeepstack ? '#ffffff' : (venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)');
+      const stripColor = getVenueBrandColor(venue.abbr);
+      const stripTextColor = venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)';
 
       const cardClasses = [
         't-card',
@@ -3104,7 +3537,7 @@
       }, [open]);
 
       const hasActive = filters.minBuyin || filters.maxBuyin || filters.maxRake ||
-        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideDeepstacks || (filters.hiddenMonths && filters.hiddenMonths.length > 0);
+        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || (filters.hiddenMonths && filters.hiddenMonths.length > 0);
 
       return (
         <div>
@@ -3128,11 +3561,11 @@
                 style={{margin:0}}
               /> Restarts
             </label>
-            <label className={`filter-chip ${!filters.hideDeepstacks ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
-              <input type="checkbox" checked={!filters.hideDeepstacks}
-                onChange={e => setFilters(f => ({...f, hideDeepstacks:!e.target.checked}))}
+            <label className={`filter-chip ${!filters.hideSideEvents ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
+              <input type="checkbox" checked={!filters.hideSideEvents}
+                onChange={e => setFilters(f => ({...f, hideSideEvents:!e.target.checked}))}
                 style={{margin:0}}
-              /> Deepstacks
+              /> Side Events
             </label>
             {filters.selectedGames.length > 0 && (
               <span className="filter-chip active">
@@ -3396,7 +3829,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',maxRake:'',selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideDeepstacks:true,hiddenMonths:[]})
+                    setFilters({minBuyin:'',maxBuyin:'',maxRake:'',selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[]})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -3408,10 +3841,10 @@
 
     // ── Tournaments View ───────────────────────────────────────
 
-    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents }) {
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', maxRake: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true, hiddenMonths: []
+        minBuyin: '', maxBuyin: '', maxRake: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: []
       });
       const [focusEventId, setFocusEventId] = useState(null);
       const todayScrollRef = useRef(null);
@@ -3455,7 +3888,7 @@
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
-            if (filters.hideDeepstacks && t.is_deepstack) return false;
+            if (filters.hideSideEvents && t.is_deepstack) return false;
             if (filters.hiddenMonths && filters.hiddenMonths.length > 0) {
               const m = new Date(t.date).getMonth();
               if (filters.hiddenMonths.includes(m)) return false;
@@ -3588,6 +4021,7 @@
                           plannedEntries={plannedEntriesMap[t.id] || 1}
                           onSetPlannedEntries={onSetPlannedEntries}
                           buddyEvents={buddyEvents}
+                          buddyLiveUpdates={buddyLiveUpdates}
                         />
                       ))}
                     </div>
@@ -3700,7 +4134,7 @@
 
     // ── My Schedule View ───────────────────────────────────────
 
-    function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents }) {
+    function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates }) {
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
       const dayOffDateRef = React.useRef(null);
@@ -3870,6 +4304,7 @@
                           onSetPlannedEntries={onSetPlannedEntries}
                           onUpdatePersonalEvent={onUpdatePersonalEvent}
                           buddyEvents={buddyEvents}
+                          buddyLiveUpdates={buddyLiveUpdates}
                         />
                       </div>
                     ))}
@@ -3921,7 +4356,7 @@
     const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents }) {
+    function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
       const allDates = useMemo(() => buildAllDates(allTournaments), [allTournaments]);
       const today = getToday();
       const defaultDate = allDates.includes(today) ? today : allDates[0] || today;
@@ -3942,7 +4377,7 @@
         }
       }, [selectedDate]);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', maxRake: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true
+        minBuyin: '', maxBuyin: '', maxRake: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true
       });
 
       const buyinOptions = useMemo(() =>
@@ -3992,7 +4427,7 @@
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
-            if (filters.hideDeepstacks && t.is_deepstack) return false;
+            if (filters.hideSideEvents && t.is_deepstack) return false;
             return true;
           })
           .sort((a, b) => {
@@ -4039,6 +4474,7 @@
           plannedEntries={plannedEntriesMap[t.id] || 1}
           onSetPlannedEntries={onSetPlannedEntries}
           buddyEvents={buddyEvents}
+          buddyLiveUpdates={buddyLiveUpdates}
         />
       );
 
@@ -5017,6 +5453,10 @@
       // ── Tracking state ──
       const [trackingData, setTrackingData] = useState([]);
 
+      // ── Live Update state ──
+      const [myLiveUpdate, setMyLiveUpdate] = useState(null);
+      const [buddyLiveUpdates, setBuddyLiveUpdates] = useState({});
+
       // ── Theme ──
       const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
       const [contrast, setContrast] = useState(localStorage.getItem('contrast') || 'normal');
@@ -5045,6 +5485,7 @@
           fetchShareToken();
           fetchShareBuddies();
           fetchTracking();
+          fetchMyLiveUpdate();
         }
       }, [token]);
 
@@ -5113,6 +5554,27 @@
           });
           setTrackingData(await res.json());
         } catch { setError('Failed to load tracking data'); }
+      };
+
+      const fetchMyLiveUpdate = async () => {
+        try {
+          const res = await guardedFetch(`${API_URL}/live-update/mine`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!res) return;
+          setMyLiveUpdate(await res.json());
+        } catch {}
+      };
+
+      const postLiveUpdate = async (data) => {
+        try {
+          const res = await fetch(`${API_URL}/live-update`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          if (res.ok) fetchMyLiveUpdate();
+        } catch {}
       };
 
       const saveFieldSize = async (tournamentId, totalFieldSize) => {
@@ -5189,6 +5651,7 @@
           setPendingIncoming(data.pendingIncoming || []);
           setPendingOutgoing(data.pendingOutgoing || []);
           setBuddyEvents(data.buddyEvents || {});
+          setBuddyLiveUpdates(data.buddyLiveUpdates || {});
           const lss = data.lastSeenShares || null;
           setLastSeenShares(lss);
           // Unseen = new buddies since last seen + pending incoming
@@ -5476,6 +5939,11 @@
                 <Avatar src={avatar} username={username} size={22} />
                 {username}
               </span>
+              <LiveUpdateButton
+                mySchedule={mySchedule}
+                myLiveUpdate={myLiveUpdate}
+                onPost={postLiveUpdate}
+              />
               <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
                 {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
               </button>
@@ -5498,15 +5966,16 @@
                 onToggleAnchor={toggleAnchor}
                 onSetPlannedEntries={setPlannedEntries}
                 buddyEvents={buddyEvents}
+                buddyLiveUpdates={buddyLiveUpdates}
               />
             )}
 
             {currentView === 'schedule' && (
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} buddyEvents={buddyEvents} />
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} />
             )}
 
             {currentView === 'calendar' && (
-              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} buddyEvents={buddyEvents} />
+              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} />
             )}
 
             {currentView === 'tracking' && (

@@ -960,6 +960,53 @@ async function initDatabase() {
         console.log(`Handed→Max normalization: ${updated} rows updated`);
       }
     },
+    {
+      name: 'live-updates-structured-fields-2026-02',
+      fn: () => {
+        db.run('ALTER TABLE live_updates ADD COLUMN stack INTEGER');
+        db.run('ALTER TABLE live_updates ADD COLUMN sb INTEGER');
+        db.run('ALTER TABLE live_updates ADD COLUMN bb INTEGER');
+        db.run('ALTER TABLE live_updates ADD COLUMN bb_ante INTEGER');
+        db.run('ALTER TABLE live_updates ADD COLUMN is_itm INTEGER DEFAULT 0');
+        db.run('ALTER TABLE live_updates ADD COLUMN total_entries INTEGER');
+        db.run('ALTER TABLE live_updates ADD COLUMN is_bagged INTEGER DEFAULT 0');
+        db.run('ALTER TABLE live_updates ADD COLUMN bag_day INTEGER');
+        console.log('Added structured fields to live_updates table');
+      }
+    },
+    {
+      name: 'live-updates-itm-ft-fields-2026-02',
+      fn: () => {
+        db.run('ALTER TABLE live_updates ADD COLUMN locked_amount INTEGER');
+        db.run('ALTER TABLE live_updates ADD COLUMN is_final_table INTEGER DEFAULT 0');
+        db.run('ALTER TABLE live_updates ADD COLUMN places_left INTEGER');
+        db.run('ALTER TABLE live_updates ADD COLUMN first_place_prize INTEGER');
+        console.log('Added ITM locked/FT fields to live_updates table');
+      }
+    },
+    {
+      name: 'live-updates-busted-deal-bubble-2026-02',
+      fn: () => {
+        db.run('ALTER TABLE live_updates ADD COLUMN is_reg_closed INTEGER DEFAULT 0');
+        db.run('ALTER TABLE live_updates ADD COLUMN bubble INTEGER');
+        db.run('ALTER TABLE live_updates ADD COLUMN is_busted INTEGER DEFAULT 0');
+        db.run('ALTER TABLE live_updates ADD COLUMN is_deal INTEGER DEFAULT 0');
+        db.run('ALTER TABLE live_updates ADD COLUMN deal_place INTEGER');
+        db.run('ALTER TABLE live_updates ADD COLUMN deal_payout INTEGER');
+        console.log('Added busted/deal/bubble/reg_closed fields to live_updates table');
+      }
+    },
+    {
+      name: 'flag-side-events-global-2026-02',
+      fn: () => {
+        // Flag all events with no event_number (that aren't already sats/restarts) as side events
+        db.run(`UPDATE tournaments SET is_deepstack = 1
+                WHERE (event_number = '' OR event_number IS NULL)
+                AND is_satellite = 0 AND is_restart = 0 AND is_deepstack = 0`);
+        const updated = db.getRowsModified();
+        console.log(`Side events flagged globally: ${updated} rows updated`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -994,6 +1041,18 @@ async function initDatabase() {
       FOREIGN KEY (user_id) REFERENCES users(id),
       FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
       UNIQUE(user_id, tournament_id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS live_updates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      update_text TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
     )
   `);
 
@@ -1165,8 +1224,8 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
     // Insert tournaments into database
     for (const tournament of tournaments) {
       db.run(
-        `INSERT INTO tournaments (event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, prize_pool, house_fee, opt_add_on, rake_pct, rake_dollars, uploaded_by, source_pdf)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO tournaments (event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, prize_pool, house_fee, opt_add_on, rake_pct, rake_dollars, uploaded_by, source_pdf, is_deepstack)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tournament.eventNumber || '',
           normalizeEventName(tournament.eventName || 'Unknown Event', tournament.gameVariant),
@@ -1190,7 +1249,8 @@ app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async 
           tournament.rakePct || null,
           tournament.rakeDollars || null,
           req.user.id,
-          req.file.originalname
+          req.file.originalname,
+          (!tournament.eventNumber && !tournament.isSatellite && !tournament.isRestart) ? 1 : 0
         ]
       );
     }
@@ -1692,7 +1752,55 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
       bsStmt.free();
     }
 
-    res.json({ buddies, pendingIncoming, pendingOutgoing, lastSeenShares, buddyEvents });
+    // Live updates from buddies (today only)
+    const buddyLiveUpdates = {};
+    for (const b of buddies) {
+      const luStmt = db.prepare(`
+        SELECT lu.tournament_id, lu.stack, lu.sb, lu.bb, lu.bb_ante,
+               lu.is_reg_closed, lu.bubble, lu.is_itm, lu.locked_amount,
+               lu.is_final_table, lu.places_left, lu.first_place_prize,
+               lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
+               lu.total_entries, lu.is_bagged, lu.bag_day,
+               lu.update_text, lu.created_at,
+               t.event_name, t.venue
+        FROM live_updates lu
+        JOIN tournaments t ON lu.tournament_id = t.id
+        WHERE lu.user_id = ? AND lu.created_at >= date('now', 'start of day')
+        ORDER BY lu.created_at DESC LIMIT 1
+      `);
+      luStmt.bind([b.id]);
+      if (luStmt.step()) {
+        const row = luStmt.getAsObject();
+        buddyLiveUpdates[b.id] = {
+          tournamentId: row.tournament_id,
+          eventName: row.event_name,
+          venue: row.venue,
+          stack: row.stack,
+          sb: row.sb,
+          bb: row.bb,
+          bbAnte: row.bb_ante,
+          isItm: row.is_itm,
+          totalEntries: row.total_entries,
+          isRegClosed: row.is_reg_closed,
+          bubble: row.bubble,
+          lockedAmount: row.locked_amount,
+          isFinalTable: row.is_final_table,
+          placesLeft: row.places_left,
+          firstPlacePrize: row.first_place_prize,
+          isDeal: row.is_deal,
+          dealPlace: row.deal_place,
+          dealPayout: row.deal_payout,
+          isBusted: row.is_busted,
+          isBagged: row.is_bagged,
+          bagDay: row.bag_day,
+          updateText: row.update_text,
+          updatedAt: row.created_at
+        };
+      }
+      luStmt.free();
+    }
+
+    res.json({ buddies, pendingIncoming, pendingOutgoing, lastSeenShares, buddyEvents, buddyLiveUpdates });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
@@ -2048,6 +2156,95 @@ app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Live Updates ──────────────────────────────────────────
+
+app.post('/api/live-update', authenticateToken, async (req, res) => {
+  try {
+    const { tournamentId, stack, sb, bb, bbAnte, isRegClosed, bubble, isItm, lockedAmount, isFinalTable, placesLeft, firstPlacePrize, isDeal, dealPlace, dealPayout, isBusted, totalEntries, isBagged, bagDay } = req.body;
+    if (!tournamentId) return res.status(400).json({ error: 'Tournament is required' });
+    if (!stack || stack < 0) return res.status(400).json({ error: 'Stack is required' });
+
+    const checkStmt = db.prepare('SELECT id FROM tournaments WHERE id = ?');
+    checkStmt.bind([tournamentId]);
+    const exists = checkStmt.step();
+    checkStmt.free();
+    if (!exists) return res.status(400).json({ error: 'Tournament not found' });
+
+    const schedCheck = db.prepare('SELECT id FROM user_schedules WHERE user_id = ? AND tournament_id = ?');
+    schedCheck.bind([req.user.id, tournamentId]);
+    const inSchedule = schedCheck.step();
+    schedCheck.free();
+    if (!inSchedule) return res.status(400).json({ error: 'Tournament not in your schedule' });
+
+    db.run(
+      `INSERT INTO live_updates (user_id, tournament_id, update_text, stack, sb, bb, bb_ante, is_reg_closed, bubble, is_itm, locked_amount, is_final_table, places_left, first_place_prize, is_deal, deal_place, deal_payout, is_busted, total_entries, is_bagged, bag_day)
+       VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.id, tournamentId,
+       Math.round(Number(stack)) || 0,
+       sb ? Math.round(Number(sb)) : null,
+       bb ? Math.round(Number(bb)) : null,
+       bbAnte ? Math.round(Number(bbAnte)) : null,
+       isRegClosed ? 1 : 0,
+       isRegClosed && !isItm && bubble ? Math.round(Number(bubble)) : null,
+       isItm ? 1 : 0,
+       isItm && lockedAmount ? Math.round(Number(lockedAmount)) : null,
+       isFinalTable ? 1 : 0,
+       isFinalTable && placesLeft ? Math.round(Number(placesLeft)) : null,
+       isFinalTable && firstPlacePrize ? Math.round(Number(firstPlacePrize)) : null,
+       isDeal ? 1 : 0,
+       isDeal && dealPlace ? Math.round(Number(dealPlace)) : null,
+       isDeal && dealPayout ? Math.round(Number(dealPayout)) : null,
+       isBusted ? 1 : 0,
+       totalEntries ? Math.round(Number(totalEntries)) : null,
+       isBagged ? 1 : 0,
+       isBagged && bagDay ? Math.round(Number(bagDay)) : null]
+    );
+    await saveDatabase();
+    res.status(201).json({ message: 'Update posted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.get('/api/live-update/mine', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT lu.id, lu.tournament_id, lu.stack, lu.sb, lu.bb, lu.bb_ante,
+             lu.is_reg_closed, lu.bubble, lu.is_itm, lu.locked_amount,
+             lu.is_final_table, lu.places_left, lu.first_place_prize,
+             lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
+             lu.total_entries, lu.is_bagged, lu.bag_day,
+             lu.update_text, lu.created_at,
+             t.event_name, t.venue
+      FROM live_updates lu
+      JOIN tournaments t ON lu.tournament_id = t.id
+      WHERE lu.user_id = ?
+      ORDER BY lu.created_at DESC LIMIT 1
+    `);
+    stmt.bind([req.user.id]);
+    let result = null;
+    if (stmt.step()) result = stmt.getAsObject();
+    stmt.free();
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.delete('/api/live-update/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    db.run('DELETE FROM live_updates WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Update removed' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
   }
 });
 
