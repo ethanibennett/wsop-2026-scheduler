@@ -2966,6 +2966,7 @@
     function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments }) {
       const [open, setOpen] = useState(false);
       const [whenOpen, setWhenOpen] = useState(false);
+      const [whereOpen, setWhereOpen] = useState(false);
 
       const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const VENUE_TO_SERIES = {
@@ -2995,8 +2996,19 @@
         }));
       }, [tournaments]);
 
+      const availableVenues = useMemo(() => {
+        const vSet = new Set();
+        (tournaments || []).forEach(t => {
+          if (t.is_satellite || t.is_restart || t.is_deepstack) return;
+          const m = new Date(t.date).getMonth();
+          if (filters.hiddenMonths && filters.hiddenMonths.includes(m)) return;
+          vSet.add(t.venue);
+        });
+        return [...vSet].sort().map(v => ({ venue: v, series: VENUE_TO_SERIES[v] || v }));
+      }, [tournaments, filters.hiddenMonths]);
+
       const hasActive = filters.minBuyin || filters.maxBuyin ||
-        filters.selectedGames.length > 0 || filters.venue !== 'all' || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideDeepstacks || (filters.hiddenMonths && filters.hiddenMonths.length > 0);
+        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideDeepstacks || (filters.hiddenMonths && filters.hiddenMonths.length > 0);
 
       return (
         <div>
@@ -3062,6 +3074,15 @@
                 >✕</span>
               </span>
             )}
+            {filters.hiddenVenues && filters.hiddenVenues.length > 0 && (
+              <span className="filter-chip active">
+                {availableVenues.length - filters.hiddenVenues.filter(v => availableVenues.some(av => av.venue === v)).length} of {availableVenues.length} venues
+                <span
+                  style={{marginLeft:'4px',cursor:'pointer'}}
+                  onClick={() => setFilters(f => ({...f, hiddenVenues:[]}))}
+                >✕</span>
+              </span>
+            )}
           </div>
 
           {open && (
@@ -3105,6 +3126,37 @@
                   })}
                 </div>)}
               </div>
+              <div className="filter-group filter-span2">
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setWhereOpen(w => !w)}>
+                  Where?
+                  <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: whereOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
+                </label>
+                {whereOpen && (<div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                  <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:600,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                    <input type="checkbox"
+                      checked={!filters.hiddenVenues || filters.hiddenVenues.length === 0}
+                      ref={el => { if (el) el.indeterminate = filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.length < availableVenues.length; }}
+                      onChange={e => setFilters(f => ({...f, hiddenVenues: e.target.checked ? [] : availableVenues.map(v => v.venue)}))}
+                      style={{marginTop:'1px'}}
+                    /> All
+                  </label>
+                  {availableVenues.map(({ venue, series }) => {
+                    const hidden = (filters.hiddenVenues || []).includes(venue);
+                    return (
+                      <label key={venue} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                        <input type="checkbox" checked={!hidden}
+                          onChange={e => setFilters(f => {
+                            const hv = f.hiddenVenues || [];
+                            return {...f, hiddenVenues: e.target.checked ? hv.filter(v => v !== venue) : [...hv, venue]};
+                          })}
+                          style={{marginTop:'1px'}}
+                        />
+                        <span>{series}</span>
+                      </label>
+                    );
+                  })}
+                </div>)}
+              </div>
               <div className="filter-group">
                 <label>Min Buy-in ($)</label>
                 <select value={filters.minBuyin}
@@ -3141,14 +3193,6 @@
               </div>
               <GameVariantFilter selectedGames={filters.selectedGames} setFilters={setFilters} />
               <div className="filter-group">
-                <label>Venue</label>
-                <select value={filters.venue}
-                  onChange={e => setFilters(f => ({...f, venue:e.target.value}))}>
-                  <option value="all">All Venues</option>
-                  {venues.map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-              <div className="filter-group">
                 <label>Format</label>
                 <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
                   <input type="checkbox" checked={filters.bountyOnly}
@@ -3159,7 +3203,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',selectedGames:[],venue:'all',bountyOnly:false,hideSatellites:true,hideRestarts:true,hideDeepstacks:true,hiddenMonths:[]})
+                    setFilters({minBuyin:'',maxBuyin:'',selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideDeepstacks:true,hiddenMonths:[]})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -3174,7 +3218,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true, hiddenMonths: []
+        minBuyin: '', maxBuyin: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true, hiddenMonths: []
       });
       const [focusEventId, setFocusEventId] = useState(null);
 
@@ -3211,7 +3255,7 @@
             if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
             if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
             if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
-            if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
+            if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
@@ -3675,7 +3719,7 @@
         }
       }, [selectedDate]);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', selectedGames: [], venue: 'all', bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true
+        minBuyin: '', maxBuyin: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideDeepstacks: true
       });
 
       const buyinOptions = useMemo(() =>
@@ -3720,7 +3764,7 @@
             if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
             if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
             if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
-            if (filters.venue !== 'all' && t.venue !== filters.venue) return false;
+            if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
