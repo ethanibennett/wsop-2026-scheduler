@@ -301,6 +301,24 @@ async function initDatabase() {
     console.log('Permission migration skipped:', e.message);
   }
 
+  // Cleanup: remove pending share requests from users with email-like usernames
+  try {
+    const cleaned = db.run(
+      `DELETE FROM share_requests WHERE status = 'pending'
+       AND from_user_id IN (SELECT id FROM users WHERE username LIKE '%@%')`
+    );
+    const chkClean = db.prepare("SELECT changes() AS cnt");
+    chkClean.step();
+    const { cnt: cleanCount } = chkClean.getAsObject();
+    chkClean.free();
+    if (cleanCount > 0) {
+      console.log(`Cleaned ${cleanCount} pending requests from email-username accounts`);
+      await saveDatabase();
+    }
+  } catch (e) {
+    console.log('Cleanup skipped:', e.message);
+  }
+
   // Auto-seed extra venue data from JSON seed files
   const seedFiles = [
     { file: 'deepstack-events.json', label: 'deepstacks', check: "is_deepstack = 1" },
@@ -430,7 +448,18 @@ function authenticateToken(req, res, next) {
 app.post('/api/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    
+
+    // Validate username
+    if (!username || username.length < 2 || username.length > 20) {
+      return res.status(400).json({ error: 'Username must be 2–20 characters' });
+    }
+    if (/@/.test(username)) {
+      return res.status(400).json({ error: 'Username cannot be an email address' });
+    }
+    if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
+      return res.status(400).json({ error: 'Username can only contain letters, numbers, underscores, hyphens, and dots' });
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
