@@ -518,6 +518,23 @@
 
     .filter-span2 { grid-column: span 2; }
 
+    .month-row {
+      transition: all 0.25s ease;
+    }
+    .month-series-wrap {
+      display: grid;
+      grid-template-rows: 0fr;
+      opacity: 0;
+      transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
+    }
+    .month-series-wrap.open {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+    .month-series-wrap > span {
+      overflow: hidden;
+    }
+
     .results-count {
       font-size: 0.8rem;
       color: var(--text-muted);
@@ -3027,6 +3044,7 @@
       const [whichOpen, setWhichOpen] = useState(false);
 
       const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       const VENUE_TO_SERIES = {
         'Aria Resort & Casino': 'Aria Poker Classic',
         'Golden Nugget': 'Golden Nugget Grand',
@@ -3042,16 +3060,18 @@
       };
       const months = useMemo(() => {
         const map = {};
+        const yearMap = {};
         (tournaments || []).forEach(t => {
           const d = new Date(t.date);
           const m = d.getMonth();
           if (!map[m]) map[m] = new Set();
+          if (!yearMap[m]) yearMap[m] = d.getFullYear();
           if (!t.is_satellite && !t.is_restart && !t.is_deepstack) {
             map[m].add(VENUE_TO_SERIES[t.venue] || t.venue);
           }
         });
         return Object.keys(map).map(Number).sort((a, b) => a - b).map(m => ({
-          month: m, label: MONTH_NAMES[m], series: [...map[m]].sort()
+          month: m, label: MONTH_NAMES[m], fullLabel: MONTH_FULL[m] + ' ' + yearMap[m], series: [...map[m]].sort()
         }));
       }, [tournaments]);
 
@@ -3186,10 +3206,10 @@
                       style={{marginTop:'1px'}}
                     /> All
                   </label>
-                  {months.map(({ month, label, series }) => {
+                  {months.map(({ month, label, fullLabel, series }) => {
                     const hidden = (filters.hiddenMonths || []).includes(month);
                     return (
-                      <label key={month} style={{display:'flex',alignItems:'baseline',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)',paddingLeft:'21px'}}>
+                      <label key={month} className="month-row" style={{display:'flex',alignItems:'baseline',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color: hidden ? 'var(--text-muted)' : 'var(--text)',paddingLeft:'21px'}}>
                         <input type="checkbox" checked={!hidden}
                           onChange={e => setFilters(f => {
                             const hm = f.hiddenMonths || [];
@@ -3197,12 +3217,14 @@
                           })}
                           style={{marginTop:'1px'}}
                         />
-                        <span style={{fontWeight:600,minWidth:'28px',flexShrink:0}}>{label}</span>
-                        <span style={{display:'flex',flexDirection:'column',gap:'1px'}}>
-                          {series.map(s => (
-                            <span key={s} style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.3}}>{s}</span>
-                          ))}
-                        </span>
+                        <span style={{fontWeight:600,minWidth:'28px',flexShrink:0}}>{hidden ? fullLabel : label}</span>
+                        <div className={'month-series-wrap' + (hidden ? '' : ' open')}>
+                          <span style={{display:'flex',flexDirection:'column',gap:'1px'}}>
+                            {series.map(s => (
+                              <span key={s} style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.3}}>{s}</span>
+                            ))}
+                          </span>
+                        </div>
                       </label>
                     );
                   })}
