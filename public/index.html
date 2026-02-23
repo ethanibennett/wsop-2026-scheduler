@@ -4933,39 +4933,60 @@
         }
       }, [token]);
 
+      // Auto-logout on 401 (expired/invalid token)
+      const guardedFetch = async (url, opts) => {
+        const res = await fetch(url, opts);
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('username');
+          setToken(null);
+          setUsername('');
+          return null;
+        }
+        return res;
+      };
+
       const fetchTournaments = async () => {
         try {
-          const res = await fetch(`${API_URL}/tournaments`, {
+          const res = await guardedFetch(`${API_URL}/tournaments`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          setTournaments(await res.json());
+          if (!res) return;
+          const data = await res.json();
+          setTournaments(Array.isArray(data) ? data : []);
         } catch { setError('Failed to load tournaments'); }
       };
 
       const fetchMySchedule = async () => {
         try {
-          const res = await fetch(`${API_URL}/my-schedule`, {
+          const res = await guardedFetch(`${API_URL}/my-schedule`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          setMySchedule(await res.json());
-        } catch { setError('Failed to load schedule'); }
+          if (!res) return;
+          const data = await res.json();
+          setMySchedule(Array.isArray(data) ? data : []);
+        } catch { setMySchedule([]); }
       };
 
       const fetchGameVariants = async () => {
         try {
-          const res = await fetch(`${API_URL}/game-variants`, {
+          const res = await guardedFetch(`${API_URL}/game-variants`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          setGameVariants(await res.json());
+          if (!res) return;
+          const data = await res.json();
+          setGameVariants(Array.isArray(data) ? data : []);
         } catch {}
       };
 
       const fetchVenues = async () => {
         try {
-          const res = await fetch(`${API_URL}/venues`, {
+          const res = await guardedFetch(`${API_URL}/venues`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          setVenues(await res.json());
+          if (!res) return;
+          const data = await res.json();
+          setVenues(Array.isArray(data) ? data : []);
         } catch {}
       };
 
