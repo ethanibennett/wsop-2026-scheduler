@@ -2412,7 +2412,7 @@
 
       const isDeepstack = !!tournament.is_deepstack;
       const stripColor = isDeepstack ? '#666666' : getVenueBrandColor(venue.abbr);
-      const stripTextColor = isDeepstack ? '#ffffff' : (venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)');
+      const stripTextColor = isDeepstack ? '#ffffff' : (venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)');
 
       return (
         <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor, ...(isAnchor ? {boxShadow: `inset 0 0 0 1.5px ${stripColor}`} : {})} : undefined}>
@@ -2703,7 +2703,7 @@
       const isDeepstack = !!tournament.is_deepstack;
       const isRingEvent = tournament.venue === 'Turning Stone Casino' && !!tournament.event_number;
       const stripColor = isDeepstack ? '#666666' : getVenueBrandColor(venue.abbr);
-      const stripTextColor = isDeepstack ? '#ffffff' : (venue.abbr === 'WSOP' ? '#111111' : 'rgba(255,255,255,0.85)');
+      const stripTextColor = isDeepstack ? '#ffffff' : (venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)');
 
       const cardClasses = [
         't-card',
@@ -3157,7 +3157,7 @@
                         background: 'var(--bg)',
                         color: 'var(--text)',
                         fontWeight: 700, fontSize: '0.85rem',
-                        borderBottom: '1px solid var(--border)',
+                        borderBottom: 'none',
                         display: 'flex', alignItems: 'center', gap: '8px'
                       }}>
                         {dateLabel}
@@ -3415,7 +3415,7 @@
                       background: 'var(--bg)',
                       color: 'var(--text)',
                       fontWeight: 700, fontSize: '0.85rem',
-                      borderBottom: '1px solid var(--border)',
+                      borderBottom: 'none',
                       display: 'flex', alignItems: 'center', gap: '8px'
                     }}>
                       {dateLabel}
