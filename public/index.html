@@ -2391,8 +2391,18 @@
               marginLeft: !expanded && i > 0 ? '-6px' : '0',
               transition: 'margin 0.15s ease'
             }}>
-              <Avatar src={b.avatar} username={b.username} size={22} />
-              {expanded && <span style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>{b.username}</span>}
+              <div style={{
+                borderRadius:'50%', padding: b.isAnchor ? '2px' : '0',
+                border: b.isAnchor ? '2px solid #60a5fa' : 'none',
+                lineHeight: 0
+              }}>
+                <Avatar src={b.avatar} username={b.username} size={22} />
+              </div>
+              {expanded && (
+                <span style={{fontSize:'0.72rem',color: b.isAnchor ? '#60a5fa' : 'var(--text-muted)', fontWeight: b.isAnchor ? 600 : 400}}>
+                  {b.username}
+                </span>
+              )}
             </div>
           ))}
         </div>
