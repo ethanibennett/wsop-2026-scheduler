@@ -3181,7 +3181,7 @@
 
             <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} />
 
-            <p className="results-count">{filtered.length} event{filtered.length !== 1 ? 's' : ''}</p>
+            <p className="results-count">{filtered.filter(t => !t.is_restart).length} event{filtered.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</p>
           </div>
 
           {filtered.length === 0 ? (
