@@ -3034,20 +3034,30 @@
       const [captured, setCaptured] = useState(null);
       const [error, setError] = useState(null);
 
-      useEffect(() => {
-        let cancelled = false;
-        navigator.mediaDevices.getUserMedia({
+      const startCamera = (onError) => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          (onError || setError)('Camera requires a secure (HTTPS) connection.');
+          return Promise.resolve(null);
+        }
+        return navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } },
           audio: false
-        }).then(s => {
+        }).catch(err => {
+          (onError || setError)('Camera access denied. Please allow camera permission and try again.');
+          return null;
+        });
+      };
+
+      useEffect(() => {
+        let cancelled = false;
+        startCamera(msg => { if (!cancelled) setError(msg); }).then(s => {
+          if (!s) return;
           if (cancelled) { s.getTracks().forEach(t => t.stop()); return; }
           streamRef.current = s;
           if (videoRef.current) {
             videoRef.current.srcObject = s;
             videoRef.current.play();
           }
-        }).catch(err => {
-          if (!cancelled) setError('Camera access denied. Please allow camera permission and try again.');
         });
         return () => { cancelled = true; stopStream(); };
       }, []);
@@ -3077,16 +3087,15 @@
 
       const handleRetake = () => {
         setCaptured(null);
-        navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } },
-          audio: false
-        }).then(s => {
+        setError(null);
+        startCamera().then(s => {
+          if (!s) return;
           streamRef.current = s;
           if (videoRef.current) {
             videoRef.current.srcObject = s;
             videoRef.current.play();
           }
-        }).catch(() => setError('Camera access denied.'));
+        });
       };
 
       const handleShare = async () => {
