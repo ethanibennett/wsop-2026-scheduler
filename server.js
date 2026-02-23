@@ -2165,7 +2165,7 @@ app.post('/api/live-update', authenticateToken, async (req, res) => {
   try {
     const { tournamentId, stack, sb, bb, bbAnte, isRegClosed, bubble, isItm, lockedAmount, isFinalTable, placesLeft, firstPlacePrize, isDeal, dealPlace, dealPayout, isBusted, totalEntries, isBagged, bagDay } = req.body;
     if (!tournamentId) return res.status(400).json({ error: 'Tournament is required' });
-    if (!stack || stack < 0) return res.status(400).json({ error: 'Stack is required' });
+    if (!isBusted && (!stack || stack < 0)) return res.status(400).json({ error: 'Stack is required' });
 
     const checkStmt = db.prepare('SELECT id FROM tournaments WHERE id = ?');
     checkStmt.bind([tournamentId]);

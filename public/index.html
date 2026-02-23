@@ -2755,7 +2755,7 @@
       }, [open]);
 
       const handleSubmit = () => {
-        if (!selectedTournamentId || !stack) return;
+        if (!selectedTournamentId || (!isBusted && !stack)) return;
         onPost({ tournamentId: selectedTournamentId, stack: Number(stack), sb: sb ? Number(sb) : null, bb: bb ? Number(bb) : null, bbAnte: bbAnte ? Number(bbAnte) : null, isRegClosed, bubble: isRegClosed && !isItm && bubble ? Number(bubble) : null, isItm, lockedAmount: isItm && lockedAmount ? Number(lockedAmount) : null, isFinalTable, placesLeft: isFinalTable && placesLeft ? Number(placesLeft) : null, firstPlacePrize: isFinalTable && firstPlacePrize ? Number(firstPlacePrize) : null, isDeal, dealPlace: isDeal && dealPlace ? Number(dealPlace) : null, dealPayout: isDeal && dealPayout ? Number(dealPayout) : null, isBusted, totalEntries: totalEntries ? Number(totalEntries) : null, isBagged, bagDay: isBagged && bagDay ? Number(bagDay) : null });
         setOpen(false);
       };
