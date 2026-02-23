@@ -174,8 +174,8 @@ function normalizeEventName(name, gameVariant) {
   // Normalize "Final Day" → "Final"
   n = n.replace(/\bFinal Day\b/gi, 'Final');
 
-  // Convert "8-Max" → "8-Handed", "6-Max" → "6-Handed"
-  n = n.replace(/(\d)-Max\b/gi, '$1-Handed');
+  // Convert "8-Handed" → "8-Max", "6-Handed" → "6-Max"
+  n = n.replace(/(\d)-Handed\b/gi, '$1-Max');
 
   // Normalize age qualifiers: "(50 Years Young)" → "(50+)", "(60 Years Young)" → "(60+)"
   n = n.replace(/\((\d+)\s+Years?\s+Young\)/gi, '($1+)');
@@ -950,6 +950,14 @@ async function initDatabase() {
           db.run('UPDATE tournaments SET reentry = ? WHERE id = ?', [val, id]);
         }
         console.log(`Reentry normalization: ${updates.length} rows updated`);
+      }
+    },
+    {
+      name: 'normalize-handed-to-max-2026-02',
+      fn: () => {
+        db.run("UPDATE tournaments SET event_name = REPLACE(event_name, '-Handed', '-Max') WHERE event_name LIKE '%-Handed%'");
+        const updated = db.getRowsModified();
+        console.log(`Handed→Max normalization: ${updated} rows updated`);
       }
     },
   ];
