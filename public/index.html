@@ -1566,7 +1566,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo, useCallback } = React;
+    const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
     const API_URL = window.location.origin + '/api';
 
@@ -2973,6 +2973,8 @@
 
     function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments }) {
       const [open, setOpen] = useState(false);
+      const panelRef = useRef(null);
+      const toggleRef = useRef(null);
       const [whenOpen, setWhenOpen] = useState(false);
       const [whereOpen, setWhereOpen] = useState(false);
       const [howMuchOpen, setHowMuchOpen] = useState(false);
@@ -3020,6 +3022,17 @@
           .map(v => ({ venue: v, series: VENUE_TO_SERIES[v] || v, count: countMap[v] }));
       }, [tournaments, filters.hiddenMonths]);
 
+      useEffect(() => {
+        if (!open) return;
+        const handler = (e) => {
+          if (panelRef.current && panelRef.current.contains(e.target)) return;
+          if (toggleRef.current && toggleRef.current.contains(e.target)) return;
+          setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+      }, [open]);
+
       const hasActive = filters.minBuyin || filters.maxBuyin || filters.maxRake ||
         filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideDeepstacks || (filters.hiddenMonths && filters.hiddenMonths.length > 0);
 
@@ -3027,6 +3040,7 @@
         <div>
           <div className="filter-row">
             <button
+              ref={toggleRef}
               className={`filter-chip ${hasActive ? 'active' : ''}`}
               onClick={() => setOpen(o => !o)}
             >
@@ -3108,7 +3122,7 @@
           </div>
 
           {open && (
-            <div className="filter-panel" onClick={e => {
+            <div ref={panelRef} className="filter-panel" onClick={e => {
               if (e.target.closest('input, select, button, label, .filter-chip')) return;
               setOpen(false);
             }}>
