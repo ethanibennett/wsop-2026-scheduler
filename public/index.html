@@ -2677,15 +2677,23 @@
         [mySchedule, todayISO]
       );
 
-      // Previous tournaments with active (non-busted) updates not already in today's list
+      // Past schedule events that aren't busted (includes ones with no update yet)
       const previousActive = useMemo(() => {
         const todayIds = new Set(todayTournaments.map(t => t.id));
-        return (myActiveUpdates || []).filter(u => !todayIds.has(u.tournament_id));
-      }, [myActiveUpdates, todayTournaments]);
+        const bustedIds = new Set(
+          (myActiveUpdates || []).filter(u => u.is_busted).map(u => u.tournament_id)
+        );
+        return (mySchedule || []).filter(t =>
+          !todayIds.has(t.id) &&
+          normaliseDate(t.date) < todayISO &&
+          t.venue !== 'Personal' &&
+          !bustedIds.has(t.id)
+        );
+      }, [mySchedule, todayTournaments, myActiveUpdates, todayISO]);
 
       const allOptions = useMemo(() => {
         const today = todayTournaments.map(t => ({ id: t.id, name: t.event_name, group: 'Today' }));
-        const prev = previousActive.map(u => ({ id: u.tournament_id, name: u.event_name, group: 'In Progress' }));
+        const prev = previousActive.map(t => ({ id: t.id, name: t.event_name, group: 'In Progress' }));
         return [...today, ...prev];
       }, [todayTournaments, previousActive]);
 
@@ -2756,7 +2764,7 @@
         <div ref={containerRef} style={{position:'relative'}}>
           <button
             ref={toggleRef}
-            className={`btn btn-ghost btn-sm live-update-btn ${myActiveUpdates.length > 0 ? 'has-update' : ''}`}
+            className={`btn btn-ghost btn-sm live-update-btn ${myActiveUpdates.some(u => !u.is_busted) ? 'has-update' : ''}`}
             onClick={() => setOpen(o => !o)}
             title="Post live update"
           >
@@ -2783,8 +2791,8 @@
                       )}
                       {previousActive.length > 0 && (
                         <optgroup label="In Progress">
-                          {previousActive.map(u => (
-                            <option key={u.tournament_id} value={u.tournament_id}>{u.event_name}</option>
+                          {previousActive.map(t => (
+                            <option key={t.id} value={t.id}>{t.event_name}</option>
                           ))}
                         </optgroup>
                       )}

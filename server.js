@@ -2251,7 +2251,6 @@ app.get('/api/live-updates/active', authenticateToken, (req, res) => {
         AND lu.id IN (
           SELECT MAX(id) FROM live_updates WHERE user_id = ? GROUP BY tournament_id
         )
-        AND lu.is_busted = 0
       ORDER BY lu.created_at DESC
     `);
     stmt.bind([req.user.id, req.user.id]);
