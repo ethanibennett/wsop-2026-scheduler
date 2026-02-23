@@ -2928,7 +2928,7 @@
                   <button
                     className="btn btn-primary btn-sm"
                     onClick={handleSubmit}
-                    disabled={!selectedTournamentId || !stack}
+                    disabled={!selectedTournamentId || (!isBusted && !stack)}
                     style={{alignSelf:'flex-end'}}
                   >
                     Post Update
