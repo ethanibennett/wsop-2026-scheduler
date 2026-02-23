@@ -146,6 +146,9 @@ function normalizeEventName(name, gameVariant) {
     if (n.startsWith(p)) { n = n.slice(p.length); break; }
   }
 
+  // Normalize "PLO/NLH" → "NLH/PLO"
+  n = n.replace(/\bPLO\/NLH\b/g, 'NLH/PLO');
+
   // Strip ALL re-entry policies (dash optional — catches "Single Re-Entry" anywhere)
   n = n.replace(/\s*[-–]?\s*(Single|Unlimited)\s+Re[\s-]?Entr(y|ies)\s*(per Flight)?\s*/gi, ' ');
 
