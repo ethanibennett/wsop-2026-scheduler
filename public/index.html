@@ -3109,7 +3109,7 @@
                   {months.map(({ month, label, series }) => {
                     const hidden = (filters.hiddenMonths || []).includes(month);
                     return (
-                      <label key={month} style={{display:'flex',alignItems:'baseline',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                      <label key={month} style={{display:'flex',alignItems:'baseline',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)',paddingLeft:'16px'}}>
                         <input type="checkbox" checked={!hidden}
                           onChange={e => setFilters(f => {
                             const hm = f.hiddenMonths || [];
@@ -3145,7 +3145,7 @@
                   {availableVenues.map(({ venue, series, count }) => {
                     const hidden = (filters.hiddenVenues || []).includes(venue);
                     return (
-                      <label key={venue} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                      <label key={venue} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)',paddingLeft:'16px'}}>
                         <input type="checkbox" checked={!hidden}
                           onChange={e => setFilters(f => {
                             const hv = f.hiddenVenues || [];
