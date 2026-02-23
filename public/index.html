@@ -4777,8 +4777,10 @@
       };
       const fetchShareBuddies = async () => {
         try {
+          console.log('[v2] fetchShareBuddies called');
           const res = await fetch(`${API_URL}/share-buddies`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
+          console.log('[v2] share-buddies response:', JSON.stringify(data));
           setShareBuddies(data.buddies || []);
           setPendingIncoming(data.pendingIncoming || []);
           setPendingOutgoing(data.pendingOutgoing || []);

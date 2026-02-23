@@ -1382,61 +1382,6 @@ app.get('/shared/:token', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// TEMP DEBUG — simulate share-buddies for a user by ID
-app.get('/api/debug/buddies/:userId', (req, res) => {
-  try {
-    const uid = parseInt(req.params.userId);
-
-    const buddyStmt = db.prepare(`
-      SELECT u.id, u.username, u.avatar, sr.responded_at AS since
-      FROM share_requests sr
-      JOIN users u ON u.id = CASE WHEN sr.from_user_id = ? THEN sr.to_user_id ELSE sr.from_user_id END
-      WHERE sr.status = 'accepted'
-        AND (sr.from_user_id = ? OR sr.to_user_id = ?)
-    `);
-    buddyStmt.bind([uid, uid, uid]);
-    const buddies = [];
-    while (buddyStmt.step()) buddies.push(buddyStmt.getAsObject());
-    buddyStmt.free();
-
-    const pendStmt = db.prepare(`
-      SELECT sr.id, u.id AS from_user_id, u.username, u.avatar, sr.created_at
-      FROM share_requests sr
-      JOIN users u ON sr.from_user_id = u.id
-      WHERE sr.to_user_id = ? AND sr.status = 'pending'
-    `);
-    pendStmt.bind([uid]);
-    const pendingIncoming = [];
-    while (pendStmt.step()) pendingIncoming.push(pendStmt.getAsObject());
-    pendStmt.free();
-
-    const outStmt = db.prepare(`
-      SELECT sr.id, u.id AS to_user_id, u.username, u.avatar, sr.created_at
-      FROM share_requests sr
-      JOIN users u ON sr.to_user_id = u.id
-      WHERE sr.from_user_id = ? AND sr.status = 'pending'
-    `);
-    outStmt.bind([uid]);
-    const pendingOutgoing = [];
-    while (outStmt.step()) pendingOutgoing.push(outStmt.getAsObject());
-    outStmt.free();
-
-    const users = [];
-    const uStmt = db.prepare('SELECT id, username, email FROM users');
-    while (uStmt.step()) users.push(uStmt.getAsObject());
-    uStmt.free();
-
-    const allRequests = [];
-    const srStmt = db.prepare('SELECT * FROM share_requests');
-    while (srStmt.step()) allRequests.push(srStmt.getAsObject());
-    srStmt.free();
-
-    res.json({ forUserId: uid, buddies, pendingIncoming, pendingOutgoing, allUsers: users, allRequests });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // Start server
 initDatabase().then(() => {
   app.listen(PORT, () => {
