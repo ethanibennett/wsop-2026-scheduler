@@ -292,7 +292,7 @@
 
     /* ── Camera overlay ── */
     .camera-overlay { position:fixed; inset:0; z-index:9999; background:#000; }
-    .camera-overlay video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+    .camera-overlay video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; touch-action:none; }
     .camera-overlay .camera-stats-bar {
       position:absolute; bottom:60px; left:0; right:0;
       background:rgba(0,0,0,0.6); padding:10px 16px; backdrop-filter:blur(4px);
@@ -2724,6 +2724,7 @@
       const [registrationOpen, setRegistrationOpen] = useState(false);
       const [hasGuarantee, setHasGuarantee] = useState(false);
       const [guarantee, setGuarantee] = useState('');
+      const [hasJoinLevel, setHasJoinLevel] = useState(false);
       const [joiningSb, setJoiningSb] = useState('');
       const [joiningBb, setJoiningBb] = useState('');
       const [joiningAnte, setJoiningAnte] = useState('');
@@ -2886,15 +2887,16 @@
                     </div>
                   )}
 
-                  <div className="live-update-row" style={{justifyContent:'space-between'}}>
-                    {activeUpdateMap[selectedTournamentId] ? (
-                      <div className="live-update-last" style={{flex:1,marginRight:'8px'}}>
-                        Last: {formatLiveUpdate(activeUpdateMap[selectedTournamentId])}
-                      </div>
-                    ) : <div />}
-                    <label className="live-update-toggle" style={{whiteSpace:'nowrap'}}>
+                  {activeUpdateMap[selectedTournamentId] && (
+                    <div className="live-update-last">
+                      Last: {formatLiveUpdate(activeUpdateMap[selectedTournamentId])}
+                    </div>
+                  )}
+
+                  <div className="live-update-row">
+                    <label className="live-update-toggle">
                       <input type="checkbox" checked={isRegistered} onChange={e => { setIsRegistered(e.target.checked); if (e.target.checked && selectedTournamentId) setRegistrationOpen(true); }} disabled={!selectedTournamentId} />
-                      Reg'd
+                      Registered
                     </label>
                   </div>
 
@@ -2902,7 +2904,7 @@
                     <div className="live-update-registered-section">
                       <div className="live-update-row">
                         <label className="live-update-toggle">
-                          <input type="checkbox" checked={hasGuarantee} onChange={e => { setHasGuarantee(e.target.checked); if (!e.target.checked) setGuarantee(''); }} disabled={!selectedTournamentId} />
+                          <input type="checkbox" checked={hasGuarantee} onChange={e => { setHasGuarantee(e.target.checked); if (!e.target.checked) setGuarantee(''); }} />
                           GTD
                         </label>
                         {hasGuarantee && (
@@ -2913,18 +2915,26 @@
                         )}
                       </div>
                       <div className="live-update-row">
-                        <div className="live-update-field">
-                          <label>Join SB</label>
-                          <input type="number" placeholder="100" value={joiningSb} onChange={e => setJoiningSb(e.target.value)} />
-                        </div>
-                        <div className="live-update-field">
-                          <label>Join BB</label>
-                          <input type="number" placeholder="200" value={joiningBb} onChange={e => setJoiningBb(e.target.value)} />
-                        </div>
-                        <div className="live-update-field">
-                          <label>Join Ante</label>
-                          <input type="number" placeholder="200" value={joiningAnte} onChange={e => setJoiningAnte(e.target.value)} />
-                        </div>
+                        <label className="live-update-toggle">
+                          <input type="checkbox" checked={hasJoinLevel} onChange={e => { setHasJoinLevel(e.target.checked); if (!e.target.checked) { setJoiningSb(''); setJoiningBb(''); setJoiningAnte(''); } }} />
+                          Join Level
+                        </label>
+                        {hasJoinLevel && (
+                          <>
+                            <div className="live-update-field">
+                              <label>SB</label>
+                              <input type="number" placeholder="100" value={joiningSb} onChange={e => setJoiningSb(e.target.value)} />
+                            </div>
+                            <div className="live-update-field">
+                              <label>BB</label>
+                              <input type="number" placeholder="200" value={joiningBb} onChange={e => setJoiningBb(e.target.value)} />
+                            </div>
+                            <div className="live-update-field">
+                              <label>Ante</label>
+                              <input type="number" placeholder="200" value={joiningAnte} onChange={e => setJoiningAnte(e.target.value)} />
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
@@ -3162,12 +3172,64 @@
       ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
     }
 
+    // Pinch-to-zoom helper for camera video elements
+    function usePinchZoom(videoRef, streamRef) {
+      const zoomRef = useRef(1);
+      const baseDist = useRef(null);
+      const baseZoom = useRef(1);
+      useEffect(() => {
+        const el = videoRef.current;
+        if (!el) return;
+        const getTrack = () => streamRef.current && streamRef.current.getVideoTracks()[0];
+        const getRange = () => {
+          const track = getTrack();
+          if (!track) return null;
+          const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : null;
+          return caps && caps.zoom ? caps.zoom : null;
+        };
+        const applyZoom = (z) => {
+          const range = getRange();
+          if (!range) return;
+          const clamped = Math.min(Math.max(z, range.min), range.max);
+          zoomRef.current = clamped;
+          getTrack().applyConstraints({ advanced: [{ zoom: clamped }] }).catch(() => {});
+        };
+        const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        const onTouchStart = (e) => {
+          if (e.touches.length === 2) {
+            baseDist.current = dist(e.touches[0], e.touches[1]);
+            baseZoom.current = zoomRef.current;
+          }
+        };
+        const onTouchMove = (e) => {
+          if (e.touches.length === 2 && baseDist.current) {
+            e.preventDefault();
+            const scale = dist(e.touches[0], e.touches[1]) / baseDist.current;
+            applyZoom(baseZoom.current * scale);
+          }
+        };
+        const onTouchEnd = () => { baseDist.current = null; };
+        el.addEventListener('touchstart', onTouchStart, { passive: true });
+        el.addEventListener('touchmove', onTouchMove, { passive: false });
+        el.addEventListener('touchend', onTouchEnd, { passive: true });
+        return () => {
+          el.removeEventListener('touchstart', onTouchStart);
+          el.removeEventListener('touchmove', onTouchMove);
+          el.removeEventListener('touchend', onTouchEnd);
+        };
+      }, []);
+      // Reset zoom when stream changes
+      const resetZoom = useCallback(() => { zoomRef.current = 1; }, []);
+      return resetZoom;
+    }
+
     function CameraOverlay({ updateData, tournamentName, onClose }) {
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
       const streamRef = useRef(null);
       const [captured, setCaptured] = useState(null);
       const [error, setError] = useState(null);
+      const resetZoom = usePinchZoom(videoRef, streamRef);
 
       const startCamera = (onError) => {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -3175,7 +3237,7 @@
           return Promise.resolve(null);
         }
         return navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } },
+          video: { facingMode: 'environment' },
           audio: false
         }).catch(err => {
           (onError || setError)('Camera access denied. Please allow camera permission and try again.');
@@ -3242,6 +3304,7 @@
       const handleRetake = () => {
         setCaptured(null);
         setError(null);
+        resetZoom();
         startCamera().then(s => {
           if (!s) return;
           streamRef.current = s;
@@ -3337,6 +3400,7 @@
       const [step, setStep] = useState(1);
       const [captured, setCaptured] = useState(null);
       const [error, setError] = useState(null);
+      const resetZoom = usePinchZoom(videoRef, streamRef);
 
       const joiningBlinds = useMemo(() => {
         if (!joiningSb && !joiningBb) return null;
@@ -3362,7 +3426,7 @@
           return Promise.resolve(null);
         }
         return navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } },
+          video: { facingMode: 'environment' },
           audio: false
         }).catch(() => { (onErr || setError)('Camera access denied. Please allow camera permission.'); return null; });
       };
@@ -3378,6 +3442,7 @@
         stopStream();
         setCaptured(null);
         setError(null);
+        resetZoom();
         let cancelled = false;
         startCam(msg => { if (!cancelled) setError(msg); }).then(s => {
           if (!s || cancelled) { if (s) s.getTracks().forEach(t => t.stop()); return; }
@@ -3406,7 +3471,7 @@
       };
 
       const handleRetake = () => {
-        setCaptured(null); setError(null);
+        setCaptured(null); setError(null); resetZoom();
         startCam().then(s => {
           if (!s) return;
           streamRef.current = s;
