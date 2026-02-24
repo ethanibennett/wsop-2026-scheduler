@@ -190,9 +190,7 @@
     @keyframes backdropFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
     .live-update-panel {
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
+      position: fixed;
       width: 300px;
       z-index: 100;
       background: var(--surface);
@@ -204,6 +202,7 @@
       gap: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       animation: luSlideDown 0.2s ease-out;
+      overflow-y: auto;
     }
     .live-update-panel > div,
     .live-update-panel > button {
@@ -3492,8 +3491,14 @@
             <div className="dropdown-backdrop" onClick={() => setOpen(false)} />,
             document.body
           )}
-          {open && (
-            <div ref={panelRef} className="live-update-panel">
+          {open && ReactDOM.createPortal(
+            <div ref={panelRef} className="live-update-panel" style={(() => {
+              const r = toggleRef.current?.getBoundingClientRect();
+              if (!r) return { top: 68, right: 8 };
+              const vw = window.innerWidth || document.documentElement.clientWidth || 375;
+              const vh = window.innerHeight || document.documentElement.clientHeight || 700;
+              return { top: r.bottom + 8, right: Math.max(8, vw - r.right), maxWidth: vw - 16, maxHeight: vh - r.bottom - 16 };
+            })()}>
               {allOptions.length === 0 ? (
                 <div className="live-update-empty">No tournaments on your schedule today</div>
               ) : (
@@ -3861,7 +3866,8 @@
                   </div>
                 </>
               )}
-            </div>
+            </div>,
+            document.body
           )}
           {cameraOpen && ReactDOM.createPortal(
             <CameraOverlay
