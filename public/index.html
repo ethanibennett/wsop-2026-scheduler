@@ -2952,7 +2952,7 @@
                             </div>
                             <div className="live-update-field">
                               <label>BB</label>
-                              <input type="text" inputMode="decimal" placeholder="200" value={joiningBb} onChange={e => setJoiningBb(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningBb(v); }} />
+                              <input type="text" inputMode="decimal" placeholder="200" value={joiningBb} onChange={e => { const raw = e.target.value; setJoiningBb(raw); const num = Number(parseShorthand(raw)); if (num > 0) setJoiningAnte(String(num)); }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningBb(v); }} />
                             </div>
                             <div className="live-update-field">
                               <label>Ante</label>
@@ -2983,7 +2983,7 @@
                     </div>
                     <div className="live-update-field">
                       <label>BB</label>
-                      <input type="text" inputMode="decimal" placeholder="2k" value={bb} onChange={e => setBb(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBb(v); }} />
+                      <input type="text" inputMode="decimal" placeholder="2k" value={bb} onChange={e => { const raw = e.target.value; setBb(raw); const num = Number(parseShorthand(raw)); if (num > 0) setBbAnte(String(num)); }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBb(v); }} />
                     </div>
                     <div className="live-update-field">
                       <label>BB Ante</label>
