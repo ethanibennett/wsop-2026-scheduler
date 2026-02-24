@@ -3047,30 +3047,29 @@
                     </div>
                   )}
 
-                  <div className="live-update-row">
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px'}}>
                     <label className="live-update-toggle">
                       <input type="checkbox" checked={isBusted} onChange={e => setIsBusted(e.target.checked)} />
                       Busted
                     </label>
-                  </div>
-
-                  <div style={{display:'flex',gap:'6px',alignSelf:'flex-end'}}>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={openCamera}
-                      disabled={!selectedTournamentId}
-                      title="Camera overlay"
-                      style={{padding:'6px'}}
-                    >
-                      <Icon.camera />
-                    </button>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={handleSubmit}
-                      disabled={!selectedTournamentId || (!isBusted && !stack)}
-                    >
-                      Post Update
-                    </button>
+                    <div style={{display:'flex',gap:'6px'}}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={openCamera}
+                        disabled={!selectedTournamentId}
+                        title="Camera overlay"
+                        style={{padding:'6px'}}
+                      >
+                        <Icon.camera />
+                      </button>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={handleSubmit}
+                        disabled={!selectedTournamentId || (!isBusted && !stack)}
+                      >
+                        Post Update
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
