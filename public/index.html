@@ -322,9 +322,66 @@
     .camera-overlay-picker button.active { background:#22c55e; color:#000; border-color:#22c55e; font-weight:600; }
     .camera-overlay-picker button:disabled { opacity:0.3; cursor:default; }
 
+    /* ── Tab bar in live-update-panel ── */
+    .live-update-tabs {
+      display: flex; gap: 0; margin-bottom: 2px;
+      border: 1px solid var(--border); border-radius: 6px;
+      overflow: hidden;
+    }
+    .live-update-tabs button {
+      flex: 1; padding: 5px 0; border: none;
+      background: transparent; color: var(--text-muted);
+      font-family: 'Oswald', sans-serif; font-size: 0.68rem;
+      cursor: pointer; border-right: 1px solid var(--border);
+      transition: background 0.15s, color 0.15s;
+    }
+    .live-update-tabs button:last-child { border-right: none; }
+    .live-update-tabs button.active {
+      background: var(--accent); color: #fff; font-weight: 600;
+    }
+    .live-update-tabs button:not(.active):hover {
+      background: var(--surface2, var(--border));
+    }
+
     /* ── Registration section in live-update-panel ── */
     .live-update-registered-section { display:flex; flex-direction:column; gap:6px; }
     .live-update-divider { height:1px; background:var(--border); margin:4px -4px; }
+
+    /* ── Hand game pills ── */
+    .hand-game-pills { display:flex; flex-direction:column; gap:4px; }
+    .hand-game-pill-row { display:flex; gap:4px; }
+    .hand-game-pill-row button { flex:1; padding:3px 6px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text-muted); font-family:'Oswald',sans-serif; font-size:0.62rem; cursor:pointer; white-space:nowrap; transition:background 0.15s,color 0.15s; text-align:center; }
+    .hand-game-pill-row button.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+    .hand-game-label { font-size:0.62rem; color:var(--text-muted); font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+
+    /* ── Card row ── */
+    .card-row { display:flex; gap:2px; align-items:center; min-height:32px; flex-wrap:wrap; }
+    .card-row img { height:28px; border-radius:2px; }
+    .card-row .card-unknown { width:20px; height:28px; background:var(--border); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:var(--text-muted); font-family:'Oswald',sans-serif; }
+
+    /* ── Hand result (winner display) ── */
+    .hand-result { font-size:0.68rem; font-family:'Oswald',sans-serif; padding:6px 8px; border-radius:4px; text-align:center; margin-top:2px; letter-spacing:0.3px; line-height:1.4; animation:luSlideIn 0.2s ease-out; }
+    .hand-result-hero { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
+    .hand-result-villain { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
+    .hand-result-split { background:rgba(250,204,21,0.12); color:#facc15; border:1px solid rgba(250,204,21,0.25); }
+    [data-theme="light"] .hand-result-hero { background:rgba(22,163,74,0.08); color:#16a34a; border-color:rgba(22,163,74,0.2); }
+    [data-theme="light"] .hand-result-villain { background:rgba(220,38,38,0.08); color:#dc2626; border-color:rgba(220,38,38,0.2); }
+    [data-theme="light"] .hand-result-split { background:rgba(202,138,4,0.08); color:#ca8a04; border-color:rgba(202,138,4,0.2); }
+
+    /* ── Bust/Hand tab styles ── */
+    .live-update-next-event {
+      font-size: 0.7rem; color: var(--text-muted);
+      padding: 6px 8px; background: var(--surface2, var(--surface));
+      border-radius: 4px; font-family: 'Oswald', sans-serif;
+      line-height: 1.4;
+    }
+    .live-update-next-event strong { color: var(--text); }
+    .live-update-hand-placeholder {
+      font-size: 0.7rem; color: var(--text-muted);
+      text-align: center; padding: 12px 8px;
+      font-family: 'Oswald', sans-serif;
+      font-style: italic;
+    }
 
     /* ── Scrollable content area ── */
     .content-area {
@@ -1797,13 +1854,22 @@
       '8-Game Mix':       ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8'],
       '9-Game Mix':       ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NL 2-7 SD'],
       'Mixed Triple Draw': ['2-7 TD', 'A-5 TD', 'Badugi'],
+      "Dealer's Choice":  [
+        'NLH', 'LHE', 'Razz', 'Stud Hi', 'Stud8', 'Stud Hi-Lo',
+        'PLH', 'PLO', 'PLO8', 'PL 2-7 TD', 'Big O', 'LO Hi',
+        'O8', 'L 2-7 TD', 'A-5 TD', 'Badugi', 'Badeucy', 'Badacy',
+        'NL 2-7 SD', 'PL 5CD Hi', '2-7 Razz'
+      ],
     };
 
-    const PILL_DISPLAY = { "Limit Hold'em": 'LHE', '7-Card Stud': 'Stud Hi', '2-7 Triple Draw': '2-7 TD', 'NL 2-7 Single Draw': 'NL 2-7 SD' };
+    const PILL_DISPLAY = {
+      "Limit Hold'em": 'LHE', '7-Card Stud': 'Stud Hi',
+      '2-7 Triple Draw': '2-7 TD', 'NL 2-7 Single Draw': 'NL 2-7 SD',
+    };
     function pillName(g) { return PILL_DISPLAY[g] || g; }
 
     function getGamePills(gameVariant, eventName) {
-      if (!gameVariant || gameVariant === "Dealer's Choice") return [gameVariant].filter(Boolean);
+      if (!gameVariant) return [];
       // Check predefined mixes first
       if (MULTI_GAME_MAP[gameVariant]) return MULTI_GAME_MAP[gameVariant];
       // Parse from event name for "Mixed" variants
@@ -1826,6 +1892,33 @@
       }
       return [pillName(gameVariant)];
     }
+
+    const HAND_CONFIG_DEFAULT = { heroCards: 2, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' };
+    const HAND_CONFIG = {
+      'NLH':      { heroCards: 2, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' },
+      'LHE':      { heroCards: 2, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' },
+      'PLO':      { heroCards: 4, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKQ9hdcs', boardPlaceholder: 'J72hds' },
+      'PLO8':     { heroCards: 4, hasBoard: true, boardMax: 5, heroPlaceholder: 'A2KQhdcs', boardPlaceholder: 'J72hds' },
+      'O8':       { heroCards: 4, hasBoard: true, boardMax: 5, heroPlaceholder: 'A2KQhdcs', boardPlaceholder: 'J72hds' },
+      'Big O':    { heroCards: 5, hasBoard: true, boardMax: 5, heroPlaceholder: 'AK2Q9hdcsd', boardPlaceholder: 'J72hds' },
+      'Razz':     { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A23x4567xhdscx' },
+      'Stud Hi':  { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A9xxAKQJThdcsx' },
+      'Stud8':    { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A234567hdcshds' },
+      '2-7 TD':   { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
+      'NL 2-7 SD':{ heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
+      'Badugi':   { heroCards: 4, hasBoard: false, boardMax: 0, heroPlaceholder: 'A234hdcs' },
+      'A-5 TD':   { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: 'A2345hdcss' },
+      'OFC Pineapple': { heroCards: 13, hasBoard: false, boardMax: 0, heroPlaceholder: 'AKQ...' },
+      'PLH':      { heroCards: 2, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' },
+      'Stud Hi-Lo': { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A234567hdcshds' },
+      'LO Hi':    { heroCards: 4, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKQ9hdcs', boardPlaceholder: 'J72hds' },
+      'PL 2-7 TD':{ heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
+      'L 2-7 TD': { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
+      'Badeucy':  { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
+      'Badacy':   { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: 'A2345hdcss' },
+      'PL 5CD Hi':{ heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: 'AKQJT hdcss' },
+      '2-7 Razz': { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: '23x45x7TKhdscx' },
+    };
 
     // ── Venue Color + Abbreviation Map ───────────────────────
     const VENUE_MAP = {
@@ -2657,6 +2750,344 @@
       return String(Math.round(num));
     }
 
+    const CARD_RANKS = new Set('AKQJT98765432'.split(''));
+    const CARD_SUITS = new Set('hdcsx'.split(''));
+    function parseCardNotation(str) {
+      if (!str) return [];
+      const ranks = [], suits = [];
+      for (const ch of str) {
+        if (CARD_RANKS.has(ch.toUpperCase())) ranks.push(ch.toUpperCase());
+        else if (CARD_SUITS.has(ch.toLowerCase())) suits.push(ch.toLowerCase());
+      }
+      return ranks.map((r, i) => ({ rank: r, suit: suits[i] || 'x' }));
+    }
+
+    // Convert grouped notation (AKhd) to interleaved (AhKd)
+    function interleaveNotation(str) {
+      const cards = parseCardNotation(str);
+      return cards.map(c => c.rank + c.suit).join('');
+    }
+    function dualPlaceholder(str) {
+      const alt = interleaveNotation(str);
+      return str === alt ? str : alt + ' or ' + str;
+    }
+
+    // ── Poker Hand Evaluation Engine ──────────────────────────
+    const RANK_VAL = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'T':10,'J':11,'Q':12,'K':13,'A':14 };
+    const RANK_NAME = { 2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'8',9:'9',10:'T',11:'J',12:'Q',13:'K',14:'A' };
+    const RANK_WORD = { 14:'Ace',13:'King',12:'Queen',11:'Jack',10:'Ten',9:'Nine',8:'Eight',7:'Seven',6:'Six',5:'Five',4:'Four',3:'Three',2:'Two' };
+    const rankPlural = v => { const w = RANK_WORD[v]; return w.endsWith('x') ? w + 'es' : w + 's'; };
+
+    function combinations(arr, k) {
+      const res = [];
+      (function go(s, c) {
+        if (c.length === k) { res.push([...c]); return; }
+        for (let i = s; i <= arr.length - (k - c.length); i++) { c.push(arr[i]); go(i + 1, c); c.pop(); }
+      })(0, []);
+      return res;
+    }
+
+    // Score a 5-card high hand. Returns { cat, score, name }
+    function evalHigh5(cards) {
+      const vals = cards.map(c => RANK_VAL[c.rank]).sort((a, b) => b - a);
+      const suits = cards.map(c => c.suit);
+      const isFlush = suits.every(s => s === suits[0]);
+      // Straight detection
+      let isStraight = false, straightHigh = 0;
+      if (vals[0] - vals[4] === 4 && new Set(vals).size === 5) { isStraight = true; straightHigh = vals[0]; }
+      // Wheel: A-2-3-4-5
+      if (!isStraight && vals[0] === 14 && vals[1] === 5 && vals[2] === 4 && vals[3] === 3 && vals[4] === 2) {
+        isStraight = true; straightHigh = 5;
+      }
+      // Frequency counts
+      const freq = {};
+      vals.forEach(v => { freq[v] = (freq[v] || 0) + 1; });
+      const groups = Object.entries(freq).map(([v, c]) => [c, +v]).sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+      const P = 15;
+      let cat, kickers, name;
+
+      if (isStraight && isFlush) {
+        cat = 9; kickers = [straightHigh, 0, 0, 0, 0];
+        name = straightHigh === 14 ? 'Royal Flush' : 'Straight Flush, ' + RANK_WORD[straightHigh] + '-high';
+      } else if (groups[0][0] === 4) {
+        cat = 8; kickers = [groups[0][1], groups[1][1], 0, 0, 0];
+        name = 'Four of a Kind, ' + rankPlural(groups[0][1]);
+      } else if (groups[0][0] === 3 && groups[1][0] === 2) {
+        cat = 7; kickers = [groups[0][1], groups[1][1], 0, 0, 0];
+        name = rankPlural(groups[0][1]) + ' full of ' + rankPlural(groups[1][1]);
+      } else if (isFlush) {
+        cat = 6; kickers = vals;
+        name = 'Flush, ' + RANK_WORD[vals[0]] + '-high';
+      } else if (isStraight) {
+        cat = 5; kickers = [straightHigh, 0, 0, 0, 0];
+        name = straightHigh === 5 ? 'Wheel' : 'Straight, ' + RANK_WORD[straightHigh] + '-high';
+      } else if (groups[0][0] === 3) {
+        cat = 4; const rest = vals.filter(v => v !== groups[0][1]);
+        kickers = [groups[0][1], rest[0], rest[1], 0, 0];
+        name = 'Three ' + rankPlural(groups[0][1]);
+      } else if (groups[0][0] === 2 && groups[1][0] === 2) {
+        cat = 3; const kick = vals.find(v => v !== groups[0][1] && v !== groups[1][1]);
+        kickers = [groups[0][1], groups[1][1], kick, 0, 0];
+        name = 'Two Pair, ' + rankPlural(groups[0][1]) + ' and ' + rankPlural(groups[1][1]);
+      } else if (groups[0][0] === 2) {
+        cat = 2; const rest = vals.filter(v => v !== groups[0][1]);
+        kickers = [groups[0][1], rest[0], rest[1], rest[2], 0];
+        name = 'Pair of ' + rankPlural(groups[0][1]);
+      } else {
+        cat = 1; kickers = vals;
+        name = RANK_WORD[vals[0]] + '-high';
+      }
+      const score = cat * Math.pow(P, 5) + kickers[0] * Math.pow(P, 4) + kickers[1] * Math.pow(P, 3) + kickers[2] * Math.pow(P, 2) + kickers[3] * P + (kickers[4] || 0);
+      return { cat, score, name };
+    }
+
+    // A-5 lowball: aces low, straights/flushes ignored. Lower score = better.
+    function evalLowA5(cards, eightOrBetter) {
+      const vals = cards.map(c => RANK_VAL[c.rank] === 14 ? 1 : RANK_VAL[c.rank]).sort((a, b) => b - a);
+      // Check for pairs — paired hands don't qualify as low
+      if (new Set(vals).size < 5) return { score: Infinity, name: null, qualified: false };
+      if (eightOrBetter && vals[0] > 8) return { score: Infinity, name: null, qualified: false };
+      const P = 15;
+      const score = vals[0] * Math.pow(P, 4) + vals[1] * Math.pow(P, 3) + vals[2] * Math.pow(P, 2) + vals[3] * P + vals[4];
+      const dispRank = v => v === 1 ? 'A' : RANK_NAME[v];
+      const name = vals.map(dispRank).join('-') + ' low';
+      return { score, name, qualified: true };
+    }
+
+    // 2-7 lowball: aces high, straights/flushes count against. Lower score = better.
+    function evalLow27(cards) {
+      const vals = cards.map(c => RANK_VAL[c.rank]).sort((a, b) => b - a);
+      const suits = cards.map(c => c.suit);
+      const isFlush = suits.every(s => s === suits[0]);
+      let isStraight = false;
+      // In 2-7, aces are high (14), so A-5-4-3-2 is NOT a straight (no wheel)
+      if (vals[0] - vals[4] === 4 && new Set(vals).size === 5) isStraight = true;
+      // If flush, straight, or paired — treat as a high hand (very bad for low)
+      if (isFlush || isStraight || new Set(vals).size < 5) {
+        // Return a very high score — essentially the high hand score offset way up
+        const hi = evalHigh5(cards);
+        return { score: 1e9 + hi.score, name: hi.name + ' (bad low)' };
+      }
+      const P = 15;
+      const score = vals[0] * Math.pow(P, 4) + vals[1] * Math.pow(P, 3) + vals[2] * Math.pow(P, 2) + vals[3] * P + vals[4];
+      const name = vals.map(v => RANK_NAME[v]).join('-') + ' low';
+      return { score, name };
+    }
+
+    // Badugi: want 4 different suits AND ranks, lower wins. More cards used > fewer.
+    function evalBadugi(cards) {
+      const tryN = (arr, n) => {
+        const combos = n === arr.length ? [arr] : combinations(arr, n);
+        let best = null;
+        for (const combo of combos) {
+          const suitSet = new Set(combo.map(c => c.suit));
+          const rankSet = new Set(combo.map(c => c.rank));
+          if (suitSet.size === n && rankSet.size === n) {
+            // Valid n-card badugi — score by ranks ascending (lower = better), A=1
+            const vals = combo.map(c => RANK_VAL[c.rank] === 14 ? 1 : RANK_VAL[c.rank]).sort((a, b) => a - b);
+            const P = 15;
+            let score = 0;
+            for (let i = 0; i < vals.length; i++) score += vals[i] * Math.pow(P, n - 1 - i);
+            if (!best || score < best.score) {
+              const dispRank = v => v === 1 ? 'A' : RANK_NAME[v];
+              best = { score, name: vals.map(dispRank).join('-') + (n === 4 ? ' Badugi' : ' (' + n + '-card)') };
+            }
+          }
+        }
+        return best;
+      };
+      for (let n = Math.min(cards.length, 4); n >= 1; n--) {
+        const result = tryN(cards, n);
+        if (result) {
+          // Offset score so 4-card always beats 3-card etc.
+          result.numCards = n;
+          result.score = (5 - n) * 1e8 + result.score; // Lower is better; fewer cards = higher penalty
+          return result;
+        }
+      }
+      return { score: Infinity, numCards: 0, name: 'No Badugi' };
+    }
+
+    // Best-hand selectors
+    function bestHighHand(cards) {
+      if (cards.length === 5) return evalHigh5(cards);
+      if (cards.length < 5) return null;
+      let best = null;
+      for (const c of combinations(cards, 5)) { const ev = evalHigh5(c); if (!best || ev.score > best.score) best = ev; }
+      return best;
+    }
+    function bestOmahaHigh(hole, board) {
+      if (hole.length < 2 || board.length < 3) return null;
+      let best = null;
+      for (const h2 of combinations(hole, 2)) for (const b3 of combinations(board, 3)) {
+        const ev = evalHigh5([...h2, ...b3]);
+        if (!best || ev.score > best.score) best = ev;
+      }
+      return best;
+    }
+    function bestOmahaLow(hole, board) {
+      if (hole.length < 2 || board.length < 3) return null;
+      let best = null;
+      for (const h2 of combinations(hole, 2)) for (const b3 of combinations(board, 3)) {
+        const ev = evalLowA5([...h2, ...b3], true);
+        if (ev.qualified && (!best || ev.score < best.score)) best = ev;
+      }
+      return best;
+    }
+    function bestLowA5Hand(cards, eightOrBetter) {
+      if (cards.length === 5) return evalLowA5(cards, eightOrBetter);
+      if (cards.length < 5) return null;
+      let best = null;
+      for (const c of combinations(cards, 5)) { const ev = evalLowA5(c, eightOrBetter); if (ev.qualified && (!best || ev.score < best.score)) best = ev; }
+      return best;
+    }
+    function bestLow27Hand(cards) {
+      if (cards.length === 5) return evalLow27(cards);
+      if (cards.length < 5) return null;
+      let best = null;
+      for (const c of combinations(cards, 5)) { const ev = evalLow27(c); if (!best || ev.score < best.score) best = ev; }
+      return best;
+    }
+    function bestBadugiHand(cards) {
+      if (cards.length <= 4) return evalBadugi(cards);
+      // For 5-card hands (Badeucy/Badacy), try all C(5,4) subsets
+      let best = null;
+      for (const c of combinations(cards, 4)) { const ev = evalBadugi(c); if (!best || ev.score < best.score) best = ev; }
+      return best;
+    }
+
+    // Game variant evaluation config
+    const GAME_EVAL = {
+      'NLH':{type:'high',method:'standard'},'LHE':{type:'high',method:'standard'},'PLH':{type:'high',method:'standard'},
+      'Stud Hi':{type:'high',method:'standard'},'PL 5CD Hi':{type:'high',method:'standard'},
+      'PLO':{type:'high',method:'omaha'},'LO Hi':{type:'high',method:'omaha'},
+      'PLO8':{type:'hilo',method:'omaha'},'O8':{type:'hilo',method:'omaha'},'Big O':{type:'hilo',method:'omaha'},
+      'Stud8':{type:'hilo',method:'standard'},'Stud Hi-Lo':{type:'hilo',method:'standard'},
+      'Razz':{type:'low',lowType:'a5'},'A-5 TD':{type:'low',lowType:'a5'},
+      '2-7 TD':{type:'low',lowType:'27'},'PL 2-7 TD':{type:'low',lowType:'27'},'L 2-7 TD':{type:'low',lowType:'27'},
+      'NL 2-7 SD':{type:'low',lowType:'27'},'2-7 Razz':{type:'low',lowType:'27'},
+      'Badugi':{type:'badugi'},
+      'Badeucy':{type:'split-badugi',otherLow:'27'},'Badacy':{type:'split-badugi',otherLow:'a5'},
+      'OFC Pineapple':null
+    };
+
+    function evaluateHand(game, heroCards, villainCards, boardCards) {
+      const cfg = GAME_EVAL[game];
+      if (!cfg) return null;
+
+      const heroAll = boardCards.length ? [...heroCards, ...boardCards] : heroCards;
+      const villAll = boardCards.length ? [...villainCards, ...boardCards] : villainCards;
+      let hHi = null, vHi = null, hLo = null, vLo = null, hBad = null, vBad = null;
+
+      if (cfg.type === 'high' || cfg.type === 'hilo') {
+        if (cfg.method === 'omaha') {
+          hHi = bestOmahaHigh(heroCards, boardCards);
+          vHi = bestOmahaHigh(villainCards, boardCards);
+        } else {
+          hHi = bestHighHand(heroAll);
+          vHi = bestHighHand(villAll);
+        }
+      }
+      if (cfg.type === 'hilo') {
+        if (cfg.method === 'omaha') {
+          hLo = bestOmahaLow(heroCards, boardCards);
+          vLo = bestOmahaLow(villainCards, boardCards);
+        } else {
+          hLo = bestLowA5Hand(heroAll, true);
+          vLo = bestLowA5Hand(villAll, true);
+        }
+      }
+      if (cfg.type === 'low') {
+        if (cfg.lowType === 'a5') { hLo = bestLowA5Hand(heroAll, false); vLo = bestLowA5Hand(villAll, false); }
+        else { hLo = bestLow27Hand(heroAll); vLo = bestLow27Hand(villAll); }
+      }
+      if (cfg.type === 'badugi') {
+        hBad = bestBadugiHand(heroCards); vBad = bestBadugiHand(villainCards);
+      }
+      if (cfg.type === 'split-badugi') {
+        hBad = bestBadugiHand(heroCards); vBad = bestBadugiHand(villainCards);
+        if (cfg.otherLow === '27') { hLo = bestLow27Hand(heroCards); vLo = bestLow27Hand(villainCards); }
+        else { hLo = bestLowA5Hand(heroCards, false); vLo = bestLowA5Hand(villainCards, false); }
+      }
+
+      // Determine result
+      if (cfg.type === 'high') {
+        if (!hHi || !vHi) return null;
+        if (hHi.score > vHi.score) return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hHi.name, color:'green' }, heroHigh:hHi, villainHigh:vHi };
+        if (vHi.score > hHi.score) return { result: { outcome:'villain', text:'Villain wins \u2014 ' + vHi.name, color:'red' }, heroHigh:hHi, villainHigh:vHi };
+        return { result: { outcome:'chop', text:'Chop \u2014 ' + hHi.name, color:'yellow' }, heroHigh:hHi, villainHigh:vHi };
+      }
+      if (cfg.type === 'low') {
+        if (!hLo || !vLo) return null;
+        if (hLo.score < vLo.score) return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hLo.name, color:'green' }, heroLow:hLo, villainLow:vLo };
+        if (vLo.score < hLo.score) return { result: { outcome:'villain', text:'Villain wins \u2014 ' + vLo.name, color:'red' }, heroLow:hLo, villainLow:vLo };
+        return { result: { outcome:'chop', text:'Chop \u2014 ' + hLo.name, color:'yellow' }, heroLow:hLo, villainLow:vLo };
+      }
+      if (cfg.type === 'badugi') {
+        if (!hBad || !vBad) return null;
+        if (hBad.score < vBad.score) return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hBad.name, color:'green' }, heroBadugi:hBad, villainBadugi:vBad };
+        if (vBad.score < hBad.score) return { result: { outcome:'villain', text:'Villain wins \u2014 ' + vBad.name, color:'red' }, heroBadugi:hBad, villainBadugi:vBad };
+        return { result: { outcome:'chop', text:'Chop \u2014 ' + hBad.name, color:'yellow' }, heroBadugi:hBad, villainBadugi:vBad };
+      }
+      if (cfg.type === 'hilo') {
+        if (!hHi || !vHi) return null;
+        const highW = hHi.score > vHi.score ? 'hero' : vHi.score > hHi.score ? 'villain' : 'chop';
+        const anyLo = (hLo && hLo.qualified) || (vLo && vLo.qualified);
+        if (!anyLo) {
+          // No qualifying low — high hand scoops
+          if (highW === 'hero') return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hHi.name + ' (no qualifying low)', color:'green' }, heroHigh:hHi, villainHigh:vHi };
+          if (highW === 'villain') return { result: { outcome:'villain', text:'Villain wins \u2014 ' + vHi.name + ' (no qualifying low)', color:'red' }, heroHigh:hHi, villainHigh:vHi };
+          return { result: { outcome:'chop', text:'Chop \u2014 ' + hHi.name + ' (no qualifying low)', color:'yellow' }, heroHigh:hHi, villainHigh:vHi };
+        }
+        let lowW = 'chop';
+        if (hLo && vLo && hLo.qualified && vLo.qualified) lowW = hLo.score < vLo.score ? 'hero' : vLo.score < hLo.score ? 'villain' : 'chop';
+        else if (hLo && hLo.qualified) lowW = 'hero';
+        else if (vLo && vLo.qualified) lowW = 'villain';
+        if (highW === lowW) {
+          const who = highW === 'hero' ? 'Hero' : highW === 'villain' ? 'Villain' : null;
+          if (who) return { result: { outcome:highW, text:who + ' scoops \u2014 ' + (highW === 'hero' ? hHi.name : vHi.name) + ' / ' + (highW === 'hero' ? hLo.name : vLo.name), color: highW === 'hero' ? 'green' : 'red' }, heroHigh:hHi, villainHigh:vHi, heroLow:hLo, villainLow:vLo };
+          return { result: { outcome:'chop', text:'Chop \u2014 ' + hHi.name + ' / ' + hLo.name, color:'yellow' }, heroHigh:hHi, villainHigh:vHi, heroLow:hLo, villainLow:vLo };
+        }
+        const hiText = highW === 'hero' ? 'Hero wins high (' + hHi.name + ')' : highW === 'villain' ? 'Villain wins high (' + vHi.name + ')' : 'Chop high';
+        const loText = lowW === 'hero' ? 'Hero wins low (' + hLo.name + ')' : lowW === 'villain' ? 'Villain wins low (' + vLo.name + ')' : 'Chop low';
+        return { result: { outcome:'split', text:'Split \u2014 ' + hiText + ', ' + loText, color:'yellow' }, heroHigh:hHi, villainHigh:vHi, heroLow:hLo, villainLow:vLo };
+      }
+      if (cfg.type === 'split-badugi') {
+        if (!hBad || !vBad || !hLo || !vLo) return null;
+        const badW = hBad.score < vBad.score ? 'hero' : vBad.score < hBad.score ? 'villain' : 'chop';
+        const lowW2 = hLo.score < vLo.score ? 'hero' : vLo.score < hLo.score ? 'villain' : 'chop';
+        if (badW === lowW2) {
+          const who = badW === 'hero' ? 'Hero' : badW === 'villain' ? 'Villain' : null;
+          if (who) return { result: { outcome:badW, text:who + ' scoops \u2014 ' + (badW === 'hero' ? hBad.name : vBad.name) + ' / ' + (badW === 'hero' ? hLo.name : vLo.name), color: badW === 'hero' ? 'green' : 'red' }, heroBadugi:hBad, villainBadugi:vBad, heroLow:hLo, villainLow:vLo };
+          return { result: { outcome:'chop', text:'Chop \u2014 ' + hBad.name + ' / ' + hLo.name, color:'yellow' }, heroBadugi:hBad, villainBadugi:vBad, heroLow:hLo, villainLow:vLo };
+        }
+        const bText = badW === 'hero' ? 'Hero wins Badugi (' + hBad.name + ')' : badW === 'villain' ? 'Villain wins Badugi (' + vBad.name + ')' : 'Chop Badugi';
+        const lText = lowW2 === 'hero' ? 'Hero wins draw (' + hLo.name + ')' : lowW2 === 'villain' ? 'Villain wins draw (' + vLo.name + ')' : 'Chop draw';
+        return { result: { outcome:'split', text:'Split \u2014 ' + bText + ', ' + lText, color:'yellow' }, heroBadugi:hBad, villainBadugi:vBad, heroLow:hLo, villainLow:vLo };
+      }
+      return null;
+    }
+
+    function CardRow({ text, stud, max }) {
+      let cards = parseCardNotation(text);
+      if (!cards.length) return null;
+      if (max && cards.length > max) cards = cards.slice(0, max);
+      const downIdx = stud ? new Set([0, 1, 6]) : null;
+      return React.createElement('div', { className: 'card-row' },
+        cards.map((c, i) => {
+          const isDown = downIdx && downIdx.has(i);
+          const style = isDown ? { marginTop: 12 } : undefined;
+          return c.suit === 'x'
+            ? React.createElement('div', { key: i, className: 'card-unknown', style }, '?')
+            : React.createElement('img', {
+                key: i, className: 'card-img', style,
+                src: '/_cards/cards_gui_' + c.rank + c.suit + '.png',
+                alt: c.rank + c.suit
+              });
+        })
+      );
+    }
+
     function ordinalSuffix(n) {
       const s = ['th','st','nd','rd'], v = n % 100;
       return (s[(v-20)%10] || s[v] || s[0]);
@@ -2744,6 +3175,16 @@
       const [joiningSb, setJoiningSb] = useState('');
       const [joiningBb, setJoiningBb] = useState('');
       const [joiningAnte, setJoiningAnte] = useState('');
+      const [updateType, setUpdateType] = useState('update'); // 'register' | 'update' | 'hand' | 'bust'
+      const [bustPlace, setBustPlace] = useState('');
+      const [bustPayout, setBustPayout] = useState('');
+      const [bustNote, setBustNote] = useState('');
+      const [heroHand, setHeroHand] = useState('');
+      const [boardCards, setBoardCards] = useState('');
+      const [villainHand, setVillainHand] = useState('');
+      const [handNote, setHandNote] = useState('');
+      const [hasVillain, setHasVillain] = useState(false);
+      const [handGame, setHandGame] = useState(null);
 
       const todayISO = getToday();
       const activeUpdateMap = useMemo(() => {
@@ -2810,6 +3251,21 @@
         setTotalEntries(prefill?.total_entries || '');
         setIsBagged(!!prefill?.is_bagged);
         setBagDay(prefill?.bag_day || '');
+        setBustPlace('');
+        setBustPayout('');
+        setBustNote('');
+        setHeroHand('');
+        setBoardCards('');
+        setVillainHand('');
+        setHandNote('');
+        setHasVillain(false);
+        setHandGame(null);
+        // Auto-select tab based on tournament state
+        if (prefill && !prefill.is_busted) {
+          setUpdateType('update');
+        } else if (!prefill) {
+          setUpdateType('register');
+        }
       };
 
       useEffect(() => {
@@ -2840,12 +3296,58 @@
       }, [open]);
 
       const ps = (v) => Number(parseShorthand(v)) || 0;
-      const buildUpdateData = () => ({
-        tournamentId: selectedTournamentId, stack: ps(stack), sb: sb ? ps(sb) : null, bb: bb ? ps(bb) : null, bbAnte: bbAnte ? ps(bbAnte) : null, isRegClosed, bubble: isRegClosed && !isItm && bubble ? Number(bubble) : null, isItm, lockedAmount: isItm && lockedAmount ? Number(lockedAmount) : null, isFinalTable, placesLeft: isFinalTable && placesLeft ? Number(placesLeft) : null, firstPlacePrize: isFinalTable && firstPlacePrize ? Number(firstPlacePrize) : null, isDeal, dealPlace: isDeal && dealPlace ? Number(dealPlace) : null, dealPayout: isDeal && dealPayout ? Number(dealPayout) : null, isBusted, totalEntries: totalEntries ? Number(totalEntries) : null, isBagged, bagDay: isBagged && bagDay ? Number(bagDay) : null
-      });
+      const buildUpdateData = () => {
+        const base = { tournamentId: selectedTournamentId, updateType };
+        if (updateType === 'bust') {
+          return {
+            ...base,
+            stack: stack ? ps(stack) : 0,
+            sb: sb ? ps(sb) : null, bb: bb ? ps(bb) : null, bbAnte: bbAnte ? ps(bbAnte) : null,
+            isBusted: true,
+            placesLeft: bustPlace ? Number(bustPlace) : null,
+            dealPayout: bustPayout ? Number(bustPayout) : null,
+            updateText: bustNote || null,
+            totalEntries: totalEntries ? Number(totalEntries) : null,
+          };
+        }
+        if (updateType === 'hand') {
+          const handPayload = {
+            game: activeGame, hero: heroHand,
+            board: gameConfig.hasBoard ? (boardCards || null) : null,
+            villain: hasVillain ? villainHand : null, note: handNote || null
+          };
+          if (handResult?.result) {
+            handPayload.result = {
+              outcome: handResult.result.outcome,
+              text: handResult.result.text,
+              heroHand: handResult.heroHigh?.name || handResult.heroLow?.name || handResult.heroBadugi?.name || null,
+              villainHand: handResult.villainHigh?.name || handResult.villainLow?.name || handResult.villainBadugi?.name || null
+            };
+          }
+          return { ...base, updateText: JSON.stringify(handPayload) };
+        }
+        if (updateType === 'register') {
+          return { ...base, isRegistered: true };
+        }
+        // 'update' tab — full update
+        return {
+          ...base,
+          stack: ps(stack), sb: sb ? ps(sb) : null, bb: bb ? ps(bb) : null, bbAnte: bbAnte ? ps(bbAnte) : null,
+          isRegClosed, bubble: isRegClosed && !isItm && bubble ? Number(bubble) : null,
+          isItm, lockedAmount: isItm && lockedAmount ? Number(lockedAmount) : null,
+          isFinalTable, placesLeft: isFinalTable && placesLeft ? Number(placesLeft) : null,
+          firstPlacePrize: isFinalTable && firstPlacePrize ? Number(firstPlacePrize) : null,
+          isDeal, dealPlace: isDeal && dealPlace ? Number(dealPlace) : null,
+          dealPayout: isDeal && dealPayout ? Number(dealPayout) : null,
+          isBusted, totalEntries: totalEntries ? Number(totalEntries) : null,
+          isBagged, bagDay: isBagged && bagDay ? Number(bagDay) : null
+        };
+      };
 
       const handleSubmit = () => {
-        if (!selectedTournamentId || (!isBusted && !stack)) return;
+        if (!selectedTournamentId) return;
+        if (updateType === 'update' && !isBusted && !stack) return;
+        if (updateType === 'hand' && !parseCardNotation(heroHand).length) return;
         onPost(buildUpdateData());
         setOpen(false);
       };
@@ -2858,6 +3360,99 @@
       const selectedTournament = useMemo(() =>
         (mySchedule || []).find(t => t.id === selectedTournamentId) || null,
         [mySchedule, selectedTournamentId]);
+
+      // Entry label for register tab
+      const entryLabel = useMemo(() => {
+        const bc = activeUpdateMap[selectedTournamentId]?.bust_count || 0;
+        if (bc === 0) return 'Register';
+        const n = bc + 1;
+        return n + ordinalSuffix(n) + ' Entry';
+      }, [activeUpdateMap, selectedTournamentId]);
+
+      // Next event countdown for bust tab
+      const nextEvent = useMemo(() => {
+        const now = Date.now();
+        const upcoming = (mySchedule || [])
+          .filter(t => {
+            if (t.id === selectedTournamentId) return false;
+            const startMs = parseLateRegEnd(t.time, t.date);
+            return !isNaN(startMs) && startMs > now;
+          })
+          .sort((a, b) => parseLateRegEnd(a.time, a.date) - parseLateRegEnd(b.time, b.date));
+        if (!upcoming.length) return null;
+        const t = upcoming[0];
+        const startMs = parseLateRegEnd(t.time, t.date);
+        const diffMs = startMs - now;
+        const hours = Math.floor(diffMs / 3600000);
+        const mins = Math.floor((diffMs % 3600000) / 60000);
+        const timeStr = hours > 0 ? hours + 'h ' + mins + 'm' : mins + 'm';
+        return { name: t.event_name, buyin: t.buyin, venue: t.venue, timeUntil: timeStr };
+      }, [mySchedule, selectedTournamentId]);
+
+      // Game variant pills for hand tab
+      const gamePills = useMemo(() =>
+        selectedTournament ? getGamePills(selectedTournament.game_variant, selectedTournament.event_name) : ['NLH'],
+        [selectedTournament]);
+      const activeGame = handGame || gamePills[0] || 'NLH';
+      const gameConfig = HAND_CONFIG[activeGame] || HAND_CONFIG_DEFAULT;
+
+      const handResult = useMemo(() => {
+        if (!hasVillain || !GAME_EVAL[activeGame]) return null;
+        const hRaw = parseCardNotation(heroHand);
+        const vRaw = parseCardNotation(villainHand);
+        const hCards = hRaw.filter(c => c.suit !== 'x');
+        const vCards = vRaw.filter(c => c.suit !== 'x');
+        // Check hero/villain completeness
+        if (gameConfig.isStud) { if (hCards.length < 5 || vCards.length < 5) return null; }
+        else { if (hRaw.length < gameConfig.heroCards || vRaw.length < gameConfig.heroCards) return null; }
+        // Check board completeness for board games
+        const bCards = gameConfig.hasBoard ? parseCardNotation(boardCards) : [];
+        if (gameConfig.hasBoard && bCards.length < 3) return null;
+        return evaluateHand(activeGame, hCards, vCards, bCards);
+      }, [heroHand, villainHand, boardCards, activeGame, hasVillain, gameConfig]);
+
+      const shareHandImage = async () => {
+        if (!parseCardNotation(heroHand).length) return;
+        const handDataObj = {
+          heroHand, villainHand: hasVillain ? villainHand : null,
+          boardCards: gameConfig.hasBoard ? boardCards : null,
+          activeGame, gameConfig, handResult
+        };
+        const allCards = [
+          ...parseCardNotation(heroHand),
+          ...(hasVillain && villainHand ? parseCardNotation(villainHand) : []),
+          ...(gameConfig.hasBoard && boardCards ? parseCardNotation(boardCards) : [])
+        ];
+        try {
+          const images = await loadCardImages(allCards);
+          const outW = 1080, outH = 1080;
+          const canvas = document.createElement('canvas');
+          canvas.width = outW; canvas.height = outH;
+          const ctx = canvas.getContext('2d');
+          // Dark gradient background
+          const grad = ctx.createLinearGradient(0, 0, 0, outH);
+          grad.addColorStop(0, '#1a1a2e');
+          grad.addColorStop(1, '#0f0f1a');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, outW, outH);
+          // Draw felt-like subtle texture line
+          ctx.strokeStyle = 'rgba(34,197,94,0.08)';
+          ctx.lineWidth = 1;
+          for (let y = 0; y < outH; y += 40) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(outW, y); ctx.stroke();
+          }
+          drawHandImageOverlay(ctx, outW, outH, handDataObj, images, selectedTournamentName);
+          const dataUrl = canvas.toDataURL('image/png');
+          const blob = await (await fetch(dataUrl)).blob();
+          const file = new File([blob], 'hand-history.png', { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file] });
+          } else {
+            const a = document.createElement('a');
+            a.href = dataUrl; a.download = 'hand-history.png'; a.click();
+          }
+        } catch (e) { console.error('Share hand error:', e); }
+      };
 
       const openCamera = async () => {
         if (!selectedTournamentId) return;
@@ -2921,186 +3516,333 @@
                     </div>
                   )}
 
-                  <div className="live-update-row">
-                    <label className="live-update-toggle">
-                      <input type="checkbox" checked={isRegistered} onChange={e => { setIsRegistered(e.target.checked); if (e.target.checked && selectedTournamentId) setRegistrationOpen(true); }} disabled={!selectedTournamentId} />
-                      {(() => {
-                        const bc = activeUpdateMap[selectedTournamentId]?.bust_count || 0;
-                        if (bc === 0) return 'Registered';
-                        const n = bc + 1;
-                        return n + ordinalSuffix(n) + ' Entry';
-                      })()}
-                    </label>
+                  {/* ── Tab bar ── */}
+                  <div className="live-update-tabs">
+                    <button className={updateType === 'register' ? 'active' : ''} onClick={() => {
+                      setUpdateType('register');
+                      if (selectedTournamentId) setRegistrationOpen(true);
+                    }}>{entryLabel}</button>
+                    <button className={updateType === 'update' ? 'active' : ''} onClick={() => setUpdateType('update')}>Update</button>
+                    <button className={updateType === 'hand' ? 'active' : ''} onClick={() => setUpdateType('hand')}>Hand</button>
+                    <button className={updateType === 'bust' ? 'active' : ''} onClick={() => setUpdateType('bust')}>Bust</button>
                   </div>
 
-                  {isRegistered && (
-                    <div className="live-update-registered-section">
+                  {/* ── Register tab ── */}
+                  {updateType === 'register' && (
+                    <>
+                      <div className="live-update-registered-section">
+                        <div className="live-update-row">
+                          <label className="live-update-toggle">
+                            <input type="checkbox" checked={hasJoinLevel} onChange={e => { setHasJoinLevel(e.target.checked); if (!e.target.checked) { setJoiningSb(''); setJoiningBb(''); setJoiningAnte(''); } }} />
+                            Join Level
+                          </label>
+                          {hasJoinLevel && (
+                            <>
+                              <div className="live-update-field">
+                                <label>SB</label>
+                                <input type="text" inputMode="decimal" placeholder="100" value={joiningSb} onChange={e => {
+                                  const raw = e.target.value; setJoiningSb(raw);
+                                  const num = Number(parseShorthand(raw));
+                                  if (num > 0) { setJoiningBb(String(num * 2)); setJoiningAnte(String(num * 2)); }
+                                }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningSb(v); }} />
+                              </div>
+                              <div className="live-update-field">
+                                <label>BB</label>
+                                <input type="text" inputMode="decimal" placeholder="200" value={joiningBb} onChange={e => { const raw = e.target.value; setJoiningBb(raw); const num = Number(parseShorthand(raw)); if (num > 0) setJoiningAnte(String(num)); }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningBb(v); }} />
+                              </div>
+                              <div className="live-update-field">
+                                <label>Ante</label>
+                                <input type="text" inputMode="decimal" placeholder="200" value={joiningAnte} onChange={e => setJoiningAnte(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningAnte(v); }} />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ── Update tab ── */}
+                  {updateType === 'update' && (
+                    <>
+                      <div className="live-update-field">
+                        <label>Stack</label>
+                        <input type="text" inputMode="decimal" placeholder="275k" value={stack} onChange={e => setStack(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setStack(v); }} autoFocus />
+                      </div>
+
+                      <div className="live-update-row">
+                        <div className="live-update-field">
+                          <label>SB</label>
+                          <input type="text" inputMode="decimal" placeholder="1k" value={sb} onChange={e => {
+                            const raw = e.target.value;
+                            setSb(raw);
+                            const parsed = parseShorthand(raw);
+                            const num = Number(parsed);
+                            if (num > 0) { setBb(String(num * 2)); setBbAnte(String(num * 2)); }
+                          }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setSb(v); }} />
+                        </div>
+                        <div className="live-update-field">
+                          <label>BB</label>
+                          <input type="text" inputMode="decimal" placeholder="2k" value={bb} onChange={e => { const raw = e.target.value; setBb(raw); const num = Number(parseShorthand(raw)); if (num > 0) setBbAnte(String(num)); }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBb(v); }} />
+                        </div>
+                        <div className="live-update-field">
+                          <label>BB Ante</label>
+                          <input type="text" inputMode="decimal" placeholder="2k" value={bbAnte} onChange={e => setBbAnte(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBbAnte(v); }} />
+                        </div>
+                      </div>
+
+                      <div className="live-update-field">
+                        <label>Total Entries</label>
+                        <input type="number" placeholder="1234" value={totalEntries} onChange={e => setTotalEntries(e.target.value)} />
+                      </div>
+
                       <div className="live-update-row">
                         <label className="live-update-toggle">
-                          <input type="checkbox" checked={hasJoinLevel} onChange={e => { setHasJoinLevel(e.target.checked); if (!e.target.checked) { setJoiningSb(''); setJoiningBb(''); setJoiningAnte(''); } }} />
-                          Join Level
+                          <input type="checkbox" checked={isRegClosed} onChange={e => { setIsRegClosed(e.target.checked); if (!e.target.checked) { setBubble(''); setIsItm(false); setLockedAmount(''); setIsFinalTable(false); setPlacesLeft(''); setFirstPlacePrize(''); setIsDeal(false); setDealPlace(''); setDealPayout(''); } }} />
+                          Reg Closed
                         </label>
-                        {hasJoinLevel && (
+                      </div>
+
+                      {isRegClosed && !isItm && (
+                        <div className="live-update-field">
+                          <label>Bubble (players from money)</label>
+                          <input type="number" placeholder="12" value={bubble} onChange={e => setBubble(e.target.value)} min="0" />
+                        </div>
+                      )}
+
+                      <div className="live-update-row">
+                        <label className="live-update-toggle">
+                          <input type="checkbox" checked={isItm} onChange={e => { setIsItm(e.target.checked); if (e.target.checked) { setIsRegClosed(true); setBubble(''); } if (!e.target.checked) { setLockedAmount(''); setIsFinalTable(false); setPlacesLeft(''); setFirstPlacePrize(''); setIsDeal(false); setDealPlace(''); setDealPayout(''); } }} />
+                          ITM?
+                        </label>
+                        {isItm && (
+                          <div className="live-update-field" style={{flex:'0 0 100px'}}>
+                            <label>Locked $</label>
+                            <input type="number" placeholder="5000" value={lockedAmount} onChange={e => setLockedAmount(e.target.value)} />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="live-update-row">
+                        <label className="live-update-toggle">
+                          <input type="checkbox" checked={isBagged} onChange={e => { setIsBagged(e.target.checked); if (!e.target.checked) setBagDay(''); }} />
+                          Bagged
+                        </label>
+                        {isBagged && (
+                          <div className="live-update-field" style={{flex:'0 0 70px'}}>
+                            <label>For Day #</label>
+                            <input type="number" placeholder="2" value={bagDay} onChange={e => setBagDay(e.target.value)} min="1" />
+                          </div>
+                        )}
+                      </div>
+
+                      {isItm && (
+                        <div className="live-update-row live-update-row-indent">
+                          <label className="live-update-toggle">
+                            <input type="checkbox" checked={isFinalTable} onChange={e => { setIsFinalTable(e.target.checked); if (!e.target.checked) { setPlacesLeft(''); setFirstPlacePrize(''); } }} />
+                            Final Table
+                          </label>
+                          {isFinalTable && (
+                            <>
+                              <div className="live-update-field" style={{flex:'0 0 70px'}}>
+                                <label>Places Left</label>
+                                <input type="number" placeholder="6" value={placesLeft} onChange={e => setPlacesLeft(e.target.value)} min="1" />
+                              </div>
+                              <div className="live-update-field" style={{flex:'0 0 90px'}}>
+                                <label>1st Prize $</label>
+                                <input type="number" placeholder="50000" value={firstPlacePrize} onChange={e => setFirstPlacePrize(e.target.value)} />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {isItm && (
+                        <div className="live-update-row live-update-row-indent">
+                          <label className="live-update-toggle">
+                            <input type="checkbox" checked={isDeal} onChange={e => { setIsDeal(e.target.checked); if (!e.target.checked) { setDealPlace(''); setDealPayout(''); } }} />
+                            Deal
+                          </label>
+                          {isDeal && (
+                            <>
+                              <div className="live-update-field" style={{flex:'0 0 70px'}}>
+                                <label>Place</label>
+                                <input type="number" placeholder="3" value={dealPlace} onChange={e => setDealPlace(e.target.value)} min="1" />
+                              </div>
+                              <div className="live-update-field" style={{flex:'0 0 90px'}}>
+                                <label>Payout $</label>
+                                <input type="number" placeholder="25000" value={dealPayout} onChange={e => setDealPayout(e.target.value)} />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── Hand tab ── */}
+                  {updateType === 'hand' && (
+                    <>
+                      {gamePills.length > 1 ? (
+                        <div className="hand-game-pills">
+                          {(() => {
+                            const n = gamePills.length;
+                            const numRows = Math.ceil(n / 5);
+                            const base = Math.floor(n / numRows);
+                            const extra = n % numRows;
+                            // Try each way to place the larger rows, pick arrangement
+                            // where the longest-text rows get fewer items
+                            const textLen = (arr) => arr.reduce((s, g) => s + g.length, 0);
+                            let bestRows = null, bestScore = Infinity;
+                            // Bitmask which rows get base+1 items
+                            const combos = (extra === 0) ? [0] : [];
+                            if (extra > 0) {
+                              // For small numRows, try all combos of which rows get +1
+                              const gen = (mask, bit, count) => {
+                                if (count === 0) { combos.push(mask); return; }
+                                if (bit >= numRows) return;
+                                gen(mask | (1 << bit), bit + 1, count - 1);
+                                gen(mask, bit + 1, count);
+                              };
+                              gen(0, 0, extra);
+                            }
+                            for (const mask of combos) {
+                              const rows = []; let idx = 0;
+                              for (let r = 0; r < numRows; r++) {
+                                const cnt = base + ((mask >> r) & 1);
+                                rows.push(gamePills.slice(idx, idx + cnt));
+                                idx += cnt;
+                              }
+                              // Score: max text length per row (lower = more balanced)
+                              const maxLen = Math.max(...rows.map(textLen));
+                              if (maxLen < bestScore) { bestScore = maxLen; bestRows = rows; }
+                            }
+                            return bestRows.map((row, ri) =>
+                              React.createElement('div', { key: ri, className: 'hand-game-pill-row' },
+                                row.map(g =>
+                                  React.createElement('button', { key: g, className: activeGame === g ? 'active' : '', onClick: () => setHandGame(g) }, g)
+                                )
+                              )
+                            );
+                          })()}
+                        </div>
+                      ) : (
+                        <div className="hand-game-label">{activeGame}</div>
+                      )}
+                      {(() => {
+                        const cardKeys = (str) => parseCardNotation(str).filter(c => c.suit !== 'x').map(c => c.rank + c.suit);
+                        const hasDupes = (newVal, ...others) => {
+                          const used = new Set(others.flatMap(cardKeys));
+                          const incoming = cardKeys(newVal);
+                          const seen = new Set();
+                          for (const k of incoming) {
+                            if (used.has(k) || seen.has(k)) return true;
+                            seen.add(k);
+                          }
+                          return false;
+                        };
+                        return <>
+                      <div className="live-update-field">
+                        <label>Hero Hand</label>
+                        <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={heroHand} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, boardCards, villainHand)) setHeroHand(v); }} autoFocus />
+                        <CardRow text={heroHand} stud={gameConfig.isStud} max={gameConfig.heroCards} />
+                      </div>
+                      {gameConfig.hasBoard && (
+                        <div className="live-update-field">
+                          <label>Board</label>
+                          <input type="text" placeholder={dualPlaceholder(gameConfig.boardPlaceholder)} value={boardCards} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.boardMax && !hasDupes(v, heroHand, villainHand)) setBoardCards(v); }} />
+                          <CardRow text={boardCards} max={gameConfig.boardMax} />
+                        </div>
+                      )}
+                      <div className="live-update-field">
+                        <label className="live-update-toggle">
+                          <input type="checkbox" checked={hasVillain} onChange={e => { setHasVillain(e.target.checked); if (!e.target.checked) setVillainHand(''); }} />
+                          Villain Hand
+                        </label>
+                        {hasVillain && (
                           <>
-                            <div className="live-update-field">
-                              <label>SB</label>
-                              <input type="text" inputMode="decimal" placeholder="100" value={joiningSb} onChange={e => {
-                                const raw = e.target.value; setJoiningSb(raw);
-                                const num = Number(parseShorthand(raw));
-                                if (num > 0) { setJoiningBb(String(num * 2)); setJoiningAnte(String(num * 2)); }
-                              }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningSb(v); }} />
-                            </div>
-                            <div className="live-update-field">
-                              <label>BB</label>
-                              <input type="text" inputMode="decimal" placeholder="200" value={joiningBb} onChange={e => { const raw = e.target.value; setJoiningBb(raw); const num = Number(parseShorthand(raw)); if (num > 0) setJoiningAnte(String(num)); }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningBb(v); }} />
-                            </div>
-                            <div className="live-update-field">
-                              <label>Ante</label>
-                              <input type="text" inputMode="decimal" placeholder="200" value={joiningAnte} onChange={e => setJoiningAnte(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningAnte(v); }} />
-                            </div>
+                            <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={villainHand} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, heroHand, boardCards)) setVillainHand(v); }} />
+                            <CardRow text={villainHand} stud={gameConfig.isStud} max={gameConfig.heroCards} />
                           </>
                         )}
                       </div>
-                    </div>
-                  )}
-                  {isRegistered && <div className="live-update-divider" />}
-
-                  <div className="live-update-field">
-                    <label>Stack</label>
-                    <input type="text" inputMode="decimal" placeholder="275k" value={stack} onChange={e => setStack(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setStack(v); }} autoFocus />
-                  </div>
-
-                  <div className="live-update-row">
-                    <div className="live-update-field">
-                      <label>SB</label>
-                      <input type="text" inputMode="decimal" placeholder="1k" value={sb} onChange={e => {
-                        const raw = e.target.value;
-                        setSb(raw);
-                        const parsed = parseShorthand(raw);
-                        const num = Number(parsed);
-                        if (num > 0) { setBb(String(num * 2)); setBbAnte(String(num * 2)); }
-                      }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setSb(v); }} />
-                    </div>
-                    <div className="live-update-field">
-                      <label>BB</label>
-                      <input type="text" inputMode="decimal" placeholder="2k" value={bb} onChange={e => { const raw = e.target.value; setBb(raw); const num = Number(parseShorthand(raw)); if (num > 0) setBbAnte(String(num)); }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBb(v); }} />
-                    </div>
-                    <div className="live-update-field">
-                      <label>BB Ante</label>
-                      <input type="text" inputMode="decimal" placeholder="2k" value={bbAnte} onChange={e => setBbAnte(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBbAnte(v); }} />
-                    </div>
-                  </div>
-
-                  <div className="live-update-field">
-                    <label>Total Entries</label>
-                    <input type="number" placeholder="1234" value={totalEntries} onChange={e => setTotalEntries(e.target.value)} />
-                  </div>
-
-                  <div className="live-update-row">
-                    <label className="live-update-toggle">
-                      <input type="checkbox" checked={isRegClosed} onChange={e => { setIsRegClosed(e.target.checked); if (!e.target.checked) { setBubble(''); setIsItm(false); setLockedAmount(''); setIsFinalTable(false); setPlacesLeft(''); setFirstPlacePrize(''); setIsDeal(false); setDealPlace(''); setDealPayout(''); } }} />
-                      Reg Closed
-                    </label>
-                  </div>
-
-                  {isRegClosed && !isItm && (
-                    <div className="live-update-field">
-                      <label>Bubble (players from money)</label>
-                      <input type="number" placeholder="12" value={bubble} onChange={e => setBubble(e.target.value)} min="0" />
-                    </div>
-                  )}
-
-                  <div className="live-update-row">
-                    <label className="live-update-toggle">
-                      <input type="checkbox" checked={isItm} onChange={e => { setIsItm(e.target.checked); if (e.target.checked) { setIsRegClosed(true); setBubble(''); } if (!e.target.checked) { setLockedAmount(''); setIsFinalTable(false); setPlacesLeft(''); setFirstPlacePrize(''); setIsDeal(false); setDealPlace(''); setDealPayout(''); } }} />
-                      ITM?
-                    </label>
-                    {isItm && (
-                      <div className="live-update-field" style={{flex:'0 0 100px'}}>
-                        <label>Locked $</label>
-                        <input type="number" placeholder="5000" value={lockedAmount} onChange={e => setLockedAmount(e.target.value)} />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="live-update-row">
-                    <label className="live-update-toggle">
-                      <input type="checkbox" checked={isBagged} onChange={e => { setIsBagged(e.target.checked); if (!e.target.checked) setBagDay(''); }} />
-                      Bagged
-                    </label>
-                    {isBagged && (
-                      <div className="live-update-field" style={{flex:'0 0 70px'}}>
-                        <label>For Day #</label>
-                        <input type="number" placeholder="2" value={bagDay} onChange={e => setBagDay(e.target.value)} min="1" />
-                      </div>
-                    )}
-                  </div>
-
-                  {isItm && (
-                    <div className="live-update-row live-update-row-indent">
-                      <label className="live-update-toggle">
-                        <input type="checkbox" checked={isFinalTable} onChange={e => { setIsFinalTable(e.target.checked); if (!e.target.checked) { setPlacesLeft(''); setFirstPlacePrize(''); } }} />
-                        Final Table
-                      </label>
-                      {isFinalTable && (
-                        <>
-                          <div className="live-update-field" style={{flex:'0 0 70px'}}>
-                            <label>Places Left</label>
-                            <input type="number" placeholder="6" value={placesLeft} onChange={e => setPlacesLeft(e.target.value)} min="1" />
-                          </div>
-                          <div className="live-update-field" style={{flex:'0 0 90px'}}>
-                            <label>1st Prize $</label>
-                            <input type="number" placeholder="50000" value={firstPlacePrize} onChange={e => setFirstPlacePrize(e.target.value)} />
-                          </div>
-                        </>
+                        </>;
+                      })()}
+                      {handResult && (
+                        <div className={`hand-result hand-result-${handResult.result.color === 'green' ? 'hero' : handResult.result.color === 'red' ? 'villain' : 'split'}`}>
+                          {handResult.result.text}
+                        </div>
                       )}
-                    </div>
+                      <div className="live-update-field">
+                        <label>Notes</label>
+                        <input type="text" placeholder="All in on flop, hero holds" value={handNote} onChange={e => setHandNote(e.target.value)} />
+                      </div>
+                    </>
                   )}
 
-                  {isItm && (
-                    <div className="live-update-row live-update-row-indent">
-                      <label className="live-update-toggle">
-                        <input type="checkbox" checked={isDeal} onChange={e => { setIsDeal(e.target.checked); if (!e.target.checked) { setDealPlace(''); setDealPayout(''); } }} />
-                        Deal
-                      </label>
-                      {isDeal && (
-                        <>
-                          <div className="live-update-field" style={{flex:'0 0 70px'}}>
-                            <label>Place</label>
-                            <input type="number" placeholder="3" value={dealPlace} onChange={e => setDealPlace(e.target.value)} min="1" />
-                          </div>
-                          <div className="live-update-field" style={{flex:'0 0 90px'}}>
-                            <label>Payout $</label>
-                            <input type="number" placeholder="25000" value={dealPayout} onChange={e => setDealPayout(e.target.value)} />
-                          </div>
-                        </>
+                  {/* ── Bust tab ── */}
+                  {updateType === 'bust' && (
+                    <>
+                      <div className="live-update-row">
+                        <div className="live-update-field">
+                          <label>Place (optional)</label>
+                          <input type="number" placeholder="152" value={bustPlace} onChange={e => setBustPlace(e.target.value)} min="1" />
+                        </div>
+                        <div className="live-update-field">
+                          <label>Payout $ (optional)</label>
+                          <input type="number" placeholder="2500" value={bustPayout} onChange={e => setBustPayout(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="live-update-row">
+                        <div className="live-update-field">
+                          <label>Note (optional)</label>
+                          <input type="text" placeholder="AK < QQ all in pre" value={bustNote} onChange={e => setBustNote(e.target.value)} />
+                        </div>
+                        <div className="live-update-field" style={{flex:'0 0 90px'}}>
+                          <label>Total Entries</label>
+                          <input type="number" placeholder="1234" value={totalEntries} onChange={e => setTotalEntries(e.target.value)} />
+                        </div>
+                      </div>
+                      {nextEvent && (
+                        <div className="live-update-next-event">
+                          Next: <strong>{nextEvent.name}</strong>
+                          {nextEvent.buyin ? ' · ' + nextEvent.buyin : ''}
+                          {' · in ' + nextEvent.timeUntil}
+                        </div>
                       )}
-                    </div>
+                    </>
                   )}
 
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px'}}>
-                    <label className="live-update-toggle">
-                      <input type="checkbox" checked={isBusted} onChange={e => setIsBusted(e.target.checked)} />
-                      Busted
-                    </label>
-                    <div style={{display:'flex',gap:'6px'}}>
+                  {/* ── Bottom row: camera + share + post ── */}
+                  <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',marginTop:'4px',gap:'6px'}}>
+                    {updateType === 'hand' && parseCardNotation(heroHand).length > 0 && (
                       <button
                         className="btn btn-ghost btn-sm"
-                        onClick={openCamera}
-                        disabled={!selectedTournamentId}
-                        title="Camera overlay"
+                        onClick={shareHandImage}
+                        title="Share hand image"
                         style={{padding:'6px'}}
                       >
-                        <Icon.camera />
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'16px',height:'16px'}}>
+                          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                        </svg>
                       </button>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={handleSubmit}
-                        disabled={!selectedTournamentId || (!isBusted && !stack)}
-                      >
-                        Post Update
-                      </button>
-                    </div>
+                    )}
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={openCamera}
+                      disabled={!selectedTournamentId}
+                      title="Camera overlay"
+                      style={{padding:'6px'}}
+                    >
+                      <Icon.camera />
+                    </button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={handleSubmit}
+                      disabled={!selectedTournamentId || (updateType === 'update' && !isBusted && !stack) || (updateType === 'hand' && !parseCardNotation(heroHand).length)}
+                    >
+                      {updateType === 'bust' ? 'Post Bust' : updateType === 'hand' ? 'Post Hand' : 'Post Update'}
+                    </button>
                   </div>
                 </>
               )}
@@ -3112,6 +3854,12 @@
               tournamentName={selectedTournamentName}
               tournament={selectedTournament}
               stackHistory={stackHistory}
+              defaultOverlay={updateType === 'hand' ? 'hand' : updateType === 'bust' ? 'countdown' : 'stats'}
+              handData={updateType === 'hand' && parseCardNotation(heroHand).length > 0 ? {
+                heroHand, villainHand: hasVillain ? villainHand : null,
+                boardCards: gameConfig.hasBoard ? boardCards : null,
+                activeGame, gameConfig, handResult
+              } : null}
               onClose={() => { setCameraOpen(false); setOpen(true); }}
             />,
             document.body
@@ -3450,6 +4198,384 @@
       ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
     }
 
+    // ── Load card images for canvas drawing ──
+    function loadCardImages(cards) {
+      const unique = new Map();
+      cards.forEach(c => { if (c.suit !== 'x') unique.set(c.rank + c.suit, true); });
+      const promises = [];
+      const result = new Map();
+      unique.forEach((_, key) => {
+        promises.push(new Promise(resolve => {
+          const img = new Image();
+          img.onload = () => { result.set(key, img); resolve(); };
+          img.onerror = () => resolve();
+          img.src = '/_cards/cards_gui_' + key + '.png';
+        }));
+      });
+      return Promise.all(promises).then(() => result);
+    }
+
+    // ── Draw a single card on canvas ──
+    function drawCanvasCard(ctx, img, x, y, cw, ch) {
+      if (img) {
+        ctx.drawImage(img, x, y, cw, ch);
+      } else {
+        // Unknown / face-down card
+        ctx.fillStyle = 'rgba(80,80,80,0.9)';
+        const r = Math.round(cw * 0.08);
+        ctx.beginPath();
+        ctx.roundRect(x, y, cw, ch, r);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(x, y, cw, ch, r);
+        ctx.stroke();
+        const qs = Math.round(ch * 0.35);
+        ctx.font = '600 ' + qs + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.textAlign = 'center';
+        ctx.fillText('?', x + cw / 2, y + ch / 2 + qs * 0.35);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    // ── Draw a row of cards, returns total width drawn ──
+    function drawCardRow(ctx, cards, images, x, y, cw, ch, gap) {
+      cards.forEach((c, i) => {
+        const cx = x + i * (cw + gap);
+        const img = c.suit !== 'x' ? images.get(c.rank + c.suit) : null;
+        drawCanvasCard(ctx, img, cx, y, cw, ch);
+      });
+      return cards.length * cw + Math.max(0, cards.length - 1) * gap;
+    }
+
+    // ── Hand History overlay ──
+    function drawHandOverlay(ctx, w, h, handData, images) {
+      const heroCards = parseCardNotation(handData.heroHand);
+      const villainCards = handData.villainHand ? parseCardNotation(handData.villainHand) : [];
+      const boardCards = handData.boardCards ? parseCardNotation(handData.boardCards) : [];
+      const hasBoard = handData.gameConfig.hasBoard && boardCards.length > 0;
+      const hasVillain = villainCards.length > 0;
+      const result = handData.handResult?.result;
+
+      // Bar dimensions
+      const barH = Math.round(h * 0.28);
+      const barY = h - barH - Math.round(h * 0.04);
+      const padX = Math.round(w * 0.05);
+
+      // Background
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(0, barY, w, barH);
+
+      // Card sizing
+      const gap = 6;
+      const cardRatio = 2.5 / 3.5; // width:height
+      // Reserve space: bottom for result text (~15%), top for labels (~10%)
+      const labelZone = Math.round(barH * 0.08);
+      const resultZone = result ? Math.round(barH * 0.16) : Math.round(barH * 0.06);
+      const cardZoneH = barH - labelZone - resultZone - Math.round(barH * 0.06);
+
+      if (hasBoard) {
+        // ── COMMUNITY CARD LAYOUT ──
+        const leftW = Math.round((w - padX * 2) * 0.45);
+        const rightW = Math.round((w - padX * 2) * 0.45);
+        const dividerX = padX + leftW + Math.round((w - padX * 2) * 0.10);
+
+        // Calculate card heights for each section
+        const rowsNeeded = hasVillain ? 2 : 1;
+        const rowGap = Math.round(barH * 0.06);
+        const perRowLabel = Math.round(barH * 0.07);
+        const heroVillainCardH = Math.min(
+          Math.round((cardZoneH - (rowsNeeded - 1) * rowGap - rowsNeeded * perRowLabel) / rowsNeeded),
+          140
+        );
+        const heroVillainCardW = Math.round(heroVillainCardH * cardRatio);
+
+        // Board card size — fit in right section
+        const boardCardH = Math.min(heroVillainCardH * 1.1, 140);
+        const boardCardW = Math.round(boardCardH * cardRatio);
+        const boardTotalW = boardCards.length * boardCardW + Math.max(0, boardCards.length - 1) * gap;
+        // If board doesn't fit, shrink
+        let finalBoardCardH = boardCardH;
+        let finalBoardCardW = boardCardW;
+        if (boardTotalW > rightW) {
+          finalBoardCardW = Math.floor((rightW - (boardCards.length - 1) * gap) / boardCards.length);
+          finalBoardCardH = Math.round(finalBoardCardW / cardRatio);
+        }
+
+        // Similarly check hero/villain fit
+        let finalHVCardH = heroVillainCardH;
+        let finalHVCardW = heroVillainCardW;
+        const maxHVCards = Math.max(heroCards.length, villainCards.length);
+        const hvTotalW = maxHVCards * finalHVCardW + Math.max(0, maxHVCards - 1) * gap;
+        if (hvTotalW > leftW) {
+          finalHVCardW = Math.floor((leftW - (maxHVCards - 1) * gap) / maxHVCards);
+          finalHVCardH = Math.round(finalHVCardW / cardRatio);
+        }
+
+        // Y positions
+        const contentTop = barY + labelZone;
+        const heroLabelY = contentTop + Math.round(perRowLabel * 0.7);
+        const heroCardY = contentTop + perRowLabel;
+        const villainLabelY = heroCardY + finalHVCardH + rowGap + Math.round(perRowLabel * 0.7);
+        const villainCardY = heroCardY + finalHVCardH + rowGap + perRowLabel;
+
+        // Draw HERO label + cards
+        const lblS = Math.round(h * 0.014);
+        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.letterSpacing = '1px';
+        ctx.fillText('HERO', padX, heroLabelY);
+        ctx.letterSpacing = '0px';
+        drawCardRow(ctx, heroCards, images, padX, heroCardY, finalHVCardW, finalHVCardH, gap);
+
+        // Draw VILLAIN label + cards
+        if (hasVillain) {
+          ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.letterSpacing = '1px';
+          ctx.fillText('VILLAIN', padX, villainLabelY);
+          ctx.letterSpacing = '0px';
+          drawCardRow(ctx, villainCards, images, padX, villainCardY, finalHVCardW, finalHVCardH, gap);
+        }
+
+        // Draw BOARD label + cards (right side, vertically centered)
+        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.letterSpacing = '1px';
+        ctx.fillText('BOARD', dividerX, heroLabelY);
+        ctx.letterSpacing = '0px';
+
+        // Center board vertically between hero and villain card areas
+        const boardMidY = hasVillain
+          ? (heroCardY + villainCardY + finalHVCardH) / 2
+          : heroCardY + finalHVCardH / 2;
+        const boardY = Math.round(boardMidY - finalBoardCardH / 2);
+        drawCardRow(ctx, boardCards, images, dividerX, boardY, finalBoardCardW, finalBoardCardH, gap);
+
+      } else {
+        // ── NON-COMMUNITY CARD LAYOUT (centered) ──
+        const rowsNeeded = hasVillain ? 2 : 1;
+        const rowGap = Math.round(barH * 0.06);
+        const perRowLabel = Math.round(barH * 0.07);
+        const maxCards = Math.max(heroCards.length, villainCards.length);
+        const availW = w - padX * 2;
+
+        let cardH = Math.min(
+          Math.round((cardZoneH - (rowsNeeded - 1) * rowGap - rowsNeeded * perRowLabel) / rowsNeeded),
+          140
+        );
+        let cardW = Math.round(cardH * cardRatio);
+        const totalW = maxCards * cardW + Math.max(0, maxCards - 1) * gap;
+        if (totalW > availW) {
+          cardW = Math.floor((availW - (maxCards - 1) * gap) / maxCards);
+          cardH = Math.round(cardW / cardRatio);
+        }
+
+        const contentTop = barY + labelZone;
+        const lblS = Math.round(h * 0.014);
+
+        // Hero centered
+        const heroTotalW = heroCards.length * cardW + Math.max(0, heroCards.length - 1) * gap;
+        const heroX = Math.round((w - heroTotalW) / 2);
+        const heroLabelY = contentTop + Math.round(perRowLabel * 0.7);
+        const heroCardY = contentTop + perRowLabel;
+
+        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.textAlign = 'center';
+        ctx.letterSpacing = '1px';
+        ctx.fillText('HERO', w / 2, heroLabelY);
+        ctx.letterSpacing = '0px';
+        ctx.textAlign = 'left';
+        drawCardRow(ctx, heroCards, images, heroX, heroCardY, cardW, cardH, gap);
+
+        // Villain centered
+        if (hasVillain) {
+          const villainTotalW = villainCards.length * cardW + Math.max(0, villainCards.length - 1) * gap;
+          const villainX = Math.round((w - villainTotalW) / 2);
+          const villainLabelY = heroCardY + cardH + rowGap + Math.round(perRowLabel * 0.7);
+          const villainCardY = heroCardY + cardH + rowGap + perRowLabel;
+
+          ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.textAlign = 'center';
+          ctx.letterSpacing = '1px';
+          ctx.fillText('VILLAIN', w / 2, villainLabelY);
+          ctx.letterSpacing = '0px';
+          ctx.textAlign = 'left';
+          drawCardRow(ctx, villainCards, images, villainX, villainCardY, cardW, cardH, gap);
+        }
+      }
+
+      // Result text
+      if (result) {
+        const resS = Math.round(h * 0.020);
+        ctx.font = '600 ' + resS + 'px Oswald, sans-serif';
+        ctx.fillStyle = result.color === 'green' ? '#4ade80' : result.color === 'red' ? '#f87171' : '#facc15';
+        ctx.textAlign = 'center';
+        ctx.fillText(result.text, w / 2, barY + barH - Math.round(barH * 0.10));
+        ctx.textAlign = 'left';
+      }
+
+      // Game label top-right of bar
+      const gameS = Math.round(h * 0.016);
+      ctx.font = gameS + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.textAlign = 'right';
+      ctx.fillText(handData.activeGame, w - padX, barY + Math.round(barH * 0.07));
+      ctx.textAlign = 'left';
+
+      // Watermark
+      const wms = Math.round(h * 0.014);
+      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
+    }
+
+    // ── Standalone hand history image (square 1080×1080) ──
+    function drawHandImageOverlay(ctx, w, h, handData, images, tournamentName) {
+      const heroCards = parseCardNotation(handData.heroHand);
+      const villainCards = handData.villainHand ? parseCardNotation(handData.villainHand) : [];
+      const boardCards = handData.boardCards ? parseCardNotation(handData.boardCards) : [];
+      const hasBoard = handData.gameConfig.hasBoard && boardCards.length > 0;
+      const hasVillain = villainCards.length > 0;
+      const result = handData.handResult?.result;
+      const padX = Math.round(w * 0.06);
+      const gap = 8;
+      const cardRatio = 2.5 / 3.5;
+
+      // Tournament name at top
+      const nameS = Math.round(h * 0.022);
+      ctx.font = nameS + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.textAlign = 'center';
+      ctx.fillText(tournamentName || '', w / 2, Math.round(h * 0.06));
+
+      // Game label below tournament name
+      const gameS = Math.round(h * 0.028);
+      ctx.font = '600 ' + gameS + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText(handData.activeGame, w / 2, Math.round(h * 0.10));
+      ctx.textAlign = 'left';
+
+      // Thin green accent line
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(padX, Math.round(h * 0.12), w - padX * 2, 2);
+
+      if (hasBoard) {
+        // ── COMMUNITY CARD LAYOUT ──
+        const leftW = Math.round((w - padX * 2) * 0.42);
+        const rightW = Math.round((w - padX * 2) * 0.42);
+        const centerGap = Math.round((w - padX * 2) * 0.16);
+        const rightX = padX + leftW + centerGap;
+        const contentTop = Math.round(h * 0.18);
+        const lblS = Math.round(h * 0.020);
+        const rowLabelH = Math.round(h * 0.04);
+
+        // Calculate card size for hero/villain (fit in left section)
+        const maxHVCards = Math.max(heroCards.length, villainCards.length);
+        let hvCardW = Math.floor((leftW - (maxHVCards - 1) * gap) / maxHVCards);
+        let hvCardH = Math.round(hvCardW / cardRatio);
+        if (hvCardH > Math.round(h * 0.22)) { hvCardH = Math.round(h * 0.22); hvCardW = Math.round(hvCardH * cardRatio); }
+
+        // Calculate card size for board (fit in right section)
+        let bCardW = Math.floor((rightW - (boardCards.length - 1) * gap) / boardCards.length);
+        let bCardH = Math.round(bCardW / cardRatio);
+        if (bCardH > Math.round(h * 0.22)) { bCardH = Math.round(h * 0.22); bCardW = Math.round(bCardH * cardRatio); }
+
+        // HERO
+        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.letterSpacing = '2px';
+        ctx.fillText('HERO', padX, contentTop);
+        ctx.letterSpacing = '0px';
+        const heroCardY = contentTop + rowLabelH;
+        drawCardRow(ctx, heroCards, images, padX, heroCardY, hvCardW, hvCardH, gap);
+
+        // VILLAIN
+        if (hasVillain) {
+          const villainTop = heroCardY + hvCardH + Math.round(h * 0.05);
+          ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.letterSpacing = '2px';
+          ctx.fillText('VILLAIN', padX, villainTop);
+          ctx.letterSpacing = '0px';
+          drawCardRow(ctx, villainCards, images, padX, villainTop + rowLabelH, hvCardW, hvCardH, gap);
+        }
+
+        // BOARD (right side, vertically centered)
+        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.letterSpacing = '2px';
+        ctx.fillText('BOARD', rightX, contentTop);
+        ctx.letterSpacing = '0px';
+        const boardCenterY = hasVillain
+          ? heroCardY + hvCardH + Math.round(h * 0.025)
+          : heroCardY + hvCardH / 2;
+        const boardY = Math.round(boardCenterY - bCardH / 2);
+        drawCardRow(ctx, boardCards, images, rightX, Math.max(boardY, contentTop + rowLabelH), bCardW, bCardH, gap);
+
+      } else {
+        // ── NON-COMMUNITY CARD LAYOUT (centered) ──
+        const contentTop = Math.round(h * 0.18);
+        const lblS = Math.round(h * 0.020);
+        const rowLabelH = Math.round(h * 0.04);
+        const availW = w - padX * 2;
+
+        const maxCards = Math.max(heroCards.length, villainCards.length);
+        let cardW = Math.floor((availW - (maxCards - 1) * gap) / maxCards);
+        let cardH = Math.round(cardW / cardRatio);
+        if (cardH > Math.round(h * 0.22)) { cardH = Math.round(h * 0.22); cardW = Math.round(cardH * cardRatio); }
+
+        // HERO centered
+        const heroTotalW = heroCards.length * cardW + Math.max(0, heroCards.length - 1) * gap;
+        const heroX = Math.round((w - heroTotalW) / 2);
+        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.textAlign = 'center';
+        ctx.letterSpacing = '2px';
+        ctx.fillText('HERO', w / 2, contentTop);
+        ctx.letterSpacing = '0px';
+        ctx.textAlign = 'left';
+        drawCardRow(ctx, heroCards, images, heroX, contentTop + rowLabelH, cardW, cardH, gap);
+
+        // VILLAIN centered
+        if (hasVillain) {
+          const villainTop = contentTop + rowLabelH + cardH + Math.round(h * 0.05);
+          const villainTotalW = villainCards.length * cardW + Math.max(0, villainCards.length - 1) * gap;
+          const villainX = Math.round((w - villainTotalW) / 2);
+          ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.textAlign = 'center';
+          ctx.letterSpacing = '2px';
+          ctx.fillText('VILLAIN', w / 2, villainTop);
+          ctx.letterSpacing = '0px';
+          ctx.textAlign = 'left';
+          drawCardRow(ctx, villainCards, images, villainX, villainTop + rowLabelH, cardW, cardH, gap);
+        }
+      }
+
+      // Result text
+      if (result) {
+        const resS = Math.round(h * 0.028);
+        ctx.font = '600 ' + resS + 'px Oswald, sans-serif';
+        ctx.fillStyle = result.color === 'green' ? '#4ade80' : result.color === 'red' ? '#f87171' : '#facc15';
+        ctx.textAlign = 'center';
+        ctx.fillText(result.text, w / 2, Math.round(h * 0.88));
+        ctx.textAlign = 'left';
+      }
+
+      // Watermark bottom
+      const wms = Math.round(h * 0.016);
+      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.textAlign = 'center';
+      ctx.fillText('snbwsop.com', w / 2, Math.round(h * 0.95));
+      ctx.textAlign = 'left';
+    }
+
     // Pinch-to-zoom helper for camera video elements
     // Uses MediaStreamTrack zoom when available (Android Chrome), falls back to CSS transform (iOS Safari)
     function usePinchZoom(videoRef, streamRef) {
@@ -3518,13 +4644,13 @@
       return resetZoom;
     }
 
-    function CameraOverlay({ updateData, tournamentName, tournament, stackHistory, onClose }) {
+    function CameraOverlay({ updateData, tournamentName, tournament, stackHistory, defaultOverlay, handData, onClose }) {
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
       const streamRef = useRef(null);
       const [captured, setCaptured] = useState(null);
       const [error, setError] = useState(null);
-      const [overlayType, setOverlayType] = useState('stats');
+      const [overlayType, setOverlayType] = useState(defaultOverlay || 'stats');
       const resetZoom = usePinchZoom(videoRef, streamRef);
 
       const startCamera = (onError) => {
@@ -3588,7 +4714,7 @@
       const canDeepRun = !!(updateData.totalEntries && updateData.stack);
       const canFinalTable = !!(updateData.isFinalTable);
 
-      const handleCapture = () => {
+      const handleCapture = async () => {
         const video = videoRef.current;
         if (!video) return;
         const vw = video.videoWidth || 1080;
@@ -3609,7 +4735,16 @@
         ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outW, outH);
 
         // Draw overlay based on selected type
-        if (overlayType === 'deeprun') {
+        try {
+        if (overlayType === 'hand' && handData) {
+          const allCards = [
+            ...parseCardNotation(handData.heroHand),
+            ...(handData.villainHand ? parseCardNotation(handData.villainHand) : []),
+            ...(handData.boardCards ? parseCardNotation(handData.boardCards) : [])
+          ];
+          const images = await loadCardImages(allCards);
+          drawHandOverlay(ctx, outW, outH, handData, images);
+        } else if (overlayType === 'deeprun') {
           drawDeepRunOverlay(ctx, outW, outH, {
             tournamentName,
             stack: updateData.stack,
@@ -3638,6 +4773,7 @@
         } else {
           drawStatsOnCanvas(ctx, outW, outH, updateData, tournamentName);
         }
+        } catch (e) { console.error('Overlay draw error:', e); }
 
         const dataUrl = canvas.toDataURL('image/png');
         setCaptured(dataUrl);
@@ -3660,7 +4796,8 @@
 
       const handleShare = async () => {
         if (!captured) return;
-        const fname = overlayType === 'finaltable' ? 'final-table.png'
+        const fname = overlayType === 'hand' ? 'hand-history.png'
+          : overlayType === 'finaltable' ? 'final-table.png'
           : overlayType === 'deeprun' ? 'deep-run.png'
           : overlayType === 'countdown' ? 'next-event.png'
           : 'poker-update.png';
@@ -3724,6 +4861,28 @@
 
       // Live preview bar content based on overlay type
       const renderPreviewBar = () => {
+        if (overlayType === 'hand' && handData) {
+          const hCards = parseCardNotation(handData.heroHand);
+          const vCards = handData.villainHand ? parseCardNotation(handData.villainHand) : [];
+          const bCards = handData.boardCards ? parseCardNotation(handData.boardCards) : [];
+          const cardImg = (c, i) => c.suit !== 'x'
+            ? React.createElement('img', { key: i, src: '/_cards/cards_gui_' + c.rank + c.suit + '.png', alt: c.rank + c.suit, style: { height: '22px', borderRadius: '2px' } })
+            : React.createElement('span', { key: i, style: { display: 'inline-block', width: '16px', height: '22px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', textAlign: 'center', fontSize: '0.55rem', lineHeight: '22px', color: 'rgba(255,255,255,0.5)' } }, '?');
+          const result = handData.handResult?.result;
+          return (
+            React.createElement('div', { className: 'camera-stats-bar' },
+              React.createElement('div', { style: { fontSize: '0.6rem', color: 'rgba(255,255,255,0.5)', fontFamily: "'Oswald',sans-serif", marginBottom: '2px' } }, handData.activeGame),
+              React.createElement('div', { style: { display: 'flex', gap: '2px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '2px' } },
+                hCards.map(cardImg),
+                bCards.length > 0 && React.createElement('span', { key: 'sep', style: { margin: '0 4px', color: 'rgba(255,255,255,0.3)', fontSize: '0.6rem' } }, '|'),
+                bCards.map((c, i) => cardImg(c, 'b' + i)),
+                vCards.length > 0 && React.createElement('span', { key: 'vs', style: { margin: '0 4px', color: 'rgba(255,255,255,0.4)', fontSize: '0.55rem', fontFamily: "'Oswald',sans-serif" } }, 'vs'),
+                vCards.map((c, i) => cardImg(c, 'v' + i))
+              ),
+              result && React.createElement('div', { style: { fontSize: '0.65rem', fontFamily: "'Oswald',sans-serif", fontWeight: 600, color: result.color === 'green' ? '#4ade80' : result.color === 'red' ? '#f87171' : '#facc15' } }, result.text)
+            )
+          );
+        }
         if (overlayType === 'deeprun') {
           const posNum = updateData.placesLeft || updateData.totalEntries || '?';
           const totalNum = updateData.totalEntries ? Number(updateData.totalEntries).toLocaleString() : '?';
@@ -3782,6 +4941,7 @@
             <button className={overlayType === 'deeprun' ? 'active' : ''} onClick={() => setOverlayType('deeprun')} disabled={!canDeepRun}>Deep Run</button>
             <button className={overlayType === 'finaltable' ? 'active' : ''} onClick={() => setOverlayType('finaltable')} disabled={!canFinalTable}>Final Table</button>
             <button className={overlayType === 'countdown' ? 'active' : ''} onClick={() => setOverlayType('countdown')}>Countdown</button>
+            <button className={overlayType === 'hand' ? 'active' : ''} onClick={() => setOverlayType('hand')} disabled={!handData}>Hand</button>
           </div>
           {renderPreviewBar()}
           <div className="camera-actions">
