@@ -2727,8 +2727,6 @@
       const [stackHistory, setStackHistory] = useState([]);
       const [isRegistered, setIsRegistered] = useState(false);
       const [registrationOpen, setRegistrationOpen] = useState(false);
-      const [hasGuarantee, setHasGuarantee] = useState(false);
-      const [guarantee, setGuarantee] = useState('');
       const [hasJoinLevel, setHasJoinLevel] = useState(false);
       const [joiningSb, setJoiningSb] = useState('');
       const [joiningBb, setJoiningBb] = useState('');
@@ -2925,18 +2923,6 @@
                     <div className="live-update-registered-section">
                       <div className="live-update-row">
                         <label className="live-update-toggle">
-                          <input type="checkbox" checked={hasGuarantee} onChange={e => { setHasGuarantee(e.target.checked); if (!e.target.checked) setGuarantee(''); }} />
-                          GTD
-                        </label>
-                        {hasGuarantee && (
-                          <div className="live-update-field" style={{flex:'0 0 110px'}}>
-                            <label>Guarantee $</label>
-                            <input type="number" placeholder="2000000" value={guarantee} onChange={e => setGuarantee(e.target.value)} />
-                          </div>
-                        )}
-                      </div>
-                      <div className="live-update-row">
-                        <label className="live-update-toggle">
                           <input type="checkbox" checked={hasJoinLevel} onChange={e => { setHasJoinLevel(e.target.checked); if (!e.target.checked) { setJoiningSb(''); setJoiningBb(''); setJoiningAnte(''); } }} />
                           Join Level
                         </label>
@@ -3109,7 +3095,7 @@
           {registrationOpen && selectedTournament && ReactDOM.createPortal(
             <RegistrationCameraFlow
               tournament={selectedTournament}
-              guarantee={guarantee}
+              guarantee={selectedTournament.prize_pool || null}
               joiningSb={joiningSb}
               joiningBb={joiningBb}
               joiningAnte={joiningAnte}
