@@ -317,6 +317,10 @@
     .camera-overlay .camera-error { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Oswald',sans-serif; text-align:center; padding:20px; }
     .camera-step-indicator { position:absolute; top:14px; left:0; right:0; text-align:center; font-size:0.72rem; color:rgba(255,255,255,0.75); font-family:'Oswald',sans-serif; letter-spacing:0.5px; pointer-events:none; z-index:1; }
     .camera-btn-next { background:#3b82f6; color:#fff; font-weight:600; }
+    .camera-overlay-picker { position:absolute; top:40px; left:0; right:0; display:flex; justify-content:center; gap:6px; padding:0 12px; z-index:2; }
+    .camera-overlay-picker button { padding:4px 10px; border-radius:12px; border:1px solid rgba(255,255,255,0.3); background:rgba(0,0,0,0.5); color:rgba(255,255,255,0.7); font-family:'Oswald',sans-serif; font-size:0.65rem; cursor:pointer; backdrop-filter:blur(4px); white-space:nowrap; }
+    .camera-overlay-picker button.active { background:#22c55e; color:#000; border-color:#22c55e; font-weight:600; }
+    .camera-overlay-picker button:disabled { opacity:0.3; cursor:default; }
 
     /* ── Registration section in live-update-panel ── */
     .live-update-registered-section { display:flex; flex-direction:column; gap:6px; }
@@ -2720,6 +2724,7 @@
       const [isBagged, setIsBagged] = useState(false);
       const [bagDay, setBagDay] = useState('');
       const [cameraOpen, setCameraOpen] = useState(false);
+      const [stackHistory, setStackHistory] = useState([]);
       const [isRegistered, setIsRegistered] = useState(false);
       const [registrationOpen, setRegistrationOpen] = useState(false);
       const [hasGuarantee, setHasGuarantee] = useState(false);
@@ -2839,8 +2844,16 @@
         (mySchedule || []).find(t => t.id === selectedTournamentId) || null,
         [mySchedule, selectedTournamentId]);
 
-      const openCamera = () => {
+      const openCamera = async () => {
         if (!selectedTournamentId) return;
+        try {
+          const tk = localStorage.getItem('token');
+          const resp = await fetch(`${API_URL}/live-updates/history/${selectedTournamentId}`, {
+            headers: { Authorization: 'Bearer ' + tk }
+          });
+          if (resp.ok) setStackHistory(await resp.json());
+          else setStackHistory([]);
+        } catch { setStackHistory([]); }
         setCameraOpen(true);
       };
 
@@ -3079,6 +3092,8 @@
             <CameraOverlay
               updateData={buildUpdateData()}
               tournamentName={selectedTournamentName}
+              tournament={selectedTournament}
+              stackHistory={stackHistory}
               onClose={() => { setCameraOpen(false); setOpen(true); }}
             />,
             document.body
@@ -3171,6 +3186,243 @@
       ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
     }
 
+    // ── Deep Run Tracker overlay ──
+    function drawDeepRunOverlay(ctx, w, h, data) {
+      const barH = Math.round(h * 0.28);
+      const barY = h - barH - Math.round(h * 0.04);
+      const padX = Math.round(w * 0.05);
+      const padR = w - padX;
+
+      // Background
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(0, barY, w, barH);
+
+      // Tournament name
+      const nameS = Math.round(h * 0.018);
+      ctx.font = nameS + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillText(data.tournamentName || '', padX, barY + Math.round(barH * 0.10));
+
+      // Position: "152nd of 8,000"
+      const posS = Math.round(h * 0.032);
+      ctx.font = '600 ' + posS + 'px Oswald, sans-serif';
+      const posNum = data.placesLeft ? Number(data.placesLeft) : '?';
+      const totalNum = data.totalEntries ? Number(data.totalEntries).toLocaleString() : '?';
+      ctx.fillStyle = '#ffffff';
+      const posText = posNum + (typeof posNum === 'number' ? ordinalSuffix(posNum) : '');
+      const posWidth = ctx.measureText(posText).width;
+      ctx.fillText(posText, padX, barY + Math.round(barH * 0.24));
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.fillText(' of ' + totalNum, padX + posWidth, barY + Math.round(barH * 0.24));
+
+      // Stack display
+      if (data.stack) {
+        ctx.fillStyle = '#22c55e';
+        ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+        ctx.fillText(formatChips(data.stack) + ' chips', padX, barY + Math.round(barH * 0.34));
+      }
+
+      // Progress bar
+      const pbY = barY + Math.round(barH * 0.40);
+      const pbH = Math.round(barH * 0.06);
+      const pbW = padR - padX;
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.roundRect(padX, pbY, pbW, pbH, pbH / 2);
+      ctx.fill();
+      if (data.totalEntries && data.placesLeft) {
+        const pct = Math.max(0.02, 1 - (Number(data.placesLeft) - 1) / Number(data.totalEntries));
+        ctx.fillStyle = '#22c55e';
+        ctx.beginPath();
+        ctx.roundRect(padX, pbY, Math.round(pbW * pct), pbH, pbH / 2);
+        ctx.fill();
+      }
+
+      // Mini stack history line chart
+      const history = data.stackHistory || [];
+      if (history.length >= 2) {
+        const chartY = barY + Math.round(barH * 0.52);
+        const chartH = Math.round(barH * 0.38);
+        const chartW = pbW;
+        const stacks = history.map(h => Number(h.stack) || 0);
+        const maxS = Math.max(...stacks);
+        const minS = Math.min(...stacks);
+        const range = maxS - minS || 1;
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 3; i++) {
+          const gy = chartY + chartH - (chartH * i / 3);
+          ctx.beginPath(); ctx.moveTo(padX, gy); ctx.lineTo(padR, gy); ctx.stroke();
+        }
+
+        // Starting stack reference line
+        if (data.startingStack) {
+          const ssY = chartY + chartH - ((Number(data.startingStack) - minS) / range * chartH);
+          ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.moveTo(padX, ssY); ctx.lineTo(padR, ssY); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(255,255,255,0.35)';
+          ctx.font = Math.round(h * 0.012) + 'px Oswald, sans-serif';
+          ctx.fillText('start', padR - ctx.measureText('start').width, ssY - 3);
+        }
+
+        // Line
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        stacks.forEach((s, i) => {
+          const x = padX + (chartW * i / (stacks.length - 1));
+          const y = chartY + chartH - ((s - minS) / range * chartH);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Gradient fill under line
+        const grad = ctx.createLinearGradient(0, chartY, 0, chartY + chartH);
+        grad.addColorStop(0, 'rgba(34,197,94,0.25)');
+        grad.addColorStop(1, 'rgba(34,197,94,0.02)');
+        ctx.fillStyle = grad;
+        ctx.lineTo(padR, chartY + chartH);
+        ctx.lineTo(padX, chartY + chartH);
+        ctx.closePath();
+        ctx.fill();
+
+        // Current value dot
+        const lastX = padR;
+        const lastY = chartY + chartH - ((stacks[stacks.length - 1] - minS) / range * chartH);
+        ctx.fillStyle = '#22c55e';
+        ctx.beginPath(); ctx.arc(lastX, lastY, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(lastX, lastY, 2, 0, Math.PI * 2); ctx.fill();
+
+        // Y-axis labels (min/max)
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = Math.round(h * 0.011) + 'px Oswald, sans-serif';
+        ctx.fillText(formatChips(maxS), padX, chartY - 3);
+        ctx.fillText(formatChips(minS), padX, chartY + chartH + Math.round(h * 0.013));
+      } else {
+        // No history — show placeholder
+        const phY = barY + Math.round(barH * 0.65);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.fillText('Post more updates to see your stack graph', padX, phY);
+      }
+
+      // Watermark
+      const wms = Math.round(h * 0.014);
+      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
+    }
+
+    // ── Final Table Card overlay ──
+    function drawFinalTableOverlay(ctx, w, h, data) {
+      const barH = Math.round(h * 0.22);
+      const barY = h - barH - Math.round(h * 0.04);
+      const padX = Math.round(w * 0.05);
+
+      // Background
+      ctx.fillStyle = 'rgba(0,0,0,0.78)';
+      ctx.fillRect(0, barY, w, barH);
+
+      // Gold accent line at top of bar
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(0, barY, w, 3);
+
+      // "FINAL TABLE" header
+      const headerS = Math.round(h * 0.030);
+      ctx.font = '600 ' + headerS + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('\u{1F3C6} FINAL TABLE', padX, barY + Math.round(barH * 0.20));
+
+      // Event name + buyin
+      const nameS = Math.round(h * 0.022);
+      ctx.font = '600 ' + nameS + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      const buyinStr = data.buyin ? '$' + Number(data.buyin).toLocaleString() + ' ' : '';
+      ctx.fillText(buyinStr + (data.tournamentName || ''), padX, barY + Math.round(barH * 0.40));
+
+      // Players remaining
+      const plS = Math.round(h * 0.020);
+      ctx.font = plS + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      const plText = data.placesLeft ? data.placesLeft + ' players remain' : '';
+      const entText = data.totalEntries ? ' of ' + Number(data.totalEntries).toLocaleString() + ' entries' : '';
+      ctx.fillText(plText + entText, padX, barY + Math.round(barH * 0.58));
+
+      // Stack + 1st place prize
+      const statsS = Math.round(h * 0.024);
+      ctx.font = '600 ' + statsS + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      const parts = [];
+      if (data.stack) parts.push(formatChips(data.stack) + ' chips');
+      if (data.firstPlacePrize) parts.push('1st: $' + Number(data.firstPlacePrize).toLocaleString());
+      ctx.fillText(parts.join('  ·  '), padX, barY + Math.round(barH * 0.78));
+
+      // BB count
+      if (data.stack && data.bb) {
+        const bbCount = (Number(data.stack) / Number(data.bb)).toFixed(1).replace(/\.0$/, '');
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.fillText('(' + bbCount + 'bb)', padX, barY + Math.round(barH * 0.90));
+      }
+
+      // Watermark
+      const wms = Math.round(h * 0.014);
+      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
+    }
+
+    // ── Next Event Countdown overlay ──
+    function drawCountdownOverlay(ctx, w, h, data) {
+      const barH = Math.round(h * 0.18);
+      const barY = h - barH - Math.round(h * 0.04);
+      const padX = Math.round(w * 0.05);
+
+      // Background
+      ctx.fillStyle = 'rgba(0,0,0,0.72)';
+      ctx.fillRect(0, barY, w, barH);
+
+      // "NEXT UP" label
+      const labelS = Math.round(h * 0.016);
+      ctx.font = '600 ' + labelS + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '2px';
+      ctx.fillText('NEXT UP', padX, barY + Math.round(barH * 0.18));
+      ctx.letterSpacing = '0px';
+
+      // Event name + buyin
+      const nameS = Math.round(h * 0.026);
+      ctx.font = '600 ' + nameS + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      const buyinStr = data.buyin ? '$' + Number(data.buyin).toLocaleString() + ' ' : '';
+      ctx.fillText(buyinStr + (data.tournamentName || ''), padX, barY + Math.round(barH * 0.42));
+
+      // Venue
+      const venueS = Math.round(h * 0.018);
+      ctx.font = venueS + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText(data.venue || '', padX, barY + Math.round(barH * 0.60));
+
+      // Countdown
+      const countS = Math.round(h * 0.030);
+      ctx.font = '600 ' + countS + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.fillText('in ' + (data.timeUntil || '—'), padX, barY + Math.round(barH * 0.85));
+
+      // Watermark
+      const wms = Math.round(h * 0.014);
+      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
+    }
+
     // Pinch-to-zoom helper for camera video elements
     // Uses MediaStreamTrack zoom when available (Android Chrome), falls back to CSS transform (iOS Safari)
     function usePinchZoom(videoRef, streamRef) {
@@ -3239,12 +3491,13 @@
       return resetZoom;
     }
 
-    function CameraOverlay({ updateData, tournamentName, onClose }) {
+    function CameraOverlay({ updateData, tournamentName, tournament, stackHistory, onClose }) {
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
       const streamRef = useRef(null);
       const [captured, setCaptured] = useState(null);
       const [error, setError] = useState(null);
+      const [overlayType, setOverlayType] = useState('stats');
       const resetZoom = usePinchZoom(videoRef, streamRef);
 
       const startCamera = (onError) => {
@@ -3282,36 +3535,83 @@
         }
       };
 
+      // Compute countdown for "Next Up" overlay
+      const countdownText = useMemo(() => {
+        if (!tournament) return '—';
+        const dateStr = tournament.date;
+        const timeStr = tournament.time;
+        if (!dateStr || !timeStr) return '—';
+        const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!match) return '—';
+        let h = parseInt(match[1]); const m = parseInt(match[2]);
+        if (match[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+        if (match[3].toUpperCase() === 'AM' && h === 12) h = 0;
+        const parts = dateStr.split('-');
+        const target = new Date(parts[0], parts[1] - 1, parts[2], h, m);
+        const diff = target - new Date();
+        if (diff <= 0) return 'now';
+        const hrs = Math.floor(diff / 3600000);
+        const mins = Math.floor((diff % 3600000) / 60000);
+        if (hrs > 24) return Math.floor(hrs / 24) + 'd ' + (hrs % 24) + 'h';
+        if (hrs > 0) return hrs + 'h ' + mins + 'm';
+        return mins + 'm';
+      }, [tournament]);
+
+      // Check which overlay types are available
+      const canDeepRun = !!(updateData.totalEntries && updateData.stack);
+      const canFinalTable = !!(updateData.isFinalTable);
+
       const handleCapture = () => {
         const video = videoRef.current;
         if (!video) return;
         const vw = video.videoWidth || 1080;
         const vh = video.videoHeight || 1920;
-        // Output portrait 1080x1920 (9:16) for Instagram stories
         const outW = 1080, outH = 1920;
         const canvas = canvasRef.current || document.createElement('canvas');
         canvas.width = outW;
         canvas.height = outH;
         const ctx = canvas.getContext('2d');
-        // Crop video to fill portrait canvas (same as object-fit:cover)
         const targetRatio = outW / outH;
         const videoRatio = vw / vh;
         let sx, sy, sw, sh;
         if (videoRatio > targetRatio) {
-          // Video is wider — crop sides
-          sh = vh;
-          sw = vh * targetRatio;
-          sx = (vw - sw) / 2;
-          sy = 0;
+          sh = vh; sw = vh * targetRatio; sx = (vw - sw) / 2; sy = 0;
         } else {
-          // Video is taller — crop top/bottom
-          sw = vw;
-          sh = vw / targetRatio;
-          sx = 0;
-          sy = (vh - sh) / 2;
+          sw = vw; sh = vw / targetRatio; sx = 0; sy = (vh - sh) / 2;
         }
         ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outW, outH);
-        drawStatsOnCanvas(ctx, outW, outH, updateData, tournamentName);
+
+        // Draw overlay based on selected type
+        if (overlayType === 'deeprun') {
+          drawDeepRunOverlay(ctx, outW, outH, {
+            tournamentName,
+            stack: updateData.stack,
+            totalEntries: updateData.totalEntries,
+            placesLeft: updateData.placesLeft || updateData.totalEntries,
+            stackHistory: stackHistory || [],
+            startingStack: tournament?.starting_chips
+          });
+        } else if (overlayType === 'finaltable') {
+          drawFinalTableOverlay(ctx, outW, outH, {
+            tournamentName,
+            buyin: tournament?.buyin,
+            placesLeft: updateData.placesLeft,
+            stack: updateData.stack,
+            firstPlacePrize: updateData.firstPlacePrize,
+            totalEntries: updateData.totalEntries,
+            bb: updateData.bb
+          });
+        } else if (overlayType === 'countdown') {
+          drawCountdownOverlay(ctx, outW, outH, {
+            tournamentName,
+            buyin: tournament?.buyin,
+            venue: tournament?.venue,
+            timeUntil: countdownText
+          });
+        } else {
+          drawStatsOnCanvas(ctx, outW, outH, updateData, tournamentName);
+        }
+
         const dataUrl = canvas.toDataURL('image/png');
         setCaptured(dataUrl);
         stopStream();
@@ -3333,23 +3633,26 @@
 
       const handleShare = async () => {
         if (!captured) return;
+        const fname = overlayType === 'finaltable' ? 'final-table.png'
+          : overlayType === 'deeprun' ? 'deep-run.png'
+          : overlayType === 'countdown' ? 'next-event.png'
+          : 'poker-update.png';
         try {
           const blob = await (await fetch(captured)).blob();
-          const file = new File([blob], 'poker-update.png', { type: 'image/png' });
+          const file = new File([blob], fname, { type: 'image/png' });
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({ files: [file] });
           } else {
             const a = document.createElement('a');
             a.href = captured;
-            a.download = 'poker-update.png';
+            a.download = fname;
             a.click();
           }
         } catch (e) {
-          // User cancelled share or error — fallback to download
           if (e.name !== 'AbortError') {
             const a = document.createElement('a');
             a.href = captured;
-            a.download = 'poker-update.png';
+            a.download = fname;
             a.click();
           }
         }
@@ -3392,15 +3695,68 @@
         );
       }
 
+      // Live preview bar content based on overlay type
+      const renderPreviewBar = () => {
+        if (overlayType === 'deeprun') {
+          const posNum = updateData.placesLeft || updateData.totalEntries || '?';
+          const totalNum = updateData.totalEntries ? Number(updateData.totalEntries).toLocaleString() : '?';
+          const pct = (updateData.totalEntries && updateData.placesLeft)
+            ? Math.max(2, Math.round((1 - (Number(updateData.placesLeft) - 1) / Number(updateData.totalEntries)) * 100))
+            : 0;
+          return (
+            <div className="camera-stats-bar">
+              <div className="tournament-name">{tournamentName}</div>
+              <div className="stats-line">{posNum}{typeof posNum === 'number' ? ordinalSuffix(posNum) : ''} of {totalNum}</div>
+              <div style={{marginTop:'4px',height:'6px',borderRadius:'3px',background:'rgba(255,255,255,0.15)',overflow:'hidden'}}>
+                <div style={{height:'100%',width:pct+'%',background:'#22c55e',borderRadius:'3px'}} />
+              </div>
+              {updateData.stack && <div style={{marginTop:'2px',fontSize:'0.7rem',color:'#22c55e',fontFamily:"'Oswald',sans-serif"}}>{formatChips(updateData.stack)} chips</div>}
+            </div>
+          );
+        }
+        if (overlayType === 'finaltable') {
+          return (
+            <div className="camera-stats-bar">
+              <div style={{color:'#f59e0b',fontWeight:600,fontFamily:"'Oswald',sans-serif",fontSize:'0.9rem'}}>🏆 FINAL TABLE</div>
+              <div className="tournament-name">{tournament?.buyin ? '$' + Number(tournament.buyin).toLocaleString() + ' ' : ''}{tournamentName}</div>
+              <div className="stats-line">
+                {updateData.placesLeft ? updateData.placesLeft + ' remain' : ''}
+                {updateData.stack ? '  ·  ' + formatChips(updateData.stack) : ''}
+                {updateData.firstPlacePrize ? '  ·  1st: $' + Number(updateData.firstPlacePrize).toLocaleString() : ''}
+              </div>
+            </div>
+          );
+        }
+        if (overlayType === 'countdown') {
+          return (
+            <div className="camera-stats-bar">
+              <div style={{color:'#22c55e',fontWeight:600,fontFamily:"'Oswald',sans-serif",fontSize:'0.65rem',letterSpacing:'1px'}}>NEXT UP</div>
+              <div className="tournament-name">{tournament?.buyin ? '$' + Number(tournament.buyin).toLocaleString() + ' ' : ''}{tournamentName}</div>
+              <div className="stats-line">in {countdownText}</div>
+            </div>
+          );
+        }
+        // Default: stats
+        return (
+          <div className="camera-stats-bar">
+            <div className="tournament-name">{tournamentName}</div>
+            <div className="stats-line">{statsText}</div>
+          </div>
+        );
+      };
+
       return (
         <div className="camera-overlay">
           <video ref={videoRef} autoPlay playsInline muted />
           <canvas ref={canvasRef} style={{display:'none'}} />
           <div className="camera-watermark">snbwsop.com</div>
-          <div className="camera-stats-bar">
-            <div className="tournament-name">{tournamentName}</div>
-            <div className="stats-line">{statsText}</div>
+          <div className="camera-overlay-picker">
+            <button className={overlayType === 'stats' ? 'active' : ''} onClick={() => setOverlayType('stats')}>Stats</button>
+            <button className={overlayType === 'deeprun' ? 'active' : ''} onClick={() => setOverlayType('deeprun')} disabled={!canDeepRun}>Deep Run</button>
+            <button className={overlayType === 'finaltable' ? 'active' : ''} onClick={() => setOverlayType('finaltable')} disabled={!canFinalTable}>Final Table</button>
+            <button className={overlayType === 'countdown' ? 'active' : ''} onClick={() => setOverlayType('countdown')}>Countdown</button>
           </div>
+          {renderPreviewBar()}
           <div className="camera-actions">
             <button className="camera-btn-close" onClick={handleClose}>✕</button>
             <button className="camera-btn-capture" onClick={handleCapture}>Capture</button>

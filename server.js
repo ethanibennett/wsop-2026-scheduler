@@ -2276,6 +2276,30 @@ app.delete('/api/live-update/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Fetch all update history for a tournament (for stack graph overlay)
+app.get('/api/live-updates/history/:tournamentId', authenticateToken, (req, res) => {
+  try {
+    const tournamentId = Number(req.params.tournamentId);
+    if (!tournamentId) return res.status(400).json({ error: 'Invalid tournament ID' });
+
+    const stmt = db.prepare(`
+      SELECT stack, sb, bb, bb_ante, total_entries, places_left,
+             is_itm, is_final_table, is_busted, created_at
+      FROM live_updates
+      WHERE user_id = ? AND tournament_id = ?
+      ORDER BY created_at ASC
+    `);
+    stmt.bind([req.user.id, tournamentId]);
+    const results = [];
+    while (stmt.step()) results.push(stmt.getAsObject());
+    stmt.free();
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
 // Admin: list users (secret key protected)
 app.get('/api/admin/users', adminLimiter, (req, res) => {
   if (!process.env.ADMIN_KEY) {
