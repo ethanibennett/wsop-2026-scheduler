@@ -312,6 +312,7 @@
     .camera-overlay .camera-btn-close { background:rgba(255,255,255,0.15); color:#fff; }
     .camera-overlay .camera-btn-share { background:#22c55e; color:#000; font-weight:600; }
     .camera-overlay .camera-btn-retake { background:rgba(255,255,255,0.15); color:#fff; }
+    .camera-overlay .camera-btn-gallery { background:rgba(255,255,255,0.15); color:#fff; display:inline-flex; align-items:center; gap:6px; }
     .camera-overlay .camera-preview { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
     .camera-overlay .camera-preview img { max-width:100%; max-height:100%; object-fit:contain; }
     .camera-overlay .camera-error { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Oswald',sans-serif; text-align:center; padding:20px; }
@@ -4668,6 +4669,7 @@
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
       const streamRef = useRef(null);
+      const fileInputRef = useRef(null);
       const [captured, setCaptured] = useState(null);
       const [error, setError] = useState(null);
       const [overlayType, setOverlayType] = useState(defaultOverlay || 'stats');
@@ -4734,70 +4736,95 @@
       const canDeepRun = !!(updateData.totalEntries && updateData.stack);
       const canFinalTable = !!(updateData.isFinalTable);
 
+      // Shared overlay-drawing logic used by both camera capture and gallery pick
+      const applyOverlay = async (ctx, outW, outH) => {
+        try {
+          if (overlayType === 'hand' && handData) {
+            const allCards = [
+              ...parseCardNotation(handData.heroHand),
+              ...(handData.villainHand ? parseCardNotation(handData.villainHand) : []),
+              ...(handData.boardCards ? parseCardNotation(handData.boardCards) : [])
+            ];
+            const images = await loadCardImages(allCards);
+            drawHandOverlay(ctx, outW, outH, handData, images);
+          } else if (overlayType === 'deeprun') {
+            drawDeepRunOverlay(ctx, outW, outH, {
+              tournamentName,
+              stack: updateData.stack,
+              totalEntries: updateData.totalEntries,
+              placesLeft: updateData.placesLeft || updateData.totalEntries,
+              stackHistory: stackHistory || [],
+              startingStack: tournament?.starting_chips
+            });
+          } else if (overlayType === 'finaltable') {
+            drawFinalTableOverlay(ctx, outW, outH, {
+              tournamentName,
+              buyin: tournament?.buyin,
+              placesLeft: updateData.placesLeft,
+              stack: updateData.stack,
+              firstPlacePrize: updateData.firstPlacePrize,
+              totalEntries: updateData.totalEntries,
+              bb: updateData.bb
+            });
+          } else if (overlayType === 'countdown') {
+            drawCountdownOverlay(ctx, outW, outH, {
+              tournamentName,
+              buyin: tournament?.buyin,
+              venue: tournament?.venue,
+              timeUntil: countdownText
+            });
+          } else {
+            drawStatsOnCanvas(ctx, outW, outH, updateData, tournamentName);
+          }
+        } catch (e) { console.error('Overlay draw error:', e); }
+      };
+
+      // Draw source image crop-to-fill onto canvas
+      const drawCropToFill = (ctx, source, srcW, srcH, outW, outH) => {
+        const targetRatio = outW / outH;
+        const srcRatio = srcW / srcH;
+        let sx, sy, sw, sh;
+        if (srcRatio > targetRatio) {
+          sh = srcH; sw = srcH * targetRatio; sx = (srcW - sw) / 2; sy = 0;
+        } else {
+          sw = srcW; sh = srcW / targetRatio; sx = 0; sy = (srcH - sh) / 2;
+        }
+        ctx.drawImage(source, sx, sy, sw, sh, 0, 0, outW, outH);
+      };
+
       const handleCapture = async () => {
         const video = videoRef.current;
         if (!video) return;
-        const vw = video.videoWidth || 1080;
-        const vh = video.videoHeight || 1920;
         const outW = 1080, outH = 1920;
         const canvas = canvasRef.current || document.createElement('canvas');
-        canvas.width = outW;
-        canvas.height = outH;
+        canvas.width = outW; canvas.height = outH;
         const ctx = canvas.getContext('2d');
-        const targetRatio = outW / outH;
-        const videoRatio = vw / vh;
-        let sx, sy, sw, sh;
-        if (videoRatio > targetRatio) {
-          sh = vh; sw = vh * targetRatio; sx = (vw - sw) / 2; sy = 0;
-        } else {
-          sw = vw; sh = vw / targetRatio; sx = 0; sy = (vh - sh) / 2;
-        }
-        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outW, outH);
-
-        // Draw overlay based on selected type
-        try {
-        if (overlayType === 'hand' && handData) {
-          const allCards = [
-            ...parseCardNotation(handData.heroHand),
-            ...(handData.villainHand ? parseCardNotation(handData.villainHand) : []),
-            ...(handData.boardCards ? parseCardNotation(handData.boardCards) : [])
-          ];
-          const images = await loadCardImages(allCards);
-          drawHandOverlay(ctx, outW, outH, handData, images);
-        } else if (overlayType === 'deeprun') {
-          drawDeepRunOverlay(ctx, outW, outH, {
-            tournamentName,
-            stack: updateData.stack,
-            totalEntries: updateData.totalEntries,
-            placesLeft: updateData.placesLeft || updateData.totalEntries,
-            stackHistory: stackHistory || [],
-            startingStack: tournament?.starting_chips
-          });
-        } else if (overlayType === 'finaltable') {
-          drawFinalTableOverlay(ctx, outW, outH, {
-            tournamentName,
-            buyin: tournament?.buyin,
-            placesLeft: updateData.placesLeft,
-            stack: updateData.stack,
-            firstPlacePrize: updateData.firstPlacePrize,
-            totalEntries: updateData.totalEntries,
-            bb: updateData.bb
-          });
-        } else if (overlayType === 'countdown') {
-          drawCountdownOverlay(ctx, outW, outH, {
-            tournamentName,
-            buyin: tournament?.buyin,
-            venue: tournament?.venue,
-            timeUntil: countdownText
-          });
-        } else {
-          drawStatsOnCanvas(ctx, outW, outH, updateData, tournamentName);
-        }
-        } catch (e) { console.error('Overlay draw error:', e); }
-
-        const dataUrl = canvas.toDataURL('image/png');
-        setCaptured(dataUrl);
+        drawCropToFill(ctx, video, video.videoWidth || 1080, video.videoHeight || 1920, outW, outH);
+        await applyOverlay(ctx, outW, outH);
+        setCaptured(canvas.toDataURL('image/png'));
         stopStream();
+      };
+
+      const handleGalleryPick = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = async () => {
+            const outW = 1080, outH = 1920;
+            const canvas = canvasRef.current || document.createElement('canvas');
+            canvas.width = outW; canvas.height = outH;
+            const ctx = canvas.getContext('2d');
+            drawCropToFill(ctx, img, img.width, img.height, outW, outH);
+            await applyOverlay(ctx, outW, outH);
+            setCaptured(canvas.toDataURL('image/png'));
+            stopStream();
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
       };
 
       const handleRetake = () => {
@@ -4858,8 +4885,10 @@
                 <div>{error}</div>
               </div>
             </div>
+            <input type="file" accept="image/*" ref={fileInputRef} style={{display:'none'}} onChange={handleGalleryPick} />
             <div className="camera-actions">
               <button className="camera-btn-close" onClick={handleClose}>Close</button>
+              <button className="camera-btn-gallery" onClick={() => fileInputRef.current?.click()}>Choose Photo</button>
             </div>
           </div>
         );
@@ -4964,9 +4993,13 @@
             <button className={overlayType === 'hand' ? 'active' : ''} onClick={() => setOverlayType('hand')} disabled={!handData}>Hand</button>
           </div>
           {renderPreviewBar()}
+          <input type="file" accept="image/*" ref={fileInputRef} style={{display:'none'}} onChange={handleGalleryPick} />
           <div className="camera-actions">
             <button className="camera-btn-close" onClick={handleClose}>✕</button>
             <button className="camera-btn-capture" onClick={handleCapture}>Capture</button>
+            <button className="camera-btn-gallery" onClick={() => fileInputRef.current?.click()} title="Choose from gallery">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            </button>
           </div>
         </div>
       );
@@ -4976,6 +5009,7 @@
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
       const streamRef = useRef(null);
+      const fileInputRef = useRef(null);
       const [step, setStep] = useState(1);
       const [captured, setCaptured] = useState(null);
       const [error, setError] = useState(null);
@@ -5032,22 +5066,47 @@
         return () => { cancelled = true; stopStream(); };
       }, [step]);
 
+      const drawCropToFill = (ctx, source, srcW, srcH, outW, outH) => {
+        const targetRatio = outW / outH, srcRatio = srcW / srcH;
+        let sx, sy, sw, sh;
+        if (srcRatio > targetRatio) { sh = srcH; sw = srcH * targetRatio; sx = (srcW - sw) / 2; sy = 0; }
+        else { sw = srcW; sh = srcW / targetRatio; sx = 0; sy = (srcH - sh) / 2; }
+        ctx.drawImage(source, sx, sy, sw, sh, 0, 0, outW, outH);
+      };
+
       const handleCapture = () => {
         const video = videoRef.current;
         if (!video) return;
-        const vw = video.videoWidth || 1080, vh = video.videoHeight || 1920;
         const outW = 1080, outH = 1920;
         const canvas = canvasRef.current || document.createElement('canvas');
         canvas.width = outW; canvas.height = outH;
         const ctx = canvas.getContext('2d');
-        const targetRatio = outW / outH, videoRatio = vw / vh;
-        let sx, sy, sw, sh;
-        if (videoRatio > targetRatio) { sh = vh; sw = vh * targetRatio; sx = (vw - sw) / 2; sy = 0; }
-        else { sw = vw; sh = vw / targetRatio; sx = 0; sy = (vh - sh) / 2; }
-        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outW, outH);
+        drawCropToFill(ctx, video, video.videoWidth || 1080, video.videoHeight || 1920, outW, outH);
         if (step === 2) drawRegistrationOverlay(ctx, outW, outH, registrationData);
         setCaptured(canvas.toDataURL('image/png'));
         stopStream();
+      };
+
+      const handleGalleryPick = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const outW = 1080, outH = 1920;
+            const canvas = canvasRef.current || document.createElement('canvas');
+            canvas.width = outW; canvas.height = outH;
+            const ctx = canvas.getContext('2d');
+            drawCropToFill(ctx, img, img.width, img.height, outW, outH);
+            if (step === 2) drawRegistrationOverlay(ctx, outW, outH, registrationData);
+            setCaptured(canvas.toDataURL('image/png'));
+            stopStream();
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
       };
 
       const handleRetake = () => {
@@ -5089,7 +5148,11 @@
         return (
           <div className="camera-overlay">
             <div className="camera-error"><div><div style={{fontSize:'2rem',marginBottom:'12px'}}>📷</div><div>{error}</div></div></div>
-            <div className="camera-actions"><button className="camera-btn-close" onClick={handleClose}>Close</button></div>
+            <input type="file" accept="image/*" ref={fileInputRef} style={{display:'none'}} onChange={handleGalleryPick} />
+            <div className="camera-actions">
+              <button className="camera-btn-close" onClick={handleClose}>Close</button>
+              <button className="camera-btn-gallery" onClick={() => fileInputRef.current?.click()}>Choose Photo</button>
+            </div>
           </div>
         );
       }
@@ -5123,9 +5186,13 @@
               <div className="stats-line">{overlayLine2}</div>
             </div>
           )}
+          <input type="file" accept="image/*" ref={fileInputRef} style={{display:'none'}} onChange={handleGalleryPick} />
           <div className="camera-actions">
             <button className="camera-btn-close" onClick={handleClose}>✕</button>
             <button className="camera-btn-capture" onClick={handleCapture}>Capture</button>
+            <button className="camera-btn-gallery" onClick={() => fileInputRef.current?.click()} title="Choose from gallery">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            </button>
           </div>
         </div>
       );
