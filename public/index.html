@@ -4202,15 +4202,36 @@
     function loadCardImages(cards) {
       const unique = new Map();
       cards.forEach(c => { if (c.suit !== 'x') unique.set(c.rank + c.suit, true); });
-      const promises = [];
       const result = new Map();
+      const promises = [];
       unique.forEach((_, key) => {
-        promises.push(new Promise(resolve => {
-          const img = new Image();
-          img.onload = () => { result.set(key, img); resolve(); };
-          img.onerror = () => resolve();
-          img.src = '/_cards/cards_gui_' + key + '.png';
-        }));
+        promises.push((async () => {
+          // 1. Try existing DOM <img> elements (from CardRow — already loaded)
+          const domImg = document.querySelector('img[alt="' + key + '"]');
+          if (domImg && domImg.complete && domImg.naturalWidth > 0) {
+            result.set(key, domImg);
+            return;
+          }
+          // 2. Try fetch + createImageBitmap (most reliable for canvas)
+          const url = '/_cards/cards_gui_' + key + '.png';
+          try {
+            if (typeof createImageBitmap === 'function') {
+              const resp = await fetch(url);
+              const blob = await resp.blob();
+              const bmp = await createImageBitmap(blob);
+              result.set(key, bmp);
+              return;
+            }
+          } catch (e) { /* fall through */ }
+          // 3. Fallback: new Image with decode
+          try {
+            const img = new Image();
+            img.src = url;
+            if (img.decode) await img.decode();
+            else await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+            result.set(key, img);
+          } catch (e) { /* card will render as placeholder */ }
+        })());
       });
       return Promise.all(promises).then(() => result);
     }
@@ -4220,16 +4241,15 @@
       if (img) {
         ctx.drawImage(img, x, y, cw, ch);
       } else {
-        // Unknown / face-down card
-        ctx.fillStyle = 'rgba(80,80,80,0.9)';
+        // Unknown / face-down card — draw rounded rect with "?"
         const r = Math.round(cw * 0.08);
+        ctx.fillStyle = 'rgba(80,80,80,0.9)';
         ctx.beginPath();
-        ctx.roundRect(x, y, cw, ch, r);
+        if (ctx.roundRect) { ctx.roundRect(x, y, cw, ch, r); }
+        else { ctx.moveTo(x+r,y); ctx.lineTo(x+cw-r,y); ctx.arcTo(x+cw,y,x+cw,y+r,r); ctx.lineTo(x+cw,y+ch-r); ctx.arcTo(x+cw,y+ch,x+cw-r,y+ch,r); ctx.lineTo(x+r,y+ch); ctx.arcTo(x,y+ch,x,y+ch-r,r); ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r); }
         ctx.fill();
         ctx.strokeStyle = 'rgba(255,255,255,0.3)';
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(x, y, cw, ch, r);
         ctx.stroke();
         const qs = Math.round(ch * 0.35);
         ctx.font = '600 ' + qs + 'px Oswald, sans-serif';
