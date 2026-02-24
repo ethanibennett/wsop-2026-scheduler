@@ -2644,6 +2644,19 @@
       return String(n);
     }
 
+    // Parse shorthand like "275k" → 275000, "1.2M" → 1200000, "50000" → 50000
+    function parseShorthand(str) {
+      if (!str) return '';
+      str = String(str).trim().replace(/,/g, '');
+      const m = str.match(/^(\d+\.?\d*)\s*([kKmM]?)$/);
+      if (!m) return str;
+      let num = parseFloat(m[1]);
+      const suffix = m[2].toLowerCase();
+      if (suffix === 'k') num *= 1000;
+      else if (suffix === 'm') num *= 1000000;
+      return String(Math.round(num));
+    }
+
     function ordinalSuffix(n) {
       const s = ['th','st','nd','rd'], v = n % 100;
       return (s[(v-20)%10] || s[v] || s[0]);
@@ -2826,8 +2839,9 @@
         return () => document.removeEventListener('mousedown', handler);
       }, [open]);
 
+      const ps = (v) => Number(parseShorthand(v)) || 0;
       const buildUpdateData = () => ({
-        tournamentId: selectedTournamentId, stack: Number(stack) || 0, sb: sb ? Number(sb) : null, bb: bb ? Number(bb) : null, bbAnte: bbAnte ? Number(bbAnte) : null, isRegClosed, bubble: isRegClosed && !isItm && bubble ? Number(bubble) : null, isItm, lockedAmount: isItm && lockedAmount ? Number(lockedAmount) : null, isFinalTable, placesLeft: isFinalTable && placesLeft ? Number(placesLeft) : null, firstPlacePrize: isFinalTable && firstPlacePrize ? Number(firstPlacePrize) : null, isDeal, dealPlace: isDeal && dealPlace ? Number(dealPlace) : null, dealPayout: isDeal && dealPayout ? Number(dealPayout) : null, isBusted, totalEntries: totalEntries ? Number(totalEntries) : null, isBagged, bagDay: isBagged && bagDay ? Number(bagDay) : null
+        tournamentId: selectedTournamentId, stack: ps(stack), sb: sb ? ps(sb) : null, bb: bb ? ps(bb) : null, bbAnte: bbAnte ? ps(bbAnte) : null, isRegClosed, bubble: isRegClosed && !isItm && bubble ? Number(bubble) : null, isItm, lockedAmount: isItm && lockedAmount ? Number(lockedAmount) : null, isFinalTable, placesLeft: isFinalTable && placesLeft ? Number(placesLeft) : null, firstPlacePrize: isFinalTable && firstPlacePrize ? Number(firstPlacePrize) : null, isDeal, dealPlace: isDeal && dealPlace ? Number(dealPlace) : null, dealPayout: isDeal && dealPayout ? Number(dealPayout) : null, isBusted, totalEntries: totalEntries ? Number(totalEntries) : null, isBagged, bagDay: isBagged && bagDay ? Number(bagDay) : null
       });
 
       const handleSubmit = () => {
@@ -2930,15 +2944,19 @@
                           <>
                             <div className="live-update-field">
                               <label>SB</label>
-                              <input type="number" placeholder="100" value={joiningSb} onChange={e => setJoiningSb(e.target.value)} />
+                              <input type="text" inputMode="decimal" placeholder="100" value={joiningSb} onChange={e => {
+                                const raw = e.target.value; setJoiningSb(raw);
+                                const num = Number(parseShorthand(raw));
+                                if (num > 0) { setJoiningBb(String(num * 2)); setJoiningAnte(String(num * 2)); }
+                              }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningSb(v); }} />
                             </div>
                             <div className="live-update-field">
                               <label>BB</label>
-                              <input type="number" placeholder="200" value={joiningBb} onChange={e => setJoiningBb(e.target.value)} />
+                              <input type="text" inputMode="decimal" placeholder="200" value={joiningBb} onChange={e => setJoiningBb(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningBb(v); }} />
                             </div>
                             <div className="live-update-field">
                               <label>Ante</label>
-                              <input type="number" placeholder="200" value={joiningAnte} onChange={e => setJoiningAnte(e.target.value)} />
+                              <input type="text" inputMode="decimal" placeholder="200" value={joiningAnte} onChange={e => setJoiningAnte(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setJoiningAnte(v); }} />
                             </div>
                           </>
                         )}
@@ -2949,21 +2967,27 @@
 
                   <div className="live-update-field">
                     <label>Stack</label>
-                    <input type="number" placeholder="250000" value={stack} onChange={e => setStack(e.target.value)} autoFocus />
+                    <input type="text" inputMode="decimal" placeholder="275k" value={stack} onChange={e => setStack(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setStack(v); }} autoFocus />
                   </div>
 
                   <div className="live-update-row">
                     <div className="live-update-field">
                       <label>SB</label>
-                      <input type="number" placeholder="1000" value={sb} onChange={e => setSb(e.target.value)} />
+                      <input type="text" inputMode="decimal" placeholder="1k" value={sb} onChange={e => {
+                        const raw = e.target.value;
+                        setSb(raw);
+                        const parsed = parseShorthand(raw);
+                        const num = Number(parsed);
+                        if (num > 0) { setBb(String(num * 2)); setBbAnte(String(num * 2)); }
+                      }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setSb(v); }} />
                     </div>
                     <div className="live-update-field">
                       <label>BB</label>
-                      <input type="number" placeholder="2000" value={bb} onChange={e => setBb(e.target.value)} />
+                      <input type="text" inputMode="decimal" placeholder="2k" value={bb} onChange={e => setBb(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBb(v); }} />
                     </div>
                     <div className="live-update-field">
                       <label>BB Ante</label>
-                      <input type="number" placeholder="2000" value={bbAnte} onChange={e => setBbAnte(e.target.value)} />
+                      <input type="text" inputMode="decimal" placeholder="2k" value={bbAnte} onChange={e => setBbAnte(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBbAnte(v); }} />
                     </div>
                   </div>
 
