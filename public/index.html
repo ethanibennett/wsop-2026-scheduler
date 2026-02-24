@@ -291,7 +291,7 @@
     }
 
     /* ── Camera overlay ── */
-    .camera-overlay { position:fixed; inset:0; z-index:9999; background:#000; }
+    .camera-overlay { position:fixed; inset:0; z-index:9999; background:#000; overflow:hidden; }
     .camera-overlay video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; touch-action:none; }
     .camera-overlay .camera-stats-bar {
       position:absolute; bottom:60px; left:0; right:0;
@@ -3172,6 +3172,7 @@
     }
 
     // Pinch-to-zoom helper for camera video elements
+    // Uses MediaStreamTrack zoom when available (Android Chrome), falls back to CSS transform (iOS Safari)
     function usePinchZoom(videoRef, streamRef) {
       const zoomRef = useRef(1);
       const baseDist = useRef(null);
@@ -3180,22 +3181,36 @@
         const el = videoRef.current;
         if (!el) return;
         const getTrack = () => streamRef.current && streamRef.current.getVideoTracks()[0];
-        const getRange = () => {
+        const hasTrackZoom = () => {
+          const track = getTrack();
+          if (!track || typeof track.getCapabilities !== 'function') return false;
+          const caps = track.getCapabilities();
+          return caps && caps.zoom;
+        };
+        const getZoomRange = () => {
           const track = getTrack();
           if (!track) return null;
-          const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : null;
+          const caps = track.getCapabilities();
           return caps && caps.zoom ? caps.zoom : null;
         };
         const applyZoom = (z) => {
-          const range = getRange();
-          if (!range) return;
-          const clamped = Math.min(Math.max(z, range.min), range.max);
-          zoomRef.current = clamped;
-          getTrack().applyConstraints({ advanced: [{ zoom: clamped }] }).catch(() => {});
+          if (hasTrackZoom()) {
+            // Native track zoom (Android Chrome)
+            const range = getZoomRange();
+            const clamped = Math.min(Math.max(z, range.min), range.max);
+            zoomRef.current = clamped;
+            getTrack().applyConstraints({ advanced: [{ zoom: clamped }] }).catch(() => {});
+          } else {
+            // CSS transform fallback (iOS Safari)
+            const clamped = Math.min(Math.max(z, 1), 5);
+            zoomRef.current = clamped;
+            el.style.transform = 'scale(' + clamped + ')';
+          }
         };
         const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const onTouchStart = (e) => {
           if (e.touches.length === 2) {
+            e.preventDefault();
             baseDist.current = dist(e.touches[0], e.touches[1]);
             baseZoom.current = zoomRef.current;
           }
@@ -3208,7 +3223,7 @@
           }
         };
         const onTouchEnd = () => { baseDist.current = null; };
-        el.addEventListener('touchstart', onTouchStart, { passive: true });
+        el.addEventListener('touchstart', onTouchStart, { passive: false });
         el.addEventListener('touchmove', onTouchMove, { passive: false });
         el.addEventListener('touchend', onTouchEnd, { passive: true });
         return () => {
@@ -3217,8 +3232,10 @@
           el.removeEventListener('touchend', onTouchEnd);
         };
       }, []);
-      // Reset zoom when stream changes
-      const resetZoom = useCallback(() => { zoomRef.current = 1; }, []);
+      const resetZoom = useCallback(() => {
+        zoomRef.current = 1;
+        if (videoRef.current) videoRef.current.style.transform = '';
+      }, []);
       return resetZoom;
     }
 
