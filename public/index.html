@@ -3153,7 +3153,7 @@
       return parts.join(' · ');
     }
 
-    function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost }) {
+    function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }) {
       const containerRef = useRef(null);
       const panelRef = useRef(null);
       const toggleRef = useRef(null);
@@ -3360,7 +3360,22 @@
         if (!selectedTournamentId) return;
         if (updateType === 'update' && !isBusted && !stack) return;
         if (updateType === 'hand' && !parseCardNotation(heroHand).length) return;
-        onPost(buildUpdateData());
+        const data = buildUpdateData();
+        onPost(data);
+        // Auto-create tracking entry on bust
+        if ((updateType === 'bust' || (updateType === 'update' && data.isBusted)) && onAddTracking) {
+          const bc = activeUpdateMap[selectedTournamentId]?.bust_count || 0;
+          const payout = data.dealPayout || 0;
+          onAddTracking({
+            tournamentId: selectedTournamentId,
+            numEntries: bc + 1,
+            cashed: payout > 0,
+            finishPlace: data.placesLeft || null,
+            cashAmount: payout,
+            notes: data.updateText || null,
+            totalFieldSize: data.totalEntries || null
+          });
+        }
         setOpen(false);
       };
 
@@ -8258,6 +8273,7 @@
                 mySchedule={mySchedule}
                 myActiveUpdates={myActiveUpdates}
                 onPost={postLiveUpdate}
+                onAddTracking={addTracking}
               />
               <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
                 {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
