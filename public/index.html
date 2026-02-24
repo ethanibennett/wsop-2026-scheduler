@@ -2748,18 +2748,21 @@
         [mySchedule, todayISO]
       );
 
-      // Past schedule events that aren't busted (includes ones with no update yet)
+      // Past schedule events that aren't busted — unless late reg still open + re-entry allowed
       const previousActive = useMemo(() => {
         const todayIds = new Set(todayTournaments.map(t => t.id));
-        const bustedIds = new Set(
-          (myActiveUpdates || []).filter(u => u.is_busted).map(u => u.tournament_id)
-        );
-        return (mySchedule || []).filter(t =>
-          !todayIds.has(t.id) &&
-          normaliseDate(t.date) < todayISO &&
-          t.venue !== 'Personal' &&
-          !bustedIds.has(t.id)
-        );
+        const bustedMap = {};
+        (myActiveUpdates || []).filter(u => u.is_busted).forEach(u => { bustedMap[u.tournament_id] = u; });
+        const now = Date.now();
+        return (mySchedule || []).filter(t => {
+          if (todayIds.has(t.id) || t.venue === 'Personal') return false;
+          if (normaliseDate(t.date) >= todayISO) return false;
+          if (!bustedMap[t.id]) return true; // not busted — include
+          // Busted: keep if re-entry allowed AND late reg still open
+          if (!t.reentry) return false;
+          const lateEnd = parseLateRegEnd(t.late_reg_end, t.date);
+          return !isNaN(lateEnd) && now < lateEnd;
+        });
       }, [mySchedule, todayTournaments, myActiveUpdates, todayISO]);
 
       const allOptions = useMemo(() => {
@@ -2909,7 +2912,12 @@
                   <div className="live-update-row">
                     <label className="live-update-toggle">
                       <input type="checkbox" checked={isRegistered} onChange={e => { setIsRegistered(e.target.checked); if (e.target.checked && selectedTournamentId) setRegistrationOpen(true); }} disabled={!selectedTournamentId} />
-                      Registered
+                      {(() => {
+                        const bc = activeUpdateMap[selectedTournamentId]?.bust_count || 0;
+                        if (bc === 0) return 'Registered';
+                        const n = bc + 1;
+                        return n + ordinalSuffix(n) + ' Entry';
+                      })()}
                     </label>
                   </div>
 
@@ -3105,6 +3113,7 @@
               joiningSb={joiningSb}
               joiningBb={joiningBb}
               joiningAnte={joiningAnte}
+              entryNumber={(activeUpdateMap[selectedTournamentId]?.bust_count || 0) + 1}
               onClose={() => { setRegistrationOpen(false); setOpen(true); }}
             />,
             document.body
@@ -3178,6 +3187,14 @@
         ctx.font = l5s + 'px Oswald, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.fillText('Joining at ' + data.joiningBlinds, padX, barY + lineH * nextLine);
+        nextLine += 0.9;
+      }
+      // Entry number (optional): show for re-entries
+      if (data.entryNumber && data.entryNumber > 1) {
+        const eS = Math.round(h * 0.018);
+        ctx.font = '600 ' + eS + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText(data.entryNumber + ordinalSuffix(data.entryNumber) + ' Entry', padX, barY + lineH * nextLine);
       }
       // Watermark
       const wms = Math.round(h * 0.014);
@@ -3765,7 +3782,7 @@
       );
     }
 
-    function RegistrationCameraFlow({ tournament, guarantee, joiningSb, joiningBb, joiningAnte, onClose }) {
+    function RegistrationCameraFlow({ tournament, guarantee, joiningSb, joiningBb, joiningAnte, entryNumber, onClose }) {
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
       const streamRef = useRef(null);
@@ -3790,7 +3807,8 @@
         levelDuration: tournament.level_duration,
         guarantee: guarantee || null,
         joiningBlinds: joiningBlinds,
-      }), [tournament, guarantee, joiningBlinds]);
+        entryNumber: entryNumber || 1,
+      }), [tournament, guarantee, joiningBlinds, entryNumber]);
 
       const startCam = (onErr) => {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {

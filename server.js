@@ -2244,7 +2244,8 @@ app.get('/api/live-updates/active', authenticateToken, (req, res) => {
              lu.is_final_table, lu.places_left, lu.first_place_prize,
              lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
              lu.total_entries, lu.is_bagged, lu.bag_day,
-             lu.created_at, t.event_name, t.venue, t.date
+             lu.created_at, t.event_name, t.venue, t.date,
+             (SELECT COUNT(*) FROM live_updates b WHERE b.user_id = lu.user_id AND b.tournament_id = lu.tournament_id AND b.is_busted = 1) AS bust_count
       FROM live_updates lu
       JOIN tournaments t ON lu.tournament_id = t.id
       WHERE lu.user_id = ?
