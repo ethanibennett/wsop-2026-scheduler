@@ -3297,13 +3297,15 @@
       useEffect(() => {
         if (!open) return;
         const handler = (e) => {
+          // Don't close panel while camera or registration overlay is active
+          if (cameraOpen || registrationOpen) return;
           if (panelRef.current && panelRef.current.contains(e.target)) return;
           if (toggleRef.current && toggleRef.current.contains(e.target)) return;
           setOpen(false);
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-      }, [open]);
+      }, [open, cameraOpen, registrationOpen]);
 
       const ps = (v) => Number(parseShorthand(v)) || 0;
       const buildUpdateData = () => {
@@ -3487,11 +3489,11 @@
           >
             <Icon.signal />
           </button>
-          {open && ReactDOM.createPortal(
+          {open && !cameraOpen && !registrationOpen && ReactDOM.createPortal(
             <div className="dropdown-backdrop" onClick={() => setOpen(false)} />,
             document.body
           )}
-          {open && ReactDOM.createPortal(
+          {open && !cameraOpen && !registrationOpen && ReactDOM.createPortal(
             <div ref={panelRef} className="live-update-panel" style={(() => {
               const r = toggleRef.current?.getBoundingClientRect();
               if (!r) return { top: 68, right: 8 };
