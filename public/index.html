@@ -321,13 +321,6 @@
     /* ── Registration section in live-update-panel ── */
     .live-update-registered-section { display:flex; flex-direction:column; gap:6px; }
     .live-update-divider { height:1px; background:var(--border); margin:4px -4px; }
-    .btn-registered {
-      align-self:flex-start; background:var(--surface); border:1.5px solid var(--border);
-      color:var(--text); font-family:'Oswald',sans-serif; font-size:0.78rem;
-      padding:5px 12px; border-radius:var(--radius-sm); cursor:pointer; transition:background 0.15s;
-    }
-    .btn-registered:hover:not(:disabled) { background:var(--hover-overlay, var(--border)); }
-    .btn-registered:disabled { opacity:0.4; cursor:not-allowed; }
 
     /* ── Scrollable content area ── */
     .content-area {
@@ -2662,6 +2655,11 @@
           if (u.bb_ante || u.bbAnte) blindParts.push(formatChips(u.bb_ante || u.bbAnte));
           if (blindParts.length) s += ' @ ' + blindParts.join('/');
         }
+        const bbVal = Number(u.bb || u.bb);
+        if (bbVal > 0) {
+          const bbCount = (Number(u.stack) / bbVal).toFixed(1).replace(/\.0$/, '');
+          s += ' (' + bbCount + 'bb)';
+        }
         parts.push(s);
       }
       const bub = u.bubble;
@@ -2722,9 +2720,13 @@
       const [isBagged, setIsBagged] = useState(false);
       const [bagDay, setBagDay] = useState('');
       const [cameraOpen, setCameraOpen] = useState(false);
+      const [isRegistered, setIsRegistered] = useState(false);
       const [registrationOpen, setRegistrationOpen] = useState(false);
+      const [hasGuarantee, setHasGuarantee] = useState(false);
       const [guarantee, setGuarantee] = useState('');
-      const [joiningLevel, setJoiningLevel] = useState('');
+      const [joiningSb, setJoiningSb] = useState('');
+      const [joiningBb, setJoiningBb] = useState('');
+      const [joiningAnte, setJoiningAnte] = useState('');
 
       const todayISO = getToday();
       const activeUpdateMap = useMemo(() => {
@@ -2884,28 +2886,49 @@
                     </div>
                   )}
 
-                  {activeUpdateMap[selectedTournamentId] && (
-                    <div className="live-update-last">
-                      Last: {formatLiveUpdate(activeUpdateMap[selectedTournamentId])}
+                  <div className="live-update-row" style={{justifyContent:'space-between'}}>
+                    {activeUpdateMap[selectedTournamentId] ? (
+                      <div className="live-update-last" style={{flex:1,marginRight:'8px'}}>
+                        Last: {formatLiveUpdate(activeUpdateMap[selectedTournamentId])}
+                      </div>
+                    ) : <div />}
+                    <label className="live-update-toggle" style={{whiteSpace:'nowrap'}}>
+                      <input type="checkbox" checked={isRegistered} onChange={e => { setIsRegistered(e.target.checked); if (e.target.checked && selectedTournamentId) setRegistrationOpen(true); }} disabled={!selectedTournamentId} />
+                      Reg'd
+                    </label>
+                  </div>
+
+                  {isRegistered && (
+                    <div className="live-update-registered-section">
+                      <div className="live-update-row">
+                        <label className="live-update-toggle">
+                          <input type="checkbox" checked={hasGuarantee} onChange={e => { setHasGuarantee(e.target.checked); if (!e.target.checked) setGuarantee(''); }} disabled={!selectedTournamentId} />
+                          GTD
+                        </label>
+                        {hasGuarantee && (
+                          <div className="live-update-field" style={{flex:'0 0 110px'}}>
+                            <label>Guarantee $</label>
+                            <input type="number" placeholder="2000000" value={guarantee} onChange={e => setGuarantee(e.target.value)} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="live-update-row">
+                        <div className="live-update-field">
+                          <label>Join SB</label>
+                          <input type="number" placeholder="100" value={joiningSb} onChange={e => setJoiningSb(e.target.value)} />
+                        </div>
+                        <div className="live-update-field">
+                          <label>Join BB</label>
+                          <input type="number" placeholder="200" value={joiningBb} onChange={e => setJoiningBb(e.target.value)} />
+                        </div>
+                        <div className="live-update-field">
+                          <label>Join Ante</label>
+                          <input type="number" placeholder="200" value={joiningAnte} onChange={e => setJoiningAnte(e.target.value)} />
+                        </div>
+                      </div>
                     </div>
                   )}
-
-                  <div className="live-update-registered-section">
-                    <div className="live-update-row">
-                      <div className="live-update-field" style={{flex:'0 0 55%'}}>
-                        <label>Guarantee $</label>
-                        <input type="number" placeholder="2000000" value={guarantee} onChange={e => setGuarantee(e.target.value)} disabled={!selectedTournamentId} />
-                      </div>
-                      <div className="live-update-field" style={{flex:'0 0 40%'}}>
-                        <label>Joining Lvl</label>
-                        <input type="number" placeholder="1" value={joiningLevel} onChange={e => setJoiningLevel(e.target.value)} disabled={!selectedTournamentId} min="1" />
-                      </div>
-                    </div>
-                    <button className="btn-registered" onClick={() => { if (selectedTournamentId) setRegistrationOpen(true); }} disabled={!selectedTournamentId}>
-                      📋 Registered
-                    </button>
-                  </div>
-                  <div className="live-update-divider" />
+                  {isRegistered && <div className="live-update-divider" />}
 
                   <div className="live-update-field">
                     <label>Stack</label>
@@ -3055,7 +3078,9 @@
             <RegistrationCameraFlow
               tournament={selectedTournament}
               guarantee={guarantee}
-              joiningLevel={joiningLevel}
+              joiningSb={joiningSb}
+              joiningBb={joiningBb}
+              joiningAnte={joiningAnte}
               onClose={() => { setRegistrationOpen(false); setOpen(true); }}
             />,
             document.body
@@ -3123,12 +3148,12 @@
         ctx.fillText('$' + Number(data.guarantee).toLocaleString() + ' guarantee', padX, barY + lineH * nextLine);
         nextLine += 0.9;
       }
-      // Line 5 (optional): joining level
-      if (data.joiningLevel) {
+      // Line 5 (optional): joining blinds
+      if (data.joiningBlinds) {
         const l5s = Math.round(h * 0.018);
         ctx.font = l5s + 'px Oswald, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.fillText('Joining at level ' + data.joiningLevel, padX, barY + lineH * nextLine);
+        ctx.fillText('Joining at ' + data.joiningBlinds, padX, barY + lineH * nextLine);
       }
       // Watermark
       const wms = Math.round(h * 0.014);
@@ -3305,13 +3330,20 @@
       );
     }
 
-    function RegistrationCameraFlow({ tournament, guarantee, joiningLevel, onClose }) {
+    function RegistrationCameraFlow({ tournament, guarantee, joiningSb, joiningBb, joiningAnte, onClose }) {
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
       const streamRef = useRef(null);
       const [step, setStep] = useState(1);
       const [captured, setCaptured] = useState(null);
       const [error, setError] = useState(null);
+
+      const joiningBlinds = useMemo(() => {
+        if (!joiningSb && !joiningBb) return null;
+        const parts = [joiningSb ? formatChips(Number(joiningSb)) : null, joiningBb ? formatChips(Number(joiningBb)) : null].filter(Boolean);
+        if (joiningAnte) parts.push(formatChips(Number(joiningAnte)));
+        return parts.join('/');
+      }, [joiningSb, joiningBb, joiningAnte]);
 
       const registrationData = useMemo(() => ({
         seriesName: VENUE_TO_SERIES[tournament.venue] || tournament.venue,
@@ -3321,8 +3353,8 @@
         startingChips: tournament.starting_chips,
         levelDuration: tournament.level_duration,
         guarantee: guarantee || null,
-        joiningLevel: joiningLevel || null,
-      }), [tournament, guarantee, joiningLevel]);
+        joiningBlinds: joiningBlinds,
+      }), [tournament, guarantee, joiningBlinds]);
 
       const startCam = (onErr) => {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
