@@ -367,14 +367,16 @@
     .card-row { display:flex; gap:2px; align-items:center; min-height:32px; flex-wrap:wrap; }
     .card-row img { height:28px; border-radius:2px; }
     .card-row .card-unknown { width:20px; height:28px; background:var(--border); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:var(--text-muted); font-family:'Oswald',sans-serif; }
+    .card-row .card-placeholder { width:20px; height:28px; background:rgba(120,120,120,0.45); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:rgba(255,255,255,0.8); font-family:'Oswald',sans-serif; }
+    [data-theme="light"] .card-row .card-placeholder { background:rgba(160,160,160,0.35); color:rgba(0,0,0,0.45); }
 
     /* ── Hand result (winner display) ── */
     .hand-result { font-size:0.68rem; font-family:'Oswald',sans-serif; padding:6px 8px; border-radius:4px; text-align:center; margin-top:2px; letter-spacing:0.3px; line-height:1.4; animation:luSlideIn 0.2s ease-out; }
     .hand-result-hero { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
-    .hand-result-villain { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
+    .hand-result-opponent { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
     .hand-result-split { background:rgba(250,204,21,0.12); color:#facc15; border:1px solid rgba(250,204,21,0.25); }
     [data-theme="light"] .hand-result-hero { background:rgba(22,163,74,0.08); color:#16a34a; border-color:rgba(22,163,74,0.2); }
-    [data-theme="light"] .hand-result-villain { background:rgba(220,38,38,0.08); color:#dc2626; border-color:rgba(220,38,38,0.2); }
+    [data-theme="light"] .hand-result-opponent { background:rgba(220,38,38,0.08); color:#dc2626; border-color:rgba(220,38,38,0.2); }
     [data-theme="light"] .hand-result-split { background:rgba(202,138,4,0.08); color:#ca8a04; border-color:rgba(202,138,4,0.2); }
 
     /* ── Bust/Hand tab styles ── */
@@ -2981,105 +2983,112 @@
       'OFC Pineapple':null
     };
 
-    function evaluateHand(game, heroCards, villainCards, boardCards) {
+    function evaluateHand(game, heroCards, opponentCards, boardCards) {
       const cfg = GAME_EVAL[game];
       if (!cfg) return null;
 
       const heroAll = boardCards.length ? [...heroCards, ...boardCards] : heroCards;
-      const villAll = boardCards.length ? [...villainCards, ...boardCards] : villainCards;
-      let hHi = null, vHi = null, hLo = null, vLo = null, hBad = null, vBad = null;
+      const oppAll = boardCards.length ? [...opponentCards, ...boardCards] : opponentCards;
+      let hHi = null, oHi = null, hLo = null, oLo = null, hBad = null, oBad = null;
 
       if (cfg.type === 'high' || cfg.type === 'hilo') {
         if (cfg.method === 'omaha') {
           hHi = bestOmahaHigh(heroCards, boardCards);
-          vHi = bestOmahaHigh(villainCards, boardCards);
+          oHi = bestOmahaHigh(opponentCards, boardCards);
         } else {
           hHi = bestHighHand(heroAll);
-          vHi = bestHighHand(villAll);
+          oHi = bestHighHand(oppAll);
         }
       }
       if (cfg.type === 'hilo') {
         if (cfg.method === 'omaha') {
           hLo = bestOmahaLow(heroCards, boardCards);
-          vLo = bestOmahaLow(villainCards, boardCards);
+          oLo = bestOmahaLow(opponentCards, boardCards);
         } else {
           hLo = bestLowA5Hand(heroAll, true);
-          vLo = bestLowA5Hand(villAll, true);
+          oLo = bestLowA5Hand(oppAll, true);
         }
       }
       if (cfg.type === 'low') {
-        if (cfg.lowType === 'a5') { hLo = bestLowA5Hand(heroAll, false); vLo = bestLowA5Hand(villAll, false); }
-        else { hLo = bestLow27Hand(heroAll); vLo = bestLow27Hand(villAll); }
+        if (cfg.lowType === 'a5') { hLo = bestLowA5Hand(heroAll, false); oLo = bestLowA5Hand(oppAll, false); }
+        else { hLo = bestLow27Hand(heroAll); oLo = bestLow27Hand(oppAll); }
       }
       if (cfg.type === 'badugi') {
-        hBad = bestBadugiHand(heroCards); vBad = bestBadugiHand(villainCards);
+        hBad = bestBadugiHand(heroCards); oBad = bestBadugiHand(opponentCards);
       }
       if (cfg.type === 'split-badugi') {
-        hBad = bestBadugiHand(heroCards); vBad = bestBadugiHand(villainCards);
-        if (cfg.otherLow === '27') { hLo = bestLow27Hand(heroCards); vLo = bestLow27Hand(villainCards); }
-        else { hLo = bestLowA5Hand(heroCards, false); vLo = bestLowA5Hand(villainCards, false); }
+        hBad = bestBadugiHand(heroCards); oBad = bestBadugiHand(opponentCards);
+        if (cfg.otherLow === '27') { hLo = bestLow27Hand(heroCards); oLo = bestLow27Hand(opponentCards); }
+        else { hLo = bestLowA5Hand(heroCards, false); oLo = bestLowA5Hand(opponentCards, false); }
       }
 
       // Determine result
       if (cfg.type === 'high') {
-        if (!hHi || !vHi) return null;
-        if (hHi.score > vHi.score) return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hHi.name, color:'green' }, heroHigh:hHi, villainHigh:vHi };
-        if (vHi.score > hHi.score) return { result: { outcome:'villain', text:'Villain wins \u2014 ' + vHi.name, color:'red' }, heroHigh:hHi, villainHigh:vHi };
-        return { result: { outcome:'chop', text:'Chop \u2014 ' + hHi.name, color:'yellow' }, heroHigh:hHi, villainHigh:vHi };
+        if (!hHi || !oHi) return null;
+        if (hHi.score > oHi.score) return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hHi.name, color:'green' }, heroHigh:hHi, opponentHigh:oHi };
+        if (oHi.score > hHi.score) return { result: { outcome:'opponent', text:'Opp wins \u2014 ' + oHi.name, color:'red' }, heroHigh:hHi, opponentHigh:oHi };
+        return { result: { outcome:'chop', text:'Chop \u2014 ' + hHi.name, color:'yellow' }, heroHigh:hHi, opponentHigh:oHi };
       }
       if (cfg.type === 'low') {
-        if (!hLo || !vLo) return null;
-        if (hLo.score < vLo.score) return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hLo.name, color:'green' }, heroLow:hLo, villainLow:vLo };
-        if (vLo.score < hLo.score) return { result: { outcome:'villain', text:'Villain wins \u2014 ' + vLo.name, color:'red' }, heroLow:hLo, villainLow:vLo };
-        return { result: { outcome:'chop', text:'Chop \u2014 ' + hLo.name, color:'yellow' }, heroLow:hLo, villainLow:vLo };
+        if (!hLo || !oLo) return null;
+        if (hLo.score < oLo.score) return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hLo.name, color:'green' }, heroLow:hLo, opponentLow:oLo };
+        if (oLo.score < hLo.score) return { result: { outcome:'opponent', text:'Opp wins \u2014 ' + oLo.name, color:'red' }, heroLow:hLo, opponentLow:oLo };
+        return { result: { outcome:'chop', text:'Chop \u2014 ' + hLo.name, color:'yellow' }, heroLow:hLo, opponentLow:oLo };
       }
       if (cfg.type === 'badugi') {
-        if (!hBad || !vBad) return null;
-        if (hBad.score < vBad.score) return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hBad.name, color:'green' }, heroBadugi:hBad, villainBadugi:vBad };
-        if (vBad.score < hBad.score) return { result: { outcome:'villain', text:'Villain wins \u2014 ' + vBad.name, color:'red' }, heroBadugi:hBad, villainBadugi:vBad };
-        return { result: { outcome:'chop', text:'Chop \u2014 ' + hBad.name, color:'yellow' }, heroBadugi:hBad, villainBadugi:vBad };
+        if (!hBad || !oBad) return null;
+        if (hBad.score < oBad.score) return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hBad.name, color:'green' }, heroBadugi:hBad, opponentBadugi:oBad };
+        if (oBad.score < hBad.score) return { result: { outcome:'opponent', text:'Opp wins \u2014 ' + oBad.name, color:'red' }, heroBadugi:hBad, opponentBadugi:oBad };
+        return { result: { outcome:'chop', text:'Chop \u2014 ' + hBad.name, color:'yellow' }, heroBadugi:hBad, opponentBadugi:oBad };
       }
       if (cfg.type === 'hilo') {
-        if (!hHi || !vHi) return null;
-        const highW = hHi.score > vHi.score ? 'hero' : vHi.score > hHi.score ? 'villain' : 'chop';
-        const anyLo = (hLo && hLo.qualified) || (vLo && vLo.qualified);
+        if (!hHi || !oHi) return null;
+        const highW = hHi.score > oHi.score ? 'hero' : oHi.score > hHi.score ? 'opponent' : 'chop';
+        const anyLo = (hLo && hLo.qualified) || (oLo && oLo.qualified);
         if (!anyLo) {
           // No qualifying low — high hand scoops
-          if (highW === 'hero') return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hHi.name + ' (no qualifying low)', color:'green' }, heroHigh:hHi, villainHigh:vHi };
-          if (highW === 'villain') return { result: { outcome:'villain', text:'Villain wins \u2014 ' + vHi.name + ' (no qualifying low)', color:'red' }, heroHigh:hHi, villainHigh:vHi };
-          return { result: { outcome:'chop', text:'Chop \u2014 ' + hHi.name + ' (no qualifying low)', color:'yellow' }, heroHigh:hHi, villainHigh:vHi };
+          if (highW === 'hero') return { result: { outcome:'hero', text:'Hero wins \u2014 ' + hHi.name + ' (no qualifying low)', color:'green' }, heroHigh:hHi, opponentHigh:oHi };
+          if (highW === 'opponent') return { result: { outcome:'opponent', text:'Opp wins \u2014 ' + oHi.name + ' (no qualifying low)', color:'red' }, heroHigh:hHi, opponentHigh:oHi };
+          return { result: { outcome:'chop', text:'Chop \u2014 ' + hHi.name + ' (no qualifying low)', color:'yellow' }, heroHigh:hHi, opponentHigh:oHi };
         }
         let lowW = 'chop';
-        if (hLo && vLo && hLo.qualified && vLo.qualified) lowW = hLo.score < vLo.score ? 'hero' : vLo.score < hLo.score ? 'villain' : 'chop';
+        if (hLo && oLo && hLo.qualified && oLo.qualified) lowW = hLo.score < oLo.score ? 'hero' : oLo.score < hLo.score ? 'opponent' : 'chop';
         else if (hLo && hLo.qualified) lowW = 'hero';
-        else if (vLo && vLo.qualified) lowW = 'villain';
+        else if (oLo && oLo.qualified) lowW = 'opponent';
         if (highW === lowW) {
-          const who = highW === 'hero' ? 'Hero' : highW === 'villain' ? 'Villain' : null;
-          if (who) return { result: { outcome:highW, text:who + ' scoops \u2014 ' + (highW === 'hero' ? hHi.name : vHi.name) + ' / ' + (highW === 'hero' ? hLo.name : vLo.name), color: highW === 'hero' ? 'green' : 'red' }, heroHigh:hHi, villainHigh:vHi, heroLow:hLo, villainLow:vLo };
-          return { result: { outcome:'chop', text:'Chop \u2014 ' + hHi.name + ' / ' + hLo.name, color:'yellow' }, heroHigh:hHi, villainHigh:vHi, heroLow:hLo, villainLow:vLo };
+          const who = highW === 'hero' ? 'Hero' : highW === 'opponent' ? 'Opp' : null;
+          if (who) return { result: { outcome:highW, text:who + ' scoops \u2014 ' + (highW === 'hero' ? hHi.name : oHi.name) + ' / ' + (highW === 'hero' ? hLo.name : oLo.name), color: highW === 'hero' ? 'green' : 'red' }, heroHigh:hHi, opponentHigh:oHi, heroLow:hLo, opponentLow:oLo };
+          return { result: { outcome:'chop', text:'Chop \u2014 ' + hHi.name + ' / ' + hLo.name, color:'yellow' }, heroHigh:hHi, opponentHigh:oHi, heroLow:hLo, opponentLow:oLo };
         }
-        const hiText = highW === 'hero' ? 'Hero wins high (' + hHi.name + ')' : highW === 'villain' ? 'Villain wins high (' + vHi.name + ')' : 'Chop high';
-        const loText = lowW === 'hero' ? 'Hero wins low (' + hLo.name + ')' : lowW === 'villain' ? 'Villain wins low (' + vLo.name + ')' : 'Chop low';
-        return { result: { outcome:'split', text:'Split \u2014 ' + hiText + ', ' + loText, color:'yellow' }, heroHigh:hHi, villainHigh:vHi, heroLow:hLo, villainLow:vLo };
+        const hiText = highW === 'hero' ? 'Hero wins high (' + hHi.name + ')' : highW === 'opponent' ? 'Opp wins high (' + oHi.name + ')' : 'Chop high';
+        const loText = lowW === 'hero' ? 'Hero wins low (' + hLo.name + ')' : lowW === 'opponent' ? 'Opp wins low (' + oLo.name + ')' : 'Chop low';
+        return { result: { outcome:'split', text:'Split \u2014 ' + hiText + ', ' + loText, color:'yellow' }, heroHigh:hHi, opponentHigh:oHi, heroLow:hLo, opponentLow:oLo };
       }
       if (cfg.type === 'split-badugi') {
-        if (!hBad || !vBad || !hLo || !vLo) return null;
-        const badW = hBad.score < vBad.score ? 'hero' : vBad.score < hBad.score ? 'villain' : 'chop';
-        const lowW2 = hLo.score < vLo.score ? 'hero' : vLo.score < hLo.score ? 'villain' : 'chop';
+        if (!hBad || !oBad || !hLo || !oLo) return null;
+        const badW = hBad.score < oBad.score ? 'hero' : oBad.score < hBad.score ? 'opponent' : 'chop';
+        const lowW2 = hLo.score < oLo.score ? 'hero' : oLo.score < hLo.score ? 'opponent' : 'chop';
         if (badW === lowW2) {
-          const who = badW === 'hero' ? 'Hero' : badW === 'villain' ? 'Villain' : null;
-          if (who) return { result: { outcome:badW, text:who + ' scoops \u2014 ' + (badW === 'hero' ? hBad.name : vBad.name) + ' / ' + (badW === 'hero' ? hLo.name : vLo.name), color: badW === 'hero' ? 'green' : 'red' }, heroBadugi:hBad, villainBadugi:vBad, heroLow:hLo, villainLow:vLo };
-          return { result: { outcome:'chop', text:'Chop \u2014 ' + hBad.name + ' / ' + hLo.name, color:'yellow' }, heroBadugi:hBad, villainBadugi:vBad, heroLow:hLo, villainLow:vLo };
+          const who = badW === 'hero' ? 'Hero' : badW === 'opponent' ? 'Opp' : null;
+          if (who) return { result: { outcome:badW, text:who + ' scoops \u2014 ' + (badW === 'hero' ? hBad.name : oBad.name) + ' / ' + (badW === 'hero' ? hLo.name : oLo.name), color: badW === 'hero' ? 'green' : 'red' }, heroBadugi:hBad, opponentBadugi:oBad, heroLow:hLo, opponentLow:oLo };
+          return { result: { outcome:'chop', text:'Chop \u2014 ' + hBad.name + ' / ' + hLo.name, color:'yellow' }, heroBadugi:hBad, opponentBadugi:oBad, heroLow:hLo, opponentLow:oLo };
         }
-        const bText = badW === 'hero' ? 'Hero wins Badugi (' + hBad.name + ')' : badW === 'villain' ? 'Villain wins Badugi (' + vBad.name + ')' : 'Chop Badugi';
-        const lText = lowW2 === 'hero' ? 'Hero wins draw (' + hLo.name + ')' : lowW2 === 'villain' ? 'Villain wins draw (' + vLo.name + ')' : 'Chop draw';
-        return { result: { outcome:'split', text:'Split \u2014 ' + bText + ', ' + lText, color:'yellow' }, heroBadugi:hBad, villainBadugi:vBad, heroLow:hLo, villainLow:vLo };
+        const bText = badW === 'hero' ? 'Hero wins Badugi (' + hBad.name + ')' : badW === 'opponent' ? 'Opp wins Badugi (' + oBad.name + ')' : 'Chop Badugi';
+        const lText = lowW2 === 'hero' ? 'Hero wins draw (' + hLo.name + ')' : lowW2 === 'opponent' ? 'Opp wins draw (' + oLo.name + ')' : 'Chop draw';
+        return { result: { outcome:'split', text:'Split \u2014 ' + bText + ', ' + lText, color:'yellow' }, heroBadugi:hBad, opponentBadugi:oBad, heroLow:hLo, opponentLow:oLo };
       }
       return null;
     }
 
-    function CardRow({ text, stud, max }) {
+    function CardRow({ text, stud, max, placeholderCount }) {
       let cards = parseCardNotation(text);
+      if (!cards.length && placeholderCount > 0) {
+        return React.createElement('div', { className: 'card-row' },
+          Array.from({ length: placeholderCount }, (_, i) =>
+            React.createElement('div', { key: i, className: 'card-placeholder' }, '?')
+          )
+        );
+      }
       if (!cards.length) return null;
       if (max && cards.length > max) cards = cards.slice(0, max);
       const downIdx = stud ? new Set([0, 1, 6]) : null;
@@ -3191,10 +3200,11 @@
       const [bustNote, setBustNote] = useState('');
       const [heroHand, setHeroHand] = useState('');
       const [boardCards, setBoardCards] = useState('');
-      const [villainHand, setVillainHand] = useState('');
+      const [numOpponents, setNumOpponents] = useState(0);
+      const [opponentHands, setOpponentHands] = useState(['', '', '', '', '']);
       const [handNote, setHandNote] = useState('');
-      // hasVillain derived from whether villain cards are entered
-      const hasVillain = parseCardNotation(villainHand).length > 0;
+      const hasOpponents = numOpponents > 0;
+      const activeOpponents = opponentHands.slice(0, numOpponents);
       const [handGame, setHandGame] = useState(null);
 
       const todayISO = getToday();
@@ -3267,7 +3277,8 @@
         setBustNote('');
         setHeroHand('');
         setBoardCards('');
-        setVillainHand('');
+        setNumOpponents(0);
+        setOpponentHands(['', '', '', '', '']);
         setHandNote('');
         setHandGame(null);
         // Auto-select tab based on tournament state
@@ -3326,15 +3337,16 @@
           const handPayload = {
             game: activeGame, hero: heroHand,
             board: gameConfig.hasBoard ? (boardCards || null) : null,
-            villain: hasVillain ? villainHand : null, note: handNote || null
+            opponents: hasOpponents ? activeOpponents.filter(h => h) : null, note: handNote || null
           };
-          if (handResult?.result) {
-            handPayload.result = {
-              outcome: handResult.result.outcome,
-              text: handResult.result.text,
-              heroHand: handResult.heroHigh?.name || handResult.heroLow?.name || handResult.heroBadugi?.name || null,
-              villainHand: handResult.villainHigh?.name || handResult.villainLow?.name || handResult.villainBadugi?.name || null
-            };
+          if (handResult && handResult.length > 0) {
+            handPayload.results = handResult.map(r => ({
+              oppIndex: r.index,
+              outcome: r.result.outcome,
+              text: r.result.text,
+              heroHand: r.heroHigh?.name || r.heroLow?.name || r.heroBadugi?.name || null,
+              opponentHand: r.opponentHigh?.name || r.opponentLow?.name || r.opponentBadugi?.name || null
+            }));
           }
           return { ...base, updateText: JSON.stringify(handPayload) };
         }
@@ -3424,30 +3436,32 @@
       const gameConfig = HAND_CONFIG[activeGame] || HAND_CONFIG_DEFAULT;
 
       const handResult = useMemo(() => {
-        if (!hasVillain || !GAME_EVAL[activeGame]) return null;
+        if (!hasOpponents || !GAME_EVAL[activeGame]) return null;
         const hRaw = parseCardNotation(heroHand);
-        const vRaw = parseCardNotation(villainHand);
         const hCards = hRaw.filter(c => c.suit !== 'x');
-        const vCards = vRaw.filter(c => c.suit !== 'x');
-        // Check hero/villain completeness
-        if (gameConfig.isStud) { if (hCards.length < 5 || vCards.length < 5) return null; }
-        else { if (hRaw.length < gameConfig.heroCards || vRaw.length < gameConfig.heroCards) return null; }
-        // Check board completeness for board games
+        if (gameConfig.isStud ? hCards.length < 5 : hRaw.length < gameConfig.heroCards) return null;
         const bCards = gameConfig.hasBoard ? parseCardNotation(boardCards) : [];
         if (gameConfig.hasBoard && bCards.length < 3) return null;
-        return evaluateHand(activeGame, hCards, vCards, bCards);
-      }, [heroHand, villainHand, boardCards, activeGame, gameConfig]);
+        const results = [];
+        for (let i = 0; i < numOpponents; i++) {
+          const oRaw = parseCardNotation(opponentHands[i]);
+          const oCards = oRaw.filter(c => c.suit !== 'x');
+          if (gameConfig.isStud ? oCards.length < 5 : oRaw.length < gameConfig.heroCards) continue;
+          results.push({ index: i, ...evaluateHand(activeGame, hCards, oCards, bCards) });
+        }
+        return results.length ? results : null;
+      }, [heroHand, opponentHands, numOpponents, boardCards, activeGame, gameConfig]);
 
       const shareHandImage = async () => {
         if (!parseCardNotation(heroHand).length) return;
         const handDataObj = {
-          heroHand, villainHand: hasVillain ? villainHand : null,
+          heroHand, opponents: hasOpponents ? activeOpponents : [],
           boardCards: gameConfig.hasBoard ? boardCards : null,
           activeGame, gameConfig, handResult
         };
         const allCards = [
           ...parseCardNotation(heroHand),
-          ...(hasVillain && villainHand ? parseCardNotation(villainHand) : []),
+          ...(hasOpponents ? activeOpponents.flatMap(h => h ? parseCardNotation(h) : []) : []),
           ...(gameConfig.hasBoard && boardCards ? parseCardNotation(boardCards) : [])
         ];
         try {
@@ -3777,31 +3791,44 @@
                           }
                           return false;
                         };
+                        const oppOthers = (idx) => [heroHand, boardCards, ...opponentHands.filter((_, j) => j !== idx).slice(0, numOpponents)];
                         return <>
                       <div className="live-update-field">
                         <label>Hero Hand</label>
-                        <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={heroHand} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, boardCards, villainHand)) setHeroHand(v); }} autoFocus />
+                        <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={heroHand} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, boardCards, ...opponentHands.slice(0, numOpponents))) setHeroHand(v); }} autoFocus />
                         <CardRow text={heroHand} stud={gameConfig.isStud} max={gameConfig.heroCards} />
                       </div>
                       {gameConfig.hasBoard && (
                         <div className="live-update-field">
                           <label>Board</label>
-                          <input type="text" placeholder={dualPlaceholder(gameConfig.boardPlaceholder)} value={boardCards} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.boardMax && !hasDupes(v, heroHand, villainHand)) setBoardCards(v); }} />
+                          <input type="text" placeholder={dualPlaceholder(gameConfig.boardPlaceholder)} value={boardCards} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.boardMax && !hasDupes(v, heroHand, ...opponentHands.slice(0, numOpponents))) setBoardCards(v); }} />
                           <CardRow text={boardCards} max={gameConfig.boardMax} />
                         </div>
                       )}
                       <div className="live-update-field">
-                        <label>Villain Hand</label>
-                        <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={villainHand} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, heroHand, boardCards)) setVillainHand(v); }} />
-                        <CardRow text={villainHand} stud={gameConfig.isStud} max={gameConfig.heroCards} />
+                        <label>Opponents</label>
+                        <div style={{display:'flex',gap:'6px',marginTop:'4px'}}>
+                          {[2, 3, 4, 5].map(n => (
+                            <button key={n} type="button" className={`filter-chip ${numOpponents === n ? 'active' : ''}`} onClick={() => setNumOpponents(numOpponents === n ? 0 : n)}>
+                              {n}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+                      {Array.from({ length: numOpponents }, (_, i) => (
+                        <div className="live-update-field" key={'opp' + i}>
+                          <label>Opponent {i + 1}</label>
+                          <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={opponentHands[i]} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, ...oppOthers(i))) setOpponentHands(prev => { const next = [...prev]; next[i] = v; return next; }); }} />
+                          <CardRow text={opponentHands[i]} stud={gameConfig.isStud} max={gameConfig.heroCards} placeholderCount={!opponentHands[i] ? gameConfig.heroCards : 0} />
+                        </div>
+                      ))}
                         </>;
                       })()}
-                      {handResult && (
-                        <div className={`hand-result hand-result-${handResult.result.color === 'green' ? 'hero' : handResult.result.color === 'red' ? 'villain' : 'split'}`}>
-                          {handResult.result.text}
+                      {handResult && handResult.length > 0 && handResult.map((r, ri) => (
+                        <div key={ri} className={`hand-result hand-result-${r.result.color === 'green' ? 'hero' : r.result.color === 'red' ? 'opponent' : 'split'}`}>
+                          {numOpponents > 1 ? `vs Opp ${r.index + 1}: ` : ''}{r.result.text}
                         </div>
-                      )}
+                      ))}
                       <div className="live-update-field">
                         <label>Notes</label>
                         <input type="text" placeholder="All in on flop, hero holds" value={handNote} onChange={e => setHandNote(e.target.value)} />
@@ -3887,7 +3914,7 @@
               stackHistory={stackHistory}
               defaultOverlay={updateType === 'hand' ? 'hand' : updateType === 'bust' ? 'countdown' : 'stats'}
               handData={updateType === 'hand' && parseCardNotation(heroHand).length > 0 ? {
-                heroHand, villainHand: hasVillain ? villainHand : null,
+                heroHand, opponents: hasOpponents ? activeOpponents : [],
                 boardCards: gameConfig.hasBoard ? boardCards : null,
                 activeGame, gameConfig, handResult
               } : null}
@@ -4304,169 +4331,147 @@
     // ── Hand History overlay ──
     function drawHandOverlay(ctx, w, h, handData, images) {
       const heroCards = parseCardNotation(handData.heroHand);
-      const villainCards = handData.villainHand ? parseCardNotation(handData.villainHand) : [];
+      const oppList = (handData.opponents || []).map(h => h ? parseCardNotation(h) : []);
+      const oppWithCards = oppList.filter(c => c.length > 0);
       const boardCards = handData.boardCards ? parseCardNotation(handData.boardCards) : [];
       const hasBoard = handData.gameConfig.hasBoard && boardCards.length > 0;
-      const hasVillain = villainCards.length > 0;
-      const result = handData.handResult?.result;
+      const hasOpponents = oppWithCards.length > 0;
+      const results = Array.isArray(handData.handResult) ? handData.handResult : [];
+      const result = results.length > 0 ? results[0]?.result : null;
 
-      // Bar dimensions
-      const barH = Math.round(h * 0.28);
+      // Bar dimensions — expand for multiple opponents
+      const baseBarPct = 0.28;
+      const extraPerOpp = Math.max(0, oppWithCards.length - 1) * 0.06;
+      const barH = Math.round(h * Math.min(baseBarPct + extraPerOpp, 0.50));
       const barY = h - barH - Math.round(h * 0.04);
       const padX = Math.round(w * 0.05);
 
-      // Background
       ctx.fillStyle = 'rgba(0,0,0,0.75)';
       ctx.fillRect(0, barY, w, barH);
 
-      // Card sizing
       const gap = 6;
-      const cardRatio = 2.5 / 3.5; // width:height
-      // Reserve space: bottom for result text (~15%), top for labels (~10%)
-      const labelZone = Math.round(barH * 0.08);
-      const resultZone = result ? Math.round(barH * 0.16) : Math.round(barH * 0.06);
-      const cardZoneH = barH - labelZone - resultZone - Math.round(barH * 0.06);
+      const cardRatio = 2.5 / 3.5;
+      const labelZone = Math.round(barH * 0.06);
+      const resultZone = results.length ? Math.round(barH * 0.12) : Math.round(barH * 0.04);
+      const cardZoneH = barH - labelZone - resultZone - Math.round(barH * 0.04);
 
       if (hasBoard) {
-        // ── COMMUNITY CARD LAYOUT ──
         const leftW = Math.round((w - padX * 2) * 0.45);
         const rightW = Math.round((w - padX * 2) * 0.45);
         const dividerX = padX + leftW + Math.round((w - padX * 2) * 0.10);
 
-        // Calculate card heights for each section
-        const rowsNeeded = hasVillain ? 2 : 1;
-        const rowGap = Math.round(barH * 0.06);
-        const perRowLabel = Math.round(barH * 0.07);
-        const heroVillainCardH = Math.min(
-          Math.round((cardZoneH - (rowsNeeded - 1) * rowGap - rowsNeeded * perRowLabel) / rowsNeeded),
-          140
-        );
-        const heroVillainCardW = Math.round(heroVillainCardH * cardRatio);
+        const rowsNeeded = 1 + oppWithCards.length;
+        const rowGap = Math.round(barH * 0.04);
+        const perRowLabel = Math.round(barH * 0.06);
+        const hvCardH = Math.min(Math.round((cardZoneH - (rowsNeeded - 1) * rowGap - rowsNeeded * perRowLabel) / rowsNeeded), 140);
+        const hvCardW = Math.round(hvCardH * cardRatio);
 
-        // Board card size — fit in right section
-        const boardCardH = Math.min(heroVillainCardH * 1.1, 140);
+        const boardCardH = Math.min(hvCardH * 1.1, 140);
         const boardCardW = Math.round(boardCardH * cardRatio);
         const boardTotalW = boardCards.length * boardCardW + Math.max(0, boardCards.length - 1) * gap;
-        // If board doesn't fit, shrink
-        let finalBoardCardH = boardCardH;
-        let finalBoardCardW = boardCardW;
-        if (boardTotalW > rightW) {
-          finalBoardCardW = Math.floor((rightW - (boardCards.length - 1) * gap) / boardCards.length);
-          finalBoardCardH = Math.round(finalBoardCardW / cardRatio);
-        }
+        let finalBoardCardH = boardCardH, finalBoardCardW = boardCardW;
+        if (boardTotalW > rightW) { finalBoardCardW = Math.floor((rightW - (boardCards.length - 1) * gap) / boardCards.length); finalBoardCardH = Math.round(finalBoardCardW / cardRatio); }
 
-        // Similarly check hero/villain fit
-        let finalHVCardH = heroVillainCardH;
-        let finalHVCardW = heroVillainCardW;
-        const maxHVCards = Math.max(heroCards.length, villainCards.length);
+        const maxHVCards = Math.max(heroCards.length, ...oppWithCards.map(c => c.length));
+        let finalHVCardH = hvCardH, finalHVCardW = hvCardW;
         const hvTotalW = maxHVCards * finalHVCardW + Math.max(0, maxHVCards - 1) * gap;
-        if (hvTotalW > leftW) {
-          finalHVCardW = Math.floor((leftW - (maxHVCards - 1) * gap) / maxHVCards);
-          finalHVCardH = Math.round(finalHVCardW / cardRatio);
-        }
+        if (hvTotalW > leftW) { finalHVCardW = Math.floor((leftW - (maxHVCards - 1) * gap) / maxHVCards); finalHVCardH = Math.round(finalHVCardW / cardRatio); }
 
-        // Y positions
         const contentTop = barY + labelZone;
-        const heroLabelY = contentTop + Math.round(perRowLabel * 0.7);
-        const heroCardY = contentTop + perRowLabel;
-        const villainLabelY = heroCardY + finalHVCardH + rowGap + Math.round(perRowLabel * 0.7);
-        const villainCardY = heroCardY + finalHVCardH + rowGap + perRowLabel;
-
-        // Draw HERO label + cards
         const lblS = Math.round(h * 0.014);
+        let curY = contentTop;
+
+        // HERO
         ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.letterSpacing = '1px';
-        ctx.fillText('HERO', padX, heroLabelY);
+        ctx.fillText('HERO', padX, curY + Math.round(perRowLabel * 0.7));
         ctx.letterSpacing = '0px';
-        drawCardRow(ctx, heroCards, images, padX, heroCardY, finalHVCardW, finalHVCardH, gap);
+        drawCardRow(ctx, heroCards, images, padX, curY + perRowLabel, finalHVCardW, finalHVCardH, gap);
+        const heroCardY = curY + perRowLabel;
+        curY += perRowLabel + finalHVCardH + rowGap;
 
-        // Draw VILLAIN label + cards
-        if (hasVillain) {
+        // OPPONENTS
+        let lastOppBottomY = heroCardY + finalHVCardH;
+        oppWithCards.forEach((oCards, idx) => {
           ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.55)';
           ctx.letterSpacing = '1px';
-          ctx.fillText('VILLAIN', padX, villainLabelY);
+          ctx.fillText(oppWithCards.length > 1 ? 'OPP ' + (idx + 1) : 'OPP', padX, curY + Math.round(perRowLabel * 0.7));
           ctx.letterSpacing = '0px';
-          drawCardRow(ctx, villainCards, images, padX, villainCardY, finalHVCardW, finalHVCardH, gap);
-        }
+          drawCardRow(ctx, oCards, images, padX, curY + perRowLabel, finalHVCardW, finalHVCardH, gap);
+          lastOppBottomY = curY + perRowLabel + finalHVCardH;
+          curY += perRowLabel + finalHVCardH + rowGap;
+        });
 
-        // Draw BOARD label + cards (right side, vertically centered)
+        // BOARD
         ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.letterSpacing = '1px';
-        ctx.fillText('BOARD', dividerX, heroLabelY);
+        ctx.fillText('BOARD', dividerX, contentTop + Math.round(perRowLabel * 0.7));
         ctx.letterSpacing = '0px';
-
-        // Center board vertically between hero and villain card areas
-        const boardMidY = hasVillain
-          ? (heroCardY + villainCardY + finalHVCardH) / 2
-          : heroCardY + finalHVCardH / 2;
+        const boardMidY = hasOpponents ? (heroCardY + lastOppBottomY) / 2 : heroCardY + finalHVCardH / 2;
         const boardY = Math.round(boardMidY - finalBoardCardH / 2);
         drawCardRow(ctx, boardCards, images, dividerX, boardY, finalBoardCardW, finalBoardCardH, gap);
 
       } else {
-        // ── NON-COMMUNITY CARD LAYOUT (centered) ──
-        const rowsNeeded = hasVillain ? 2 : 1;
-        const rowGap = Math.round(barH * 0.06);
-        const perRowLabel = Math.round(barH * 0.07);
-        const maxCards = Math.max(heroCards.length, villainCards.length);
+        const rowsNeeded = 1 + oppWithCards.length;
+        const rowGap = Math.round(barH * 0.04);
+        const perRowLabel = Math.round(barH * 0.06);
+        const maxCards = Math.max(heroCards.length, ...oppWithCards.map(c => c.length));
         const availW = w - padX * 2;
 
-        let cardH = Math.min(
-          Math.round((cardZoneH - (rowsNeeded - 1) * rowGap - rowsNeeded * perRowLabel) / rowsNeeded),
-          140
-        );
+        let cardH = Math.min(Math.round((cardZoneH - (rowsNeeded - 1) * rowGap - rowsNeeded * perRowLabel) / rowsNeeded), 140);
         let cardW = Math.round(cardH * cardRatio);
         const totalW = maxCards * cardW + Math.max(0, maxCards - 1) * gap;
-        if (totalW > availW) {
-          cardW = Math.floor((availW - (maxCards - 1) * gap) / maxCards);
-          cardH = Math.round(cardW / cardRatio);
-        }
+        if (totalW > availW) { cardW = Math.floor((availW - (maxCards - 1) * gap) / maxCards); cardH = Math.round(cardW / cardRatio); }
 
         const contentTop = barY + labelZone;
         const lblS = Math.round(h * 0.014);
+        let curY = contentTop;
 
         // Hero centered
         const heroTotalW = heroCards.length * cardW + Math.max(0, heroCards.length - 1) * gap;
         const heroX = Math.round((w - heroTotalW) / 2);
-        const heroLabelY = contentTop + Math.round(perRowLabel * 0.7);
-        const heroCardY = contentTop + perRowLabel;
-
         ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.textAlign = 'center';
         ctx.letterSpacing = '1px';
-        ctx.fillText('HERO', w / 2, heroLabelY);
+        ctx.fillText('HERO', w / 2, curY + Math.round(perRowLabel * 0.7));
         ctx.letterSpacing = '0px';
         ctx.textAlign = 'left';
-        drawCardRow(ctx, heroCards, images, heroX, heroCardY, cardW, cardH, gap);
+        drawCardRow(ctx, heroCards, images, heroX, curY + perRowLabel, cardW, cardH, gap);
+        curY += perRowLabel + cardH + rowGap;
 
-        // Villain centered
-        if (hasVillain) {
-          const villainTotalW = villainCards.length * cardW + Math.max(0, villainCards.length - 1) * gap;
-          const villainX = Math.round((w - villainTotalW) / 2);
-          const villainLabelY = heroCardY + cardH + rowGap + Math.round(perRowLabel * 0.7);
-          const villainCardY = heroCardY + cardH + rowGap + perRowLabel;
-
+        // Opponents centered
+        oppWithCards.forEach((oCards, idx) => {
+          const oppTotalW = oCards.length * cardW + Math.max(0, oCards.length - 1) * gap;
+          const oppX = Math.round((w - oppTotalW) / 2);
           ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.55)';
           ctx.textAlign = 'center';
           ctx.letterSpacing = '1px';
-          ctx.fillText('VILLAIN', w / 2, villainLabelY);
+          ctx.fillText(oppWithCards.length > 1 ? 'OPP ' + (idx + 1) : 'OPP', w / 2, curY + Math.round(perRowLabel * 0.7));
           ctx.letterSpacing = '0px';
           ctx.textAlign = 'left';
-          drawCardRow(ctx, villainCards, images, villainX, villainCardY, cardW, cardH, gap);
-        }
+          drawCardRow(ctx, oCards, images, oppX, curY + perRowLabel, cardW, cardH, gap);
+          curY += perRowLabel + cardH + rowGap;
+        });
       }
 
-      // Result text
-      if (result) {
-        const resS = Math.round(h * 0.020);
+      // Result text(s)
+      if (results.length > 0) {
+        const resS = Math.round(h * (results.length > 1 ? 0.015 : 0.020));
         ctx.font = '600 ' + resS + 'px Oswald, sans-serif';
-        ctx.fillStyle = result.color === 'green' ? '#4ade80' : result.color === 'red' ? '#f87171' : '#facc15';
         ctx.textAlign = 'center';
-        ctx.fillText(result.text, w / 2, barY + barH - Math.round(barH * 0.10));
+        const lineH = Math.round(resS * 1.3);
+        const startY = barY + barH - Math.round(barH * 0.04) - (results.length * lineH);
+        results.forEach((r, i) => {
+          const res = r.result;
+          ctx.fillStyle = res.color === 'green' ? '#4ade80' : res.color === 'red' ? '#f87171' : '#facc15';
+          const prefix = results.length > 1 ? 'vs Opp ' + (r.index + 1) + ': ' : '';
+          ctx.fillText(prefix + res.text, w / 2, startY + i * lineH);
+        });
         ctx.textAlign = 'left';
       }
 
@@ -4488,11 +4493,11 @@
     // ── Standalone hand history image (square 1080×1080) ──
     function drawHandImageOverlay(ctx, w, h, handData, images, tournamentName) {
       const heroCards = parseCardNotation(handData.heroHand);
-      const villainCards = handData.villainHand ? parseCardNotation(handData.villainHand) : [];
+      const oppList = (handData.opponents || []).map(h => h ? parseCardNotation(h) : []);
+      const oppWithCards = oppList.filter(c => c.length > 0);
       const boardCards = handData.boardCards ? parseCardNotation(handData.boardCards) : [];
       const hasBoard = handData.gameConfig.hasBoard && boardCards.length > 0;
-      const hasVillain = villainCards.length > 0;
-      const result = handData.handResult?.result;
+      const results = Array.isArray(handData.handResult) ? handData.handResult : [];
       const padX = Math.round(w * 0.06);
       const gap = 8;
       const cardRatio = 2.5 / 3.5;
@@ -4504,19 +4509,16 @@
       ctx.textAlign = 'center';
       ctx.fillText(tournamentName || '', w / 2, Math.round(h * 0.06));
 
-      // Game label below tournament name
       const gameS = Math.round(h * 0.028);
       ctx.font = '600 ' + gameS + 'px Oswald, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       ctx.fillText(handData.activeGame, w / 2, Math.round(h * 0.10));
       ctx.textAlign = 'left';
 
-      // Thin green accent line
       ctx.fillStyle = '#22c55e';
       ctx.fillRect(padX, Math.round(h * 0.12), w - padX * 2, 2);
 
       if (hasBoard) {
-        // ── COMMUNITY CARD LAYOUT ──
         const leftW = Math.round((w - padX * 2) * 0.42);
         const rightW = Math.round((w - padX * 2) * 0.42);
         const centerGap = Math.round((w - padX * 2) * 0.16);
@@ -4524,14 +4526,14 @@
         const contentTop = Math.round(h * 0.18);
         const lblS = Math.round(h * 0.020);
         const rowLabelH = Math.round(h * 0.04);
+        const oppGap = Math.round(h * 0.04);
+        const maxCardH = Math.round(h * 0.18 / Math.max(1, 1 + oppWithCards.length * 0.5));
 
-        // Calculate card size for hero/villain (fit in left section)
-        const maxHVCards = Math.max(heroCards.length, villainCards.length);
+        const maxHVCards = Math.max(heroCards.length, ...oppWithCards.map(c => c.length), 1);
         let hvCardW = Math.floor((leftW - (maxHVCards - 1) * gap) / maxHVCards);
         let hvCardH = Math.round(hvCardW / cardRatio);
-        if (hvCardH > Math.round(h * 0.22)) { hvCardH = Math.round(h * 0.22); hvCardW = Math.round(hvCardH * cardRatio); }
+        if (hvCardH > maxCardH) { hvCardH = maxCardH; hvCardW = Math.round(hvCardH * cardRatio); }
 
-        // Calculate card size for board (fit in right section)
         let bCardW = Math.floor((rightW - (boardCards.length - 1) * gap) / boardCards.length);
         let bCardH = Math.round(bCardW / cardRatio);
         if (bCardH > Math.round(h * 0.22)) { bCardH = Math.round(h * 0.22); bCardW = Math.round(bCardH * cardRatio); }
@@ -4545,40 +4547,42 @@
         const heroCardY = contentTop + rowLabelH;
         drawCardRow(ctx, heroCards, images, padX, heroCardY, hvCardW, hvCardH, gap);
 
-        // VILLAIN
-        if (hasVillain) {
-          const villainTop = heroCardY + hvCardH + Math.round(h * 0.05);
+        // OPPONENTS
+        let curY = heroCardY + hvCardH + oppGap;
+        let lastOppBottom = heroCardY + hvCardH;
+        oppWithCards.forEach((oCards, idx) => {
           ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.5)';
           ctx.letterSpacing = '2px';
-          ctx.fillText('VILLAIN', padX, villainTop);
+          ctx.fillText(oppWithCards.length > 1 ? 'OPP ' + (idx + 1) : 'OPP', padX, curY);
           ctx.letterSpacing = '0px';
-          drawCardRow(ctx, villainCards, images, padX, villainTop + rowLabelH, hvCardW, hvCardH, gap);
-        }
+          drawCardRow(ctx, oCards, images, padX, curY + rowLabelH, hvCardW, hvCardH, gap);
+          lastOppBottom = curY + rowLabelH + hvCardH;
+          curY += rowLabelH + hvCardH + oppGap;
+        });
 
-        // BOARD (right side, vertically centered)
+        // BOARD
         ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.letterSpacing = '2px';
         ctx.fillText('BOARD', rightX, contentTop);
         ctx.letterSpacing = '0px';
-        const boardCenterY = hasVillain
-          ? heroCardY + hvCardH + Math.round(h * 0.025)
-          : heroCardY + hvCardH / 2;
+        const boardCenterY = oppWithCards.length > 0 ? (heroCardY + lastOppBottom) / 2 : heroCardY + hvCardH / 2;
         const boardY = Math.round(boardCenterY - bCardH / 2);
         drawCardRow(ctx, boardCards, images, rightX, Math.max(boardY, contentTop + rowLabelH), bCardW, bCardH, gap);
 
       } else {
-        // ── NON-COMMUNITY CARD LAYOUT (centered) ──
         const contentTop = Math.round(h * 0.18);
         const lblS = Math.round(h * 0.020);
         const rowLabelH = Math.round(h * 0.04);
         const availW = w - padX * 2;
+        const oppGap = Math.round(h * 0.04);
+        const maxCardH = Math.round(h * 0.18 / Math.max(1, 1 + oppWithCards.length * 0.5));
 
-        const maxCards = Math.max(heroCards.length, villainCards.length);
+        const maxCards = Math.max(heroCards.length, ...oppWithCards.map(c => c.length), 1);
         let cardW = Math.floor((availW - (maxCards - 1) * gap) / maxCards);
         let cardH = Math.round(cardW / cardRatio);
-        if (cardH > Math.round(h * 0.22)) { cardH = Math.round(h * 0.22); cardW = Math.round(cardH * cardRatio); }
+        if (cardH > maxCardH) { cardH = maxCardH; cardW = Math.round(cardH * cardRatio); }
 
         // HERO centered
         const heroTotalW = heroCards.length * cardW + Math.max(0, heroCards.length - 1) * gap;
@@ -4592,29 +4596,36 @@
         ctx.textAlign = 'left';
         drawCardRow(ctx, heroCards, images, heroX, contentTop + rowLabelH, cardW, cardH, gap);
 
-        // VILLAIN centered
-        if (hasVillain) {
-          const villainTop = contentTop + rowLabelH + cardH + Math.round(h * 0.05);
-          const villainTotalW = villainCards.length * cardW + Math.max(0, villainCards.length - 1) * gap;
-          const villainX = Math.round((w - villainTotalW) / 2);
+        // Opponents centered
+        let curY = contentTop + rowLabelH + cardH + oppGap;
+        oppWithCards.forEach((oCards, idx) => {
+          const oppTotalW = oCards.length * cardW + Math.max(0, oCards.length - 1) * gap;
+          const oppX = Math.round((w - oppTotalW) / 2);
           ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.5)';
           ctx.textAlign = 'center';
           ctx.letterSpacing = '2px';
-          ctx.fillText('VILLAIN', w / 2, villainTop);
+          ctx.fillText(oppWithCards.length > 1 ? 'OPP ' + (idx + 1) : 'OPP', w / 2, curY);
           ctx.letterSpacing = '0px';
           ctx.textAlign = 'left';
-          drawCardRow(ctx, villainCards, images, villainX, villainTop + rowLabelH, cardW, cardH, gap);
-        }
+          drawCardRow(ctx, oCards, images, oppX, curY + rowLabelH, cardW, cardH, gap);
+          curY += rowLabelH + cardH + oppGap;
+        });
       }
 
-      // Result text
-      if (result) {
-        const resS = Math.round(h * 0.028);
+      // Result text(s)
+      if (results.length > 0) {
+        const resS = Math.round(h * (results.length > 1 ? 0.022 : 0.028));
         ctx.font = '600 ' + resS + 'px Oswald, sans-serif';
-        ctx.fillStyle = result.color === 'green' ? '#4ade80' : result.color === 'red' ? '#f87171' : '#facc15';
         ctx.textAlign = 'center';
-        ctx.fillText(result.text, w / 2, Math.round(h * 0.88));
+        const lineH = Math.round(resS * 1.3);
+        const startY = Math.round(h * 0.88) - Math.max(0, results.length - 1) * lineH / 2;
+        results.forEach((r, i) => {
+          const res = r.result;
+          ctx.fillStyle = res.color === 'green' ? '#4ade80' : res.color === 'red' ? '#f87171' : '#facc15';
+          const prefix = results.length > 1 ? 'vs Opp ' + (r.index + 1) + ': ' : '';
+          ctx.fillText(prefix + res.text, w / 2, startY + i * lineH);
+        });
         ctx.textAlign = 'left';
       }
 
@@ -4772,7 +4783,7 @@
           if (overlayType === 'hand' && handData) {
             const allCards = [
               ...parseCardNotation(handData.heroHand),
-              ...(handData.villainHand ? parseCardNotation(handData.villainHand) : []),
+              ...(handData.opponents || []).flatMap(h => h ? parseCardNotation(h) : []),
               ...(handData.boardCards ? parseCardNotation(handData.boardCards) : [])
             ];
             const images = await loadCardImages(allCards);
@@ -4942,12 +4953,12 @@
       const renderPreviewBar = () => {
         if (overlayType === 'hand' && handData) {
           const hCards = parseCardNotation(handData.heroHand);
-          const vCards = handData.villainHand ? parseCardNotation(handData.villainHand) : [];
+          const oppGroups = (handData.opponents || []).map(h => h ? parseCardNotation(h) : []);
           const bCards = handData.boardCards ? parseCardNotation(handData.boardCards) : [];
           const cardImg = (c, i) => c.suit !== 'x'
             ? React.createElement('img', { key: i, src: '/_cards/cards_gui_' + c.rank + c.suit + '.png', alt: c.rank + c.suit, style: { height: '22px', borderRadius: '2px' } })
             : React.createElement('span', { key: i, style: { display: 'inline-block', width: '16px', height: '22px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', textAlign: 'center', fontSize: '0.55rem', lineHeight: '22px', color: 'rgba(255,255,255,0.5)' } }, '?');
-          const result = handData.handResult?.result;
+          const results = Array.isArray(handData.handResult) ? handData.handResult : [];
           return (
             React.createElement('div', { className: 'camera-stats-bar' },
               React.createElement('div', { style: { fontSize: '0.6rem', color: 'rgba(255,255,255,0.5)', fontFamily: "'Oswald',sans-serif", marginBottom: '2px' } }, handData.activeGame),
@@ -4955,10 +4966,16 @@
                 hCards.map(cardImg),
                 bCards.length > 0 && React.createElement('span', { key: 'sep', style: { margin: '0 4px', color: 'rgba(255,255,255,0.3)', fontSize: '0.6rem' } }, '|'),
                 bCards.map((c, i) => cardImg(c, 'b' + i)),
-                vCards.length > 0 && React.createElement('span', { key: 'vs', style: { margin: '0 4px', color: 'rgba(255,255,255,0.4)', fontSize: '0.55rem', fontFamily: "'Oswald',sans-serif" } }, 'vs'),
-                vCards.map((c, i) => cardImg(c, 'v' + i))
+                ...oppGroups.flatMap((oCards, oi) => oCards.length > 0 ? [
+                  React.createElement('span', { key: 'vs' + oi, style: { margin: '0 4px', color: 'rgba(255,255,255,0.4)', fontSize: '0.55rem', fontFamily: "'Oswald',sans-serif" } }, 'vs'),
+                  ...oCards.map((c, ci) => cardImg(c, 'o' + oi + '_' + ci))
+                ] : [])
               ),
-              result && React.createElement('div', { style: { fontSize: '0.65rem', fontFamily: "'Oswald',sans-serif", fontWeight: 600, color: result.color === 'green' ? '#4ade80' : result.color === 'red' ? '#f87171' : '#facc15' } }, result.text)
+              results.length > 0 && results.map((r, ri) =>
+                React.createElement('div', { key: ri, style: { fontSize: '0.65rem', fontFamily: "'Oswald',sans-serif", fontWeight: 600, color: r.result.color === 'green' ? '#4ade80' : r.result.color === 'red' ? '#f87171' : '#facc15' } },
+                  (results.length > 1 ? 'vs Opp ' + (r.index + 1) + ': ' : '') + r.result.text
+                )
+              )
             )
           );
         }
