@@ -3193,7 +3193,8 @@
       const [boardCards, setBoardCards] = useState('');
       const [villainHand, setVillainHand] = useState('');
       const [handNote, setHandNote] = useState('');
-      const [hasVillain, setHasVillain] = useState(false);
+      // hasVillain derived from whether villain cards are entered
+      const hasVillain = parseCardNotation(villainHand).length > 0;
       const [handGame, setHandGame] = useState(null);
 
       const todayISO = getToday();
@@ -3268,7 +3269,6 @@
         setBoardCards('');
         setVillainHand('');
         setHandNote('');
-        setHasVillain(false);
         setHandGame(null);
         // Auto-select tab based on tournament state
         if (prefill && !prefill.is_busted) {
@@ -3421,7 +3421,7 @@
         const bCards = gameConfig.hasBoard ? parseCardNotation(boardCards) : [];
         if (gameConfig.hasBoard && bCards.length < 3) return null;
         return evaluateHand(activeGame, hCards, vCards, bCards);
-      }, [heroHand, villainHand, boardCards, activeGame, hasVillain, gameConfig]);
+      }, [heroHand, villainHand, boardCards, activeGame, gameConfig]);
 
       const shareHandImage = async () => {
         if (!parseCardNotation(heroHand).length) return;
@@ -3776,16 +3776,9 @@
                         </div>
                       )}
                       <div className="live-update-field">
-                        <label className="live-update-toggle">
-                          <input type="checkbox" checked={hasVillain} onChange={e => { setHasVillain(e.target.checked); if (!e.target.checked) setVillainHand(''); }} />
-                          Villain Hand
-                        </label>
-                        {hasVillain && (
-                          <>
-                            <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={villainHand} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, heroHand, boardCards)) setVillainHand(v); }} />
-                            <CardRow text={villainHand} stud={gameConfig.isStud} max={gameConfig.heroCards} />
-                          </>
-                        )}
+                        <label>Villain Hand</label>
+                        <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={villainHand} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, heroHand, boardCards)) setVillainHand(v); }} />
+                        <CardRow text={villainHand} stud={gameConfig.isStud} max={gameConfig.heroCards} />
                       </div>
                         </>;
                       })()}
