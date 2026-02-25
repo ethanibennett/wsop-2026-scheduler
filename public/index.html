@@ -3200,10 +3200,10 @@
       const [bustNote, setBustNote] = useState('');
       const [heroHand, setHeroHand] = useState('');
       const [boardCards, setBoardCards] = useState('');
-      const [numOpponents, setNumOpponents] = useState(0);
+      const [numOpponents, setNumOpponents] = useState(1);
       const [opponentHands, setOpponentHands] = useState(['', '', '', '', '']);
       const [handNote, setHandNote] = useState('');
-      const hasOpponents = numOpponents > 0;
+      const hasOpponents = opponentHands.slice(0, numOpponents).some(h => parseCardNotation(h).length > 0);
       const activeOpponents = opponentHands.slice(0, numOpponents);
       const [handGame, setHandGame] = useState(null);
 
@@ -3277,7 +3277,7 @@
         setBustNote('');
         setHeroHand('');
         setBoardCards('');
-        setNumOpponents(0);
+        setNumOpponents(1);
         setOpponentHands(['', '', '', '', '']);
         setHandNote('');
         setHandGame(null);
@@ -3806,20 +3806,25 @@
                         </div>
                       )}
                       <div className="live-update-field">
-                        <label>Opponents</label>
+                        <label>Opponent Hand</label>
+                        <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={opponentHands[0]} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, ...oppOthers(0))) setOpponentHands(prev => { const next = [...prev]; next[0] = v; return next; }); }} />
+                        <CardRow text={opponentHands[0]} stud={gameConfig.isStud} max={gameConfig.heroCards} placeholderCount={!opponentHands[0] ? gameConfig.heroCards : 0} />
+                      </div>
+                      <div className="live-update-field">
+                        <label>Additional Opponents</label>
                         <div style={{display:'flex',gap:'6px',marginTop:'4px'}}>
                           {[2, 3, 4, 5].map(n => (
-                            <button key={n} type="button" className={`filter-chip ${numOpponents === n ? 'active' : ''}`} onClick={() => setNumOpponents(numOpponents === n ? 0 : n)}>
+                            <button key={n} type="button" className={`filter-chip ${numOpponents === n ? 'active' : ''}`} onClick={() => setNumOpponents(numOpponents === n ? 1 : n)}>
                               {n}
                             </button>
                           ))}
                         </div>
                       </div>
-                      {Array.from({ length: numOpponents }, (_, i) => (
-                        <div className="live-update-field" key={'opp' + i}>
-                          <label>Opponent {i + 1}</label>
-                          <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={opponentHands[i]} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, ...oppOthers(i))) setOpponentHands(prev => { const next = [...prev]; next[i] = v; return next; }); }} />
-                          <CardRow text={opponentHands[i]} stud={gameConfig.isStud} max={gameConfig.heroCards} placeholderCount={!opponentHands[i] ? gameConfig.heroCards : 0} />
+                      {Array.from({ length: Math.max(0, numOpponents - 1) }, (_, i) => (
+                        <div className="live-update-field" key={'opp' + (i + 1)}>
+                          <label>Opponent {i + 2}</label>
+                          <input type="text" placeholder={dualPlaceholder(gameConfig.heroPlaceholder)} value={opponentHands[i + 1]} onChange={e => { const v = e.target.value; if (parseCardNotation(v).length <= gameConfig.heroCards && !hasDupes(v, ...oppOthers(i + 1))) setOpponentHands(prev => { const next = [...prev]; next[i + 1] = v; return next; }); }} />
+                          <CardRow text={opponentHands[i + 1]} stud={gameConfig.isStud} max={gameConfig.heroCards} placeholderCount={!opponentHands[i + 1] ? gameConfig.heroCards : 0} />
                         </div>
                       ))}
                         </>;
