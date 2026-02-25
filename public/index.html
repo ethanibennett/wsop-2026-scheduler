@@ -710,17 +710,16 @@
     .filter-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(160,160,160,0.1); }
 
     .filter-panel {
-      position: relative; z-index: 100;
+      position: fixed; z-index: 100;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
-      margin-bottom: 10px;
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
-      max-height: 60vh;
       overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
     }
@@ -5840,18 +5839,6 @@
       const [howMuchOpen, setHowMuchOpen] = useState(false);
       const [whichOpen, setWhichOpen] = useState(false);
 
-      // Outside-click to close filter panel
-      useEffect(() => {
-        if (!open) return;
-        const handler = (e) => {
-          if (panelRef.current && panelRef.current.contains(e.target)) return;
-          if (toggleRef.current && toggleRef.current.contains(e.target)) return;
-          setOpen(false);
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-      }, [open]);
-
       const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       const months = useMemo(() => {
@@ -5983,8 +5970,18 @@
             )}
           </div>
 
-          {open && (
-            <div ref={panelRef} className="filter-panel">
+          {open && ReactDOM.createPortal(
+            <div className="dropdown-backdrop" onClick={() => setOpen(false)} />,
+            document.body
+          )}
+          {open && ReactDOM.createPortal(
+            <div ref={panelRef} className="filter-panel" style={(() => {
+              const r = toggleRef.current?.getBoundingClientRect();
+              if (!r) return { top: 60, left: 8, right: 8 };
+              const vw = window.innerWidth || document.documentElement.clientWidth || 375;
+              const vh = window.innerHeight || document.documentElement.clientHeight || 700;
+              return { top: r.bottom + 4, left: 8, right: 8, maxHeight: vh - r.bottom - 16 };
+            })()}>
               <div className="filter-group filter-span2">
                 <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setWhenOpen(w => !w)}>
                   When?
@@ -6189,7 +6186,8 @@
                   }>Clear all filters</button>
                 </div>
               )}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       );
