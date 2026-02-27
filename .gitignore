@@ -69,4 +69,8 @@ CLAUDE-CODE-HANDOFF.md
 PROJECT-OVERVIEW.md
 QUICKSTART.md
 setup.sh
-.claude/
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/session-start.sh
