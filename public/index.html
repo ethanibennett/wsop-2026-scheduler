@@ -3075,6 +3075,34 @@
       return null;
     }
 
+    // Assign neutral suits to 'x'-suit cards for evaluation.
+    // Picks suits that avoid duplicates and minimize flush impact.
+    function assignNeutralSuits(handCards, usedCardKeys, boardSuits) {
+      const allSuits = ['h', 'd', 'c', 's'];
+      const used = new Set(usedCardKeys);
+      const assigned = [];
+      const handSuitsUsed = [];
+      for (const c of handCards) {
+        if (c.suit !== 'x') {
+          assigned.push(c);
+          used.add(c.rank + c.suit);
+          handSuitsUsed.push(c.suit);
+        } else {
+          const available = allSuits.filter(s => !used.has(c.rank + s));
+          if (!available.length) { assigned.push(c); continue; }
+          // Prefer suits not on board (no false flush), then not in this hand
+          const pick = available.find(s => !boardSuits.has(s) && !handSuitsUsed.includes(s))
+                    || available.find(s => !boardSuits.has(s))
+                    || available.find(s => !handSuitsUsed.includes(s))
+                    || available[0];
+          assigned.push({ rank: c.rank, suit: pick });
+          used.add(c.rank + pick);
+          handSuitsUsed.push(pick);
+        }
+      }
+      return assigned;
+    }
+
     function CardRow({ text, stud, max, placeholderCount }) {
       let cards = parseCardNotation(text);
       if (!cards.length && placeholderCount > 0) {
@@ -3435,17 +3463,36 @@
       const handResult = useMemo(() => {
         if (!hasOpponents || !GAME_EVAL[activeGame]) return null;
         const hRaw = parseCardNotation(heroHand);
-        const hCards = hRaw.filter(c => c.suit !== 'x');
-        if (gameConfig.isStud ? hCards.length < 5 : hCards.length < gameConfig.heroCards) return null;
         const bCards = gameConfig.hasBoard ? parseCardNotation(boardCards) : [];
         if (gameConfig.hasBoard && bCards.length < 3) return null;
+        const boardSuits = new Set(bCards.map(c => c.suit));
+        const usedKeys = bCards.map(c => c.rank + c.suit);
+
+        // Hero: for stud, filter out 'x'; for others, assign neutral suits
+        let hCards;
+        if (gameConfig.isStud) {
+          hCards = hRaw.filter(c => c.suit !== 'x');
+          if (hCards.length < 5) return null;
+        } else {
+          if (hRaw.length < gameConfig.heroCards) return null;
+          hCards = assignNeutralSuits(hRaw, usedKeys, boardSuits);
+        }
+        hCards.forEach(c => { if (c.suit !== 'x') usedKeys.push(c.rank + c.suit); });
+
         const results = [];
         for (let i = 0; i < numOpponents; i++) {
           const oRaw = parseCardNotation(opponentHands[i]);
-          const oCards = oRaw.filter(c => c.suit !== 'x');
-          if (gameConfig.isStud ? oCards.length < 5 : oCards.length < gameConfig.heroCards) continue;
+          let oCards;
+          if (gameConfig.isStud) {
+            oCards = oRaw.filter(c => c.suit !== 'x');
+            if (oCards.length < 5) continue;
+          } else {
+            if (oRaw.length < gameConfig.heroCards) continue;
+            oCards = assignNeutralSuits(oRaw, usedKeys, boardSuits);
+          }
           const ev = evaluateHand(activeGame, hCards, oCards, bCards);
           if (ev && ev.result) results.push({ index: i, ...ev });
+          oCards.forEach(c => { if (c.suit !== 'x') usedKeys.push(c.rank + c.suit); });
         }
         return results.length ? results : null;
       }, [heroHand, opponentHands, numOpponents, boardCards, activeGame, gameConfig]);
