@@ -362,6 +362,9 @@
     /* ── Card row ── */
     .card-row { display:flex; gap:2px; align-items:center; min-height:32px; flex-wrap:wrap; }
     .card-row img { height:28px; border-radius:2px; }
+    .card-row .card-css { width:20px; height:28px; border-radius:2px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:1px; font-family:Arial,Helvetica,sans-serif; font-weight:700; color:#fff; line-height:1; box-sizing:border-box; }
+    .card-css .card-rank { font-size:0.65rem; }
+    .card-css .card-suit { font-size:0.5rem; margin-top:-1px; }
     .card-row .card-unknown { width:20px; height:28px; background:var(--border); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:var(--text-muted); font-family:'Oswald',sans-serif; }
     .card-row .card-placeholder { width:20px; height:28px; background:rgba(120,120,120,0.45); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:rgba(255,255,255,0.8); font-family:'Oswald',sans-serif; }
     [data-theme="light"] .card-row .card-placeholder { background:rgba(160,160,160,0.35); color:rgba(0,0,0,0.45); }
@@ -3075,6 +3078,9 @@
       return null;
     }
 
+    const SUIT_COLORS = { h: '#6f0020', d: '#005374', c: '#00300d', s: '#231f20' };
+    const SUIT_SYMBOLS = { h: '\u2665', d: '\u2666', c: '\u2663', s: '\u2660' };
+
     function CardRow({ text, stud, max, placeholderCount }) {
       let cards = parseCardNotation(text);
       if (!cards.length && placeholderCount > 0) {
@@ -3090,16 +3096,18 @@
       return React.createElement('div', { className: 'card-row' },
         cards.map((c, i) => {
           const isDown = downIdx && downIdx.has(i);
-          const style = isDown ? { marginTop: 12 } : undefined;
+          const baseStyle = { marginTop: isDown ? 12 : undefined };
           const k = c.rank + c.suit + '_' + i;
-          return c.suit === 'x'
-            ? React.createElement('div', { key: k, className: 'card-unknown', style }, '?')
-            : React.createElement('img', {
-                key: k, className: 'card-img', style,
-                src: '/cards/cards_gui_' + c.rank + c.suit + '.svg',
-                alt: c.rank + c.suit,
-                loading: 'eager'
-              });
+          if (c.suit === 'x') {
+            return React.createElement('div', { key: k, className: 'card-unknown', style: baseStyle }, '?');
+          }
+          return React.createElement('div', {
+            key: k, className: 'card-css',
+            style: { ...baseStyle, background: SUIT_COLORS[c.suit] || '#333' }
+          },
+            React.createElement('span', { className: 'card-rank' }, c.rank),
+            React.createElement('span', { className: 'card-suit' }, SUIT_SYMBOLS[c.suit] || '')
+          );
         })
       );
     }
@@ -4948,7 +4956,9 @@
           const oppGroups = (handData.opponents || []).map(h => h ? parseCardNotation(h) : []);
           const bCards = handData.boardCards ? parseCardNotation(handData.boardCards) : [];
           const cardImg = (c, i) => c.suit !== 'x'
-            ? React.createElement('img', { key: i, src: '/cards/cards_gui_' + c.rank + c.suit + '.svg', alt: c.rank + c.suit, style: { height: '22px', borderRadius: '2px' } })
+            ? React.createElement('div', { key: i, className: 'card-css', style: { height: '22px', width: '16px', background: SUIT_COLORS[c.suit] || '#333', paddingTop: '0px' } },
+                React.createElement('span', { className: 'card-rank', style: { fontSize: '0.55rem' } }, c.rank),
+                React.createElement('span', { className: 'card-suit', style: { fontSize: '0.4rem' } }, SUIT_SYMBOLS[c.suit] || ''))
             : React.createElement('span', { key: i, style: { display: 'inline-block', width: '16px', height: '22px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', textAlign: 'center', fontSize: '0.55rem', lineHeight: '22px', color: 'rgba(255,255,255,0.5)' } }, '?');
           const results = Array.isArray(handData.handResult) ? handData.handResult : [];
           return (
