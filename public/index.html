@@ -3099,7 +3099,7 @@
             ? React.createElement('div', { key: i, className: 'card-unknown', style }, '?')
             : React.createElement('img', {
                 key: i, className: 'card-img', style,
-                src: '/_cards/cards_gui_' + c.rank + c.suit + '.png',
+                src: '/cards/cards_gui_' + c.rank + c.suit + '.svg',
                 alt: c.rank + c.suit
               });
         })
@@ -4275,7 +4275,7 @@
             return;
           }
           // 2. Try fetch + createImageBitmap (most reliable for canvas)
-          const url = '/_cards/cards_gui_' + key + '.png';
+          const url = '/cards/cards_gui_' + key + '.svg';
           try {
             if (typeof createImageBitmap === 'function') {
               const resp = await fetch(url);
@@ -4960,7 +4960,7 @@
           const oppGroups = (handData.opponents || []).map(h => h ? parseCardNotation(h) : []);
           const bCards = handData.boardCards ? parseCardNotation(handData.boardCards) : [];
           const cardImg = (c, i) => c.suit !== 'x'
-            ? React.createElement('img', { key: i, src: '/_cards/cards_gui_' + c.rank + c.suit + '.png', alt: c.rank + c.suit, style: { height: '22px', borderRadius: '2px' } })
+            ? React.createElement('img', { key: i, src: '/cards/cards_gui_' + c.rank + c.suit + '.svg', alt: c.rank + c.suit, style: { height: '22px', borderRadius: '2px' } })
             : React.createElement('span', { key: i, style: { display: 'inline-block', width: '16px', height: '22px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', textAlign: 'center', fontSize: '0.55rem', lineHeight: '22px', color: 'rgba(255,255,255,0.5)' } }, '?');
           const results = Array.isArray(handData.handResult) ? handData.handResult : [];
           return (
