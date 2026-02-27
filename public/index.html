@@ -1809,6 +1809,456 @@
         grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
       }
     }
+
+    /* ── Dashboard View ── */
+    .dashboard-view {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .dashboard-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dashboard-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2px;
+    }
+
+    .dashboard-section-title {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .dashboard-section-badge {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--surface2);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    /* What's Next event cards */
+    .dash-event-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: background 0.15s;
+      position: relative;
+    }
+
+    .dash-event-card:hover {
+      background: var(--hover-overlay);
+    }
+
+    .dash-event-card.bagged {
+      border-left: 3px solid #22c55e;
+    }
+
+    .dash-event-card.anchor {
+      border-left: 3px solid var(--text);
+    }
+
+    .dash-event-card.conditional {
+      border-left: 3px solid var(--text-muted);
+      opacity: 0.85;
+    }
+
+    .dash-event-card.reg-closed {
+      opacity: 0.5;
+    }
+
+    .dash-event-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .dash-event-name {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.25;
+      flex: 1;
+    }
+
+    .dash-event-buyin {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .dash-event-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .dash-event-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .dash-event-meta svg {
+      width: 11px;
+      height: 11px;
+      flex-shrink: 0;
+    }
+
+    .dash-event-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .dash-stat-box {
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    .dash-stat-value {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.1;
+    }
+
+    .dash-stat-label {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    .dash-event-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.62rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .dash-event-tag.bagged {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+    }
+
+    .dash-event-tag.anchor {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    [data-theme="light"] .dash-event-tag.anchor {
+      background: rgba(0, 0, 0, 0.06);
+    }
+
+    .dash-event-tag.conditional {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+    }
+
+    [data-theme="light"] .dash-event-tag.conditional {
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    .dash-event-tag.reg-closed {
+      background: rgba(239, 68, 68, 0.12);
+      color: #ef4444;
+    }
+
+    .dash-start-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .dash-start-btn:hover {
+      background: var(--hover-overlay);
+      border-color: var(--text-muted);
+    }
+
+    .dash-start-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* P&L Widget */
+    .dash-pl-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .dash-pl-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      text-align: center;
+    }
+
+    .dash-pl-value {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.1;
+    }
+
+    .dash-pl-value.positive { color: #22c55e; }
+    .dash-pl-value.negative { color: #ef4444; }
+
+    .dash-pl-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 4px;
+    }
+
+    .dash-pl-card.wide {
+      grid-column: span 2;
+    }
+
+    /* Friends widget */
+    .dash-friends-row {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 4px 0;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .dash-friend-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 56px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s;
+      border: none;
+      background: none;
+      color: var(--text);
+    }
+
+    .dash-friend-chip:hover {
+      background: var(--hover-overlay);
+    }
+
+    .dash-friend-chip .friend-name {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 56px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dash-friend-detail {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.78rem;
+    }
+
+    .dash-friend-detail-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .dash-friend-detail-event {
+      font-family: 'Oswald', sans-serif;
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: var(--text);
+    }
+
+    .dash-friend-detail-stack {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* Quick Actions */
+    .dash-actions-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .dash-action-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      text-align: center;
+    }
+
+    .dash-action-btn:hover {
+      background: var(--hover-overlay);
+    }
+
+    .dash-action-btn svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    /* Placeholder views */
+    .placeholder-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 60px 20px;
+      text-align: center;
+    }
+
+    .placeholder-view svg {
+      width: 48px;
+      height: 48px;
+      color: var(--text-muted);
+      opacity: 0.5;
+    }
+
+    .placeholder-view h2 {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .placeholder-view p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      max-width: 300px;
+      line-height: 1.5;
+    }
+
+    /* More menu */
+    .more-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 0;
+    }
+
+    .more-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+    }
+
+    .more-menu-item:hover {
+      background: var(--hover-overlay);
+    }
+
+    .more-menu-item svg {
+      width: 20px;
+      height: 20px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .more-menu-item .menu-item-desc {
+      font-size: 0.7rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .dash-empty {
+      text-align: center;
+      padding: 24px 16px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .dash-empty svg {
+      width: 32px;
+      height: 32px;
+      margin-bottom: 8px;
+      opacity: 0.4;
+    }
   </style>
 </head>
 <body>
@@ -2349,7 +2799,114 @@
           <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
         </svg>
       ),
+      home: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      ),
+      handshake: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11 17l-2 2-4-4 4.5-4.5"/>
+          <path d="M13 7l2-2 4 4-4.5 4.5"/>
+          <path d="M3 13l4 4"/>
+          <path d="M17 7l4 4"/>
+          <path d="M12 12l-2-2"/>
+        </svg>
+      ),
+      people: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+          <path d="M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+      ),
+      dots: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+          <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+          <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+        </svg>
+      ),
+      play: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      ),
+      dollarSign: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"/>
+          <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+        </svg>
+      ),
+      zap: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      ),
     };
+
+    // ── Blind Level Estimator ────────────────────────────────────
+    // GUESS: Standard WSOP blind structure approximation.
+    // Uses a simplified blind structure that starts at 100/200 with a standard
+    // progression. Level durations are read from tournament data when available.
+    // This is an approximation — real structures vary by event.
+    function estimateBlindLevel(startTime, levelDurationMins) {
+      const now = getNow();
+      if (!startTime || isNaN(startTime) || now < startTime) return null;
+
+      const elapsedMs = now - startTime;
+      const levelMs = (levelDurationMins || 40) * 60 * 1000;
+      const currentLevel = Math.floor(elapsedMs / levelMs) + 1;
+      const elapsedInLevel = elapsedMs % levelMs;
+      const remainingInLevel = Math.max(0, levelMs - elapsedInLevel);
+
+      // GUESS: Approximate WSOP blind structure
+      // Levels: 100/200, 200/300, 200/400, 300/600, 400/800, 500/1000,
+      // 600/1200, 800/1600, 1000/2000, 1200/2400, 1500/3000, 2000/4000,
+      // 2500/5000, 3000/6000, 4000/8000, 5000/10000, 6000/12000, 8000/16000...
+      const blindStructure = [
+        { sb: 100,   bb: 200,    ante: 200 },
+        { sb: 200,   bb: 300,    ante: 300 },
+        { sb: 200,   bb: 400,    ante: 400 },
+        { sb: 300,   bb: 600,    ante: 600 },
+        { sb: 400,   bb: 800,    ante: 800 },
+        { sb: 500,   bb: 1000,   ante: 1000 },
+        { sb: 600,   bb: 1200,   ante: 1200 },
+        { sb: 800,   bb: 1600,   ante: 1600 },
+        { sb: 1000,  bb: 2000,   ante: 2000 },
+        { sb: 1200,  bb: 2400,   ante: 2400 },
+        { sb: 1500,  bb: 3000,   ante: 3000 },
+        { sb: 2000,  bb: 4000,   ante: 4000 },
+        { sb: 2500,  bb: 5000,   ante: 5000 },
+        { sb: 3000,  bb: 6000,   ante: 6000 },
+        { sb: 4000,  bb: 8000,   ante: 8000 },
+        { sb: 5000,  bb: 10000,  ante: 10000 },
+        { sb: 6000,  bb: 12000,  ante: 12000 },
+        { sb: 8000,  bb: 16000,  ante: 16000 },
+        { sb: 10000, bb: 20000,  ante: 20000 },
+        { sb: 15000, bb: 30000,  ante: 30000 },
+        { sb: 20000, bb: 40000,  ante: 40000 },
+        { sb: 25000, bb: 50000,  ante: 50000 },
+        { sb: 30000, bb: 60000,  ante: 60000 },
+        { sb: 40000, bb: 80000,  ante: 80000 },
+        { sb: 50000, bb: 100000, ante: 100000 },
+      ];
+
+      const idx = Math.min(currentLevel - 1, blindStructure.length - 1);
+      const blinds = blindStructure[idx];
+
+      return {
+        level: currentLevel,
+        sb: blinds.sb,
+        bb: blinds.bb,
+        ante: blinds.ante,
+        remainingMs: remainingInLevel,
+        remainingMin: Math.floor(remainingInLevel / 60000),
+        remainingSec: Math.floor((remainingInLevel % 60000) / 1000),
+      };
+    }
 
     // ── Late Reg Bar ───────────────────────────────────────────
 
@@ -7581,15 +8138,415 @@
       );
     }
 
+    // ── Dashboard View ──────────────────────────────────────────
+
+    function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, onPost, onAddTracking, onNavigate, tournaments }) {
+      const [expandedFriend, setExpandedFriend] = useState(null);
+      const [now, setNow] = useState(getNow());
+
+      useEffect(() => {
+        const id = setInterval(() => setNow(getNow()), 30000);
+        return () => clearInterval(id);
+      }, []);
+
+      const todayISO = getToday();
+
+      // ── Build bagged events from previous days ──
+      const baggedEvents = useMemo(() => {
+        const bustedMap = {};
+        const baggedMap = {};
+        (myActiveUpdates || []).forEach(u => {
+          if (u.is_busted) bustedMap[u.tournament_id] = true;
+          if (u.is_bagged) baggedMap[u.tournament_id] = u;
+        });
+        return Object.entries(baggedMap)
+          .filter(([tid]) => !bustedMap[tid])
+          .map(([tid, update]) => {
+            const t = (mySchedule || []).find(x => x.id === Number(tid)) || (tournaments || []).find(x => x.id === Number(tid));
+            if (!t) return null;
+            return { ...t, _bagUpdate: update, _type: 'bagged' };
+          })
+          .filter(Boolean);
+      }, [myActiveUpdates, mySchedule, tournaments]);
+
+      // ── Today's events from user schedule ──
+      const todayEvents = useMemo(() => {
+        return (mySchedule || [])
+          .filter(t => normaliseDate(t.date) === todayISO && t.venue !== 'Personal' && !t.is_restart)
+          .map(t => {
+            const isBagged = baggedEvents.some(b => b.id === t.id);
+            if (isBagged) return null; // Already shown as bagged
+            const isAnchor = !!t.is_anchor;
+            const hasCondition = !!(t.conditions_json);
+            return { ...t, _type: isAnchor ? 'anchor' : (hasCondition ? 'conditional' : 'normal') };
+          })
+          .filter(Boolean);
+      }, [mySchedule, todayISO, baggedEvents]);
+
+      // ── Combined "What's Next" list ──
+      // Bagged events go to the top. If there's a bagged event, all other
+      // today events become "conditional on end of that event"
+      const whatsNextEvents = useMemo(() => {
+        const events = [...baggedEvents];
+        if (baggedEvents.length > 0) {
+          // All non-bagged today events become conditional on the bagged event
+          events.push(...todayEvents.map(t => ({
+            ...t,
+            _type: t._type === 'anchor' ? 'anchor' : 'conditional',
+            _conditionalOnBag: true,
+          })));
+        } else {
+          events.push(...todayEvents);
+        }
+        // Sort: bagged first, then anchors, then normal, then conditional
+        const typeOrder = { bagged: 0, anchor: 1, normal: 2, conditional: 3 };
+        events.sort((a, b) => (typeOrder[a._type] || 2) - (typeOrder[b._type] || 2));
+        return events;
+      }, [baggedEvents, todayEvents]);
+
+      // ── Parse level duration from tournament data ──
+      function parseLevelDuration(t) {
+        if (!t.level_duration) return 40; // GUESS: default 40 min
+        const match = t.level_duration.match(/(\d+)/);
+        return match ? parseInt(match[1]) : 40;
+      }
+
+      // ── Check if late reg has ended ──
+      function isLateRegClosed(t) {
+        if (!t.late_reg_end) return false;
+        const endMs = parseLateRegEnd(t.late_reg_end, t.date);
+        return !isNaN(endMs) && now > endMs;
+      }
+
+      // ── Render a single event card ──
+      function renderEventCard(event) {
+        const startMs = parseTournamentTime(event);
+        const started = now >= startMs;
+        const regClosed = isLateRegClosed(event);
+        const levelDuration = parseLevelDuration(event);
+        const blindInfo = started ? estimateBlindLevel(startMs, levelDuration) : null;
+        const startingChips = event.starting_chips || 20000; // GUESS: default starting stack
+
+        const bbCount = blindInfo ? Math.floor(startingChips / blindInfo.bb) : null;
+
+        const cardClass = [
+          'dash-event-card',
+          event._type === 'bagged' ? 'bagged' : '',
+          event._type === 'anchor' ? 'anchor' : '',
+          event._type === 'conditional' ? 'conditional' : '',
+          regClosed && event._type !== 'bagged' ? 'reg-closed' : '',
+        ].filter(Boolean).join(' ');
+
+        return (
+          <div key={event.id} className={cardClass}>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'4px',alignItems:'center'}}>
+              {event._type === 'bagged' && (
+                <span className="dash-event-tag bagged">Bagged — Day {event._bagUpdate?.bag_day || '?'}</span>
+              )}
+              {event._type === 'anchor' && !event._conditionalOnBag && (
+                <span className="dash-event-tag anchor">Locked In</span>
+              )}
+              {event._type === 'conditional' && (
+                <span className="dash-event-tag conditional">
+                  {event._conditionalOnBag ? 'Conditional on bag' : 'Conditional'}
+                </span>
+              )}
+              {regClosed && event._type !== 'bagged' && (
+                <span className="dash-event-tag reg-closed">Reg Closed</span>
+              )}
+            </div>
+
+            <div className="dash-event-header">
+              <div className="dash-event-name">{event.event_name}</div>
+              <div className="dash-event-buyin">{formatBuyin(event.buyin)}</div>
+            </div>
+
+            <div className="dash-event-meta">
+              <span><Icon.clock /> {event.time || 'TBD'}</span>
+              <span>{event.venue}</span>
+              {event.game_variant && <span>{event.game_variant}</span>}
+            </div>
+
+            {blindInfo && (
+              <div className="dash-event-stats">
+                <div className="dash-stat-box">
+                  <div className="dash-stat-value">~{blindInfo.level}</div>
+                  <div className="dash-stat-label">Est. Level</div>
+                </div>
+                <div className="dash-stat-box">
+                  <div className="dash-stat-value">{bbCount ? `${bbCount} BB` : '—'}</div>
+                  <div className="dash-stat-label">Start Stack</div>
+                </div>
+                <div className="dash-stat-box">
+                  <div className="dash-stat-value">
+                    {blindInfo.remainingMin}:{String(blindInfo.remainingSec).padStart(2, '0')}
+                  </div>
+                  <div className="dash-stat-label">Clock</div>
+                </div>
+              </div>
+            )}
+
+            {!regClosed && event._type !== 'bagged' && (
+              <button
+                className="dash-start-btn"
+                onClick={() => {
+                  if (onPost) {
+                    onPost({
+                      tournamentId: event.id,
+                      stack: event.starting_chips || 20000,
+                      update_text: 'Registered — GL!',
+                    });
+                  }
+                }}
+              >
+                <Icon.play /> Start Event
+              </button>
+            )}
+          </div>
+        );
+      }
+
+      // ── P&L data ──
+      const plData = useMemo(() => {
+        if (!trackingData || trackingData.length === 0) {
+          return { invested: 0, cashed: 0, net: 0, roi: 0, count: 0 };
+        }
+        // GUESS: Default to showing all tracking data. Could group by venue but
+        // we don't have a clear "current series" flag. Show total for now.
+        let invested = 0;
+        let cashed = 0;
+        trackingData.forEach(entry => {
+          const t = (tournaments || []).find(x => x.id === entry.tournament_id);
+          const buyin = t ? t.buyin : 0;
+          invested += buyin * (entry.num_entries || 1);
+          cashed += entry.cash_amount || 0;
+        });
+        const net = cashed - invested;
+        const roi = invested > 0 ? ((net / invested) * 100) : 0;
+        return { invested, cashed, net, roi, count: trackingData.length };
+      }, [trackingData, tournaments]);
+
+      // ── Friends currently playing ──
+      const activeFriends = useMemo(() => {
+        if (!shareBuddies || !buddyLiveUpdates) return [];
+        return shareBuddies
+          .filter(b => {
+            const lu = buddyLiveUpdates[b.id];
+            return lu && !lu.isBusted;
+          })
+          .map(b => ({
+            ...b,
+            liveUpdate: buddyLiveUpdates[b.id],
+          }));
+      }, [shareBuddies, buddyLiveUpdates]);
+
+      return (
+        <div className="dashboard-view">
+
+          {/* ── What's Next ── */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-header">
+              <div className="dashboard-section-title">What's Next</div>
+              {whatsNextEvents.length > 0 && (
+                <span className="dashboard-section-badge">{whatsNextEvents.length} event{whatsNextEvents.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+            {whatsNextEvents.length > 0 ? (
+              whatsNextEvents.map(event => renderEventCard(event))
+            ) : (
+              <div className="dash-empty">
+                <Icon.calendar />
+                <div>No events on your agenda today</div>
+                <div style={{fontSize:'0.72rem',marginTop:'4px'}}>
+                  Add events from the <button onClick={() => onNavigate('tournaments')} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline',padding:0}}>schedule</button> to see them here.
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Quick Actions ── */}
+          {/* GUESS: These are reasonable quick actions for a poker tournament app */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-header">
+              <div className="dashboard-section-title">Quick Actions</div>
+            </div>
+            <div className="dash-actions-grid">
+              <button className="dash-action-btn" onClick={() => onNavigate('_liveUpdate')}>
+                <Icon.signal />
+                Post Update
+              </button>
+              <button className="dash-action-btn" onClick={() => onNavigate('tracking')}>
+                <Icon.dollarSign />
+                Log Result
+              </button>
+              <button className="dash-action-btn" onClick={() => onNavigate('_share')}>
+                <Icon.link />
+                Share
+              </button>
+              <button className="dash-action-btn" onClick={() => onNavigate('tournaments')}>
+                <Icon.search />
+                Find Events
+              </button>
+            </div>
+          </div>
+
+          {/* ── Running P&L ── */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-header">
+              <div className="dashboard-section-title">Running P&L</div>
+              {plData.count > 0 && (
+                <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+            {plData.count > 0 ? (
+              <div className="dash-pl-grid">
+                <div className="dash-pl-card">
+                  <div className="dash-pl-value">{formatBuyin(plData.invested)}</div>
+                  <div className="dash-pl-label">Invested</div>
+                </div>
+                <div className="dash-pl-card">
+                  <div className="dash-pl-value">{formatBuyin(plData.cashed)}</div>
+                  <div className="dash-pl-label">Cashed</div>
+                </div>
+                <div className="dash-pl-card wide">
+                  <div className={`dash-pl-value ${plData.net >= 0 ? 'positive' : 'negative'}`}>
+                    {plData.net >= 0 ? '+' : ''}{formatBuyin(plData.net)}
+                  </div>
+                  <div className="dash-pl-label">
+                    Net P&L — {plData.roi >= 0 ? '+' : ''}{plData.roi.toFixed(1)}% ROI
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="dash-empty">
+                <Icon.tracking />
+                <div>No results logged yet</div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Friends Playing ── */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-header">
+              <div className="dashboard-section-title">Friends Playing</div>
+              {activeFriends.length > 0 && (
+                <span className="dashboard-section-badge">{activeFriends.length} live</span>
+              )}
+            </div>
+            {activeFriends.length > 0 ? (
+              <>
+                <div className="dash-friends-row">
+                  {activeFriends.map(f => (
+                    <button
+                      key={f.id}
+                      className="dash-friend-chip"
+                      onClick={() => setExpandedFriend(expandedFriend === f.id ? null : f.id)}
+                    >
+                      <Avatar src={f.avatar} username={f.username} size={38} />
+                      <span className="friend-name">{f.username}</span>
+                    </button>
+                  ))}
+                </div>
+                {expandedFriend && (() => {
+                  const friend = activeFriends.find(f => f.id === expandedFriend);
+                  if (!friend) return null;
+                  const lu = friend.liveUpdate;
+                  return (
+                    <div className="dash-friend-detail">
+                      <Avatar src={friend.avatar} username={friend.username} size={32} />
+                      <div className="dash-friend-detail-info">
+                        <div className="dash-friend-detail-event">{lu.eventName}</div>
+                        <div className="dash-friend-detail-stack">
+                          {lu.stack ? `Stack: ${Number(lu.stack).toLocaleString()}` : ''}
+                          {lu.bb ? ` | Blinds: ${Number(lu.sb).toLocaleString()}/${Number(lu.bb).toLocaleString()}` : ''}
+                          {lu.venue ? ` | ${lu.venue}` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </>
+            ) : (
+              <div className="dash-empty">
+                <Icon.people />
+                <div>No friends are playing right now</div>
+                <div style={{fontSize:'0.72rem',marginTop:'4px'}}>
+                  Connect with friends in <button onClick={() => onNavigate('settings')} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline',padding:0}}>settings</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Placeholder: Staking View ────────────────────────────────
+    function StakingView() {
+      return (
+        <div className="placeholder-view">
+          <Icon.handshake />
+          <h2>Staking</h2>
+          <p>Manage staking deals, track markup, and coordinate with your backers. Coming soon.</p>
+        </div>
+      );
+    }
+
+    // ── Placeholder: Social View ─────────────────────────────────
+    function SocialView() {
+      return (
+        <div className="placeholder-view">
+          <Icon.people />
+          <h2>Social</h2>
+          <p>See what your friends are playing, share updates, and follow the action. Coming soon.</p>
+        </div>
+      );
+    }
+
+    // ── More View (settings, tracking, etc.) ─────────────────────
+    function MoreView({ onNavigate }) {
+      return (
+        <div className="more-menu">
+          <button className="more-menu-item" onClick={() => onNavigate('schedule')}>
+            <Icon.user />
+            <div>
+              My Schedule
+              <div className="menu-item-desc">View your saved events and buddy schedules</div>
+            </div>
+          </button>
+          <button className="more-menu-item" onClick={() => onNavigate('tracking')}>
+            <Icon.tracking />
+            <div>
+              Results & Tracking
+              <div className="menu-item-desc">Log buy-ins, cashes, and track your P&L</div>
+            </div>
+          </button>
+          <button className="more-menu-item" onClick={() => onNavigate('calendar')}>
+            <Icon.calendar />
+            <div>
+              Calendar View
+              <div className="menu-item-desc">See your schedule day by day</div>
+            </div>
+          </button>
+          <button className="more-menu-item" onClick={() => onNavigate('settings')}>
+            <Icon.gear />
+            <div>
+              Settings
+              <div className="menu-item-desc">Account, sharing, appearance, imports</div>
+            </div>
+          </button>
+        </div>
+      );
+    }
+
     // ── Bottom Nav ─────────────────────────────────────────────
 
     function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
       const tabs = [
-        { id: 'tournaments', label: 'Schedule', icon: Icon.list },
-        { id: 'schedule', label: `Me${scheduleCount ? ` (${scheduleCount})` : ''}`, icon: Icon.user, badge: newShareCount },
-        { id: 'calendar', label: 'Today', icon: Icon.calendar },
-        { id: 'tracking', label: 'Tracking', icon: Icon.tracking },
-        { id: 'settings', label: 'Settings', icon: Icon.gear },
+        { id: 'dashboard', label: 'Home', icon: Icon.home },
+        { id: 'tournaments', label: 'Schedule', icon: Icon.calendar },
+        { id: 'staking', label: 'Staking', icon: Icon.handshake },
+        { id: 'social', label: 'Social', icon: Icon.people },
+        { id: 'more', label: 'More', icon: Icon.dots, badge: newShareCount },
       ];
 
       return (
@@ -7814,7 +8771,7 @@
     function App() {
       const [token, setToken] = useState(localStorage.getItem('token'));
       const [username, setUsername] = useState(localStorage.getItem('username'));
-      const [currentView, setCurrentView] = useState('tournaments');
+      const [currentView, setCurrentView] = useState('dashboard');
       const [tournaments, setTournaments] = useState([]);
       const [mySchedule, setMySchedule] = useState([]);
       const [gameVariants, setGameVariants] = useState([]);
@@ -8150,7 +9107,7 @@
         setToken(null);
         setUsername(null);
         setAvatar(null);
-        setCurrentView('tournaments');
+        setCurrentView('dashboard');
         setTournaments([]);
         setMySchedule([]);
         setShareToken(null);
@@ -8345,6 +9302,35 @@
           <main className="content-area">
             {error && <div className="alert alert-error">{error}</div>}
 
+            {currentView === 'dashboard' && (
+              <DashboardView
+                key={debugTimeKey}
+                mySchedule={mySchedule}
+                myActiveUpdates={myActiveUpdates}
+                trackingData={trackingData}
+                shareBuddies={shareBuddies}
+                buddyLiveUpdates={buddyLiveUpdates}
+                onPost={postLiveUpdate}
+                onAddTracking={addTracking}
+                tournaments={tournaments}
+                onNavigate={(v) => {
+                  // Handle special navigation targets from dashboard quick actions
+                  if (v === '_liveUpdate') {
+                    // Open the live update panel by clicking its button
+                    const btn = document.querySelector('.live-update-btn');
+                    if (btn) btn.click();
+                    return;
+                  }
+                  if (v === '_share') {
+                    setCurrentView('settings');
+                    return;
+                  }
+                  setCurrentView(v);
+                  const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
+                }}
+              />
+            )}
+
             {currentView === 'tournaments' && (
               <TournamentsView
                 key={debugTimeKey}
@@ -8410,22 +9396,23 @@
                 shareSuccess={shareSuccess}
               />
             )}
+
+            {currentView === 'staking' && <StakingView />}
+            {currentView === 'social' && <SocialView />}
+
+            {currentView === 'more' && (
+              <MoreView onNavigate={(v) => {
+                setCurrentView(v);
+                const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
+              }} />
+            )}
           </main>
 
           <BottomNav
-            current={currentView}
+            current={['tracking', 'calendar', 'settings', 'schedule'].includes(currentView) ? 'more' : currentView}
             onChange={v => {
               setCurrentView(v);
               const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
-              if (v === 'schedule' && newShareCount > 0) {
-                fetch(`${API_URL}/seen-shares`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } })
-                  .then(() => {
-                    // Clear "new buddy" count but keep pending incoming in the badge
-                    setLastSeenShares(new Date().toISOString());
-                    setNewShareCount(pendingIncoming.length);
-                  })
-                  .catch(() => {});
-              }
             }}
             scheduleCount={mySchedule.filter(t => !t.is_restart).length}
             newShareCount={newShareCount}
