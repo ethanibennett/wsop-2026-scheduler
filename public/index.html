@@ -3444,15 +3444,16 @@
         if (!hasOpponents || !GAME_EVAL[activeGame]) return null;
         const hRaw = parseCardNotation(heroHand);
         const hCards = hRaw.filter(c => c.suit !== 'x');
-        if (gameConfig.isStud ? hCards.length < 5 : hRaw.length < gameConfig.heroCards) return null;
+        if (gameConfig.isStud ? hCards.length < 5 : hCards.length < gameConfig.heroCards) return null;
         const bCards = gameConfig.hasBoard ? parseCardNotation(boardCards) : [];
         if (gameConfig.hasBoard && bCards.length < 3) return null;
         const results = [];
         for (let i = 0; i < numOpponents; i++) {
           const oRaw = parseCardNotation(opponentHands[i]);
           const oCards = oRaw.filter(c => c.suit !== 'x');
-          if (gameConfig.isStud ? oCards.length < 5 : oRaw.length < gameConfig.heroCards) continue;
-          results.push({ index: i, ...evaluateHand(activeGame, hCards, oCards, bCards) });
+          if (gameConfig.isStud ? oCards.length < 5 : oCards.length < gameConfig.heroCards) continue;
+          const ev = evaluateHand(activeGame, hCards, oCards, bCards);
+          if (ev && ev.result) results.push({ index: i, ...ev });
         }
         return results.length ? results : null;
       }, [heroHand, opponentHands, numOpponents, boardCards, activeGame, gameConfig]);
