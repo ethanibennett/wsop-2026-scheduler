@@ -4274,18 +4274,8 @@
             result.set(key, domImg);
             return;
           }
-          // 2. Try fetch + createImageBitmap (most reliable for canvas)
+          // 2. Load via Image element (createImageBitmap crashes on iOS with SVG blobs)
           const url = '/cards/cards_gui_' + key + '.svg';
-          try {
-            if (typeof createImageBitmap === 'function') {
-              const resp = await fetch(url);
-              const blob = await resp.blob();
-              const bmp = await createImageBitmap(blob);
-              result.set(key, bmp);
-              return;
-            }
-          } catch (e) { /* fall through */ }
-          // 3. Fallback: new Image with decode
           try {
             const img = new Image();
             img.src = url;
