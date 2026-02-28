@@ -638,6 +638,12 @@
 
     .nav-tab svg { width: 22px; height: 22px; stroke-width: 1.8; }
 
+    .nav-tab-center {
+      flex: 1.3;
+      font-size: 0.72rem;
+    }
+    .nav-tab-center svg { width: 26px; height: 26px; }
+
     /* ── Auth screen ── */
     .auth-wrap {
       display: flex;
@@ -2068,17 +2074,31 @@
       background: var(--hover-overlay);
     }
 
+    .dash-event-card.collapsed {
+      padding: 10px 14px;
+      gap: 6px;
+      opacity: 0.85;
+    }
+
+    .dash-event-card.collapsed .dash-event-meta {
+      display: none;
+    }
+
     .dash-event-card.bagged {
-      border-left: 3px solid #22c55e;
+      /* venue-color outline + "Bagged" tag is sufficient — no green edge */
     }
 
     .dash-event-card.anchor {
-      border-left: 3px solid var(--text);
+      border-left: 3px solid var(--text) !important;
     }
 
     .dash-event-card.conditional {
-      border-left: 3px solid var(--text-muted);
-      opacity: 0.85;
+      opacity: 0.7;
+    }
+
+    .dash-event-card.done {
+      opacity: 0.45;
+      filter: grayscale(0.6);
     }
 
     .dash-event-card.reg-closed {
@@ -2228,10 +2248,183 @@
       height: 14px;
     }
 
+    .dash-playing-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 16px;
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-sm);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+      color: var(--accent);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .dash-playing-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: playingPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes playingPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .dash-status-row {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+    }
+
+    .dash-status-row .dash-playing-badge {
+      flex: 1;
+    }
+
+    .dash-bag-btn, .dash-bust-btn {
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      transition: opacity 0.15s;
+    }
+
+    .dash-bag-btn {
+      background: color-mix(in srgb, #22c55e 12%, transparent);
+      border: 1px solid #22c55e;
+      color: #22c55e;
+    }
+
+    .dash-bust-btn {
+      background: color-mix(in srgb, #ef4444 12%, transparent);
+      border: 1px solid #ef4444;
+      color: #ef4444;
+    }
+
+    .dash-bag-btn:hover, .dash-bust-btn:hover, .dash-rebuy-btn:hover { opacity: 0.75; }
+
+    .dash-rebuy-btn {
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      transition: opacity 0.15s;
+    }
+
+    .dash-no-rebuy {
+      padding: 8px 10px;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .dash-finished-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .dash-restart-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 16px;
+      border: 1px solid #22c55e;
+      border-radius: var(--radius-sm);
+      background: color-mix(in srgb, #22c55e 8%, transparent);
+      color: #22c55e;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .dash-restart-badge svg { width: 14px; height: 14px; }
+
+    .dash-undo-x {
+      margin-left: auto;
+      background: none;
+      border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+      border-radius: 50%;
+      color: var(--accent);
+      width: 22px;
+      height: 22px;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+    .dash-undo-x:hover { opacity: 1; }
+    .dash-undo-x.muted {
+      border-color: color-mix(in srgb, var(--text-muted) 40%, transparent);
+      color: var(--text-muted);
+    }
+
+    .dash-unbag-x {
+      margin-left: auto;
+      background: none;
+      border: 1px solid color-mix(in srgb, #22c55e 40%, transparent);
+      border-radius: 50%;
+      color: #22c55e;
+      width: 22px;
+      height: 22px;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+    .dash-unbag-x:hover { opacity: 1; }
+
     /* P&L Widget */
     .dash-pl-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 8px;
     }
 
@@ -2239,13 +2432,13 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px 16px;
+      padding: 12px 8px;
       text-align: center;
     }
 
     .dash-pl-value {
       font-family: 'Oswald', sans-serif;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       font-weight: 700;
       color: var(--text);
       line-height: 1.1;
@@ -2255,15 +2448,11 @@
     .dash-pl-value.negative { color: #ef4444; }
 
     .dash-pl-label {
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.04em;
       margin-top: 4px;
-    }
-
-    .dash-pl-card.wide {
-      grid-column: span 2;
     }
 
     /* Friends widget */
@@ -4099,7 +4288,24 @@
       const [joiningSb, setJoiningSb] = useState('');
       const [joiningBb, setJoiningBb] = useState('');
       const [joiningAnte, setJoiningAnte] = useState('');
-      const [updateType, setUpdateType] = useState('update'); // 'register' | 'update' | 'hand' | 'bust'
+      const [updateType, setUpdateType] = useState('update'); // 'register' | 'update' | 'hand' | 'finish'
+      const externalTabRef = useRef(null); // tracks tab override from custom event
+      const externalBagRef = useRef(null); // tracks bag override from custom event
+
+      // Listen for external requests to open to a specific tab + tournament
+      useEffect(() => {
+        const handler = (e) => {
+          const { tab, tournamentId, bag } = e.detail || {};
+          if (tab) externalTabRef.current = tab;
+          if (bag) externalBagRef.current = bag;
+          if (tournamentId) setSelectedTournamentId(tournamentId);
+          if (tab) setUpdateType(tab);
+          if (bag) { setIsBagged(true); setBagDay(String(bag)); }
+          setOpen(true);
+        };
+        window.addEventListener('openLiveUpdate', handler);
+        return () => window.removeEventListener('openLiveUpdate', handler);
+      }, []);
       const [bustPlace, setBustPlace] = useState('');
       const [bustPayout, setBustPayout] = useState('');
       const [bustNote, setBustNote] = useState('');
@@ -4175,8 +4381,14 @@
         setDealPayout(prefill?.deal_payout || '');
         setIsBusted(!!prefill?.is_busted);
         setTotalEntries(prefill?.total_entries || '');
-        setIsBagged(!!prefill?.is_bagged);
-        setBagDay(prefill?.bag_day || '');
+        if (externalBagRef.current) {
+          setIsBagged(true);
+          setBagDay(String(externalBagRef.current));
+          externalBagRef.current = null;
+        } else {
+          setIsBagged(!!prefill?.is_bagged);
+          setBagDay(prefill?.bag_day || '');
+        }
         setBustPlace('');
         setBustPayout('');
         setBustNote('');
@@ -4186,8 +4398,11 @@
         setOpponentHands(['', '', '', '', '']);
         setHandNote('');
         setHandGame(null);
-        // Auto-select tab based on tournament state
-        if (prefill && !prefill.is_busted) {
+        // Auto-select tab based on tournament state (unless overridden by custom event)
+        if (externalTabRef.current) {
+          setUpdateType(externalTabRef.current);
+          externalTabRef.current = null;
+        } else if (prefill && !prefill.is_busted) {
           setUpdateType('update');
         } else if (!prefill) {
           setUpdateType('register');
@@ -4226,7 +4441,7 @@
       const ps = (v) => Number(parseShorthand(v)) || 0;
       const buildUpdateData = () => {
         const base = { tournamentId: selectedTournamentId, updateType };
-        if (updateType === 'bust') {
+        if (updateType === 'finish') {
           return {
             ...base,
             stack: stack ? ps(stack) : 0,
@@ -4280,7 +4495,7 @@
         const data = buildUpdateData();
         onPost(data);
         // Auto-create tracking entry on bust
-        if ((updateType === 'bust' || (updateType === 'update' && data.isBusted)) && onAddTracking) {
+        if ((updateType === 'finish' || (updateType === 'update' && data.isBusted)) && onAddTracking) {
           const bc = activeUpdateMap[selectedTournamentId]?.bust_count || 0;
           const payout = data.dealPayout || 0;
           onAddTracking({
@@ -4500,7 +4715,7 @@
                     }}>{entryLabel}</button>
                     <button className={updateType === 'update' ? 'active' : ''} onClick={() => setUpdateType('update')}>Update</button>
                     <button className={updateType === 'hand' ? 'active' : ''} onClick={() => setUpdateType('hand')}>Hand</button>
-                    <button className={updateType === 'bust' ? 'active' : ''} onClick={() => setUpdateType('bust')}>Bust</button>
+                    <button className={updateType === 'finish' ? 'active' : ''} onClick={() => setUpdateType('finish')}>Finish</button>
                   </div>
 
                   {/* ── Register tab ── */}
@@ -4766,8 +4981,8 @@
                     </>
                   )}
 
-                  {/* ── Bust tab ── */}
-                  {updateType === 'bust' && (
+                  {/* ── Finish tab ── */}
+                  {updateType === 'finish' && (
                     <>
                       <div className="live-update-row">
                         <div className="live-update-field">
@@ -4828,7 +5043,7 @@
                       onClick={handleSubmit}
                       disabled={!selectedTournamentId || (updateType === 'update' && !isBusted && !stack) || (updateType === 'hand' && !parseCardNotation(heroHand).length)}
                     >
-                      {updateType === 'bust' ? 'Post Bust' : updateType === 'hand' ? 'Post Hand' : 'Post Update'}
+                      {updateType === 'finish' ? 'Finish Event' : updateType === 'hand' ? 'Post Hand' : 'Post Update'}
                     </button>
                   </div>
                 </>
@@ -4842,7 +5057,7 @@
               tournamentName={selectedTournamentName}
               tournament={selectedTournament}
               stackHistory={stackHistory}
-              defaultOverlay={updateType === 'hand' ? 'hand' : updateType === 'bust' ? 'countdown' : 'stats'}
+              defaultOverlay={updateType === 'hand' ? 'hand' : updateType === 'finish' ? 'countdown' : 'stats'}
               handData={updateType === 'hand' && parseCardNotation(heroHand).length > 0 ? {
                 heroHand, opponents: hasOpponents ? activeOpponents : [],
                 boardCards: gameConfig.hasBoard ? boardCards : null,
@@ -10185,9 +10400,10 @@
 
     // ── Dashboard View ──────────────────────────────────────────
 
-    function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, onPost, onAddTracking, onNavigate, tournaments }) {
+    function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, onPost, onDeleteUpdate, onAddTracking, onNavigate, tournaments }) {
       const [expandedFriend, setExpandedFriend] = useState(null);
       const [now, setNow] = useState(getNow());
+      const [bustMenuEventId, setBustMenuEventId] = useState(null);
 
       useEffect(() => {
         const id = setInterval(() => setNow(getNow()), 30000);
@@ -10228,11 +10444,25 @@
           .filter(Boolean);
       }, [mySchedule, todayISO, baggedEvents]);
 
+      // ── Active previous-day events (not bagged, not busted, still playing) ──
+      const activePrevDayEvents = useMemo(() => {
+        const todayIds = new Set((mySchedule || []).filter(t => normaliseDate(t.date) === todayISO).map(t => t.id));
+        const baggedIds = new Set(baggedEvents.map(b => b.id));
+        return (myActiveUpdates || [])
+          .filter(u => !u.is_busted && !u.is_bagged && !todayIds.has(u.tournament_id) && !baggedIds.has(u.tournament_id))
+          .map(u => {
+            const t = (mySchedule || []).find(x => x.id === u.tournament_id) || (tournaments || []).find(x => x.id === u.tournament_id);
+            if (!t) return null;
+            return { ...t, _type: 'normal' };
+          })
+          .filter(Boolean);
+      }, [myActiveUpdates, mySchedule, tournaments, todayISO, baggedEvents]);
+
       // ── Combined "What's Next" list ──
       // Bagged events go to the top. If there's a bagged event, all other
       // today events become "conditional on end of that event"
       const whatsNextEvents = useMemo(() => {
-        const events = [...baggedEvents];
+        const events = [...baggedEvents, ...activePrevDayEvents];
         if (baggedEvents.length > 0) {
           // All non-bagged today events become conditional on the bagged event
           events.push(...todayEvents.map(t => ({
@@ -10247,7 +10477,7 @@
         const typeOrder = { bagged: 0, anchor: 1, normal: 2, conditional: 3 };
         events.sort((a, b) => (typeOrder[a._type] || 2) - (typeOrder[b._type] || 2));
         return events;
-      }, [baggedEvents, todayEvents]);
+      }, [baggedEvents, activePrevDayEvents, todayEvents]);
 
       // ── Parse level duration from tournament data ──
       function parseLevelDuration(t) {
@@ -10263,6 +10493,39 @@
         return !isNaN(endMs) && now > endMs;
       }
 
+      // ── Active event map (currently playing = has update, not bagged, not busted) ──
+      const activeEventMap = useMemo(() => {
+        const map = {};
+        (myActiveUpdates || []).forEach(u => {
+          if (!u.is_busted && !u.is_bagged) map[u.tournament_id] = u;
+        });
+        return map;
+      }, [myActiveUpdates]);
+
+      // ── Busted event map ──
+      const bustedEventMap = useMemo(() => {
+        const map = {};
+        (myActiveUpdates || []).forEach(u => {
+          if (u.is_busted) map[u.tournament_id] = u;
+        });
+        return map;
+      }, [myActiveUpdates]);
+
+      // ── Is anything currently being played? ──
+      const hasActivePlaying = useMemo(() =>
+        whatsNextEvents.some(e => !!activeEventMap[e.id]),
+        [whatsNextEvents, activeEventMap]
+      );
+
+      // ── Determine the "next up" event to expand when nothing is currently playing ──
+      const nextUpEventId = useMemo(() => {
+        if (hasActivePlaying) return null;
+        const nextUp = whatsNextEvents.find(e =>
+          e._type !== 'bagged' && !bustedEventMap[e.id]
+        );
+        return nextUp?.id || null;
+      }, [whatsNextEvents, hasActivePlaying, bustedEventMap]);
+
       // ── Render a single event card ──
       function renderEventCard(event) {
         const startMs = parseTournamentTime(event);
@@ -10273,50 +10536,68 @@
         const startingChips = event.starting_chips || 20000; // GUESS: default starting stack
 
         const bbCount = blindInfo ? Math.floor(startingChips / blindInfo.bb) : null;
+        const isCurrentlyPlaying = !!activeEventMap[event.id];
+        const isExpanded = isCurrentlyPlaying || event.id === nextUpEventId;
+        const isConditionalOnPlaying = !isCurrentlyPlaying && hasActivePlaying && !regClosed && event._type !== 'bagged';
+        const bustedUpdate = bustedEventMap[event.id];
+        const isBustedDone = bustedUpdate && (bustedUpdate.bust_count || 1) >= getMaxEntries(event.reentry);
 
+        const venueColor = getVenueBrandColor(getVenueInfo(event.venue).abbr);
         const cardClass = [
           'dash-event-card',
+          !isExpanded ? 'collapsed' : '',
+          isBustedDone ? 'done' : '',
           event._type === 'bagged' ? 'bagged' : '',
           event._type === 'anchor' ? 'anchor' : '',
-          event._type === 'conditional' ? 'conditional' : '',
+          (event._type === 'conditional' || isConditionalOnPlaying) ? 'conditional' : '',
           regClosed && event._type !== 'bagged' ? 'reg-closed' : '',
         ].filter(Boolean).join(' ');
 
+        const cardStyle = isConditionalOnPlaying
+          ? { borderColor: 'var(--text-muted)', borderStyle: 'dashed' }
+          : isBustedDone
+            ? { borderColor: 'var(--border)' }
+            : { borderColor: venueColor };
+
         return (
-          <div key={event.id} className={cardClass}>
-            <div style={{display:'flex',flexWrap:'wrap',gap:'4px',alignItems:'center'}}>
-              {event._type === 'bagged' && (
-                <span className="dash-event-tag bagged">Bagged — Day {event._bagUpdate?.bag_day || '?'}</span>
-              )}
-              {event._type === 'anchor' && !event._conditionalOnBag && (
-                <span className="dash-event-tag anchor">Locked In</span>
-              )}
-              {event._type === 'conditional' && (
-                <span className="dash-event-tag conditional">
-                  {event._conditionalOnBag ? 'Conditional on bag' : 'Conditional'}
-                </span>
-              )}
-              {regClosed && event._type !== 'bagged' && (
-                <span className="dash-event-tag reg-closed">Reg Closed</span>
-              )}
-            </div>
+          <div key={event.id} className={cardClass} style={cardStyle}>
+            {!isConditionalOnPlaying && (
+              <div style={{display:'flex',flexWrap:'wrap',gap:'4px',alignItems:'center'}}>
+                {event._type === 'bagged' && (
+                  <span className="dash-event-tag bagged">Bagged — Day {event._bagUpdate?.bag_day || '?'}</span>
+                )}
+                {event._type === 'anchor' && !event._conditionalOnBag && (
+                  <span className="dash-event-tag anchor">Locked In</span>
+                )}
+                {event._type === 'conditional' && (
+                  <span className="dash-event-tag conditional">
+                    {event._conditionalOnBag ? 'Conditional on bag' : 'Conditional'}
+                  </span>
+                )}
+                {regClosed && event._type !== 'bagged' && (
+                  <span className="dash-event-tag reg-closed">Reg Closed</span>
+                )}
+              </div>
+            )}
 
             <div className="dash-event-header">
               <div className="dash-event-name">{event.event_name}</div>
               <div className="dash-event-buyin">{formatBuyin(event.buyin)}</div>
             </div>
 
-            <div className="dash-event-meta">
-              <span><Icon.clock /> {event.time || 'TBD'}</span>
-              <span>{event.venue}</span>
-              {event.game_variant && <span>{event.game_variant}</span>}
-            </div>
+            {!isConditionalOnPlaying && (
+              <div className="dash-event-meta">
+                <span><Icon.clock /> {event.time || 'TBD'}</span>
+                <span>{event.venue}</span>
+                {event.game_variant && <span>{event.game_variant}</span>}
+              </div>
+            )}
 
-            {blindInfo && (
+            {isExpanded && blindInfo && (
               <div className="dash-event-stats">
                 <div className="dash-stat-box">
-                  <div className="dash-stat-value">~{blindInfo.level}</div>
-                  <div className="dash-stat-label">Est. Level</div>
+                  <div className="dash-stat-value">Level {blindInfo.level}</div>
+                  <div className="dash-stat-label">{blindInfo.ante ? `${blindInfo.sb.toLocaleString()}/${blindInfo.bb.toLocaleString()}/${blindInfo.ante.toLocaleString()}` : `${blindInfo.sb.toLocaleString()}/${blindInfo.bb.toLocaleString()}`}</div>
                 </div>
                 <div className="dash-stat-box">
                   <div className="dash-stat-value">{bbCount ? `${bbCount} BB` : '—'}</div>
@@ -10331,21 +10612,192 @@
               </div>
             )}
 
-            {!regClosed && event._type !== 'bagged' && (
-              <button
-                className="dash-start-btn"
-                onClick={() => {
-                  if (onPost) {
-                    onPost({
-                      tournamentId: event.id,
-                      stack: event.starting_chips || 20000,
-                      update_text: 'Registered — GL!',
-                    });
-                  }
-                }}
-              >
-                <Icon.play /> Start Event
-              </button>
+            {event._type === 'bagged' && (() => {
+              // Find the restart tournament for this bagged event
+              const restartT = (tournaments || []).find(t =>
+                t.is_restart && t.parent_event === event.event_number &&
+                normaliseDate(t.date) > normaliseDate(event.date)
+              );
+              const undoBag = () => {
+                if (onPost) {
+                  const bu = event._bagUpdate;
+                  onPost({
+                    tournamentId: event.id,
+                    stack: bu?.stack || event.starting_chips || 20000,
+                    isBagged: false,
+                    playStartedAt: new Date().toISOString(),
+                  });
+                }
+              };
+              if (restartT) {
+                const restartMs = parseTournamentTime(restartT);
+                const diffMs = restartMs - now;
+                if (diffMs > 0) {
+                  const h = Math.floor(diffMs / 3600000);
+                  const m = Math.floor((diffMs % 3600000) / 60000);
+                  return (
+                    <div className="dash-restart-badge">
+                      <Icon.restart /> Restart in {h}:{String(m).padStart(2, '0')}
+                      <button className="dash-unbag-x" onClick={undoBag} title="Undo bag">✕</button>
+                    </div>
+                  );
+                }
+              }
+              return (
+                <div className="dash-restart-badge">
+                  <Icon.restart /> Bagged
+                  <button className="dash-unbag-x" onClick={undoBag} title="Undo bag">✕</button>
+                </div>
+              );
+            })()}
+
+            {event._type !== 'bagged' && !isConditionalOnPlaying && (() => {
+              const isActive = !!activeEventMap[event.id];
+              const isBusted = !!bustedEventMap[event.id];
+
+              if (isBusted) {
+                const bustedUpdate = bustedEventMap[event.id];
+                const maxEntries = getMaxEntries(event.reentry);
+                const usedEntries = bustedUpdate?.bust_count || 1;
+                const canRebuy = usedEntries < maxEntries && !regClosed;
+                const nextBullet = usedEntries + 1;
+                return (
+                  <div className="dash-status-row">
+                    <div className="dash-finished-badge">
+                      Finished
+                      <button className="dash-undo-x muted" onClick={() => {
+                        if (bustedUpdate?.id && onDeleteUpdate) onDeleteUpdate(bustedUpdate.id);
+                      }} title="Undo finish">✕</button>
+                    </div>
+                    {canRebuy ? (
+                      <button className="dash-rebuy-btn" onClick={() => {
+                        if (onPost) {
+                          onPost({
+                            tournamentId: event.id,
+                            stack: event.starting_chips || 20000,
+                            update_text: `Bullet ${nextBullet}`,
+                            playStartedAt: new Date().toISOString(),
+                          });
+                        }
+                      }}>Rebuys: {maxEntries - usedEntries}</button>
+                    ) : (
+                      <div className="dash-no-rebuy">All entries used</div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (isActive) {
+                const activeUpdate = activeEventMap[event.id];
+                const bulletNum = (activeUpdate?.bust_count || 0) + 1;
+                const showBustMenu = bustMenuEventId === event.id;
+
+                const maxEntries = getMaxEntries(event.reentry);
+                const canRebuy = bulletNum < maxEntries && !regClosed;
+
+                if (showBustMenu) {
+                  return (
+                    <div className="dash-status-row">
+                      <button className="dash-bag-btn" onClick={() => {
+                        window.dispatchEvent(new CustomEvent('openLiveUpdate', {
+                          detail: { tab: 'update', tournamentId: event.id }
+                        }));
+                        setBustMenuEventId(null);
+                      }}>Update</button>
+                      {canRebuy && (
+                        <button className="dash-rebuy-btn" onClick={() => {
+                          if (onPost) {
+                            onPost({
+                              tournamentId: event.id,
+                              stack: event.starting_chips || 20000,
+                              update_text: `Bullet ${bulletNum + 1}`,
+                              isBusted: true,
+                            });
+                            setTimeout(() => {
+                              onPost({
+                                tournamentId: event.id,
+                                stack: event.starting_chips || 20000,
+                                update_text: `Re-entry — Bullet ${bulletNum + 1}`,
+                                playStartedAt: new Date().toISOString(),
+                              });
+                            }, 300);
+                          }
+                          setBustMenuEventId(null);
+                        }}>Rebuys Available: {maxEntries - bulletNum}</button>
+                      )}
+                      <button className="dash-bust-btn" onClick={() => {
+                        window.dispatchEvent(new CustomEvent('openLiveUpdate', {
+                          detail: { tab: 'finish', tournamentId: event.id }
+                        }));
+                        setBustMenuEventId(null);
+                      }}>Finish</button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="dash-status-row">
+                    <div className="dash-playing-badge">
+                      <span className="dash-playing-dot" /> Currently Playing{bulletNum > 1 ? `; Bullet ${bulletNum}` : ''}
+                      <button className="dash-undo-x" onClick={() => {
+                        if (activeUpdate?.id && onDeleteUpdate) onDeleteUpdate(activeUpdate.id);
+                      }} title="Undo start">✕</button>
+                    </div>
+                    <button className="dash-bag-btn" onClick={() => {
+                      const nextBagDay = (activeUpdate?.bag_day || 0) + 1 || 1;
+                      window.dispatchEvent(new CustomEvent('openLiveUpdate', {
+                        detail: { tab: 'update', tournamentId: event.id, bag: nextBagDay }
+                      }));
+                    }}>Bag</button>
+                    {!regClosed ? (
+                      <button className="dash-bust-btn" onClick={() => setBustMenuEventId(event.id)}>Bust</button>
+                    ) : (
+                      <button className="dash-bust-btn" onClick={() => {
+                        window.dispatchEvent(new CustomEvent('openLiveUpdate', {
+                          detail: { tab: 'finish', tournamentId: event.id }
+                        }));
+                      }}>Finish</button>
+                    )}
+                  </div>
+                );
+              }
+
+              if (regClosed) return null;
+              return (
+                <button
+                  className="dash-start-btn"
+                  onClick={() => {
+                    if (onPost) {
+                      onPost({
+                        tournamentId: event.id,
+                        stack: event.starting_chips || 20000,
+                        update_text: 'Registered — GL!',
+                        playStartedAt: new Date().toISOString(),
+                      });
+                    }
+                  }}
+                >
+                  <Icon.play /> Start Event
+                </button>
+              );
+            })()}
+
+            {event._type !== 'bagged' && !isBustedDone && (
+              (bustedEventMap[event.id] || isConditionalOnPlaying) ? (
+                <MiniLateRegBar
+                  lateRegEnd={event.late_reg_end}
+                  date={event.date}
+                  time={event.time}
+                  venueAbbr={getVenueInfo(event.venue).abbr}
+                />
+              ) : (
+                <LateRegBar
+                  lateRegEnd={event.late_reg_end}
+                  date={event.date}
+                  time={event.time}
+                  venueAbbr={getVenueInfo(event.venue).abbr}
+                />
+              )
             )}
           </div>
         );
@@ -10388,10 +10840,10 @@
       return (
         <div className="dashboard-view">
 
-          {/* ── What's Next ── */}
+          {/* ── Today ── */}
           <div className="dashboard-section">
             <div className="dashboard-section-header">
-              <div className="dashboard-section-title">What's Next</div>
+              <div className="dashboard-section-title">Today</div>
               {whatsNextEvents.length > 0 && (
                 <span className="dashboard-section-badge">{whatsNextEvents.length} event{whatsNextEvents.length !== 1 ? 's' : ''}</span>
               )}
@@ -10409,8 +10861,42 @@
             )}
           </div>
 
+          {/* ── Buyins / Cashes ── */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-header">
+              <div className="dashboard-section-title">Buyins / Cashes</div>
+              {plData.count > 0 && (
+                <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+            {plData.count > 0 ? (
+              <div className="dash-pl-grid">
+                <div className="dash-pl-card">
+                  <div className="dash-pl-value">{formatBuyin(plData.invested)}</div>
+                  <div className="dash-pl-label">Total Buyins</div>
+                </div>
+                <div className="dash-pl-card">
+                  <div className="dash-pl-value">{formatBuyin(plData.cashed)}</div>
+                  <div className="dash-pl-label">Cashes</div>
+                </div>
+                <div className="dash-pl-card">
+                  <div className={`dash-pl-value ${plData.net >= 0 ? 'positive' : 'negative'}`}>
+                    {plData.net >= 0 ? '+' : ''}{formatBuyin(plData.net)}
+                  </div>
+                  <div className="dash-pl-label">
+                    Net — {plData.roi >= 0 ? '+' : ''}{plData.roi.toFixed(1)}% ROI
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="dash-empty">
+                <Icon.tracking />
+                <div>No results logged yet</div>
+              </div>
+            )}
+          </div>
+
           {/* ── Quick Actions ── */}
-          {/* GUESS: These are reasonable quick actions for a poker tournament app */}
           <div className="dashboard-section">
             <div className="dashboard-section-header">
               <div className="dashboard-section-title">Quick Actions</div>
@@ -10433,41 +10919,6 @@
                 Find Events
               </button>
             </div>
-          </div>
-
-          {/* ── Running P&L ── */}
-          <div className="dashboard-section">
-            <div className="dashboard-section-header">
-              <div className="dashboard-section-title">Running P&L</div>
-              {plData.count > 0 && (
-                <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
-              )}
-            </div>
-            {plData.count > 0 ? (
-              <div className="dash-pl-grid">
-                <div className="dash-pl-card">
-                  <div className="dash-pl-value">{formatBuyin(plData.invested)}</div>
-                  <div className="dash-pl-label">Invested</div>
-                </div>
-                <div className="dash-pl-card">
-                  <div className="dash-pl-value">{formatBuyin(plData.cashed)}</div>
-                  <div className="dash-pl-label">Cashed</div>
-                </div>
-                <div className="dash-pl-card wide">
-                  <div className={`dash-pl-value ${plData.net >= 0 ? 'positive' : 'negative'}`}>
-                    {plData.net >= 0 ? '+' : ''}{formatBuyin(plData.net)}
-                  </div>
-                  <div className="dash-pl-label">
-                    Net P&L — {plData.roi >= 0 ? '+' : ''}{plData.roi.toFixed(1)}% ROI
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="dash-empty">
-                <Icon.tracking />
-                <div>No results logged yet</div>
-              </div>
-            )}
           </div>
 
           {/* ── Friends Playing ── */}
@@ -10594,10 +11045,10 @@
 
     function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
       const tabs = [
-        { id: 'dashboard', label: 'Home', icon: Icon.home },
         { id: 'tournaments', label: 'Schedule', icon: Icon.calendar },
-        { id: 'staking', label: 'Staking', icon: Icon.handshake },
         { id: 'social', label: 'Social', icon: Icon.people },
+        { id: 'dashboard', label: 'Dashboard', icon: Icon.home, center: true },
+        { id: 'staking', label: 'Staking', icon: Icon.handshake },
         { id: 'more', label: 'More', icon: Icon.dots, badge: newShareCount },
       ];
 
@@ -10606,7 +11057,7 @@
           {tabs.map(tab => (
             <button
               key={tab.id}
-              className={`nav-tab ${current === tab.id ? 'active' : ''}`}
+              className={`nav-tab ${current === tab.id ? 'active' : ''}${tab.center ? ' nav-tab-center' : ''}`}
               onClick={() => onChange(tab.id)}
               style={{position:'relative'}}
             >
@@ -11998,6 +12449,16 @@
         } catch {}
       };
 
+      const deleteLiveUpdate = async (updateId) => {
+        try {
+          const res = await fetch(`${API_URL}/live-update/${updateId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) fetchMyLiveUpdate();
+        } catch {}
+      };
+
       const saveFieldSize = async (tournamentId, totalFieldSize) => {
         if (!totalFieldSize || !tournamentId) return;
         try {
@@ -12399,6 +12860,7 @@
                 shareBuddies={shareBuddies}
                 buddyLiveUpdates={buddyLiveUpdates}
                 onPost={postLiveUpdate}
+                onDeleteUpdate={deleteLiveUpdate}
                 onAddTracking={addTracking}
                 tournaments={tournaments}
                 onNavigate={(v) => {

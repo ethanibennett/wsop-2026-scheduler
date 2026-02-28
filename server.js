@@ -1126,6 +1126,13 @@ async function initDatabase() {
         console.log('Created all staking system tables');
       }
     },
+    {
+      name: 'live-updates-play-time-2026-02',
+      fn: () => {
+        db.run('ALTER TABLE live_updates ADD COLUMN play_started_at DATETIME');
+        console.log('Added play_started_at column to live_updates table');
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -1909,7 +1916,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
                lu.is_reg_closed, lu.bubble, lu.is_itm, lu.locked_amount,
                lu.is_final_table, lu.places_left, lu.first_place_prize,
                lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
-               lu.total_entries, lu.is_bagged, lu.bag_day,
+               lu.total_entries, lu.is_bagged, lu.bag_day, lu.play_started_at,
                lu.update_text, lu.created_at,
                t.event_name, t.venue
         FROM live_updates lu
@@ -1942,6 +1949,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
           isBusted: row.is_busted,
           isBagged: row.is_bagged,
           bagDay: row.bag_day,
+          playStartedAt: row.play_started_at,
           updateText: row.update_text,
           updatedAt: row.created_at
         };
@@ -2259,16 +2267,28 @@ app.post('/api/tracking', authenticateToken, async (req, res) => {
     checkStmt.free();
     if (!exists) return res.status(400).json({ error: 'Tournament not found' });
 
-    db.run(
-      'INSERT INTO tracking_entries (user_id, tournament_id, num_entries, cashed, finish_place, cash_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [req.user.id, tournamentId, numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null]
-    );
-    await saveDatabase();
-    res.status(201).json({ message: 'Entry tracked' });
-  } catch (error) {
-    if (error.message && error.message.includes('UNIQUE')) {
-      return res.status(409).json({ error: 'Entry already tracked for this tournament' });
+    // Upsert: update existing entry if one exists for this user+tournament
+    const existStmt = db.prepare('SELECT id FROM tracking_entries WHERE user_id = ? AND tournament_id = ?');
+    existStmt.bind([req.user.id, tournamentId]);
+    const existing = existStmt.step() ? existStmt.getAsObject() : null;
+    existStmt.free();
+
+    if (existing) {
+      db.run(
+        'UPDATE tracking_entries SET num_entries = ?, cashed = ?, finish_place = ?, cash_amount = ?, notes = ? WHERE id = ? AND user_id = ?',
+        [numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null, existing.id, req.user.id]
+      );
+      await saveDatabase();
+      res.json({ message: 'Entry updated' });
+    } else {
+      db.run(
+        'INSERT INTO tracking_entries (user_id, tournament_id, num_entries, cashed, finish_place, cash_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [req.user.id, tournamentId, numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null]
+      );
+      await saveDatabase();
+      res.status(201).json({ message: 'Entry tracked' });
     }
+  } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
@@ -2312,7 +2332,7 @@ app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
 
 app.post('/api/live-update', authenticateToken, async (req, res) => {
   try {
-    const { tournamentId, stack, sb, bb, bbAnte, isRegClosed, bubble, isItm, lockedAmount, isFinalTable, placesLeft, firstPlacePrize, isDeal, dealPlace, dealPayout, isBusted, totalEntries, isBagged, bagDay } = req.body;
+    const { tournamentId, stack, sb, bb, bbAnte, isRegClosed, bubble, isItm, lockedAmount, isFinalTable, placesLeft, firstPlacePrize, isDeal, dealPlace, dealPayout, isBusted, totalEntries, isBagged, bagDay, playStartedAt } = req.body;
     if (!tournamentId) return res.status(400).json({ error: 'Tournament is required' });
     if (!isBusted && (!stack || stack < 0)) return res.status(400).json({ error: 'Stack is required' });
 
@@ -2329,8 +2349,8 @@ app.post('/api/live-update', authenticateToken, async (req, res) => {
     if (!inSchedule) return res.status(400).json({ error: 'Tournament not in your schedule' });
 
     db.run(
-      `INSERT INTO live_updates (user_id, tournament_id, update_text, stack, sb, bb, bb_ante, is_reg_closed, bubble, is_itm, locked_amount, is_final_table, places_left, first_place_prize, is_deal, deal_place, deal_payout, is_busted, total_entries, is_bagged, bag_day)
-       VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO live_updates (user_id, tournament_id, update_text, stack, sb, bb, bb_ante, is_reg_closed, bubble, is_itm, locked_amount, is_final_table, places_left, first_place_prize, is_deal, deal_place, deal_payout, is_busted, total_entries, is_bagged, bag_day, play_started_at)
+       VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.user.id, tournamentId,
        Math.round(Number(stack)) || 0,
        sb ? Math.round(Number(sb)) : null,
@@ -2349,7 +2369,8 @@ app.post('/api/live-update', authenticateToken, async (req, res) => {
        isBusted ? 1 : 0,
        totalEntries ? Math.round(Number(totalEntries)) : null,
        isBagged ? 1 : 0,
-       isBagged && bagDay ? Math.round(Number(bagDay)) : null]
+       isBagged && bagDay ? Math.round(Number(bagDay)) : null,
+       playStartedAt || null]
     );
     await saveDatabase();
     res.status(201).json({ message: 'Update posted' });
@@ -2366,7 +2387,7 @@ app.get('/api/live-update/mine', authenticateToken, (req, res) => {
              lu.is_reg_closed, lu.bubble, lu.is_itm, lu.locked_amount,
              lu.is_final_table, lu.places_left, lu.first_place_prize,
              lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
-             lu.total_entries, lu.is_bagged, lu.bag_day,
+             lu.total_entries, lu.is_bagged, lu.bag_day, lu.play_started_at,
              lu.update_text, lu.created_at,
              t.event_name, t.venue
       FROM live_updates lu
@@ -2392,7 +2413,7 @@ app.get('/api/live-updates/active', authenticateToken, (req, res) => {
              lu.is_reg_closed, lu.bubble, lu.is_itm, lu.locked_amount,
              lu.is_final_table, lu.places_left, lu.first_place_prize,
              lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
-             lu.total_entries, lu.is_bagged, lu.bag_day,
+             lu.total_entries, lu.is_bagged, lu.bag_day, lu.play_started_at,
              lu.created_at, t.event_name, t.venue, t.date,
              (SELECT COUNT(*) FROM live_updates b WHERE b.user_id = lu.user_id AND b.tournament_id = lu.tournament_id AND b.is_busted = 1) AS bust_count
       FROM live_updates lu
@@ -2444,6 +2465,59 @@ app.get('/api/live-updates/history/:tournamentId', authenticateToken, (req, res)
     while (stmt.step()) results.push(stmt.getAsObject());
     stmt.free();
     res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// ── Play Time Tracking ───────────────────────────────────────
+
+app.get('/api/playtime/:tournamentId', authenticateToken, (req, res) => {
+  try {
+    const tournamentId = Number(req.params.tournamentId);
+    if (!tournamentId) return res.status(400).json({ error: 'Invalid tournament ID' });
+
+    // Get all updates for this user+tournament ordered by time
+    const stmt = db.prepare(`
+      SELECT play_started_at, is_bagged, is_busted, created_at
+      FROM live_updates
+      WHERE user_id = ? AND tournament_id = ?
+      ORDER BY created_at ASC
+    `);
+    stmt.bind([req.user.id, tournamentId]);
+    const updates = [];
+    while (stmt.step()) updates.push(stmt.getAsObject());
+    stmt.free();
+
+    // Build sessions: a session starts when play_started_at is set,
+    // ends when a bagged or busted update follows
+    const sessions = [];
+    let activeStart = null;
+
+    for (const u of updates) {
+      if (u.play_started_at && !activeStart) {
+        activeStart = u.play_started_at;
+      }
+      if (activeStart && (u.is_bagged || u.is_busted)) {
+        const startMs = new Date(activeStart).getTime();
+        const endMs = new Date(u.created_at).getTime();
+        const minutes = Math.round((endMs - startMs) / 60000);
+        sessions.push({ start: activeStart, end: u.created_at, minutes });
+        activeStart = null;
+      }
+    }
+
+    // If there's an active session (started but not bagged/busted yet)
+    if (activeStart) {
+      const startMs = new Date(activeStart).getTime();
+      const nowMs = Date.now();
+      const minutes = Math.round((nowMs - startMs) / 60000);
+      sessions.push({ start: activeStart, end: null, minutes, active: true });
+    }
+
+    const totalMinutes = sessions.reduce((sum, s) => sum + s.minutes, 0);
+    res.json({ totalMinutes, sessions });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Something went wrong' });
