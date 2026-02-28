@@ -390,6 +390,209 @@
       font-style: italic;
     }
 
+    /* ── Hand Replayer ── */
+    .replayer-view { max-width: 600px; margin: 0 auto; }
+    .replayer-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .replayer-header h2 { font-family:'Libre Baskerville',Georgia,serif; font-size:1rem; font-weight:700; }
+    .replayer-header-actions { display:flex; gap:6px; }
+
+    /* Hand list */
+    .replayer-hand-list { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+    .replayer-hand-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 10px 12px; cursor:pointer; transition: border-color 0.15s;
+    }
+    .replayer-hand-card:hover { border-color: var(--accent); }
+    .replayer-hand-card-top { display:flex; justify-content:space-between; align-items:center; }
+    .replayer-hand-card-title { font-size:0.82rem; font-weight:600; color:var(--text); }
+    .replayer-hand-card-game { font-size:0.65rem; color:var(--accent2); background:var(--surface2); padding:2px 6px; border-radius:4px; }
+    .replayer-hand-card-meta { font-size:0.65rem; color:var(--text-muted); margin-top:4px; }
+    .replayer-hand-card-actions { display:flex; gap:6px; margin-top:6px; }
+    .replayer-empty { text-align:center; color:var(--text-muted); font-size:0.82rem; padding:24px 0; }
+
+    /* Entry mode */
+    .replayer-entry { display:flex; flex-direction:column; gap:10px; }
+    .replayer-step-label { font-size:0.65rem; color:var(--accent2); font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px; }
+    .replayer-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; }
+    .replayer-section-title { font-size:0.72rem; font-weight:600; color:var(--text); margin-bottom:8px; font-family:'Oswald',sans-serif; }
+
+    .replayer-field { display:flex; flex-direction:column; gap:2px; flex:1; }
+    .replayer-field label { font-size:0.6rem; color:var(--text-muted); font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+    .replayer-field input, .replayer-field select {
+      padding:6px 8px; border:1.5px solid var(--border); border-radius:var(--radius-sm);
+      background:var(--bg); color:var(--text); font-family:'Oswald',sans-serif; font-size:0.8rem;
+      width:100%; box-sizing:border-box;
+    }
+    .replayer-field input:focus, .replayer-field select:focus { outline:none; border-color:var(--accent); }
+    .replayer-row { display:flex; gap:6px; align-items:flex-end; }
+    .replayer-row .replayer-field { flex:1; }
+
+    /* Player rows */
+    .replayer-player-row {
+      display:flex; gap:6px; align-items:center; padding:4px 0;
+      border-bottom:1px solid var(--border);
+    }
+    .replayer-player-row:last-child { border-bottom:none; }
+    .replayer-player-name { font-size:0.75rem; font-weight:600; min-width:60px; }
+    .replayer-player-pos { font-size:0.62rem; color:var(--accent2); background:var(--surface2); padding:1px 5px; border-radius:4px; }
+
+    /* Street entry */
+    .replayer-street { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; margin-bottom:8px; }
+    .replayer-street-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+    .replayer-street-name { font-size:0.75rem; font-weight:600; color:var(--text); font-family:'Oswald',sans-serif; }
+    .replayer-street-pot { font-size:0.68rem; color:var(--accent2); font-family:'Oswald',sans-serif; }
+
+    .replayer-action-list { display:flex; flex-direction:column; gap:3px; margin-top:6px; }
+    .replayer-action-item {
+      display:flex; align-items:center; gap:6px; font-size:0.7rem; font-family:'Oswald',sans-serif;
+      padding:3px 6px; background:var(--surface2); border-radius:4px;
+    }
+    .replayer-action-player { font-weight:600; color:var(--text); min-width:50px; }
+    .replayer-action-type { color:var(--accent2); }
+    .replayer-action-type.fold { color:#f87171; }
+    .replayer-action-type.raise, .replayer-action-type.bet { color:#4ade80; }
+    .replayer-action-type.call { color:#60a5fa; }
+    .replayer-action-type.check { color:var(--text-muted); }
+    .replayer-action-amount { color:var(--text); margin-left:auto; }
+    .replayer-action-remove { cursor:pointer; color:var(--text-muted); font-size:0.6rem; margin-left:4px; }
+    .replayer-action-remove:hover { color:#f87171; }
+
+    /* Action buttons row */
+    .replayer-action-btns { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+    .replayer-action-btns button {
+      padding:4px 10px; border-radius:6px; border:1px solid var(--border);
+      background:transparent; color:var(--text-muted); font-family:'Oswald',sans-serif;
+      font-size:0.68rem; cursor:pointer; transition:background 0.15s,color 0.15s;
+    }
+    .replayer-action-btns button:hover { border-color:var(--accent); color:var(--accent); }
+    .replayer-action-btns button.action-fold { border-color:rgba(248,113,113,0.4); color:#f87171; }
+    .replayer-action-btns button.action-fold:hover { background:rgba(248,113,113,0.1); }
+    .replayer-action-btns button.action-bet,
+    .replayer-action-btns button.action-raise { border-color:rgba(74,222,128,0.4); color:#4ade80; }
+    .replayer-action-btns button.action-bet:hover,
+    .replayer-action-btns button.action-raise:hover { background:rgba(74,222,128,0.1); }
+    .replayer-action-btns button.action-call { border-color:rgba(96,165,250,0.4); color:#60a5fa; }
+    .replayer-action-btns button.action-call:hover { background:rgba(96,165,250,0.1); }
+
+    /* Draw discard section */
+    .replayer-draw-section { margin-top:6px; padding:6px 8px; background:var(--surface2); border-radius:4px; }
+    .replayer-draw-label { font-size:0.6rem; color:var(--text-muted); font-family:'Oswald',sans-serif; text-transform:uppercase; margin-bottom:4px; }
+
+    /* Replay mode */
+    .replayer-replay { display:flex; flex-direction:column; gap:8px; }
+    .replayer-table {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; position: relative; min-height: 200px;
+    }
+    .replayer-table-felt {
+      background: linear-gradient(135deg, rgba(22,101,52,0.08), rgba(22,101,52,0.03));
+      border-radius: var(--radius-sm); padding: 12px; position: relative;
+    }
+    [data-theme="light"] .replayer-table-felt {
+      background: linear-gradient(135deg, rgba(22,101,52,0.06), rgba(22,101,52,0.02));
+    }
+
+    .replayer-pot-display {
+      text-align:center; font-size:0.82rem; font-weight:600; color:var(--text);
+      font-family:'Oswald',sans-serif; padding:6px 0; margin-bottom:8px;
+    }
+    .replayer-pot-label { font-size:0.55rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+
+    .replayer-board-area { display:flex; justify-content:center; gap:4px; margin:8px 0; min-height:36px; }
+    .replayer-board-area .card-row { justify-content:center; }
+    .replayer-board-area .card-row img { height:36px; }
+    .replayer-board-area .card-row .card-unknown { width:26px; height:36px; }
+    .replayer-board-area .card-row .card-placeholder { width:26px; height:36px; }
+
+    /* Player seats in replay */
+    .replayer-seats { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:8px; }
+    .replayer-seat {
+      background: var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm);
+      padding:6px 8px; min-width:90px; text-align:center; transition:border-color 0.2s, box-shadow 0.3s;
+    }
+    .replayer-seat.active-turn { border-color:var(--accent); }
+    .replayer-seat.folded { opacity:0.4; }
+    .replayer-seat.winner {
+      border-color: #4ade80;
+      box-shadow: 0 0 8px rgba(74,222,128,0.4), 0 0 16px rgba(74,222,128,0.2);
+    }
+    .replayer-seat.loser {
+      border-color: rgba(248,113,113,0.4);
+      box-shadow: 0 0 4px rgba(248,113,113,0.2);
+      opacity: 0.7;
+    }
+    .replayer-seat-name { font-size:0.68rem; font-weight:600; color:var(--text); font-family:'Oswald',sans-serif; }
+    .replayer-seat-pos { font-size:0.55rem; color:var(--accent2); }
+    .replayer-seat-stack { font-size:0.68rem; color:var(--text-muted); font-family:'Oswald',sans-serif; margin-top:2px; }
+    .replayer-seat-cards { margin-top:4px; }
+    .replayer-seat-cards .card-row { justify-content:center; }
+    .replayer-seat-cards .card-row img { height:26px; }
+    .replayer-seat-cards .card-row .card-unknown { width:18px; height:26px; }
+    .replayer-seat-cards .card-row .card-placeholder { width:18px; height:26px; }
+    .replayer-seat-action {
+      font-size:0.6rem; color:var(--accent2); font-family:'Oswald',sans-serif;
+      margin-top:2px; min-height:14px;
+      transition: opacity 0.2s;
+    }
+    .replayer-seat-hand-name {
+      font-size:0.58rem; color:#4ade80; font-family:'Oswald',sans-serif; margin-top:2px;
+    }
+    .replayer-seat.loser .replayer-seat-hand-name { color:#f87171; }
+
+    /* Replay controls */
+    .replayer-controls {
+      display:flex; justify-content:center; align-items:center; gap:8px; padding:8px 0;
+    }
+    .replayer-controls button {
+      padding:6px 12px; border-radius:6px; border:1px solid var(--border);
+      background:transparent; color:var(--text); font-family:'Oswald',sans-serif;
+      font-size:0.75rem; cursor:pointer; transition:background 0.15s;
+      display:flex; align-items:center; gap:4px;
+    }
+    .replayer-controls button:hover { background:var(--surface2); border-color:var(--accent); }
+    .replayer-controls button:disabled { opacity:0.3; cursor:default; }
+    .replayer-controls button:disabled:hover { background:transparent; border-color:var(--border); }
+    .replayer-speed-label { font-size:0.6rem; color:var(--text-muted); font-family:'Oswald',sans-serif; }
+
+    .replayer-street-indicator {
+      display:flex; gap:4px; justify-content:center; margin-bottom:6px;
+    }
+    .replayer-street-dot {
+      width:8px; height:8px; border-radius:50%; background:var(--border);
+      transition: background 0.2s;
+    }
+    .replayer-street-dot.active { background:var(--accent); }
+    .replayer-street-dot.completed { background:var(--text-muted); }
+
+    /* Result display */
+    .replayer-result {
+      text-align:center; padding:8px 12px; border-radius:var(--radius-sm);
+      font-family:'Oswald',sans-serif; font-size:0.78rem; font-weight:600;
+    }
+    .replayer-result-hero { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
+    .replayer-result-opponent { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
+    .replayer-result-split { background:rgba(250,204,21,0.12); color:#facc15; border:1px solid rgba(250,204,21,0.25); }
+    [data-theme="light"] .replayer-result-hero { background:rgba(22,163,74,0.08); color:#16a34a; border-color:rgba(22,163,74,0.2); }
+    [data-theme="light"] .replayer-result-opponent { background:rgba(220,38,38,0.08); color:#dc2626; border-color:rgba(220,38,38,0.2); }
+    [data-theme="light"] .replayer-result-split { background:rgba(202,138,4,0.08); color:#ca8a04; border-color:rgba(202,138,4,0.2); }
+
+    /* Hi-lo split animation */
+    .replayer-hilo-high {
+      transition: transform 0.5s ease-out;
+    }
+    .replayer-hilo-high.animate { transform: translateY(-8px); }
+    .replayer-hilo-low {
+      transition: transform 0.5s ease-out;
+    }
+    .replayer-hilo-low.animate { transform: translateY(8px); }
+
+    /* Stud card reorder animation */
+    .replayer-stud-reorder .card-img {
+      transition: transform 0.4s ease-out, opacity 0.3s;
+    }
+    .replayer-stud-reorder .card-img.grouped { transform: scale(1.05); }
+    .replayer-stud-reorder .card-img.ungrouped { opacity: 0.4; transform: scale(0.9); }
+
     /* ── Scrollable content area ── */
     .content-area {
       flex: 1;
@@ -2259,6 +2462,119 @@
       margin-bottom: 8px;
       opacity: 0.4;
     }
+
+    /* ── Social Overlays ─────────────────────────────────────── */
+    .share-menu-backdrop {
+      position: fixed; inset: 0; z-index: 9998;
+      background: rgba(0,0,0,0.5);
+    }
+    .share-menu-panel {
+      position: fixed; z-index: 9999;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-radius: var(--radius) var(--radius) 0 0;
+      padding: 20px 16px 32px;
+      max-height: 70vh; overflow-y: auto;
+    }
+    .share-menu-panel h3 {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.1rem; font-weight: 600;
+      color: var(--text); margin: 0 0 14px;
+    }
+    .share-menu-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .share-menu-item {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+      padding: 14px 8px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer; text-align: center;
+      transition: border-color 0.15s;
+    }
+    .share-menu-item:hover { border-color: var(--accent); }
+    .share-menu-item .share-icon {
+      font-size: 1.5rem; line-height: 1;
+    }
+    .share-menu-item .share-label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.78rem; font-weight: 500;
+      color: var(--text);
+    }
+    .share-menu-item .share-desc {
+      font-size: 0.65rem; color: var(--text-muted);
+      line-height: 1.3;
+    }
+    .share-menu-item.disabled {
+      opacity: 0.4; pointer-events: none;
+    }
+
+    /* Milestone celebration modal */
+    .milestone-modal-backdrop {
+      position: fixed; inset: 0; z-index: 10000;
+      background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .milestone-modal {
+      background: var(--surface);
+      border: 2px solid #fbbf24;
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      max-width: 340px; width: 90%;
+      text-align: center;
+    }
+    .milestone-modal .milestone-icon {
+      font-size: 3rem; margin-bottom: 12px;
+    }
+    .milestone-modal .milestone-title {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.3rem; font-weight: 700;
+      color: #fbbf24; margin-bottom: 8px;
+    }
+    .milestone-modal .milestone-desc {
+      font-size: 0.85rem; color: var(--text);
+      margin-bottom: 16px; line-height: 1.4;
+    }
+    .milestone-modal .milestone-actions {
+      display: flex; gap: 8px; justify-content: center;
+    }
+
+    /* Wrap-up slide picker */
+    .wrapup-slide-picker {
+      display: flex; gap: 8px; overflow-x: auto;
+      padding: 12px 0;
+    }
+    .wrapup-slide-picker button {
+      flex: 0 0 auto;
+      padding: 6px 14px;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.75rem; font-weight: 500;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .wrapup-slide-picker button.active {
+      border-color: #22c55e; color: #22c55e;
+    }
+
+    /* Share button style */
+    .btn-share-overlay {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.8rem; font-weight: 500;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text); cursor: pointer;
+    }
+    .btn-share-overlay:hover { border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -2843,6 +3159,13 @@
       zap: () => (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      ),
+      // Playing cards icon for Hand Replayer
+      cards: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="4" width="12" height="16" rx="1.5" transform="rotate(-8 8 12)"/>
+          <rect x="10" y="4" width="12" height="16" rx="1.5" transform="rotate(8 16 12)"/>
         </svg>
       ),
     };
@@ -4863,6 +5186,1403 @@
       ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
     }
 
+    // ══════════════════════════════════════════════════════════
+    // ── SOCIAL OVERLAY DRAWING FUNCTIONS ─────────────────────
+    // ══════════════════════════════════════════════════════════
+
+    // Shared helper: draw dark gradient background for standalone share images
+    function drawShareBackground(ctx, w, h) {
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#1a1a2e');
+      grad.addColorStop(1, '#0f0f1a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      // Subtle felt texture lines
+      ctx.strokeStyle = 'rgba(34,197,94,0.06)';
+      ctx.lineWidth = 1;
+      for (let y = 0; y < h; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+    }
+
+    // Shared helper: draw shonabish watermark
+    function drawWatermark(ctx, w, h, pos) {
+      const wms = Math.round(h * 0.016);
+      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      if (pos === 'bottom-center') {
+        ctx.textAlign = 'center';
+        ctx.fillText('shonabish', w / 2, Math.round(h * 0.96));
+        ctx.textAlign = 'left';
+      } else {
+        ctx.fillText('shonabish', Math.round(w * 0.04), Math.round(h * 0.96));
+      }
+    }
+
+    // Shared helper: rounded rect (polyfill-safe)
+    function roundedRect(ctx, x, y, w, h, r) {
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+      else {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+      }
+    }
+
+    // Shared helper: share or download a canvas
+    async function shareOrDownloadCanvas(canvas, filename) {
+      const dataUrl = canvas.toDataURL('image/png');
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+          return;
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+      const a = document.createElement('a');
+      a.href = dataUrl; a.download = filename; a.click();
+    }
+
+    // ── 1. Chip Stack Graph Over Time (Instagram Story 1080x1920) ──
+    function drawChipStackStory(ctx, w, h, data) {
+      // data: { tournamentName, stackHistory, startingStack, milestones, bb }
+      drawShareBackground(ctx, w, h);
+
+      const padX = Math.round(w * 0.08);
+      const padR = w - padX;
+      const history = (data.stackHistory || []).filter(u => u.stack && Number(u.stack) > 0);
+
+      // Title section
+      const titleY = Math.round(h * 0.06);
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '3px';
+      ctx.fillText('STACK TRACKER', padX, titleY);
+      ctx.letterSpacing = '0px';
+
+      ctx.font = '600 ' + Math.round(h * 0.024) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(data.tournamentName || '', padX, titleY + Math.round(h * 0.035));
+
+      // Green divider
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(padX, Math.round(h * 0.11), padR - padX, 2);
+
+      if (history.length < 2) {
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Need 2+ updates for stack graph', w / 2, h / 2);
+        ctx.textAlign = 'left';
+        drawWatermark(ctx, w, h, 'bottom-center');
+        return;
+      }
+
+      // Chart area
+      const chartTop = Math.round(h * 0.14);
+      const chartBottom = Math.round(h * 0.78);
+      const chartH = chartBottom - chartTop;
+      const chartW = padR - padX;
+
+      const stacks = history.map(u => Number(u.stack));
+      const maxS = Math.max(...stacks) * 1.1;
+      const minS = Math.min(0, ...stacks);
+      const range = maxS - minS || 1;
+
+      // BB scale on right (if bb data available)
+      const bb = data.bb ? Number(data.bb) : null;
+
+      // Y-axis grid lines and labels
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 1;
+      const gridLines = 5;
+      for (let i = 0; i <= gridLines; i++) {
+        const gy = chartTop + chartH - (chartH * i / gridLines);
+        const val = minS + (range * i / gridLines);
+        ctx.beginPath(); ctx.moveTo(padX, gy); ctx.lineTo(padR, gy); ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.font = Math.round(h * 0.012) + 'px Oswald, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(formatChips(Math.round(val)), padX - 8, gy + 4);
+
+        if (bb && val > 0) {
+          ctx.textAlign = 'left';
+          ctx.fillStyle = 'rgba(255,255,255,0.25)';
+          ctx.fillText(Math.round(val / bb) + 'bb', padR + 8, gy + 4);
+        }
+      }
+      ctx.textAlign = 'left';
+
+      // Starting stack reference line
+      if (data.startingStack) {
+        const ssVal = Number(data.startingStack);
+        const ssY = chartTop + chartH - ((ssVal - minS) / range * chartH);
+        if (ssY >= chartTop && ssY <= chartBottom) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath(); ctx.moveTo(padX, ssY); ctx.lineTo(padR, ssY); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.font = Math.round(h * 0.011) + 'px Oswald, sans-serif';
+          ctx.fillText('Starting Stack', padX, ssY - 6);
+        }
+      }
+
+      // Draw line chart
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      const points = [];
+      stacks.forEach((s, i) => {
+        const x = padX + (chartW * i / (stacks.length - 1));
+        const y = chartTop + chartH - ((s - minS) / range * chartH);
+        points.push({ x, y, stack: s, entry: history[i] });
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Gradient fill under line
+      const grad = ctx.createLinearGradient(0, chartTop, 0, chartBottom);
+      grad.addColorStop(0, 'rgba(34,197,94,0.30)');
+      grad.addColorStop(1, 'rgba(34,197,94,0.02)');
+      ctx.fillStyle = grad;
+      ctx.lineTo(padR, chartBottom);
+      ctx.lineTo(padX, chartBottom);
+      ctx.closePath();
+      ctx.fill();
+
+      // Dot at each data point
+      points.forEach((p, i) => {
+        ctx.fillStyle = '#22c55e';
+        ctx.beginPath(); ctx.arc(p.x, p.y, i === points.length - 1 ? 6 : 4, 0, Math.PI * 2); ctx.fill();
+        if (i === points.length - 1) {
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+        }
+      });
+
+      // Milestone labels (ITM, Final Table, Deal)
+      const labelSize = Math.round(h * 0.012);
+      points.forEach(p => {
+        const entry = p.entry;
+        let label = null;
+        let color = '#fbbf24';
+        if (entry.is_final_table) { label = 'FINAL TABLE'; color = '#f59e0b'; }
+        else if (entry.is_itm) { label = 'ITM'; color = '#22c55e'; }
+        if (entry.is_busted) { label = 'BUST'; color = '#f87171'; }
+
+        if (label) {
+          ctx.font = '600 ' + labelSize + 'px Oswald, sans-serif';
+          ctx.fillStyle = color;
+          ctx.textAlign = 'center';
+          ctx.fillText(label, p.x, p.y - 12);
+          ctx.textAlign = 'left';
+        }
+      });
+
+      // Time axis (X)
+      const xLabelSize = Math.round(h * 0.010);
+      ctx.font = xLabelSize + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      const showIndices = [0, Math.floor(history.length / 2), history.length - 1].filter((v, i, a) => a.indexOf(v) === i);
+      showIndices.forEach(i => {
+        if (!history[i] || !history[i].created_at) return;
+        const d = new Date(history[i].created_at);
+        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const x = padX + (chartW * i / (history.length - 1));
+        ctx.textAlign = 'center';
+        ctx.fillText(timeStr, x, chartBottom + Math.round(h * 0.025));
+      });
+      ctx.textAlign = 'left';
+
+      // Current stack display at bottom
+      const currentStack = stacks[stacks.length - 1];
+      const statY = Math.round(h * 0.85);
+      ctx.font = '600 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.textAlign = 'center';
+      ctx.fillText(formatChips(currentStack), w / 2, statY);
+
+      if (bb) {
+        ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText((currentStack / bb).toFixed(1).replace(/\.0$/, '') + ' BB', w / 2, statY + Math.round(h * 0.03));
+      }
+
+      // Blinds level
+      const lastEntry = history[history.length - 1];
+      if (lastEntry.sb && lastEntry.bb) {
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillText('Blinds: ' + formatChips(lastEntry.sb) + '/' + formatChips(lastEntry.bb), w / 2, statY + Math.round(h * 0.055));
+      }
+      ctx.textAlign = 'left';
+
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    // ── 2. Series Scorecard (1080x1080 square) ──
+    function drawSeriesScorecard(ctx, w, h, data) {
+      // data: { venueName, dateRange, eventsPlayed, cashCount, cashRate, totalInvested, totalCashed, netPL, roi, currentStreak, biggestCash, biggestCashEvent }
+      drawShareBackground(ctx, w, h);
+
+      const padX = Math.round(w * 0.08);
+      const padR = w - padX;
+
+      // Header
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '3px';
+      ctx.fillText('SERIES SCORECARD', padX, Math.round(h * 0.07));
+      ctx.letterSpacing = '0px';
+
+      ctx.font = '600 ' + Math.round(h * 0.032) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(data.venueName || 'My Results', padX, Math.round(h * 0.12));
+
+      if (data.dateRange) {
+        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText(data.dateRange, padX, Math.round(h * 0.155));
+      }
+
+      // Green divider
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(padX, Math.round(h * 0.175), padR - padX, 2);
+
+      // Stats grid (2 columns)
+      const statStartY = Math.round(h * 0.22);
+      const statRowH = Math.round(h * 0.09);
+      const colW = Math.round((padR - padX) / 2);
+
+      const drawStat = (label, value, x, y, color) => {
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.letterSpacing = '1px';
+        ctx.fillText(label.toUpperCase(), x, y);
+        ctx.letterSpacing = '0px';
+        ctx.font = '600 ' + Math.round(h * 0.030) + 'px Oswald, sans-serif';
+        ctx.fillStyle = color || '#ffffff';
+        ctx.fillText(value, x, y + Math.round(h * 0.038));
+      };
+
+      // Row 1: Events played / Cashes
+      drawStat('EVENTS PLAYED', String(data.eventsPlayed || 0), padX, statStartY);
+      drawStat('CASHES', (data.cashCount || 0) + ' (' + (data.cashRate || 0).toFixed(0) + '%)', padX + colW, statStartY);
+
+      // Row 2: Total invested / Total cashed
+      drawStat('INVESTED', formatBuyin(data.totalInvested || 0), padX, statStartY + statRowH);
+      drawStat('CASHED', formatBuyin(data.totalCashed || 0), padX + colW, statStartY + statRowH);
+
+      // Row 3: Net P&L (big, centered)
+      const plY = statStartY + statRowH * 2 + Math.round(h * 0.02);
+      ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.letterSpacing = '1px';
+      ctx.textAlign = 'center';
+      ctx.fillText('NET PROFIT / LOSS', w / 2, plY);
+      ctx.letterSpacing = '0px';
+      const pl = data.netPL || 0;
+      ctx.font = '700 ' + Math.round(h * 0.055) + 'px Oswald, sans-serif';
+      ctx.fillStyle = pl >= 0 ? '#22c55e' : '#f87171';
+      ctx.fillText((pl >= 0 ? '+' : '') + formatBuyin(pl), w / 2, plY + Math.round(h * 0.06));
+
+      // ROI
+      const roi = data.roi || 0;
+      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.fillStyle = roi >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(248,113,113,0.7)';
+      ctx.fillText((roi >= 0 ? '+' : '') + roi.toFixed(1) + '% ROI', w / 2, plY + Math.round(h * 0.095));
+      ctx.textAlign = 'left';
+
+      // Green divider
+      const div2Y = plY + Math.round(h * 0.13);
+      ctx.fillStyle = 'rgba(34,197,94,0.2)';
+      ctx.fillRect(padX, div2Y, padR - padX, 1);
+
+      // Streak
+      const streakY = div2Y + Math.round(h * 0.04);
+      if (data.currentStreak) {
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.letterSpacing = '1px';
+        ctx.fillText('CURRENT STREAK', padX, streakY);
+        ctx.letterSpacing = '0px';
+        ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText(data.currentStreak, padX, streakY + Math.round(h * 0.035));
+      }
+
+      // Biggest cash
+      if (data.biggestCash) {
+        const bcY = streakY + (data.currentStreak ? Math.round(h * 0.08) : 0);
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.letterSpacing = '1px';
+        ctx.fillText('BIGGEST CASH', padX, bcY);
+        ctx.letterSpacing = '0px';
+        ctx.font = '600 ' + Math.round(h * 0.026) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText(formatBuyin(data.biggestCash), padX, bcY + Math.round(h * 0.035));
+        if (data.biggestCashEvent) {
+          ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.fillText(data.biggestCashEvent, padX, bcY + Math.round(h * 0.06));
+        }
+      }
+
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    // ── 3. Deep Run Tracker Standalone (1080x1080) ──
+    function drawDeepRunStandalone(ctx, w, h, data) {
+      // data: { tournamentName, stack, totalEntries, placesLeft, buyin }
+      drawShareBackground(ctx, w, h);
+
+      const padX = Math.round(w * 0.08);
+      const padR = w - padX;
+
+      // Header
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '3px';
+      ctx.fillText('DEEP RUN', padX, Math.round(h * 0.08));
+      ctx.letterSpacing = '0px';
+
+      ctx.font = '600 ' + Math.round(h * 0.028) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      const buyinStr = data.buyin ? '$' + Number(data.buyin).toLocaleString() + ' ' : '';
+      ctx.fillText(buyinStr + (data.tournamentName || ''), padX, Math.round(h * 0.12));
+
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(padX, Math.round(h * 0.145), padR - padX, 2);
+
+      const total = Number(data.totalEntries) || 1;
+      const left = Number(data.placesLeft) || total;
+      const pctSurvived = Math.max(0.01, 1 - (left - 1) / total);
+      const topPct = (pctSurvived * 100).toFixed(1);
+
+      // Big position display
+      const posY = Math.round(h * 0.28);
+      ctx.textAlign = 'center';
+      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      const posText = left + (typeof left === 'number' ? ordinalSuffix(left) : '');
+      ctx.fillText(posText, w / 2, posY);
+
+      ctx.font = Math.round(h * 0.024) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText('of ' + total.toLocaleString() + ' entries', w / 2, posY + Math.round(h * 0.04));
+
+      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.fillText('Top ' + topPct + '%', w / 2, posY + Math.round(h * 0.08));
+      ctx.textAlign = 'left';
+
+      // Horizontal field visualization bar
+      const barY = Math.round(h * 0.48);
+      const barH = Math.round(h * 0.04);
+      const barW = padR - padX;
+
+      // Background bar (eliminated field)
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      roundedRect(ctx, padX, barY, barW, barH, barH / 2);
+      ctx.fill();
+
+      // Remaining field
+      const remainW = Math.max(barH, Math.round(barW * (left / total)));
+      ctx.fillStyle = 'rgba(34,197,94,0.2)';
+      roundedRect(ctx, padX, barY, remainW, barH, barH / 2);
+      ctx.fill();
+
+      // Player position marker
+      const markerX = padX + Math.round(barW * pctSurvived);
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(markerX, barY + barH / 2, barH * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(markerX, barY + barH / 2, barH * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Labels on bar
+      ctx.font = Math.round(h * 0.013) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillText('1st', padR - ctx.measureText('1st').width, barY - 8);
+      ctx.fillText(total.toLocaleString() + 'th', padX, barY - 8);
+
+      // Stack display
+      if (data.stack) {
+        const stackY = Math.round(h * 0.62);
+        ctx.textAlign = 'center';
+        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.letterSpacing = '1px';
+        ctx.fillText('STACK', w / 2, stackY);
+        ctx.letterSpacing = '0px';
+        ctx.font = '600 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#22c55e';
+        ctx.fillText(formatChips(data.stack), w / 2, stackY + Math.round(h * 0.05));
+        ctx.textAlign = 'left';
+      }
+
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    // ── 4. Next Event Countdown Story (1080x1920) ──
+    function drawCountdownStory(ctx, w, h, data) {
+      // data: { tournamentName, buyin, venue, gameType, timeUntil, date, time }
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#0d1a12');
+      grad.addColorStop(0.5, '#0f1f15');
+      grad.addColorStop(1, '#0a0f0d');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Subtle diamond pattern for felt texture
+      ctx.strokeStyle = 'rgba(34,197,94,0.04)';
+      ctx.lineWidth = 1;
+      for (let y = 0; y < h; y += 30) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      for (let x = 0; x < w; x += 30) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+
+      const padX = Math.round(w * 0.10);
+
+      // "NEXT UP" at top
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '4px';
+      ctx.textAlign = 'center';
+      ctx.fillText('NEXT UP', w / 2, Math.round(h * 0.12));
+      ctx.letterSpacing = '0px';
+
+      // Green line
+      const lineW = Math.round(w * 0.3);
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect((w - lineW) / 2, Math.round(h * 0.14), lineW, 2);
+
+      // Big countdown
+      const countY = Math.round(h * 0.32);
+      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(data.timeUntil || '--', w / 2, countY);
+
+      ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillText('until cards are in the air', w / 2, countY + Math.round(h * 0.04));
+
+      // Divider
+      ctx.fillStyle = 'rgba(34,197,94,0.3)';
+      ctx.fillRect((w - lineW) / 2, Math.round(h * 0.42), lineW, 1);
+
+      // Event details
+      const detailY = Math.round(h * 0.50);
+      if (data.buyin) {
+        ctx.font = '700 ' + Math.round(h * 0.035) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#22c55e';
+        ctx.fillText('$' + Number(data.buyin).toLocaleString(), w / 2, detailY);
+      }
+
+      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      const nameLines = wrapText(ctx, data.tournamentName || '', w - padX * 2);
+      nameLines.forEach((line, i) => {
+        ctx.fillText(line, w / 2, detailY + Math.round(h * 0.045) + i * Math.round(h * 0.028));
+      });
+
+      const infoY = detailY + Math.round(h * 0.045) + nameLines.length * Math.round(h * 0.028) + Math.round(h * 0.02);
+      if (data.venue) {
+        ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText(data.venue, w / 2, infoY);
+      }
+      if (data.gameType) {
+        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillText(data.gameType, w / 2, infoY + Math.round(h * 0.028));
+      }
+
+      ctx.textAlign = 'left';
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    // Text wrapping helper for canvas
+    function wrapText(ctx, text, maxWidth) {
+      const words = text.split(' ');
+      const lines = [];
+      let line = '';
+      for (const word of words) {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxWidth) {
+          if (line) lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      }
+      if (line) lines.push(line);
+      return lines.length ? lines : [''];
+    }
+
+    // ── 5. Final Table Card Standalone (1080x1080) ──
+    function drawFinalTableCard(ctx, w, h, data) {
+      // data: { tournamentName, buyin, placesLeft, stack, firstPlacePrize, totalEntries, bb }
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#1a1510');
+      grad.addColorStop(0.3, '#1a1a2e');
+      grad.addColorStop(1, '#0f0f1a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Gold border glow
+      ctx.strokeStyle = 'rgba(251,191,36,0.3)';
+      ctx.lineWidth = 3;
+      roundedRect(ctx, 20, 20, w - 40, h - 40, 20);
+      ctx.stroke();
+
+      // Inner border
+      ctx.strokeStyle = 'rgba(251,191,36,0.12)';
+      ctx.lineWidth = 1;
+      roundedRect(ctx, 35, 35, w - 70, h - 70, 14);
+      ctx.stroke();
+
+      const padX = Math.round(w * 0.10);
+
+      // Trophy / "FINAL TABLE" header
+      const headerY = Math.round(h * 0.12);
+      ctx.textAlign = 'center';
+
+      // Gold gradient for header text
+      const goldGrad = ctx.createLinearGradient(0, headerY - 50, 0, headerY + 20);
+      goldGrad.addColorStop(0, '#fbbf24');
+      goldGrad.addColorStop(0.5, '#f59e0b');
+      goldGrad.addColorStop(1, '#d97706');
+
+      ctx.font = '700 ' + Math.round(h * 0.050) + 'px Oswald, sans-serif';
+      ctx.fillStyle = goldGrad;
+      ctx.fillText('FINAL TABLE', w / 2, headerY);
+
+      // Gold line
+      const lineW = Math.round(w * 0.5);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect((w - lineW) / 2, headerY + Math.round(h * 0.02), lineW, 2);
+
+      // Event name
+      ctx.font = '600 ' + Math.round(h * 0.026) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      const buyStr = data.buyin ? '$' + Number(data.buyin).toLocaleString() + ' ' : '';
+      const eventText = buyStr + (data.tournamentName || '');
+      const eventLines = wrapText(ctx, eventText, w - padX * 2);
+      eventLines.forEach((line, i) => {
+        ctx.fillText(line, w / 2, Math.round(h * 0.22) + i * Math.round(h * 0.032));
+      });
+
+      // Stats section
+      const statsY = Math.round(h * 0.36);
+      const statGap = Math.round(h * 0.12);
+
+      // Players remaining
+      if (data.placesLeft) {
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.letterSpacing = '2px';
+        ctx.fillText('PLAYERS REMAINING', w / 2, statsY);
+        ctx.letterSpacing = '0px';
+        ctx.font = '700 ' + Math.round(h * 0.055) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(String(data.placesLeft), w / 2, statsY + Math.round(h * 0.06));
+        if (data.totalEntries) {
+          ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.fillText('of ' + Number(data.totalEntries).toLocaleString() + ' entries', w / 2, statsY + Math.round(h * 0.085));
+        }
+      }
+
+      // Stack
+      if (data.stack) {
+        const sY = statsY + statGap;
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.letterSpacing = '2px';
+        ctx.fillText('MY STACK', w / 2, sY);
+        ctx.letterSpacing = '0px';
+        ctx.font = '700 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#22c55e';
+        ctx.fillText(formatChips(data.stack), w / 2, sY + Math.round(h * 0.05));
+        if (data.bb) {
+          ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.fillText((Number(data.stack) / Number(data.bb)).toFixed(1).replace(/\.0$/, '') + ' BB', w / 2, sY + Math.round(h * 0.075));
+        }
+      }
+
+      // 1st place prize
+      if (data.firstPlacePrize) {
+        const pY = statsY + statGap * 2;
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.letterSpacing = '2px';
+        ctx.fillText('FIRST PLACE', w / 2, pY);
+        ctx.letterSpacing = '0px';
+        ctx.font = '700 ' + Math.round(h * 0.045) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText('$' + Number(data.firstPlacePrize).toLocaleString(), w / 2, pY + Math.round(h * 0.055));
+      }
+
+      ctx.textAlign = 'left';
+
+      // Watermark
+      const wms = Math.round(h * 0.016);
+      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(251,191,36,0.3)';
+      ctx.textAlign = 'center';
+      ctx.fillText('shonabish', w / 2, Math.round(h * 0.95));
+      ctx.textAlign = 'left';
+    }
+
+    // ── 6. Series Wrap-Up Slides (Spotify Wrapped Style) ──
+    // Each slide is 1080x1920
+
+    function drawWrapSlide1(ctx, w, h, data) {
+      // Slide 1: "Your [Venue] Series" with total events
+      drawShareBackground(ctx, w, h);
+      const padX = Math.round(w * 0.10);
+
+      ctx.textAlign = 'center';
+
+      // Top accent
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '4px';
+      ctx.fillText('SERIES WRAP', w / 2, Math.round(h * 0.10));
+      ctx.letterSpacing = '0px';
+
+      // Venue name big
+      ctx.font = '700 ' + Math.round(h * 0.045) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      const venueLines = wrapText(ctx, data.venueName || 'Your Series', w - padX * 2);
+      venueLines.forEach((line, i) => {
+        ctx.fillText(line, w / 2, Math.round(h * 0.28) + i * Math.round(h * 0.05));
+      });
+
+      // Big number: events played
+      ctx.font = '700 ' + Math.round(h * 0.14) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.fillText(String(data.eventsPlayed || 0), w / 2, Math.round(h * 0.52));
+
+      ctx.font = '600 ' + Math.round(h * 0.024) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText('events played', w / 2, Math.round(h * 0.57));
+
+      // Date range
+      if (data.dateRange) {
+        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillText(data.dateRange, w / 2, Math.round(h * 0.63));
+      }
+
+      ctx.textAlign = 'left';
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    function drawWrapSlide2(ctx, w, h, data) {
+      // Slide 2: Results breakdown
+      drawShareBackground(ctx, w, h);
+
+      ctx.textAlign = 'center';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '4px';
+      ctx.fillText('THE NUMBERS', w / 2, Math.round(h * 0.10));
+      ctx.letterSpacing = '0px';
+
+      // Invested
+      const row1Y = Math.round(h * 0.20);
+      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillText('INVESTED', w / 2, row1Y);
+      ctx.font = '700 ' + Math.round(h * 0.035) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(formatBuyin(data.totalInvested || 0), w / 2, row1Y + Math.round(h * 0.045));
+
+      // Cashed
+      const row2Y = Math.round(h * 0.32);
+      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillText('CASHED', w / 2, row2Y);
+      ctx.font = '700 ' + Math.round(h * 0.035) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(formatBuyin(data.totalCashed || 0), w / 2, row2Y + Math.round(h * 0.045));
+
+      // Arrow down
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.font = Math.round(h * 0.030) + 'px sans-serif';
+      ctx.fillText('\u2193', w / 2, Math.round(h * 0.43));
+
+      // P&L (big)
+      const plY = Math.round(h * 0.50);
+      const pl = data.netPL || 0;
+      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillText('NET P&L', w / 2, plY);
+      ctx.font = '700 ' + Math.round(h * 0.07) + 'px Oswald, sans-serif';
+      ctx.fillStyle = pl >= 0 ? '#22c55e' : '#f87171';
+      ctx.fillText((pl >= 0 ? '+' : '') + formatBuyin(pl), w / 2, plY + Math.round(h * 0.07));
+
+      // ROI + cash rate
+      ctx.font = '600 ' + Math.round(h * 0.020) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      const roiStr = (data.roi || 0).toFixed(1) + '% ROI';
+      const cashStr = (data.cashCount || 0) + '/' + (data.eventsPlayed || 0) + ' cashes (' + (data.cashRate || 0).toFixed(0) + '%)';
+      ctx.fillText(roiStr + '  \u00b7  ' + cashStr, w / 2, plY + Math.round(h * 0.11));
+
+      ctx.textAlign = 'left';
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    function drawWrapSlide3(ctx, w, h, data) {
+      // Slide 3: Biggest cash
+      drawShareBackground(ctx, w, h);
+
+      ctx.textAlign = 'center';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#fbbf24';
+      ctx.letterSpacing = '4px';
+      ctx.fillText('BEST MOMENT', w / 2, Math.round(h * 0.10));
+      ctx.letterSpacing = '0px';
+
+      // Gold star effect
+      ctx.font = Math.round(h * 0.06) + 'px sans-serif';
+      ctx.fillText('*', w / 2, Math.round(h * 0.22));
+
+      // Biggest cash amount
+      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(formatBuyin(data.biggestCash || 0), w / 2, Math.round(h * 0.38));
+
+      ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillText('BIGGEST CASH', w / 2, Math.round(h * 0.42));
+
+      // Event name
+      if (data.biggestCashEvent) {
+        ctx.font = '600 ' + Math.round(h * 0.020) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        const lines = wrapText(ctx, data.biggestCashEvent, w * 0.7);
+        lines.forEach((line, i) => {
+          ctx.fillText(line, w / 2, Math.round(h * 0.48) + i * Math.round(h * 0.028));
+        });
+      }
+
+      // Finish place
+      if (data.biggestCashPlace) {
+        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillText('Finished ' + data.biggestCashPlace + ordinalSuffix(data.biggestCashPlace), w / 2, Math.round(h * 0.56));
+      }
+
+      ctx.textAlign = 'left';
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    function drawWrapSlide4(ctx, w, h, data) {
+      // Slide 4: Game breakdown — pie chart of variants played
+      drawShareBackground(ctx, w, h);
+
+      ctx.textAlign = 'center';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '4px';
+      ctx.fillText('GAME MIX', w / 2, Math.round(h * 0.10));
+      ctx.letterSpacing = '0px';
+
+      const variants = data.gameBreakdown || []; // [{ name, count, profit }]
+      if (variants.length === 0) {
+        ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillText('No game data', w / 2, h / 2);
+        ctx.textAlign = 'left';
+        drawWatermark(ctx, w, h, 'bottom-center');
+        return;
+      }
+
+      // Pie chart
+      const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+      const total = variants.reduce((s, v) => s + v.count, 0);
+      const cx = w / 2, cy = Math.round(h * 0.30);
+      const radius = Math.round(w * 0.18);
+
+      let angle = -Math.PI / 2;
+      variants.forEach((v, i) => {
+        const sweep = (v.count / total) * Math.PI * 2;
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius, angle, angle + sweep);
+        ctx.closePath();
+        ctx.fill();
+        angle += sweep;
+      });
+
+      // Center hole (donut)
+      ctx.fillStyle = '#14142a';
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = '700 ' + Math.round(h * 0.030) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(String(total), cx, cy + Math.round(h * 0.01));
+      ctx.font = Math.round(h * 0.012) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText('events', cx, cy + Math.round(h * 0.03));
+
+      // Legend
+      const legendY = Math.round(h * 0.48);
+      const legendRowH = Math.round(h * 0.04);
+      const padX = Math.round(w * 0.12);
+
+      variants.slice(0, 8).forEach((v, i) => {
+        const y = legendY + i * legendRowH;
+        const color = colors[i % colors.length];
+
+        // Color dot
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(padX, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Name
+        ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'left';
+        ctx.fillText(v.name, padX + 18, y + 5);
+
+        // Count + profit
+        ctx.textAlign = 'right';
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText(v.count + 'x', w - padX - 80, y + 5);
+
+        ctx.fillStyle = v.profit >= 0 ? '#22c55e' : '#f87171';
+        ctx.fillText((v.profit >= 0 ? '+' : '') + formatBuyin(v.profit), w - padX, y + 5);
+      });
+
+      // Best performing variant
+      const sorted = [...variants].sort((a, b) => b.profit - a.profit);
+      if (sorted.length > 0 && sorted[0].profit > 0) {
+        const bestY = Math.round(h * 0.82);
+        ctx.textAlign = 'center';
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillText('BEST GAME', w / 2, bestY);
+        ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#22c55e';
+        ctx.fillText(sorted[0].name + ' (+' + formatBuyin(sorted[0].profit) + ')', w / 2, bestY + Math.round(h * 0.03));
+      }
+
+      ctx.textAlign = 'left';
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    function drawWrapSlide5(ctx, w, h, data) {
+      // Slide 5: Fun stats — events per day distribution
+      drawShareBackground(ctx, w, h);
+
+      ctx.textAlign = 'center';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '4px';
+      ctx.fillText('FUN FACTS', w / 2, Math.round(h * 0.10));
+      ctx.letterSpacing = '0px';
+
+      const padX = Math.round(w * 0.10);
+      const padR = w - padX;
+
+      // Estimated total hours
+      const estHours = (data.eventsPlayed || 0) * 5;
+      const hoursY = Math.round(h * 0.20);
+      ctx.font = '700 ' + Math.round(h * 0.06) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('~' + estHours + 'h', w / 2, hoursY);
+      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillText('estimated hours at the felt', w / 2, hoursY + Math.round(h * 0.035));
+
+      // Events per day bar chart
+      const daysMap = data.eventsPerDay || {};
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const dayVals = dayNames.map(d => daysMap[d] || 0);
+      const maxVal = Math.max(1, ...dayVals);
+
+      const chartY = Math.round(h * 0.35);
+      const chartH = Math.round(h * 0.25);
+      const barW = Math.round((padR - padX) / dayNames.length * 0.6);
+      const barGap = Math.round((padR - padX) / dayNames.length);
+
+      ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillText('EVENTS BY DAY', w / 2, chartY - Math.round(h * 0.02));
+
+      dayVals.forEach((v, i) => {
+        const bx = padX + i * barGap + (barGap - barW) / 2;
+        const bh = Math.round(chartH * (v / maxVal));
+        const by = chartY + chartH - bh;
+
+        // Bar
+        ctx.fillStyle = v === maxVal ? '#22c55e' : 'rgba(34,197,94,0.4)';
+        roundedRect(ctx, bx, by, barW, bh, 4);
+        ctx.fill();
+
+        // Value on top
+        if (v > 0) {
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '600 ' + Math.round(h * 0.013) + 'px Oswald, sans-serif';
+          ctx.fillText(String(v), bx + barW / 2, by - 8);
+        }
+
+        // Day label
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = Math.round(h * 0.012) + 'px Oswald, sans-serif';
+        ctx.fillText(dayNames[i], bx + barW / 2, chartY + chartH + Math.round(h * 0.025));
+      });
+
+      // Multi-entry stat
+      if (data.multiEntryCount) {
+        const meY = Math.round(h * 0.72);
+        ctx.font = '700 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText(String(data.multiEntryCount), w / 2, meY);
+        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillText('re-entries used', w / 2, meY + Math.round(h * 0.03));
+      }
+
+      ctx.textAlign = 'left';
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    // ── 7. Milestone Image (1080x1080) ──
+    function drawMilestoneImage(ctx, w, h, data) {
+      // data: { type, title, description, value }
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#1a1a2e');
+      grad.addColorStop(0.5, '#1a1520');
+      grad.addColorStop(1, '#0f0f1a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Subtle sparkle lines
+      ctx.strokeStyle = 'rgba(251,191,36,0.04)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 20; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * h;
+        ctx.beginPath(); ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10); ctx.stroke();
+      }
+
+      ctx.textAlign = 'center';
+
+      // Icon area
+      const icons = {
+        'break-even': '*',
+        'first-profit': '+',
+        'career-high': '!',
+        'game-best': '#'
+      };
+      ctx.font = Math.round(h * 0.08) + 'px sans-serif';
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(icons[data.type] || '*', w / 2, Math.round(h * 0.22));
+
+      // Title
+      ctx.font = '700 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#fbbf24';
+      const titleLines = wrapText(ctx, data.title || 'MILESTONE', w * 0.7);
+      titleLines.forEach((line, i) => {
+        ctx.fillText(line, w / 2, Math.round(h * 0.38) + i * Math.round(h * 0.05));
+      });
+
+      // Description
+      ctx.font = Math.round(h * 0.020) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      const descLines = wrapText(ctx, data.description || '', w * 0.7);
+      const descY = Math.round(h * 0.38) + titleLines.length * Math.round(h * 0.05) + Math.round(h * 0.04);
+      descLines.forEach((line, i) => {
+        ctx.fillText(line, w / 2, descY + i * Math.round(h * 0.028));
+      });
+
+      // Value (if any)
+      if (data.value) {
+        const valY = Math.round(h * 0.68);
+        ctx.font = '700 ' + Math.round(h * 0.06) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#22c55e';
+        ctx.fillText(data.value, w / 2, valY);
+      }
+
+      ctx.textAlign = 'left';
+
+      // Gold watermark
+      const wms = Math.round(h * 0.016);
+      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(251,191,36,0.3)';
+      ctx.textAlign = 'center';
+      ctx.fillText('shonabish', w / 2, Math.round(h * 0.95));
+      ctx.textAlign = 'left';
+    }
+
+    // ── 8. Instagram Poll Templates (1080x1920) ──
+
+    function drawPollEventVsEvent(ctx, w, h, data) {
+      // data: { event1: { name, buyin, time }, event2: { name, buyin, time } }
+      drawShareBackground(ctx, w, h);
+
+      const padX = Math.round(w * 0.08);
+
+      ctx.textAlign = 'center';
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '3px';
+      ctx.fillText('HELP ME DECIDE', w / 2, Math.round(h * 0.08));
+      ctx.letterSpacing = '0px';
+
+      ctx.font = '600 ' + Math.round(h * 0.026) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('Which event should I play?', w / 2, Math.round(h * 0.12));
+
+      // Event 1 card
+      const card1Y = Math.round(h * 0.20);
+      const cardH = Math.round(h * 0.22);
+      const cardW = w - padX * 2;
+
+      ctx.fillStyle = 'rgba(34,197,94,0.08)';
+      roundedRect(ctx, padX, card1Y, cardW, cardH, 12);
+      ctx.fill();
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(padX, card1Y + 10, 4, cardH - 20);
+
+      ctx.font = '700 ' + Math.round(h * 0.04) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.fillText('A', w / 2, card1Y + Math.round(cardH * 0.25));
+
+      const e1 = data.event1 || {};
+      if (e1.buyin) {
+        ctx.font = '600 ' + Math.round(h * 0.024) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('$' + Number(e1.buyin).toLocaleString(), w / 2, card1Y + Math.round(cardH * 0.48));
+      }
+      ctx.font = '600 ' + Math.round(h * 0.018) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      const name1Lines = wrapText(ctx, e1.name || 'Event 1', cardW * 0.8);
+      name1Lines.forEach((line, i) => {
+        ctx.fillText(line, w / 2, card1Y + Math.round(cardH * 0.65) + i * Math.round(h * 0.024));
+      });
+      if (e1.time) {
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillText(e1.time, w / 2, card1Y + Math.round(cardH * 0.88));
+      }
+
+      // "VS" divider
+      const vsY = card1Y + cardH + Math.round(h * 0.03);
+      ctx.font = '700 ' + Math.round(h * 0.030) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillText('VS', w / 2, vsY);
+
+      // Event 2 card
+      const card2Y = vsY + Math.round(h * 0.03);
+      ctx.fillStyle = 'rgba(59,130,246,0.08)';
+      roundedRect(ctx, padX, card2Y, cardW, cardH, 12);
+      ctx.fill();
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillRect(padX, card2Y + 10, 4, cardH - 20);
+
+      ctx.font = '700 ' + Math.round(h * 0.04) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillText('B', w / 2, card2Y + Math.round(cardH * 0.25));
+
+      const e2 = data.event2 || {};
+      if (e2.buyin) {
+        ctx.font = '600 ' + Math.round(h * 0.024) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('$' + Number(e2.buyin).toLocaleString(), w / 2, card2Y + Math.round(cardH * 0.48));
+      }
+      ctx.font = '600 ' + Math.round(h * 0.018) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      const name2Lines = wrapText(ctx, e2.name || 'Event 2', cardW * 0.8);
+      name2Lines.forEach((line, i) => {
+        ctx.fillText(line, w / 2, card2Y + Math.round(cardH * 0.65) + i * Math.round(h * 0.024));
+      });
+      if (e2.time) {
+        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillText(e2.time, w / 2, card2Y + Math.round(cardH * 0.88));
+      }
+
+      // Poll instruction
+      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillText('Vote in poll above!', w / 2, Math.round(h * 0.82));
+
+      ctx.textAlign = 'left';
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    function drawPollOverUnder(ctx, w, h, data) {
+      // data: { tournamentName, currentStack, bb }
+      drawShareBackground(ctx, w, h);
+
+      ctx.textAlign = 'center';
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '3px';
+      ctx.fillText('OVER / UNDER', w / 2, Math.round(h * 0.10));
+      ctx.letterSpacing = '0px';
+
+      ctx.font = '600 ' + Math.round(h * 0.020) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText(data.tournamentName || '', w / 2, Math.round(h * 0.15));
+
+      // Current stack display
+      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillText('CURRENT STACK', w / 2, Math.round(h * 0.30));
+
+      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.fillText(formatChips(data.currentStack || 0), w / 2, Math.round(h * 0.40));
+
+      if (data.bb) {
+        ctx.font = Math.round(h * 0.020) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillText((Number(data.currentStack) / Number(data.bb)).toFixed(1) + ' BB', w / 2, Math.round(h * 0.44));
+      }
+
+      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('End of day stack prediction?', w / 2, Math.round(h * 0.56));
+
+      // Over/Under arrows
+      const arrowY = Math.round(h * 0.66);
+      ctx.font = '700 ' + Math.round(h * 0.04) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.fillText('OVER', w * 0.3, arrowY);
+      ctx.fillStyle = '#f87171';
+      ctx.fillText('UNDER', w * 0.7, arrowY);
+
+      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillText('Use the poll sticker!', w / 2, Math.round(h * 0.78));
+
+      ctx.textAlign = 'left';
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    // ── Milestone Detection ──
+    function detectMilestones(trackingData, newEntry) {
+      const milestones = [];
+
+      // Calculate running totals with the new entry
+      let totalBuyins = 0, totalCashes = 0, biggestCash = 0, biggestCashEvent = '';
+      let previousPL = 0; // P&L before the new entry
+      const gameBests = {};
+
+      for (const e of trackingData) {
+        const cost = (e.buyin || 0) * (e.num_entries || 1);
+        totalBuyins += cost;
+        if (e.cashed) {
+          totalCashes += e.cash_amount || 0;
+          if ((e.cash_amount || 0) > biggestCash) {
+            biggestCash = e.cash_amount;
+            biggestCashEvent = e.event_name;
+          }
+        }
+        // Track per-game bests
+        const game = e.game_variant || 'Unknown';
+        if (e.cashed && e.cash_amount) {
+          if (!gameBests[game] || e.cash_amount > gameBests[game]) {
+            gameBests[game] = e.cash_amount;
+          }
+        }
+      }
+      previousPL = totalCashes - totalBuyins;
+
+      // Add the new entry
+      const newCost = (newEntry.buyin || 0) * (newEntry.numEntries || newEntry.num_entries || 1);
+      totalBuyins += newCost;
+      if (newEntry.cashed) {
+        totalCashes += newEntry.cashAmount || newEntry.cash_amount || 0;
+      }
+      const newPL = totalCashes - totalBuyins;
+      const newCashAmount = newEntry.cashAmount || newEntry.cash_amount || 0;
+
+      // Milestone: Breaking even (P&L crosses from negative to >= 0)
+      if (previousPL < 0 && newPL >= 0) {
+        milestones.push({
+          type: 'break-even',
+          title: 'BREAK EVEN!',
+          description: 'Your series P&L just crossed into the green!',
+          value: '+' + formatBuyin(newPL)
+        });
+      }
+
+      // Milestone: First profit (first time net positive with meaningful amount)
+      if (previousPL <= 0 && newPL > 0 && trackingData.length > 0) {
+        // Only if this isn't also the break-even milestone
+        if (previousPL === 0 || !milestones.some(m => m.type === 'break-even')) {
+          milestones.push({
+            type: 'first-profit',
+            title: 'IN THE GREEN!',
+            description: 'First time with net positive results!',
+            value: '+' + formatBuyin(newPL)
+          });
+        }
+      }
+
+      // Milestone: Career high cash
+      if (newEntry.cashed && newCashAmount > biggestCash && biggestCash > 0) {
+        milestones.push({
+          type: 'career-high',
+          title: 'NEW PERSONAL BEST!',
+          description: 'Biggest cash of the series! Previous: ' + formatBuyin(biggestCash),
+          value: formatBuyin(newCashAmount)
+        });
+      }
+
+      // Game-specific personal best
+      if (newEntry.cashed && newCashAmount > 0) {
+        const game = newEntry.game_variant || 'Unknown';
+        if (gameBests[game] && newCashAmount > gameBests[game]) {
+          milestones.push({
+            type: 'game-best',
+            title: game.toUpperCase() + ' PB!',
+            description: 'New personal best in ' + game + '! Previous: ' + formatBuyin(gameBests[game]),
+            value: formatBuyin(newCashAmount)
+          });
+        }
+      }
+
+      return milestones;
+    }
+
+    // ── Compute series scorecard data from tracking entries ──
+    function computeScorecardData(trackingData, venueName, tournaments) {
+      let totalBuyins = 0, totalCashes = 0, eventsCashed = 0;
+      let biggestCash = 0, biggestCashEvent = '';
+      let streak = 0, streakType = null;
+
+      // Sort by date
+      const sorted = [...trackingData].sort((a, b) => {
+        const da = a.date || ''; const db = b.date || '';
+        return da.localeCompare(db);
+      });
+
+      for (const e of sorted) {
+        totalBuyins += (e.buyin || 0) * (e.num_entries || 1);
+        if (e.cashed) {
+          totalCashes += e.cash_amount || 0;
+          eventsCashed++;
+          if ((e.cash_amount || 0) > biggestCash) {
+            biggestCash = e.cash_amount;
+            biggestCashEvent = e.event_name || '';
+          }
+        }
+      }
+
+      // Compute streak from most recent entries
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        const e = sorted[i];
+        const wasCash = !!e.cashed;
+        if (streakType === null) {
+          streakType = wasCash ? 'cash' : 'miss';
+          streak = 1;
+        } else if ((wasCash && streakType === 'cash') || (!wasCash && streakType === 'miss')) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+
+      const streakText = streak > 1
+        ? (streakType === 'cash' ? streak + ' cashes in a row' : streak + ' event cold streak')
+        : (streakType === 'cash' ? '1 cash' : '1 miss');
+
+      const profit = totalCashes - totalBuyins;
+      const roi = totalBuyins > 0 ? ((profit / totalBuyins) * 100) : 0;
+      const cashRate = sorted.length > 0 ? (eventsCashed / sorted.length * 100) : 0;
+
+      // Date range
+      let dateRange = '';
+      if (sorted.length > 0) {
+        dateRange = sorted[0].date + ' \u2014 ' + sorted[sorted.length - 1].date;
+      }
+
+      // Game breakdown
+      const gameMap = {};
+      for (const e of sorted) {
+        const game = e.game_variant || 'NLH';
+        if (!gameMap[game]) gameMap[game] = { name: game, count: 0, profit: 0 };
+        gameMap[game].count++;
+        const cost = (e.buyin || 0) * (e.num_entries || 1);
+        const cash = e.cashed ? (e.cash_amount || 0) : 0;
+        gameMap[game].profit += cash - cost;
+      }
+      const gameBreakdown = Object.values(gameMap).sort((a, b) => b.count - a.count);
+
+      // Events per day of week
+      const eventsPerDay = {};
+      for (const e of sorted) {
+        if (e.date) {
+          const d = new Date(e.date);
+          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const dayName = dayNames[d.getDay()];
+          eventsPerDay[dayName] = (eventsPerDay[dayName] || 0) + 1;
+        }
+      }
+
+      // Multi-entry count
+      const multiEntryCount = sorted.reduce((s, e) => s + Math.max(0, (e.num_entries || 1) - 1), 0);
+
+      // Biggest cash place
+      const biggestEntry = sorted.find(e => e.cashed && e.cash_amount === biggestCash);
+
+      return {
+        venueName: venueName || 'My Series',
+        dateRange,
+        eventsPlayed: sorted.length,
+        cashCount: eventsCashed,
+        cashRate,
+        totalInvested: totalBuyins,
+        totalCashed: totalCashes,
+        netPL: profit,
+        roi,
+        currentStreak: streakText,
+        biggestCash,
+        biggestCashEvent,
+        biggestCashPlace: biggestEntry?.finish_place,
+        gameBreakdown,
+        eventsPerDay,
+        multiEntryCount
+      };
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ── END SOCIAL OVERLAY DRAWING FUNCTIONS ─────────────────
+    // ══════════════════════════════════════════════════════════
+
     // ── Load card images for canvas drawing ──
     function loadCardImages(cards) {
       const unique = new Map();
@@ -5373,11 +7093,20 @@
       // Check which overlay types are available
       const canDeepRun = !!(updateData.totalEntries && updateData.stack);
       const canFinalTable = !!(updateData.isFinalTable);
+      const canStackGraph = (stackHistory || []).filter(u => u.stack && Number(u.stack) > 0).length >= 2;
 
       // Shared overlay-drawing logic used by both camera capture and gallery pick
       const applyOverlay = async (ctx, outW, outH) => {
         try {
-          if (overlayType === 'hand' && handData) {
+          if (overlayType === 'stackgraph') {
+            // Standalone stack graph story (no camera background, renders own bg)
+            drawChipStackStory(ctx, outW, outH, {
+              tournamentName,
+              stackHistory: stackHistory || [],
+              startingStack: tournament?.starting_chips,
+              bb: updateData.bb
+            });
+          } else if (overlayType === 'hand' && handData) {
             const allCards = [
               ...parseCardNotation(handData.heroHand),
               ...(handData.opponents || []).flatMap(h => h ? parseCardNotation(h) : []),
@@ -5485,6 +7214,7 @@
           : overlayType === 'finaltable' ? 'final-table.png'
           : overlayType === 'deeprun' ? 'deep-run.png'
           : overlayType === 'countdown' ? 'next-event.png'
+          : overlayType === 'stackgraph' ? 'stack-graph.png'
           : 'poker-update.png';
         try {
           const blob = await (await fetch(captured)).blob();
@@ -5548,6 +7278,16 @@
 
       // Live preview bar content based on overlay type
       const renderPreviewBar = () => {
+        if (overlayType === 'stackgraph') {
+          const history = (stackHistory || []).filter(u => u.stack && Number(u.stack) > 0);
+          return (
+            <div className="camera-stats-bar">
+              <div style={{color:'#22c55e',fontWeight:600,fontFamily:"'Oswald',sans-serif",fontSize:'0.65rem',letterSpacing:'1px'}}>STACK GRAPH</div>
+              <div className="tournament-name">{tournamentName}</div>
+              <div className="stats-line">{history.length} update{history.length !== 1 ? 's' : ''} tracked</div>
+            </div>
+          );
+        }
         if (overlayType === 'hand' && handData) {
           const hCards = parseCardNotation(handData.heroHand);
           const oppGroups = (handData.opponents || []).map(h => h ? parseCardNotation(h) : []);
@@ -5635,6 +7375,7 @@
             <button className={overlayType === 'finaltable' ? 'active' : ''} onClick={() => setOverlayType('finaltable')} disabled={!canFinalTable}>Final Table</button>
             <button className={overlayType === 'countdown' ? 'active' : ''} onClick={() => setOverlayType('countdown')}>Countdown</button>
             <button className={overlayType === 'hand' ? 'active' : ''} onClick={() => setOverlayType('hand')} disabled={!handData}>Hand</button>
+            <button className={overlayType === 'stackgraph' ? 'active' : ''} onClick={() => setOverlayType('stackgraph')} disabled={!canStackGraph}>Graph</button>
           </div>
           {renderPreviewBar()}
           <input type="file" accept="image/*" ref={fileInputRef} style={{display:'none'}} onChange={handleGalleryPick} />
@@ -7748,6 +9489,281 @@
       );
     }
 
+    // ══════════════════════════════════════════════════════════
+    // ── SOCIAL OVERLAY UI COMPONENTS ───────────────────────
+    // ══════════════════════════════════════════════════════════
+
+    function ShareMenu({ trackingData, tournaments, mySchedule, myActiveUpdates, onClose, onOpenWrapUp }) {
+      const scorecardData = useMemo(() => computeScorecardData(trackingData, null, tournaments), [trackingData, tournaments]);
+
+      const hasTrackingData = trackingData && trackingData.length > 0;
+      const hasActiveUpdate = myActiveUpdates && myActiveUpdates.some(u => !u.is_busted);
+
+      // Find next upcoming event from schedule
+      const nextEvent = useMemo(() => {
+        if (!mySchedule || mySchedule.length === 0) return null;
+        const now = new Date();
+        return [...mySchedule]
+          .filter(t => {
+            if (!t.date || !t.time) return false;
+            const match = t.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+            if (!match) return false;
+            let h = parseInt(match[1]); const m = parseInt(match[2]);
+            if (match[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+            if (match[3].toUpperCase() === 'AM' && h === 12) h = 0;
+            const parts = t.date.split('-');
+            const target = new Date(parts[0], parts[1] - 1, parts[2], h, m);
+            return target > now;
+          })
+          .sort((a, b) => new Date(a.date) - new Date(b.date))[0] || null;
+      }, [mySchedule]);
+
+      // Countdown text for next event
+      const nextCountdown = useMemo(() => {
+        if (!nextEvent) return null;
+        const match = nextEvent.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!match) return '\u2014';
+        let h = parseInt(match[1]); const m = parseInt(match[2]);
+        if (match[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+        if (match[3].toUpperCase() === 'AM' && h === 12) h = 0;
+        const parts = nextEvent.date.split('-');
+        const target = new Date(parts[0], parts[1] - 1, parts[2], h, m);
+        const diff = target - new Date();
+        if (diff <= 0) return 'now';
+        const hrs = Math.floor(diff / 3600000);
+        const mins = Math.floor((diff % 3600000) / 60000);
+        if (hrs > 24) return Math.floor(hrs / 24) + 'd ' + (hrs % 24) + 'h';
+        if (hrs > 0) return hrs + 'h ' + mins + 'm';
+        return mins + 'm';
+      }, [nextEvent]);
+
+      // Find two upcoming events for poll
+      const nextTwoEvents = useMemo(() => {
+        if (!mySchedule || mySchedule.length < 2) return null;
+        const now = new Date();
+        const upcoming = [...mySchedule]
+          .filter(t => {
+            if (!t.date) return false;
+            return new Date(t.date + 'T23:59:59') >= now;
+          })
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .slice(0, 2);
+        return upcoming.length === 2 ? upcoming : null;
+      }, [mySchedule]);
+
+      const handleGenerate = async (type) => {
+        const canvas = document.createElement('canvas');
+        let ctx, filename;
+
+        if (type === 'scorecard') {
+          canvas.width = 1080; canvas.height = 1080;
+          ctx = canvas.getContext('2d');
+          drawSeriesScorecard(ctx, 1080, 1080, scorecardData);
+          filename = 'series-scorecard.png';
+        } else if (type === 'countdown') {
+          if (!nextEvent) return;
+          canvas.width = 1080; canvas.height = 1920;
+          ctx = canvas.getContext('2d');
+          drawCountdownStory(ctx, 1080, 1920, {
+            tournamentName: nextEvent.event_name,
+            buyin: nextEvent.buyin,
+            venue: nextEvent.venue,
+            gameType: nextEvent.game_variant,
+            timeUntil: nextCountdown,
+            date: nextEvent.date,
+            time: nextEvent.time
+          });
+          filename = 'next-event.png';
+        } else if (type === 'wrapup') {
+          // Open the multi-slide wrap-up viewer
+          onClose();
+          if (onOpenWrapUp) onOpenWrapUp();
+          return;
+        } else if (type === 'poll-events') {
+          if (!nextTwoEvents) return;
+          canvas.width = 1080; canvas.height = 1920;
+          ctx = canvas.getContext('2d');
+          drawPollEventVsEvent(ctx, 1080, 1920, {
+            event1: { name: nextTwoEvents[0].event_name, buyin: nextTwoEvents[0].buyin, time: nextTwoEvents[0].time },
+            event2: { name: nextTwoEvents[1].event_name, buyin: nextTwoEvents[1].buyin, time: nextTwoEvents[1].time }
+          });
+          filename = 'poll-events.png';
+        } else {
+          return;
+        }
+
+        await shareOrDownloadCanvas(canvas, filename);
+        onClose();
+      };
+
+      return ReactDOM.createPortal(
+        React.createElement(React.Fragment, null,
+          React.createElement('div', { className: 'share-menu-backdrop', onClick: onClose }),
+          React.createElement('div', { className: 'share-menu-panel' },
+            React.createElement('h3', null, 'Share & Social'),
+            React.createElement('div', { className: 'share-menu-grid' },
+              // Scorecard
+              React.createElement('div', {
+                className: 'share-menu-item' + (!hasTrackingData ? ' disabled' : ''),
+                onClick: () => hasTrackingData && handleGenerate('scorecard')
+              },
+                React.createElement('span', { className: 'share-icon' }, '\u{1F4CA}'),
+                React.createElement('span', { className: 'share-label' }, 'Series Scorecard'),
+                React.createElement('span', { className: 'share-desc' }, 'Stats card with P&L, ROI, streak')
+              ),
+              // Countdown
+              React.createElement('div', {
+                className: 'share-menu-item' + (!nextEvent ? ' disabled' : ''),
+                onClick: () => nextEvent && handleGenerate('countdown')
+              },
+                React.createElement('span', { className: 'share-icon' }, '\u23F0'),
+                React.createElement('span', { className: 'share-label' }, 'Next Event'),
+                React.createElement('span', { className: 'share-desc' }, 'Countdown story graphic')
+              ),
+              // Wrap-up
+              React.createElement('div', {
+                className: 'share-menu-item' + (!hasTrackingData ? ' disabled' : ''),
+                onClick: () => hasTrackingData && handleGenerate('wrapup')
+              },
+                React.createElement('span', { className: 'share-icon' }, '\u{1F3AC}'),
+                React.createElement('span', { className: 'share-label' }, 'Series Wrap'),
+                React.createElement('span', { className: 'share-desc' }, 'Spotify Wrapped style recap')
+              ),
+              // Poll: Event vs Event
+              React.createElement('div', {
+                className: 'share-menu-item' + (!nextTwoEvents ? ' disabled' : ''),
+                onClick: () => nextTwoEvents && handleGenerate('poll-events')
+              },
+                React.createElement('span', { className: 'share-icon' }, '\u{1F4CA}'),
+                React.createElement('span', { className: 'share-label' }, 'Event Poll'),
+                React.createElement('span', { className: 'share-desc' }, 'A vs B poll template')
+              ),
+              // Import from Hendon Mob placeholder
+              React.createElement('div', {
+                className: 'share-menu-item disabled',
+                onClick: () => {}
+              },
+                React.createElement('span', { className: 'share-icon' }, '\u{1F30D}'),
+                React.createElement('span', { className: 'share-label' }, 'Import Hendon Mob'),
+                React.createElement('span', { className: 'share-desc' }, 'Coming soon')
+              )
+            )
+          )
+        ),
+        document.body
+      );
+    }
+
+    // ── Series Wrap-Up Viewer (multi-slide) ──
+    function WrapUpViewer({ trackingData, tournaments, onClose }) {
+      const [currentSlide, setCurrentSlide] = useState(0);
+      const data = useMemo(() => computeScorecardData(trackingData, null, tournaments), [trackingData, tournaments]);
+
+      const slideNames = ['Overview', 'Numbers', 'Best Moment', 'Game Mix', 'Fun Facts'];
+      const slideFns = [drawWrapSlide1, drawWrapSlide2, drawWrapSlide3, drawWrapSlide4, drawWrapSlide5];
+
+      const handleShare = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1080; canvas.height = 1920;
+        const ctx = canvas.getContext('2d');
+        slideFns[currentSlide](ctx, 1080, 1920, data);
+        await shareOrDownloadCanvas(canvas, 'series-wrap-' + (currentSlide + 1) + '.png');
+      };
+
+      const handleShareAll = async () => {
+        for (let i = 0; i < slideFns.length; i++) {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1080; canvas.height = 1920;
+          const ctx = canvas.getContext('2d');
+          slideFns[i](ctx, 1080, 1920, data);
+          await shareOrDownloadCanvas(canvas, 'series-wrap-' + (i + 1) + '.png');
+        }
+      };
+
+      // Preview canvas
+      const previewRef = useRef(null);
+      useEffect(() => {
+        const cvs = previewRef.current;
+        if (!cvs) return;
+        cvs.width = 1080; cvs.height = 1920;
+        const ctx = cvs.getContext('2d');
+        slideFns[currentSlide](ctx, 1080, 1920, data);
+      }, [currentSlide, data]);
+
+      return ReactDOM.createPortal(
+        React.createElement(React.Fragment, null,
+          React.createElement('div', { className: 'share-menu-backdrop', onClick: onClose }),
+          React.createElement('div', { className: 'share-menu-panel', style: { maxHeight: '85vh' } },
+            React.createElement('h3', null, 'Series Wrap-Up'),
+            React.createElement('div', { className: 'wrapup-slide-picker' },
+              slideNames.map((name, i) =>
+                React.createElement('button', {
+                  key: i,
+                  className: currentSlide === i ? 'active' : '',
+                  onClick: () => setCurrentSlide(i)
+                }, name)
+              )
+            ),
+            React.createElement('div', { style: { textAlign: 'center', margin: '12px 0' } },
+              React.createElement('canvas', {
+                ref: previewRef,
+                style: { width: '200px', height: '356px', borderRadius: '8px', border: '1px solid var(--border)' }
+              })
+            ),
+            React.createElement('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center' } },
+              React.createElement('button', { className: 'btn btn-primary btn-sm', onClick: handleShare }, 'Share This Slide'),
+              React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: handleShareAll }, 'Download All'),
+              React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: onClose }, 'Close')
+            )
+          )
+        ),
+        document.body
+      );
+    }
+
+    // ── Milestone Celebration Modal ──
+    function MilestoneCelebration({ milestone, onShare, onDismiss }) {
+      if (!milestone) return null;
+
+      const icons = {
+        'break-even': '\u2696\uFE0F',
+        'first-profit': '\u{1F4B0}',
+        'career-high': '\u{1F3C6}',
+        'game-best': '\u{1F3AF}'
+      };
+
+      const handleShare = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1080; canvas.height = 1080;
+        const ctx = canvas.getContext('2d');
+        drawMilestoneImage(ctx, 1080, 1080, milestone);
+        await shareOrDownloadCanvas(canvas, 'milestone.png');
+        if (onShare) onShare();
+      };
+
+      return ReactDOM.createPortal(
+        React.createElement('div', { className: 'milestone-modal-backdrop', onClick: onDismiss },
+          React.createElement('div', { className: 'milestone-modal', onClick: e => e.stopPropagation() },
+            React.createElement('div', { className: 'milestone-icon' }, icons[milestone.type] || '\u2B50'),
+            React.createElement('div', { className: 'milestone-title' }, milestone.title),
+            React.createElement('div', { className: 'milestone-desc' }, milestone.description),
+            milestone.value && React.createElement('div', {
+              style: { fontSize: '1.5rem', fontWeight: 700, color: '#22c55e', fontFamily: "'Oswald',sans-serif", marginBottom: '16px' }
+            }, milestone.value),
+            React.createElement('div', { className: 'milestone-actions' },
+              React.createElement('button', { className: 'btn btn-primary btn-sm', onClick: handleShare }, 'Share'),
+              React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: onDismiss }, 'Dismiss')
+            )
+          )
+        ),
+        document.body
+      );
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ── END SOCIAL OVERLAY UI COMPONENTS ───────────────────
+    // ══════════════════════════════════════════════════════════
+
     // ── Tracking Entry Form ─────────────────────────────────────
 
     function TrackingEntryForm({ tournaments, mySchedule, existingEntryIds, initialValues, tournamentLabel, entryForPOY, onSubmit, onCancel, isEdit }) {
@@ -7984,10 +10000,12 @@
 
     // ── Tracking View ─────────────────────────────────────────
 
-    function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, onDelete }) {
+    function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, onDelete, myActiveUpdates }) {
       const [showAddForm, setShowAddForm] = useState(false);
       const [editingId, setEditingId] = useState(null);
       const [pendingFormId, setPendingFormId] = useState(null);
+      const [showShareMenu, setShowShareMenu] = useState(false);
+      const [showWrapUp, setShowWrapUp] = useState(false);
 
       const stats = useMemo(() => {
         let totalBuyins = 0, totalCashes = 0, eventsCashed = 0;
@@ -8027,9 +10045,17 @@
         <div>
           <div className="section-header">
             <h2>Tracking</h2>
-            <button className="btn btn-primary btn-sm" onClick={() => { setShowAddForm(f => !f); setEditingId(null); }}>
-              {showAddForm ? 'Cancel' : '+ Log Result'}
-            </button>
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              {trackingData.length > 0 && (
+                <button className="btn-share-overlay" onClick={() => setShowShareMenu(true)} title="Share & Social">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                  Share
+                </button>
+              )}
+              <button className="btn btn-primary btn-sm" onClick={() => { setShowAddForm(f => !f); setEditingId(null); }}>
+                {showAddForm ? 'Cancel' : '+ Log Result'}
+              </button>
+            </div>
           </div>
 
           {trackingData.length > 0 && (
@@ -8133,6 +10159,25 @@
                 onCancelEdit={() => setEditingId(null)}
               />
             ))
+          )}
+
+          {showShareMenu && (
+            <ShareMenu
+              trackingData={trackingData}
+              tournaments={tournaments}
+              mySchedule={mySchedule}
+              myActiveUpdates={myActiveUpdates || []}
+              onClose={() => setShowShareMenu(false)}
+              onOpenWrapUp={() => setShowWrapUp(true)}
+            />
+          )}
+
+          {showWrapUp && (
+            <WrapUpViewer
+              trackingData={trackingData}
+              tournaments={tournaments}
+              onClose={() => setShowWrapUp(false)}
+            />
           )}
         </div>
       );
@@ -8527,6 +10572,13 @@
               <div className="menu-item-desc">See your schedule day by day</div>
             </div>
           </button>
+          <button className="more-menu-item" onClick={() => onNavigate('hands')}>
+            <Icon.cards />
+            <div>
+              Hand Replayer
+              <div className="menu-item-desc">Record and replay poker hands</div>
+            </div>
+          </button>
           <button className="more-menu-item" onClick={() => onNavigate('settings')}>
             <Icon.gear />
             <div>
@@ -8766,6 +10818,1024 @@
       );
     }
 
+    // ── Hand Replayer ─────────────────────────────────────────
+
+    // Street definitions by game category
+    const STREET_DEFS = {
+      community: { streets: ['Preflop', 'Flop', 'Turn', 'River'], boardCards: [0, 3, 1, 1] },
+      draw_triple: { streets: ['Pre-Draw', 'Draw 1', 'Draw 2', 'Draw 3'], boardCards: [0, 0, 0, 0] },
+      draw_single: { streets: ['Pre-Draw', 'Draw'], boardCards: [0, 0] },
+      stud: { streets: ['3rd Street', '4th Street', '5th Street', '6th Street', '7th Street'], boardCards: [0, 0, 0, 0, 0] },
+    };
+
+    function getGameCategory(gameType) {
+      const cfg = HAND_CONFIG[gameType];
+      if (!cfg) return 'community';
+      if (cfg.isStud) return 'stud';
+      if (cfg.hasBoard) return 'community';
+      // Draw games
+      if (['2-7 TD', 'PL 2-7 TD', 'L 2-7 TD', 'A-5 TD', 'Badeucy', 'Badacy'].includes(gameType)) return 'draw_triple';
+      if (['NL 2-7 SD', 'PL 5CD Hi'].includes(gameType)) return 'draw_single';
+      if (gameType === 'Badugi') return 'draw_triple'; // Badugi is triple draw
+      return 'community';
+    }
+
+    function getStreetDef(gameType) {
+      return STREET_DEFS[getGameCategory(gameType)] || STREET_DEFS.community;
+    }
+
+    // Position labels based on player count
+    function getPositionLabels(numPlayers) {
+      const allPos = ['BTN', 'SB', 'BB', 'UTG', 'UTG+1', 'MP', 'MP+1', 'HJ', 'CO'];
+      if (numPlayers <= 2) return ['BTN/SB', 'BB'];
+      if (numPlayers === 3) return ['BTN', 'SB', 'BB'];
+      if (numPlayers <= 6) return allPos.slice(0, numPlayers);
+      return allPos.slice(0, Math.min(numPlayers, 9));
+    }
+
+    function formatChipAmount(val) {
+      if (!val && val !== 0) return '';
+      const n = Number(val);
+      if (n >= 1000000) return (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'k';
+      return String(n);
+    }
+
+    function createEmptyHand(gameType) {
+      const streetDef = getStreetDef(gameType);
+      const gameCfg = HAND_CONFIG[gameType] || HAND_CONFIG_DEFAULT;
+      return {
+        gameType,
+        players: [
+          { name: 'Hero', position: 'BTN', startingStack: 50000 },
+          { name: 'Opp 1', position: 'BB', startingStack: 50000 },
+        ],
+        blinds: { sb: 100, bb: 200, ante: 0 },
+        streets: streetDef.streets.map((name, i) => ({
+          name,
+          cards: {
+            hero: '',
+            opponents: [''],
+            board: '',
+          },
+          actions: [],
+          draws: [],
+        })),
+        result: null,
+      };
+    }
+
+    // Calculate pot and stacks from hand data up to a given street+action
+    function calcPotsAndStacks(hand, upToStreet, upToAction) {
+      const stacks = hand.players.map(p => p.startingStack);
+      let pot = hand.players.length * (hand.blinds.ante || 0);
+      stacks.forEach((_, i) => { stacks[i] -= (hand.blinds.ante || 0); });
+
+      // Post blinds on first street
+      if (hand.streets.length > 0 && hand.streets[0].actions) {
+        const category = getGameCategory(hand.gameType);
+        if (category !== 'stud') {
+          // SB and BB
+          const sbIdx = hand.players.findIndex(p => p.position === 'SB' || p.position === 'BTN/SB');
+          const bbIdx = hand.players.findIndex(p => p.position === 'BB');
+          if (sbIdx >= 0) { stacks[sbIdx] -= hand.blinds.sb; pot += hand.blinds.sb; }
+          if (bbIdx >= 0) { stacks[bbIdx] -= hand.blinds.bb; pot += hand.blinds.bb; }
+        }
+      }
+
+      const folded = new Set();
+      for (let si = 0; si <= upToStreet && si < hand.streets.length; si++) {
+        const street = hand.streets[si];
+        const maxAction = si === upToStreet ? upToAction : (street.actions ? street.actions.length - 1 : -1);
+        for (let ai = 0; ai <= maxAction && street.actions && ai < street.actions.length; ai++) {
+          const act = street.actions[ai];
+          if (act.action === 'fold') { folded.add(act.player); continue; }
+          if (act.amount && act.amount > 0) {
+            stacks[act.player] -= act.amount;
+            pot += act.amount;
+          }
+        }
+      }
+      return { stacks, pot, folded };
+    }
+
+    // ── Hand Replayer Entry Sub-component ──
+    function HandReplayerEntry({ hand, setHand, onDone, onCancel }) {
+      const [currentStreetIdx, setCurrentStreetIdx] = useState(0);
+      const [actionAmount, setActionAmount] = useState('');
+      const gameCfg = HAND_CONFIG[hand.gameType] || HAND_CONFIG_DEFAULT;
+      const streetDef = getStreetDef(hand.gameType);
+      const category = getGameCategory(hand.gameType);
+      const currentStreet = hand.streets[currentStreetIdx] || hand.streets[0];
+
+      const updateStreet = (streetIdx, updater) => {
+        setHand(prev => {
+          const next = { ...prev, streets: prev.streets.map((s, i) => i === streetIdx ? updater({ ...s }) : s) };
+          return next;
+        });
+      };
+
+      const addAction = (action) => {
+        const amount = ['bet', 'raise', 'call'].includes(action) ? (Number(actionAmount) || 0) : 0;
+        // Determine which player is next
+        const street = hand.streets[currentStreetIdx];
+        const actionsLen = street.actions ? street.actions.length : 0;
+        const foldedPlayers = new Set((street.actions || []).filter(a => a.action === 'fold').map(a => a.player));
+        let activePlayers = hand.players.map((_, i) => i).filter(i => !foldedPlayers.has(i));
+        let nextPlayer = activePlayers[actionsLen % activePlayers.length] || 0;
+
+        updateStreet(currentStreetIdx, s => {
+          const actions = [...(s.actions || []), { player: nextPlayer, action, amount }];
+          return { ...s, actions };
+        });
+        setActionAmount('');
+      };
+
+      const removeLastAction = () => {
+        updateStreet(currentStreetIdx, s => {
+          const actions = [...(s.actions || [])];
+          actions.pop();
+          return { ...s, actions };
+        });
+      };
+
+      const updatePlayerField = (idx, field, value) => {
+        setHand(prev => {
+          const players = prev.players.map((p, i) => i === idx ? { ...p, [field]: field === 'startingStack' ? (Number(value) || 0) : value } : p);
+          return { ...prev, players };
+        });
+      };
+
+      const setNumPlayers = (n) => {
+        setHand(prev => {
+          const positions = getPositionLabels(n);
+          const players = Array.from({ length: n }, (_, i) => {
+            if (prev.players[i]) return { ...prev.players[i], position: positions[i] || '' };
+            return { name: i === 0 ? 'Hero' : 'Opp ' + i, position: positions[i] || '', startingStack: prev.players[0]?.startingStack || 50000 };
+          });
+          // Update streets to have opponent card slots
+          const streets = prev.streets.map(s => ({
+            ...s,
+            cards: { ...s.cards, opponents: Array.from({ length: n - 1 }, (_, j) => s.cards.opponents[j] || '') }
+          }));
+          return { ...prev, players, streets };
+        });
+      };
+
+      const updateHeroCards = (streetIdx, val) => {
+        updateStreet(streetIdx, s => ({ ...s, cards: { ...s.cards, hero: val } }));
+      };
+      const updateBoardCards = (streetIdx, val) => {
+        updateStreet(streetIdx, s => ({ ...s, cards: { ...s.cards, board: val } }));
+      };
+      const updateOpponentCards = (streetIdx, oppIdx, val) => {
+        updateStreet(streetIdx, s => {
+          const opponents = [...s.cards.opponents];
+          opponents[oppIdx] = val;
+          return { ...s, cards: { ...s.cards, opponents } };
+        });
+      };
+      const updateDrawDiscard = (streetIdx, playerIdx, val) => {
+        updateStreet(streetIdx, s => {
+          const draws = [...(s.draws || [])];
+          const existing = draws.findIndex(d => d.player === playerIdx);
+          if (existing >= 0) draws[existing] = { ...draws[existing], discarded: Number(val) || 0 };
+          else draws.push({ player: playerIdx, discarded: Number(val) || 0 });
+          return { ...s, draws };
+        });
+      };
+
+      // Compute pot so far
+      const { pot: currentPot } = calcPotsAndStacks(hand, currentStreetIdx, (currentStreet.actions || []).length - 1);
+
+      return (
+        <div className="replayer-entry">
+          {/* Step 1: Game type is already selected */}
+          <div className="replayer-section">
+            <div className="replayer-section-title">Players & Blinds</div>
+            <div className="replayer-row" style={{marginBottom:'8px'}}>
+              <div className="replayer-field" style={{flex:'0 0 70px'}}>
+                <label>Players</label>
+                <select value={hand.players.length} onChange={e => setNumPlayers(Number(e.target.value))}>
+                  {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <div className="replayer-field">
+                <label>SB</label>
+                <input type="text" inputMode="decimal" value={hand.blinds.sb} onChange={e => setHand(prev => ({ ...prev, blinds: { ...prev.blinds, sb: Number(e.target.value) || 0 } }))} />
+              </div>
+              <div className="replayer-field">
+                <label>BB</label>
+                <input type="text" inputMode="decimal" value={hand.blinds.bb} onChange={e => setHand(prev => ({ ...prev, blinds: { ...prev.blinds, bb: Number(e.target.value) || 0 } }))} />
+              </div>
+              <div className="replayer-field">
+                <label>Ante</label>
+                <input type="text" inputMode="decimal" value={hand.blinds.ante || ''} onChange={e => setHand(prev => ({ ...prev, blinds: { ...prev.blinds, ante: Number(e.target.value) || 0 } }))} />
+              </div>
+            </div>
+            {hand.players.map((p, i) => (
+              <div key={i} className="replayer-player-row">
+                <span className="replayer-player-pos">{p.position}</span>
+                <div className="replayer-field" style={{flex:'0 0 80px'}}>
+                  <input type="text" value={p.name} onChange={e => updatePlayerField(i, 'name', e.target.value)} placeholder="Name" />
+                </div>
+                <div className="replayer-field" style={{flex:'0 0 80px'}}>
+                  <input type="text" inputMode="decimal" value={p.startingStack} onChange={e => updatePlayerField(i, 'startingStack', e.target.value)} placeholder="Stack" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Street tabs */}
+          <div className="live-update-tabs">
+            {hand.streets.map((s, i) => (
+              <button key={i} className={currentStreetIdx === i ? 'active' : ''} onClick={() => setCurrentStreetIdx(i)}>
+                {s.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Current street entry */}
+          <div className="replayer-street">
+            <div className="replayer-street-header">
+              <span className="replayer-street-name">{currentStreet.name}</span>
+              <span className="replayer-street-pot">Pot: {formatChipAmount(currentPot)}</span>
+            </div>
+
+            {/* Card entry */}
+            <div className="replayer-field" style={{marginBottom:'6px'}}>
+              <label>Hero Cards</label>
+              <input type="text" placeholder={gameCfg.heroPlaceholder ? dualPlaceholder(gameCfg.heroPlaceholder) : 'AhKd'}
+                value={currentStreet.cards.hero}
+                onChange={e => updateHeroCards(currentStreetIdx, e.target.value)} />
+              <CardRow text={currentStreet.cards.hero} stud={gameCfg.isStud} max={gameCfg.heroCards} />
+            </div>
+
+            {category === 'community' && currentStreetIdx > 0 && (
+              <div className="replayer-field" style={{marginBottom:'6px'}}>
+                <label>Board ({currentStreet.name})</label>
+                <input type="text" placeholder={gameCfg.boardPlaceholder || 'Qh7d2c'}
+                  value={currentStreet.cards.board}
+                  onChange={e => updateBoardCards(currentStreetIdx, e.target.value)} />
+                <CardRow text={currentStreet.cards.board} max={streetDef.boardCards[currentStreetIdx]} />
+              </div>
+            )}
+
+            {hand.players.slice(1).map((p, oi) => (
+              <div key={oi} className="replayer-field" style={{marginBottom:'4px'}}>
+                <label>{p.name} Cards</label>
+                <input type="text" placeholder={gameCfg.heroPlaceholder ? dualPlaceholder(gameCfg.heroPlaceholder) : 'XxXx'}
+                  value={(currentStreet.cards.opponents || [])[oi] || ''}
+                  onChange={e => updateOpponentCards(currentStreetIdx, oi, e.target.value)} />
+                <CardRow text={(currentStreet.cards.opponents || [])[oi] || ''} stud={gameCfg.isStud} max={gameCfg.heroCards}
+                  placeholderCount={!(currentStreet.cards.opponents || [])[oi] ? gameCfg.heroCards : 0} />
+              </div>
+            ))}
+
+            {/* Draw game discard entry */}
+            {(category === 'draw_triple' || category === 'draw_single') && currentStreetIdx > 0 && (
+              <div className="replayer-draw-section">
+                <div className="replayer-draw-label">Cards Drawn</div>
+                {hand.players.map((p, pi) => {
+                  const draw = (currentStreet.draws || []).find(d => d.player === pi);
+                  return (
+                    <div key={pi} className="replayer-row" style={{marginBottom:'2px'}}>
+                      <span style={{fontSize:'0.65rem',color:'var(--text-muted)',minWidth:'50px'}}>{p.name}</span>
+                      <div className="replayer-field" style={{flex:'0 0 50px'}}>
+                        <input type="number" min="0" max="5" value={draw ? draw.discarded : ''}
+                          onChange={e => updateDrawDiscard(currentStreetIdx, pi, e.target.value)}
+                          placeholder="0" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="replayer-action-list">
+              {(currentStreet.actions || []).map((act, ai) => (
+                <div key={ai} className="replayer-action-item">
+                  <span className="replayer-action-player">{hand.players[act.player]?.name || '?'}</span>
+                  <span className={`replayer-action-type ${act.action}`}>{act.action}</span>
+                  {act.amount > 0 && <span className="replayer-action-amount">{formatChipAmount(act.amount)}</span>}
+                  <span className="replayer-action-remove" onClick={() => {
+                    if (ai === (currentStreet.actions || []).length - 1) removeLastAction();
+                  }}>&times;</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="replayer-row" style={{marginTop:'6px',gap:'4px'}}>
+              <div className="replayer-field" style={{flex:'0 0 80px'}}>
+                <input type="text" inputMode="decimal" placeholder="Amount" value={actionAmount}
+                  onChange={e => setActionAmount(e.target.value)} />
+              </div>
+            </div>
+            <div className="replayer-action-btns">
+              <button className="action-fold" onClick={() => addAction('fold')}>Fold</button>
+              <button onClick={() => addAction('check')}>Check</button>
+              <button className="action-call" onClick={() => addAction('call')}>Call</button>
+              <button className="action-bet" onClick={() => addAction('bet')}>Bet</button>
+              <button className="action-raise" onClick={() => addAction('raise')}>Raise</button>
+            </div>
+          </div>
+
+          {/* Bottom actions */}
+          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}>
+            <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+            <button className="btn btn-primary btn-sm" onClick={() => onDone(hand)}>
+              {currentStreetIdx < hand.streets.length - 1 ? 'Save & Replay' : 'Save & Replay'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Hand Replayer Replay Sub-component ──
+    function HandReplayerReplay({ hand, onEdit, onBack }) {
+      const [streetIdx, setStreetIdx] = useState(0);
+      const [actionIdx, setActionIdx] = useState(-1); // -1 = show street cards only
+      const [playing, setPlaying] = useState(false);
+      const [speed, setSpeed] = useState(1000); // ms per action
+      const [showResult, setShowResult] = useState(false);
+      const [hiloAnimate, setHiloAnimate] = useState(false);
+      const playTimerRef = useRef(null);
+
+      const gameCfg = HAND_CONFIG[hand.gameType] || HAND_CONFIG_DEFAULT;
+      const category = getGameCategory(hand.gameType);
+      const streetDef = getStreetDef(hand.gameType);
+      const gameEval = GAME_EVAL[hand.gameType];
+      const isHiLo = gameEval && (gameEval.type === 'hilo' || gameEval.type === 'split-badugi');
+
+      const totalStreets = hand.streets.length;
+      const currentStreet = hand.streets[streetIdx];
+      const currentActions = currentStreet?.actions || [];
+
+      // Build cumulative board cards up to current street
+      const boardCards = useMemo(() => {
+        if (category !== 'community') return '';
+        let board = '';
+        for (let si = 0; si <= streetIdx && si < hand.streets.length; si++) {
+          if (hand.streets[si].cards.board) board += hand.streets[si].cards.board;
+        }
+        return board;
+      }, [hand, streetIdx, category]);
+
+      // Build cumulative hero/opponent cards for stud
+      const heroCards = useMemo(() => {
+        if (category !== 'stud') return hand.streets[0]?.cards.hero || '';
+        let cards = '';
+        for (let si = 0; si <= streetIdx; si++) {
+          if (hand.streets[si]?.cards.hero) cards += hand.streets[si].cards.hero;
+        }
+        return cards;
+      }, [hand, streetIdx, category]);
+
+      const opponentCards = useMemo(() => {
+        return hand.players.slice(1).map((_, oi) => {
+          if (category !== 'stud') return hand.streets[0]?.cards.opponents?.[oi] || '';
+          let cards = '';
+          for (let si = 0; si <= streetIdx; si++) {
+            if (hand.streets[si]?.cards.opponents?.[oi]) cards += hand.streets[si].cards.opponents[oi];
+          }
+          return cards;
+        });
+      }, [hand, streetIdx, category]);
+
+      // Calculate current pot and stacks
+      const { stacks, pot, folded } = useMemo(() => {
+        return calcPotsAndStacks(hand, streetIdx, actionIdx);
+      }, [hand, streetIdx, actionIdx]);
+
+      // Current action display per player
+      const playerLastAction = useMemo(() => {
+        const result = {};
+        for (let ai = 0; ai <= actionIdx && ai < currentActions.length; ai++) {
+          const act = currentActions[ai];
+          result[act.player] = act;
+        }
+        return result;
+      }, [currentActions, actionIdx]);
+
+      // Evaluate final hand result
+      const evalResult = useMemo(() => {
+        if (!showResult || !gameEval) return null;
+        const hCards = parseCardNotation(heroCards);
+        const bCards = gameCfg.hasBoard ? parseCardNotation(boardCards) : [];
+        if (gameCfg.hasBoard && bCards.length < 3) return null;
+        if (hCards.length < (gameCfg.isStud ? 5 : gameCfg.heroCards)) return null;
+
+        const boardSuits = new Set(bCards.map(c => c.suit));
+        const usedKeys = bCards.map(c => c.rank + c.suit);
+        let hEval;
+        if (gameCfg.isStud) {
+          hEval = hCards.filter(c => c.suit !== 'x');
+        } else {
+          hEval = assignNeutralSuits(hCards, usedKeys, boardSuits);
+        }
+        hEval.forEach(c => { if (c.suit !== 'x') usedKeys.push(c.rank + c.suit); });
+
+        const results = [];
+        for (let oi = 0; oi < opponentCards.length; oi++) {
+          if (folded.has(oi + 1)) continue;
+          const oRaw = parseCardNotation(opponentCards[oi]);
+          if (oRaw.length < (gameCfg.isStud ? 5 : gameCfg.heroCards)) continue;
+          let oEval;
+          if (gameCfg.isStud) {
+            oEval = oRaw.filter(c => c.suit !== 'x');
+          } else {
+            oEval = assignNeutralSuits(oRaw, usedKeys, boardSuits);
+          }
+          const ev = evaluateHand(hand.gameType, hEval, oEval, bCards);
+          if (ev && ev.result) results.push({ index: oi, ...ev });
+          oEval.forEach(c => { if (c.suit !== 'x') usedKeys.push(c.rank + c.suit); });
+        }
+        return results.length ? results : null;
+      }, [showResult, hand, heroCards, opponentCards, boardCards, gameCfg, gameEval, folded]);
+
+      // Navigation
+      const canGoForward = streetIdx < totalStreets - 1 || actionIdx < currentActions.length - 1 || !showResult;
+      const canGoBack = streetIdx > 0 || actionIdx >= 0 || showResult;
+
+      const stepForward = useCallback(() => {
+        if (actionIdx < currentActions.length - 1) {
+          setActionIdx(a => a + 1);
+        } else if (streetIdx < totalStreets - 1) {
+          setStreetIdx(s => s + 1);
+          setActionIdx(-1);
+        } else if (!showResult) {
+          setShowResult(true);
+          if (isHiLo) {
+            setTimeout(() => setHiloAnimate(true), 100);
+          }
+        } else {
+          setPlaying(false);
+        }
+      }, [actionIdx, currentActions.length, streetIdx, totalStreets, showResult, isHiLo]);
+
+      const stepBack = useCallback(() => {
+        if (showResult) {
+          setShowResult(false);
+          setHiloAnimate(false);
+        } else if (actionIdx >= 0) {
+          setActionIdx(a => a - 1);
+        } else if (streetIdx > 0) {
+          const prevStreet = hand.streets[streetIdx - 1];
+          setStreetIdx(s => s - 1);
+          setActionIdx((prevStreet?.actions?.length || 0) - 1);
+        }
+      }, [actionIdx, streetIdx, showResult, hand]);
+
+      const goToStart = () => { setStreetIdx(0); setActionIdx(-1); setShowResult(false); setHiloAnimate(false); };
+      const goToEnd = () => {
+        const lastStreet = hand.streets.length - 1;
+        setStreetIdx(lastStreet);
+        setActionIdx((hand.streets[lastStreet]?.actions?.length || 0) - 1);
+      };
+
+      // Auto-play
+      useEffect(() => {
+        if (playing) {
+          playTimerRef.current = setInterval(() => {
+            stepForward();
+          }, speed);
+        }
+        return () => { if (playTimerRef.current) clearInterval(playTimerRef.current); };
+      }, [playing, speed, stepForward]);
+
+      // Stop playing when we reach the end
+      useEffect(() => {
+        if (showResult && playing) setPlaying(false);
+      }, [showResult, playing]);
+
+      // Determine winner styling for seats
+      const getPlayerSeatClass = (playerIdx) => {
+        if (folded.has(playerIdx)) return 'folded';
+        if (showResult && evalResult) {
+          if (playerIdx === 0) {
+            // Hero
+            const heroWins = evalResult.some(r => r.result.outcome === 'hero');
+            const heroLoses = evalResult.some(r => r.result.outcome === 'opponent');
+            if (heroWins && !heroLoses) return 'winner';
+            if (heroLoses && !heroWins) return 'loser';
+          } else {
+            const oppResult = evalResult.find(r => r.index === playerIdx - 1);
+            if (oppResult) {
+              if (oppResult.result.outcome === 'opponent') return 'winner';
+              if (oppResult.result.outcome === 'hero') return 'loser';
+            }
+          }
+        }
+        return '';
+      };
+
+      const getPlayerHandName = (playerIdx) => {
+        if (!showResult || !evalResult) return null;
+        if (playerIdx === 0) {
+          const r = evalResult[0];
+          if (!r) return null;
+          return r.heroHigh?.name || r.heroLow?.name || r.heroBadugi?.name || null;
+        }
+        const r = evalResult.find(er => er.index === playerIdx - 1);
+        if (!r) return null;
+        return r.opponentHigh?.name || r.opponentLow?.name || r.opponentBadugi?.name || null;
+      };
+
+      // Share as image
+      const shareReplayImage = async () => {
+        const allCardNotations = [heroCards, boardCards, ...opponentCards].filter(Boolean);
+        const allCards = allCardNotations.flatMap(n => parseCardNotation(n));
+        try {
+          const images = await loadCardImages(allCards);
+          const outW = 1080, outH = 1080;
+          const canvas = document.createElement('canvas');
+          canvas.width = outW; canvas.height = outH;
+          const ctx = canvas.getContext('2d');
+
+          // Dark gradient background
+          const grad = ctx.createLinearGradient(0, 0, 0, outH);
+          grad.addColorStop(0, '#1a1a2e');
+          grad.addColorStop(1, '#0f0f1a');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, outW, outH);
+
+          // Felt texture
+          ctx.strokeStyle = 'rgba(34,197,94,0.08)';
+          ctx.lineWidth = 1;
+          for (let y = 0; y < outH; y += 40) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(outW, y); ctx.stroke();
+          }
+
+          // Title
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 36px Oswald, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(hand.gameType + ' Hand', outW / 2, 60);
+
+          // Blinds
+          ctx.font = '22px Oswald, sans-serif';
+          ctx.fillStyle = '#888888';
+          ctx.fillText('Blinds ' + formatChipAmount(hand.blinds.sb) + '/' + formatChipAmount(hand.blinds.bb) + (hand.blinds.ante ? ' (' + formatChipAmount(hand.blinds.ante) + ')' : ''), outW / 2, 95);
+
+          // Board cards (community games)
+          let yPos = 140;
+          if (category === 'community' && boardCards) {
+            const bCards = parseCardNotation(boardCards);
+            const cw = 70, ch = 98, gap = 8;
+            const totalW = bCards.length * cw + (bCards.length - 1) * gap;
+            let cx = (outW - totalW) / 2;
+            ctx.font = '16px Oswald, sans-serif';
+            ctx.fillStyle = '#666666';
+            ctx.fillText('BOARD', outW / 2, yPos);
+            yPos += 14;
+            for (const c of bCards) {
+              const key = c.rank + c.suit;
+              const img = images.get(key);
+              if (img) { ctx.drawImage(img, cx, yPos, cw, ch); }
+              else { ctx.fillStyle = '#333'; ctx.fillRect(cx, yPos, cw, ch); ctx.fillStyle = '#666'; ctx.font = '24px Oswald'; ctx.textAlign = 'center'; ctx.fillText('?', cx + cw/2, yPos + ch/2 + 8); }
+              cx += cw + gap;
+            }
+            yPos += ch + 20;
+          }
+
+          // Pot
+          ctx.textAlign = 'center';
+          ctx.font = 'bold 28px Oswald, sans-serif';
+          ctx.fillStyle = '#facc15';
+          ctx.fillText('POT: ' + formatChipAmount(pot), outW / 2, yPos + 10);
+          yPos += 50;
+
+          // Players
+          const cw = 50, ch = 70;
+          hand.players.forEach((p, pi) => {
+            const cards = pi === 0 ? heroCards : (opponentCards[pi - 1] || '');
+            const parsed = parseCardNotation(cards);
+            const isFolded = folded.has(pi);
+            const seatClass = getPlayerSeatClass(pi);
+            const handName = getPlayerHandName(pi);
+
+            ctx.globalAlpha = isFolded ? 0.3 : 1;
+
+            // Player name + stack
+            ctx.font = 'bold 20px Oswald, sans-serif';
+            ctx.fillStyle = seatClass === 'winner' ? '#4ade80' : seatClass === 'loser' ? '#f87171' : '#ffffff';
+            ctx.textAlign = 'left';
+            const px = 80;
+            ctx.fillText(p.name + ' (' + p.position + ')', px, yPos);
+            ctx.font = '16px Oswald, sans-serif';
+            ctx.fillStyle = '#888888';
+            ctx.fillText(formatChipAmount(stacks[pi]), px + 300, yPos);
+
+            // Cards
+            let cardX = px;
+            yPos += 8;
+            for (const c of parsed) {
+              const key = c.rank + c.suit;
+              const img = images.get(key);
+              if (c.suit === 'x') {
+                ctx.fillStyle = '#444';
+                ctx.fillRect(cardX, yPos, cw, ch);
+                ctx.fillStyle = '#888';
+                ctx.font = '20px Oswald';
+                ctx.textAlign = 'center';
+                ctx.fillText('?', cardX + cw/2, yPos + ch/2 + 6);
+                ctx.textAlign = 'left';
+              } else if (img) {
+                ctx.drawImage(img, cardX, yPos, cw, ch);
+              }
+              cardX += cw + 4;
+            }
+
+            // Hand name
+            if (handName) {
+              ctx.font = '16px Oswald, sans-serif';
+              ctx.fillStyle = seatClass === 'winner' ? '#4ade80' : '#f87171';
+              ctx.textAlign = 'left';
+              ctx.fillText(handName, cardX + 12, yPos + ch / 2 + 4);
+            }
+
+            yPos += ch + 16;
+            ctx.globalAlpha = 1;
+          });
+
+          // Result
+          if (showResult && evalResult) {
+            ctx.font = 'bold 24px Oswald, sans-serif';
+            ctx.textAlign = 'center';
+            const rText = evalResult.map(r => r.result.text).join(' | ');
+            const rColor = evalResult[0]?.result.color === 'green' ? '#4ade80' : evalResult[0]?.result.color === 'red' ? '#f87171' : '#facc15';
+            ctx.fillStyle = rColor;
+            ctx.fillText(rText, outW / 2, Math.min(yPos + 20, outH - 60));
+          }
+
+          // Watermark
+          ctx.font = '14px Oswald, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.textAlign = 'right';
+          ctx.fillText('shonabish', outW - 20, outH - 20);
+
+          const dataUrl = canvas.toDataURL('image/png');
+          const blob = await (await fetch(dataUrl)).blob();
+          const file = new File([blob], 'hand-replay.png', { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file] });
+          } else {
+            const a = document.createElement('a');
+            a.href = dataUrl; a.download = 'hand-replay.png'; a.click();
+          }
+        } catch (e) { console.error('Share replay error:', e); }
+      };
+
+      return (
+        <div className="replayer-replay">
+          {/* Street indicators */}
+          <div className="replayer-street-indicator">
+            {hand.streets.map((s, i) => (
+              <div key={i} className={`replayer-street-dot ${i === streetIdx ? 'active' : i < streetIdx ? 'completed' : ''}`}
+                onClick={() => { setStreetIdx(i); setActionIdx(-1); setShowResult(false); setHiloAnimate(false); }}
+                style={{cursor:'pointer'}}
+                title={s.name} />
+            ))}
+          </div>
+
+          {/* Table visualization */}
+          <div className="replayer-table">
+            <div className="replayer-table-felt">
+              {/* Street name */}
+              <div style={{textAlign:'center',fontSize:'0.65rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>
+                {currentStreet?.name || 'Preflop'}
+              </div>
+
+              {/* Pot */}
+              <div className="replayer-pot-display">
+                <div className="replayer-pot-label">Pot</div>
+                {formatChipAmount(pot)}
+              </div>
+
+              {/* Board (community games) */}
+              {category === 'community' && (
+                <div className="replayer-board-area">
+                  <CardRow text={boardCards} max={5} placeholderCount={boardCards ? 0 : 5} />
+                </div>
+              )}
+
+              {/* Player seats */}
+              <div className="replayer-seats">
+                {hand.players.map((p, pi) => {
+                  const cards = pi === 0 ? heroCards : (opponentCards[pi - 1] || '');
+                  const seatClass = getPlayerSeatClass(pi);
+                  const lastAct = playerLastAction[pi];
+                  const handName = getPlayerHandName(pi);
+
+                  return (
+                    <div key={pi} className={`replayer-seat ${seatClass}`}>
+                      <div className="replayer-seat-name">{p.name}</div>
+                      <div className="replayer-seat-pos">{p.position}</div>
+                      <div className="replayer-seat-stack">{formatChipAmount(stacks[pi])}</div>
+                      <div className={`replayer-seat-cards ${isHiLo && showResult && !folded.has(pi) ? 'replayer-hilo-high' + (hiloAnimate ? ' animate' : '') : ''}`}>
+                        <CardRow text={cards} stud={gameCfg.isStud} max={gameCfg.heroCards}
+                          placeholderCount={!cards && !folded.has(pi) ? gameCfg.heroCards : 0} />
+                      </div>
+                      {handName && (
+                        <div className="replayer-seat-hand-name">{handName}</div>
+                      )}
+                      <div className="replayer-seat-action">
+                        {lastAct ? (lastAct.action + (lastAct.amount > 0 ? ' ' + formatChipAmount(lastAct.amount) : '')) : ''}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Result banner */}
+          {showResult && evalResult && evalResult.map((r, ri) => (
+            <div key={ri} className={`replayer-result replayer-result-${r.result.color === 'green' ? 'hero' : r.result.color === 'red' ? 'opponent' : 'split'}`}>
+              {r.result.text}
+            </div>
+          ))}
+
+          {/* Draw info for draw games */}
+          {(category === 'draw_triple' || category === 'draw_single') && currentStreet.draws && currentStreet.draws.length > 0 && (
+            <div style={{textAlign:'center',fontSize:'0.68rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif"}}>
+              {currentStreet.draws.map(d => (
+                <span key={d.player} style={{marginRight:'8px'}}>
+                  {hand.players[d.player]?.name}: drew {d.discarded}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Controls */}
+          <div className="replayer-controls">
+            <button onClick={goToStart} disabled={!canGoBack} title="Start">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="19 20 9 12 19 4"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+            </button>
+            <button onClick={stepBack} disabled={!canGoBack} title="Back">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button onClick={() => setPlaying(p => !p)} title={playing ? 'Pause' : 'Play'}>
+              {playing ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              )}
+            </button>
+            <button onClick={stepForward} disabled={!canGoForward} title="Forward">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <button onClick={goToEnd} title="End">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 4 15 12 5 20"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+            </button>
+            <select value={speed} onChange={e => setSpeed(Number(e.target.value))} style={{
+              fontSize:'0.65rem',padding:'3px 6px',background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border)',
+              borderRadius:'4px',fontFamily:"'Oswald',sans-serif"
+            }}>
+              <option value={2000}>0.5x</option>
+              <option value={1000}>1x</option>
+              <option value={500}>2x</option>
+              <option value={250}>4x</option>
+            </select>
+          </div>
+
+          {/* Action buttons */}
+          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}>
+            <button className="btn btn-ghost btn-sm" onClick={onBack}>Back</button>
+            <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>
+            <button className="btn btn-ghost btn-sm" onClick={shareReplayImage} title="Share as image">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'14px',height:'14px'}}>
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+            </button>
+            <button className="btn btn-ghost btn-sm" disabled title="Video export (coming soon)"
+              style={{opacity:0.3}}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:'14px',height:'14px'}}>
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+                <line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/>
+                <line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/>
+                <line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/>
+                <line x1="17" y1="7" x2="22" y2="7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Main Hand Replayer View ──
+    function HandReplayerView({ token }) {
+      const [mode, setMode] = useState('list'); // 'list' | 'entry' | 'replay'
+      const [savedHands, setSavedHands] = useState([]);
+      const [currentHand, setCurrentHand] = useState(null);
+      const [currentHandId, setCurrentHandId] = useState(null);
+      const [selectedGameType, setSelectedGameType] = useState('NLH');
+      const [title, setTitle] = useState('');
+      const [notes, setNotes] = useState('');
+      const [isPublic, setIsPublic] = useState(false);
+      const [loading, setLoading] = useState(false);
+
+      const gameTypes = Object.keys(HAND_CONFIG).filter(k => k !== 'OFC Pineapple');
+
+      const fetchHands = async () => {
+        if (!token) return;
+        try {
+          const res = await fetch(`${API_URL}/hands`, {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (res.ok) setSavedHands(await res.json());
+        } catch (e) { console.error('Failed to load hands:', e); }
+      };
+
+      useEffect(() => { fetchHands(); }, [token]);
+
+      const startNewHand = () => {
+        setCurrentHand(createEmptyHand(selectedGameType));
+        setCurrentHandId(null);
+        setTitle('');
+        setNotes('');
+        setIsPublic(false);
+        setMode('entry');
+      };
+
+      const loadHand = async (handId) => {
+        try {
+          const res = await fetch(`${API_URL}/hands/${handId}`, {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const handData = typeof data.hand_data === 'string' ? JSON.parse(data.hand_data) : data.hand_data;
+            setCurrentHand(handData);
+            setCurrentHandId(data.id);
+            setTitle(data.title || '');
+            setNotes(data.notes || '');
+            setIsPublic(!!data.is_public);
+            setMode('replay');
+          }
+        } catch (e) { console.error('Failed to load hand:', e); }
+      };
+
+      const saveHand = async (hand) => {
+        if (!token) return;
+        setLoading(true);
+        try {
+          const payload = {
+            handData: hand,
+            gameType: hand.gameType,
+            title: title || (hand.gameType + ' Hand'),
+            notes,
+            isPublic,
+          };
+          let res;
+          if (currentHandId) {
+            res = await fetch(`${API_URL}/hands/${currentHandId}`, {
+              method: 'PUT',
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          } else {
+            res = await fetch(`${API_URL}/hands`, {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setCurrentHandId(data.id);
+            }
+          }
+          fetchHands();
+        } catch (e) { console.error('Failed to save hand:', e); }
+        setLoading(false);
+      };
+
+      const deleteHand = async (handId) => {
+        if (!token) return;
+        try {
+          await fetch(`${API_URL}/hands/${handId}`, {
+            method: 'DELETE',
+            headers: { Authorization: 'Bearer ' + token },
+          });
+          fetchHands();
+        } catch (e) { console.error('Failed to delete hand:', e); }
+      };
+
+      const handleEntryDone = (hand) => {
+        setCurrentHand(hand);
+        saveHand(hand);
+        setMode('replay');
+      };
+
+      // Game type pill layout
+      const renderGamePills = () => {
+        const groups = [
+          { label: 'Community', games: ['NLH', 'LHE', 'PLH', 'PLO', 'PLO8', 'O8', 'Big O', 'LO Hi'] },
+          { label: 'Draw', games: ['2-7 TD', 'NL 2-7 SD', 'PL 2-7 TD', 'L 2-7 TD', 'A-5 TD', 'Badugi', 'Badeucy', 'Badacy', 'PL 5CD Hi'] },
+          { label: 'Stud', games: ['Razz', 'Stud Hi', 'Stud8', 'Stud Hi-Lo', '2-7 Razz'] },
+        ];
+        return groups.map(g => (
+          <div key={g.label} style={{marginBottom:'6px'}}>
+            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>{g.label}</div>
+            <div className="hand-game-pill-row" style={{flexWrap:'wrap'}}>
+              {g.games.map(game => (
+                <button key={game} className={selectedGameType === game ? 'active' : ''} onClick={() => setSelectedGameType(game)}>{game}</button>
+              ))}
+            </div>
+          </div>
+        ));
+      };
+
+      if (mode === 'entry' && currentHand) {
+        return (
+          <div className="replayer-view">
+            <div className="replayer-header">
+              <h2>New Hand</h2>
+            </div>
+            <div className="replayer-row" style={{marginBottom:'8px'}}>
+              <div className="replayer-field">
+                <label>Title</label>
+                <input type="text" placeholder="e.g. Huge pot with AA" value={title} onChange={e => setTitle(e.target.value)} />
+              </div>
+            </div>
+            <HandReplayerEntry
+              hand={currentHand}
+              setHand={setCurrentHand}
+              onDone={handleEntryDone}
+              onCancel={() => setMode('list')}
+            />
+          </div>
+        );
+      }
+
+      if (mode === 'replay' && currentHand) {
+        return (
+          <div className="replayer-view">
+            <div className="replayer-header">
+              <h2>{title || currentHand.gameType + ' Hand'}</h2>
+              <span className="replayer-hand-card-game">{currentHand.gameType}</span>
+            </div>
+            {notes && <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginBottom:'8px'}}>{notes}</div>}
+            <HandReplayerReplay
+              hand={currentHand}
+              onEdit={() => setMode('entry')}
+              onBack={() => { setMode('list'); fetchHands(); }}
+            />
+          </div>
+        );
+      }
+
+      // List mode
+      return (
+        <div className="replayer-view">
+          <div className="replayer-header">
+            <h2>Hand Replayer</h2>
+          </div>
+
+          {/* New hand creation */}
+          <div className="replayer-section" style={{marginBottom:'12px'}}>
+            <div className="replayer-section-title">New Hand</div>
+            <div className="hand-game-pills">
+              {renderGamePills()}
+            </div>
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:'8px'}}>
+              <button className="btn btn-primary btn-sm" onClick={startNewHand}>
+                Create {selectedGameType} Hand
+              </button>
+            </div>
+          </div>
+
+          {/* Saved hands list */}
+          <div className="replayer-section-title" style={{marginBottom:'6px'}}>Saved Hands</div>
+          {savedHands.length === 0 ? (
+            <div className="replayer-empty">No saved hands yet. Create one above.</div>
+          ) : (
+            <div className="replayer-hand-list">
+              {savedHands.map(h => (
+                <div key={h.id} className="replayer-hand-card" onClick={() => loadHand(h.id)}>
+                  <div className="replayer-hand-card-top">
+                    <span className="replayer-hand-card-title">{h.title || 'Untitled'}</span>
+                    <span className="replayer-hand-card-game">{h.game_type}</span>
+                  </div>
+                  {h.notes && <div className="replayer-hand-card-meta">{h.notes}</div>}
+                  <div className="replayer-hand-card-meta">
+                    {new Date(h.created_at).toLocaleDateString()}
+                    {h.is_public ? ' \u00b7 Public' : ''}
+                  </div>
+                  <div className="replayer-hand-card-actions" onClick={e => e.stopPropagation()}>
+                    <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.65rem'}}
+                      onClick={() => deleteHand(h.id)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // ── App ────────────────────────────────────────────────────
 
     function App() {
@@ -8803,6 +11873,9 @@
       // ── Live Update state ──
       const [myActiveUpdates, setMyActiveUpdates] = useState([]);
       const [buddyLiveUpdates, setBuddyLiveUpdates] = useState({});
+
+      // ── Milestones ──
+      const [activeMilestone, setActiveMilestone] = useState(null);
 
       // ── Theme ──
       const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
@@ -8939,11 +12012,21 @@
 
       const addTracking = async (data) => {
         try {
-          const { totalFieldSize, ...trackingData } = data;
+          // Detect milestones before saving (uses current trackingData state)
+          const matchedTournament = tournaments.find(tr => tr.id === data.tournamentId);
+          const entryForMilestone = {
+            ...data,
+            buyin: matchedTournament ? matchedTournament.buyin : 0,
+            event_name: matchedTournament ? matchedTournament.event_name : '',
+            game_variant: matchedTournament ? matchedTournament.game_variant : 'NLH'
+          };
+          const milestones = detectMilestones(trackingData, entryForMilestone);
+
+          const { totalFieldSize, ...trackingPayload } = data;
           const res = await fetch(`${API_URL}/tracking`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(trackingData)
+            body: JSON.stringify(trackingPayload)
           });
           if (!res.ok) {
             const err = await res.json();
@@ -8952,6 +12035,11 @@
           }
           if (totalFieldSize) await saveFieldSize(data.tournamentId, totalFieldSize);
           fetchTracking();
+
+          // Show first milestone if any were detected
+          if (milestones.length > 0) {
+            setActiveMilestone(milestones[0]);
+          }
         } catch { setError('Failed to add tracking entry'); }
       };
 
@@ -9364,7 +12452,12 @@
                 onAdd={addTracking}
                 onUpdate={updateTracking}
                 onDelete={deleteTracking}
+                myActiveUpdates={myActiveUpdates}
               />
+            )}
+
+            {currentView === 'hands' && (
+              <HandReplayerView token={token} />
             )}
 
             {currentView === 'settings' && (
@@ -9417,6 +12510,14 @@
             scheduleCount={mySchedule.filter(t => !t.is_restart).length}
             newShareCount={newShareCount}
           />
+
+          {activeMilestone && (
+            <MilestoneCelebration
+              milestone={activeMilestone}
+              onShare={() => setActiveMilestone(null)}
+              onDismiss={() => setActiveMilestone(null)}
+            />
+          )}
         </div>
       );
     }

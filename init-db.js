@@ -87,6 +87,21 @@ async function initializeDatabase() {
   `);
   console.log('✓ Schedule permissions table ready');
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS saved_hands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      hand_data TEXT NOT NULL,
+      game_type TEXT NOT NULL,
+      title TEXT,
+      notes TEXT,
+      is_public INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+  console.log('✓ Saved hands table ready');
+
   // Check if we should seed sample data
   const args = process.argv.slice(2);
   const shouldSeed = args.includes('--seed');

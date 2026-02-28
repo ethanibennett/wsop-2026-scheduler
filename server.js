@@ -1175,6 +1175,36 @@ async function initDatabase() {
     )
   `);
 
+  // ── Saved Hands (Hand Replayer) ──
+  db.run(`
+    CREATE TABLE IF NOT EXISTS saved_hands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      hand_data TEXT NOT NULL,
+      game_type TEXT NOT NULL,
+      title TEXT,
+      notes TEXT,
+      is_public INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
+  // ── Saved Hands (Hand Replayer) ──
+  db.run(`
+    CREATE TABLE IF NOT EXISTS saved_hands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      hand_data TEXT NOT NULL,
+      game_type TEXT NOT NULL,
+      title TEXT,
+      notes TEXT,
+      is_public INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
   // Auto-seed WSOP 2026 schedule if tournaments table is empty
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM tournaments');
   countStmt.step();
@@ -3829,8 +3859,249 @@ app.delete('/api/staking/agreements/:agreementId/overrides/:tournamentId', authe
   }
 });
 
+// ── Saved Hands (Hand Replayer) ──────────────────────────
+
+app.get('/api/hands', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT id, game_type, title, notes, is_public, created_at
+      FROM saved_hands
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `);
+    stmt.bind([req.user.id]);
+    const hands = [];
+    while (stmt.step()) hands.push(stmt.getAsObject());
+    stmt.free();
+    res.json(hands);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.post('/api/hands', authenticateToken, async (req, res) => {
+  try {
+    const { handData, gameType, title, notes, isPublic } = req.body;
+    if (!handData || !gameType) return res.status(400).json({ error: 'Hand data and game type are required' });
+
+    db.run(
+      'INSERT INTO saved_hands (user_id, hand_data, game_type, title, notes, is_public) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.id, typeof handData === 'string' ? handData : JSON.stringify(handData), gameType, title || null, notes || null, isPublic ? 1 : 0]
+    );
+    await saveDatabase();
+    // Get the inserted id
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+    res.status(201).json({ message: 'Hand saved', id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/hands/public', (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT sh.id, sh.game_type, sh.title, sh.notes, sh.hand_data, sh.created_at,
+             u.username
+      FROM saved_hands sh
+      JOIN users u ON sh.user_id = u.id
+      WHERE sh.is_public = 1
+      ORDER BY sh.created_at DESC
+      LIMIT 50
+    `);
+    const hands = [];
+    while (stmt.step()) hands.push(stmt.getAsObject());
+    stmt.free();
+    res.json(hands);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/hands/:id', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const stmt = db.prepare(`
+      SELECT sh.*, u.username
+      FROM saved_hands sh
+      JOIN users u ON sh.user_id = u.id
+      WHERE sh.id = ? AND (sh.user_id = ? OR sh.is_public = 1)
+    `);
+    stmt.bind([id, req.user.id]);
+    if (!stmt.step()) {
+      stmt.free();
+      return res.status(404).json({ error: 'Hand not found' });
+    }
+    const hand = stmt.getAsObject();
+    stmt.free();
+    res.json(hand);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.put('/api/hands/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { handData, gameType, title, notes, isPublic } = req.body;
+    const checkStmt = db.prepare('SELECT id FROM saved_hands WHERE id = ? AND user_id = ?');
+    checkStmt.bind([id, req.user.id]);
+    const owns = checkStmt.step();
+    checkStmt.free();
+    if (!owns) return res.status(404).json({ error: 'Hand not found' });
+
+    db.run(
+      'UPDATE saved_hands SET hand_data = ?, game_type = ?, title = ?, notes = ?, is_public = ? WHERE id = ? AND user_id = ?',
+      [typeof handData === 'string' ? handData : JSON.stringify(handData), gameType, title || null, notes || null, isPublic ? 1 : 0, id, req.user.id]
+    );
+    await saveDatabase();
+    res.json({ message: 'Hand updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.delete('/api/hands/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    db.run('DELETE FROM saved_hands WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Hand deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
 // SPA catch-all for backer view
 app.get('/backer/:token', serveIndex);
+
+// ── Saved Hands (Hand Replayer) ──────────────────────────
+
+app.get('/api/hands', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT id, game_type, title, notes, is_public, created_at
+      FROM saved_hands
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `);
+    stmt.bind([req.user.id]);
+    const hands = [];
+    while (stmt.step()) hands.push(stmt.getAsObject());
+    stmt.free();
+    res.json(hands);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.post('/api/hands', authenticateToken, async (req, res) => {
+  try {
+    const { handData, gameType, title, notes, isPublic } = req.body;
+    if (!handData || !gameType) return res.status(400).json({ error: 'Hand data and game type are required' });
+
+    db.run(
+      'INSERT INTO saved_hands (user_id, hand_data, game_type, title, notes, is_public) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.id, typeof handData === 'string' ? handData : JSON.stringify(handData), gameType, title || null, notes || null, isPublic ? 1 : 0]
+    );
+    await saveDatabase();
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+    res.status(201).json({ message: 'Hand saved', id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/hands/public', (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT sh.id, sh.game_type, sh.title, sh.notes, sh.hand_data, sh.created_at,
+             u.username
+      FROM saved_hands sh
+      JOIN users u ON sh.user_id = u.id
+      WHERE sh.is_public = 1
+      ORDER BY sh.created_at DESC
+      LIMIT 50
+    `);
+    const hands = [];
+    while (stmt.step()) hands.push(stmt.getAsObject());
+    stmt.free();
+    res.json(hands);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/hands/:id', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const stmt = db.prepare(`
+      SELECT sh.*, u.username
+      FROM saved_hands sh
+      JOIN users u ON sh.user_id = u.id
+      WHERE sh.id = ? AND (sh.user_id = ? OR sh.is_public = 1)
+    `);
+    stmt.bind([id, req.user.id]);
+    if (!stmt.step()) {
+      stmt.free();
+      return res.status(404).json({ error: 'Hand not found' });
+    }
+    const hand = stmt.getAsObject();
+    stmt.free();
+    res.json(hand);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.put('/api/hands/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { handData, gameType, title, notes, isPublic } = req.body;
+    const checkStmt = db.prepare('SELECT id FROM saved_hands WHERE id = ? AND user_id = ?');
+    checkStmt.bind([id, req.user.id]);
+    const owns = checkStmt.step();
+    checkStmt.free();
+    if (!owns) return res.status(404).json({ error: 'Hand not found' });
+
+    db.run(
+      'UPDATE saved_hands SET hand_data = ?, game_type = ?, title = ?, notes = ?, is_public = ? WHERE id = ? AND user_id = ?',
+      [typeof handData === 'string' ? handData : JSON.stringify(handData), gameType, title || null, notes || null, isPublic ? 1 : 0, id, req.user.id]
+    );
+    await saveDatabase();
+    res.json({ message: 'Hand updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.delete('/api/hands/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    db.run('DELETE FROM saved_hands WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Hand deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
 
 // Admin: list users (secret key protected)
 app.get('/api/admin/users', adminLimiter, (req, res) => {
