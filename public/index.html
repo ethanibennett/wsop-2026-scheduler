@@ -222,6 +222,9 @@
       outline: none;
       border-color: var(--accent);
     }
+    .live-update-field.bag-highlight input {
+      border-color: #22c55e;
+    }
     .live-update-panel input[type="number"] { -moz-appearance: textfield; }
     .live-update-panel input[type="number"]::-webkit-inner-spin-button,
     .live-update-panel input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -2092,6 +2095,10 @@
       border-left: 3px solid var(--text) !important;
     }
 
+    .dash-event-card.playing {
+      border-width: 2px;
+    }
+
     .dash-event-card.conditional {
       opacity: 0.7;
     }
@@ -2289,7 +2296,7 @@
       flex: 1;
     }
 
-    .dash-bag-btn, .dash-bust-btn {
+    .dash-bag-btn, .dash-bust-btn, .dash-update-btn {
       padding: 8px 14px;
       border-radius: var(--radius-sm);
       font-family: 'Oswald', sans-serif;
@@ -2307,13 +2314,19 @@
       color: #22c55e;
     }
 
+    .dash-update-btn {
+      background: color-mix(in srgb, #3b82f6 12%, transparent);
+      border: 1px solid #3b82f6;
+      color: #3b82f6;
+    }
+
     .dash-bust-btn {
       background: color-mix(in srgb, #ef4444 12%, transparent);
       border: 1px solid #ef4444;
       color: #ef4444;
     }
 
-    .dash-bag-btn:hover, .dash-bust-btn:hover, .dash-rebuy-btn:hover { opacity: 0.75; }
+    .dash-bag-btn:hover, .dash-bust-btn:hover, .dash-rebuy-btn:hover, .dash-update-btn:hover { opacity: 0.75; }
 
     .dash-rebuy-btn {
       padding: 8px 14px;
@@ -4755,13 +4768,13 @@
                   {/* ── Update tab ── */}
                   {updateType === 'update' && (
                     <>
-                      <div className="live-update-field">
+                      <div className={`live-update-field${isBagged ? ' bag-highlight' : ''}`}>
                         <label>Stack</label>
                         <input type="text" inputMode="decimal" placeholder="275k" value={stack} onChange={e => setStack(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setStack(v); }} autoFocus />
                       </div>
 
                       <div className="live-update-row">
-                        <div className="live-update-field">
+                        <div className={`live-update-field${isBagged ? ' bag-highlight' : ''}`}>
                           <label>SB</label>
                           <input type="text" inputMode="decimal" placeholder="1k" value={sb} onChange={e => {
                             const raw = e.target.value;
@@ -4771,11 +4784,11 @@
                             if (num > 0) { setBb(String(num * 2)); setBbAnte(String(num * 2)); }
                           }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setSb(v); }} />
                         </div>
-                        <div className="live-update-field">
+                        <div className={`live-update-field${isBagged ? ' bag-highlight' : ''}`}>
                           <label>BB</label>
                           <input type="text" inputMode="decimal" placeholder="2k" value={bb} onChange={e => { const raw = e.target.value; setBb(raw); const num = Number(parseShorthand(raw)); if (num > 0) setBbAnte(String(num)); }} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBb(v); }} />
                         </div>
-                        <div className="live-update-field">
+                        <div className={`live-update-field${isBagged ? ' bag-highlight' : ''}`}>
                           <label>BB Ante</label>
                           <input type="text" inputMode="decimal" placeholder="2k" value={bbAnte} onChange={e => setBbAnte(e.target.value)} onBlur={e => { const v = parseShorthand(e.target.value); if (v !== e.target.value) setBbAnte(v); }} />
                         </div>
@@ -4819,7 +4832,7 @@
                           Bagged
                         </label>
                         {isBagged && (
-                          <div className="live-update-field" style={{flex:'0 0 70px'}}>
+                          <div className="live-update-field bag-highlight" style={{flex:'0 0 70px'}}>
                             <label>For Day #</label>
                             <input type="number" placeholder="2" value={bagDay} onChange={e => setBagDay(e.target.value)} min="1" />
                           </div>
@@ -9192,6 +9205,7 @@
                           isInSchedule={true}
                           onToggle={onToggle}
                           isPast={past}
+                          showMiniLateReg={!past}
                           focusEventId={focusEventId}
                           onNavigateToEvent={(num, sat) => {
                             const targetId = findBestFlightSchedule(num, sat);
@@ -10400,7 +10414,7 @@
 
     // ── Dashboard View ──────────────────────────────────────────
 
-    function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, onPost, onDeleteUpdate, onAddTracking, onNavigate, tournaments }) {
+    function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, onPost, onDeleteUpdate, onAddTracking, onNavigate, tournaments, onToggle }) {
       const [expandedFriend, setExpandedFriend] = useState(null);
       const [now, setNow] = useState(getNow());
       const [bustMenuEventId, setBustMenuEventId] = useState(null);
@@ -10538,7 +10552,7 @@
         const bbCount = blindInfo ? Math.floor(startingChips / blindInfo.bb) : null;
         const isCurrentlyPlaying = !!activeEventMap[event.id];
         const isExpanded = isCurrentlyPlaying || event.id === nextUpEventId;
-        const isConditionalOnPlaying = !isCurrentlyPlaying && hasActivePlaying && !regClosed && event._type !== 'bagged';
+        const isConditionalOnPlaying = !isCurrentlyPlaying && hasActivePlaying && event._type !== 'bagged';
         const bustedUpdate = bustedEventMap[event.id];
         const isBustedDone = bustedUpdate && (bustedUpdate.bust_count || 1) >= getMaxEntries(event.reentry);
 
@@ -10550,6 +10564,7 @@
           event._type === 'bagged' ? 'bagged' : '',
           event._type === 'anchor' ? 'anchor' : '',
           (event._type === 'conditional' || isConditionalOnPlaying) ? 'conditional' : '',
+          isCurrentlyPlaying ? 'playing' : '',
           regClosed && event._type !== 'bagged' ? 'reg-closed' : '',
         ].filter(Boolean).join(' ');
 
@@ -10581,8 +10596,11 @@
             )}
 
             <div className="dash-event-header">
-              <div className="dash-event-name">{event.event_name}</div>
+              <div className="dash-event-name">{getVenueInfo(event.venue).abbr} | {event.event_name}</div>
               <div className="dash-event-buyin">{formatBuyin(event.buyin)}</div>
+              {isConditionalOnPlaying && onToggle && (
+                <button className="dash-undo-x muted" onClick={() => onToggle(event.id)} title="Remove from schedule">✕</button>
+              )}
             </div>
 
             {!isConditionalOnPlaying && (
@@ -10679,7 +10697,7 @@
                             playStartedAt: new Date().toISOString(),
                           });
                         }
-                      }}>Rebuys: {maxEntries - usedEntries}</button>
+                      }}>Rebuys: {maxEntries >= 99 ? 'Unlimited' : maxEntries - usedEntries}</button>
                     ) : (
                       <div className="dash-no-rebuy">All entries used</div>
                     )}
@@ -10698,7 +10716,7 @@
                 if (showBustMenu) {
                   return (
                     <div className="dash-status-row">
-                      <button className="dash-bag-btn" onClick={() => {
+                      <button className="dash-update-btn" onClick={() => {
                         window.dispatchEvent(new CustomEvent('openLiveUpdate', {
                           detail: { tab: 'update', tournamentId: event.id }
                         }));
@@ -10723,7 +10741,7 @@
                             }, 300);
                           }
                           setBustMenuEventId(null);
-                        }}>Rebuys Available: {maxEntries - bulletNum}</button>
+                        }}>Rebuys: {maxEntries >= 99 ? 'Unlimited' : maxEntries - bulletNum}</button>
                       )}
                       <button className="dash-bust-btn" onClick={() => {
                         window.dispatchEvent(new CustomEvent('openLiveUpdate', {
@@ -10743,6 +10761,11 @@
                         if (activeUpdate?.id && onDeleteUpdate) onDeleteUpdate(activeUpdate.id);
                       }} title="Undo start">✕</button>
                     </div>
+                    <button className="dash-update-btn" onClick={() => {
+                      window.dispatchEvent(new CustomEvent('openLiveUpdate', {
+                        detail: { tab: 'update', tournamentId: event.id }
+                      }));
+                    }}>Update</button>
                     <button className="dash-bag-btn" onClick={() => {
                       const nextBagDay = (activeUpdate?.bag_day || 0) + 1 || 1;
                       window.dispatchEvent(new CustomEvent('openLiveUpdate', {
@@ -10782,7 +10805,7 @@
               );
             })()}
 
-            {event._type !== 'bagged' && !isBustedDone && (
+            {event._type !== 'bagged' && !isBustedDone && !(isConditionalOnPlaying && regClosed) && (
               (bustedEventMap[event.id] || isConditionalOnPlaying) ? (
                 <MiniLateRegBar
                   lateRegEnd={event.late_reg_end}
@@ -12863,6 +12886,7 @@
                 onDeleteUpdate={deleteLiveUpdate}
                 onAddTracking={addTracking}
                 tournaments={tournaments}
+                onToggle={toggleTournament}
                 onNavigate={(v) => {
                   // Handle special navigation targets from dashboard quick actions
                   if (v === '_liveUpdate') {
