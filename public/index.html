@@ -7682,7 +7682,7 @@
                     <button className="btn btn-ghost btn-sm" style={{color:'#b91c1c'}} onClick={onRevokeShareToken}>Revoke</button>
                   </div>
                 ) : (
-                  <button className="btn btn-ghost btn-sm" style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={onGenerateShareToken}>
+                  <button className="btn btn-ghost btn-sm" style={{alignSelf:'center',display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={onGenerateShareToken}>
                     <Icon.link /> Generate Share Link
                   </button>
                 )}
@@ -7693,7 +7693,7 @@
                 <p style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.4}}>
                   Send a request — if they accept, you both see each other's schedules.
                 </p>
-                <form onSubmit={onSendShareRequest} style={{display:'flex',gap:'6px'}}>
+                <form onSubmit={onSendShareRequest} style={{display:'flex',gap:'6px',justifyContent:'center'}}>
                   <input className="settings-debug-input" name="shareUsername" placeholder="Enter username" style={{flex:1}} />
                   <button type="submit" className="btn btn-ghost btn-sm">Send</button>
                 </form>
@@ -7765,7 +7765,7 @@
                 {uploadError && <div className="alert alert-error" style={{margin:'4px 0'}}>{uploadError}</div>}
                 {uploadSuccess && <div className="alert alert-success" style={{margin:'4px 0'}}>{uploadSuccess}</div>}
                 <input type="file" id="pdf-upload-settings" className="file-input" accept=".pdf" onChange={onUpload} />
-                <label htmlFor="pdf-upload-settings" className="btn btn-ghost btn-sm" style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px'}}>
+                <label htmlFor="pdf-upload-settings" className="btn btn-ghost btn-sm" style={{alignSelf:'center',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px'}}>
                   <Icon.upload /> Choose PDF
                 </label>
               </div>
@@ -7789,7 +7789,7 @@
                 {debugInput && (
                   <button
                     className="btn btn-ghost btn-sm"
-                    style={{alignSelf:'flex-start',marginTop:'4px'}}
+                    style={{alignSelf:'center',marginTop:'4px'}}
                     onClick={() => applyDebugTime('')}
                   >Reset to real time</button>
                 )}
