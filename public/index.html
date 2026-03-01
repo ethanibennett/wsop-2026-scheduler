@@ -2456,13 +2456,13 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 12px 8px;
+      padding: 6px 8px;
       text-align: center;
     }
 
     .dash-pl-value {
       font-family: 'Oswald', sans-serif;
-      font-size: 1.1rem;
+      font-size: 0.95rem;
       font-weight: 700;
       color: var(--text);
       line-height: 1.1;
@@ -2472,11 +2472,52 @@
     .dash-pl-value.negative { color: #ef4444; }
 
     .dash-pl-label {
-      font-size: 0.6rem;
+      font-size: 0.58rem;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    .dash-pl-btn {
+      cursor: pointer;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .dash-pl-btn:hover {
+      background: var(--hover-overlay);
+    }
+
+    .dash-pl-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 180px;
       margin-top: 4px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 4px 0;
+      z-index: 50;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      animation: luSlideDown 0.15s ease-out;
+    }
+    .dash-pl-dropdown-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 12px;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.75rem;
+    }
+    .dash-pl-dropdown-venue {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .dash-pl-dropdown-amount {
+      color: var(--text);
+      font-weight: 600;
     }
 
     /* Friends widget */
@@ -2492,10 +2533,10 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
-      min-width: 56px;
+      gap: 2px;
+      min-width: 48px;
       cursor: pointer;
-      padding: 4px;
+      padding: 3px;
       border-radius: var(--radius-sm);
       transition: background 0.15s;
       border: none;
@@ -2520,12 +2561,12 @@
     .dash-friend-detail {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-size: 0.78rem;
+      gap: 8px;
+      font-size: 0.72rem;
     }
 
     .dash-friend-detail-info {
@@ -2559,14 +2600,14 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 14px 8px;
+      gap: 3px;
+      padding: 8px 6px;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: var(--radius-sm);
       color: var(--text);
       font-family: 'Oswald', sans-serif;
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       font-weight: 600;
       cursor: pointer;
       transition: background 0.15s;
@@ -2580,8 +2621,8 @@
     }
 
     .dash-action-btn svg {
-      width: 22px;
-      height: 22px;
+      width: 18px;
+      height: 18px;
     }
 
     /* Placeholder views */
@@ -2626,8 +2667,10 @@
 
     .more-menu-item {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 14px;
+      text-align: center;
+      gap: 4px;
       padding: 14px 16px;
       background: var(--surface);
       border: 1px solid var(--border);
@@ -2661,18 +2704,18 @@
 
     .dash-empty {
       text-align: center;
-      padding: 24px 16px;
+      padding: 12px 16px;
       color: var(--text-muted);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
     }
 
     .dash-empty svg {
-      width: 32px;
-      height: 32px;
-      margin-bottom: 8px;
+      width: 24px;
+      height: 24px;
+      margin-bottom: 4px;
       opacity: 0.4;
     }
 
@@ -9089,10 +9132,13 @@
 
       // Auto-scroll to first event of today (or first upcoming event)
       useEffect(() => {
-        if (todayRef.current) {
-          todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, [firstCurrentIdx]);
+        const timer = setTimeout(() => {
+          if (todayRef.current) {
+            todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 50);
+        return () => clearTimeout(timer);
+      }, []);
 
       // Find best flight: closest on or after satellite date within my schedule
       function findBestFlightSchedule(eventNum, sat) {
@@ -10845,22 +10891,29 @@
       // ── P&L data ──
       const plData = useMemo(() => {
         if (!trackingData || trackingData.length === 0) {
-          return { invested: 0, cashed: 0, net: 0, roi: 0, count: 0 };
+          return { invested: 0, cashed: 0, net: 0, roi: 0, count: 0, byVenue: {} };
         }
-        // GUESS: Default to showing all tracking data. Could group by venue but
-        // we don't have a clear "current series" flag. Show total for now.
         let invested = 0;
         let cashed = 0;
+        const byVenue = {};
         trackingData.forEach(entry => {
           const t = (tournaments || []).find(x => x.id === entry.tournament_id);
           const buyin = t ? t.buyin : 0;
-          invested += buyin * (entry.num_entries || 1);
-          cashed += entry.cash_amount || 0;
+          const venue = t ? getVenueInfo(t.venue).abbr : 'Other';
+          const entryBuyin = buyin * (entry.num_entries || 1);
+          const entryCash = entry.cash_amount || 0;
+          invested += entryBuyin;
+          cashed += entryCash;
+          if (!byVenue[venue]) byVenue[venue] = { invested: 0, cashed: 0 };
+          byVenue[venue].invested += entryBuyin;
+          byVenue[venue].cashed += entryCash;
         });
         const net = cashed - invested;
         const roi = invested > 0 ? ((net / invested) * 100) : 0;
-        return { invested, cashed, net, roi, count: trackingData.length };
+        return { invested, cashed, net, roi, count: trackingData.length, byVenue };
       }, [trackingData, tournaments]);
+
+      const [plDropdown, setPlDropdown] = useState(null); // 'buyins' | 'cashes' | null
 
       // ── Friends currently playing ──
       const activeFriends = useMemo(() => {
@@ -10901,7 +10954,7 @@
           </div>
 
           {/* ── Buyins / Cashes ── */}
-          <div className="dashboard-section">
+          <div className="dashboard-section" style={{marginTop:'20px'}}>
             <div className="dashboard-section-header">
               <div className="dashboard-section-title">Buyins / Cashes</div>
               {plData.count > 0 && (
@@ -10909,14 +10962,43 @@
               )}
             </div>
             {plData.count > 0 ? (
+              <>
               <div className="dash-pl-grid">
-                <div className="dash-pl-card">
+                <div className="dash-pl-card dash-pl-btn" onClick={() => setPlDropdown(d => d === 'buyins' ? null : 'buyins')}>
                   <div className="dash-pl-value">{formatBuyin(plData.invested)}</div>
-                  <div className="dash-pl-label">Total Buyins</div>
+                  <div className="dash-pl-label">Total Buyins ▾</div>
+                  {plDropdown === 'buyins' && (
+                    <div className="dash-pl-dropdown">
+                      {Object.entries(plData.byVenue)
+                        .filter(([, v]) => v.invested > 0)
+                        .sort((a, b) => b[1].invested - a[1].invested)
+                        .map(([venue, v]) => (
+                          <div key={venue} className="dash-pl-dropdown-row">
+                            <span className="dash-pl-dropdown-venue">{venue}</span>
+                            <span className="dash-pl-dropdown-amount">{formatBuyin(v.invested)}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
                 </div>
-                <div className="dash-pl-card">
+                <div className="dash-pl-card dash-pl-btn" onClick={() => setPlDropdown(d => d === 'cashes' ? null : 'cashes')}>
                   <div className="dash-pl-value">{formatBuyin(plData.cashed)}</div>
-                  <div className="dash-pl-label">Cashes</div>
+                  <div className="dash-pl-label">Cashes ▾</div>
+                  {plDropdown === 'cashes' && (
+                    <div className="dash-pl-dropdown">
+                      {Object.entries(plData.byVenue)
+                        .filter(([, v]) => v.cashed > 0)
+                        .sort((a, b) => b[1].cashed - a[1].cashed)
+                        .map(([venue, v]) => (
+                          <div key={venue} className="dash-pl-dropdown-row">
+                            <span className="dash-pl-dropdown-venue">{venue}</span>
+                            <span className="dash-pl-dropdown-amount">{formatBuyin(v.cashed)}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
                 </div>
                 <div className="dash-pl-card">
                   <div className={`dash-pl-value ${plData.net >= 0 ? 'positive' : 'negative'}`}>
@@ -10927,8 +11009,9 @@
                   </div>
                 </div>
               </div>
+              </>
             ) : (
-              <div className="dash-empty">
+              <div className="dash-empty" style={{padding:'12px 16px'}}>
                 <Icon.tracking />
                 <div>No results logged yet</div>
               </div>
