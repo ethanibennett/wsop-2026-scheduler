@@ -2313,7 +2313,22 @@
       color: #ef4444;
     }
 
-    .dash-bag-btn:hover, .dash-bust-btn:hover, .dash-rebuy-btn:hover { opacity: 0.75; }
+    .dash-update-btn {
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      transition: opacity 0.15s;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+
+    .dash-bag-btn:hover, .dash-bust-btn:hover, .dash-rebuy-btn:hover, .dash-update-btn:hover { opacity: 0.75; }
 
     .dash-rebuy-btn {
       padding: 8px 14px;
@@ -10744,6 +10759,11 @@
                         if (activeUpdate?.id && onDeleteUpdate) onDeleteUpdate(activeUpdate.id);
                       }} title="Undo start">✕</button>
                     </div>
+                    <button className="dash-update-btn" onClick={() => {
+                      window.dispatchEvent(new CustomEvent('openLiveUpdate', {
+                        detail: { tab: 'update', tournamentId: event.id }
+                      }));
+                    }}>Update</button>
                     <button className="dash-bag-btn" onClick={() => {
                       const nextBagDay = (activeUpdate?.bag_day || 0) + 1 || 1;
                       window.dispatchEvent(new CustomEvent('openLiveUpdate', {
