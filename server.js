@@ -1007,6 +1007,132 @@ async function initDatabase() {
         console.log(`Side events flagged globally: ${updated} rows updated`);
       }
     },
+    {
+      name: 'staking-system-tables-2026-02',
+      fn: () => {
+        // ── Staking Series ──
+        db.run(`CREATE TABLE IF NOT EXISTS staking_series (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          venue TEXT,
+          start_date TEXT,
+          end_date TEXT,
+          currency TEXT NOT NULL DEFAULT 'USD',
+          currency_conversion_method TEXT NOT NULL DEFAULT 'at_cash',
+          status TEXT NOT NULL DEFAULT 'pre',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )`);
+
+        // ── Backers ──
+        db.run(`CREATE TABLE IF NOT EXISTS backers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          email TEXT,
+          phone TEXT,
+          notes TEXT,
+          app_user_id INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id),
+          FOREIGN KEY (app_user_id) REFERENCES users(id)
+        )`);
+
+        // ── Backer Agreements ──
+        db.run(`CREATE TABLE IF NOT EXISTS backer_agreements (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          series_id INTEGER NOT NULL,
+          backer_id INTEGER NOT NULL,
+          backer_type TEXT NOT NULL,
+          percentage REAL NOT NULL DEFAULT 0,
+          markup REAL NOT NULL DEFAULT 1.0,
+          swap_user_id INTEGER,
+          swap_my_pct REAL,
+          swap_their_pct REAL,
+          crossbook_user_id INTEGER,
+          crossbook_my_pct REAL,
+          crossbook_their_pct REAL,
+          budget_cap INTEGER,
+          makeup_balance REAL DEFAULT 0,
+          tiered_rules TEXT,
+          buyin_range_min INTEGER,
+          buyin_range_max INTEGER,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (series_id) REFERENCES staking_series(id),
+          FOREIGN KEY (backer_id) REFERENCES backers(id),
+          FOREIGN KEY (swap_user_id) REFERENCES users(id),
+          FOREIGN KEY (crossbook_user_id) REFERENCES users(id)
+        )`);
+
+        // ── Backer Event Overrides ──
+        db.run(`CREATE TABLE IF NOT EXISTS backer_event_overrides (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          agreement_id INTEGER NOT NULL,
+          tournament_id INTEGER NOT NULL,
+          override_percentage REAL,
+          override_markup REAL,
+          opt_out INTEGER NOT NULL DEFAULT 0,
+          notes TEXT,
+          FOREIGN KEY (agreement_id) REFERENCES backer_agreements(id),
+          FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
+          UNIQUE(agreement_id, tournament_id)
+        )`);
+
+        // ── Backer Event Status ──
+        db.run(`CREATE TABLE IF NOT EXISTS backer_event_status (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          agreement_id INTEGER NOT NULL,
+          tournament_id INTEGER NOT NULL,
+          bullets_used INTEGER NOT NULL DEFAULT 1,
+          buyin_amount INTEGER,
+          cash_amount INTEGER,
+          proof_image TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          tip_amount INTEGER DEFAULT 0,
+          currency_rate REAL DEFAULT 1.0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (agreement_id) REFERENCES backer_agreements(id),
+          FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
+        )`);
+
+        // ── Backer Settlements ──
+        db.run(`CREATE TABLE IF NOT EXISTS backer_settlements (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          series_id INTEGER NOT NULL,
+          backer_id INTEGER NOT NULL,
+          gross_investment REAL NOT NULL DEFAULT 0,
+          gross_return REAL NOT NULL DEFAULT 0,
+          markup_amount REAL NOT NULL DEFAULT 0,
+          net_pnl REAL NOT NULL DEFAULT 0,
+          amount_owed REAL NOT NULL DEFAULT 0,
+          is_paid INTEGER NOT NULL DEFAULT 0,
+          paid_at DATETIME,
+          notes TEXT,
+          FOREIGN KEY (series_id) REFERENCES staking_series(id),
+          FOREIGN KEY (backer_id) REFERENCES backers(id)
+        )`);
+
+        // ── Backer Tokens ──
+        db.run(`CREATE TABLE IF NOT EXISTS backer_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          agreement_id INTEGER NOT NULL,
+          token TEXT NOT NULL UNIQUE,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (agreement_id) REFERENCES backer_agreements(id)
+        )`);
+
+        console.log('Created all staking system tables');
+      }
+    },
+    {
+      name: 'live-updates-play-time-2026-02',
+      fn: () => {
+        db.run('ALTER TABLE live_updates ADD COLUMN play_started_at DATETIME');
+        console.log('Added play_started_at column to live_updates table');
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -1053,6 +1179,36 @@ async function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id),
       FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
+    )
+  `);
+
+  // ── Saved Hands (Hand Replayer) ──
+  db.run(`
+    CREATE TABLE IF NOT EXISTS saved_hands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      hand_data TEXT NOT NULL,
+      game_type TEXT NOT NULL,
+      title TEXT,
+      notes TEXT,
+      is_public INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
+  // ── Saved Hands (Hand Replayer) ──
+  db.run(`
+    CREATE TABLE IF NOT EXISTS saved_hands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      hand_data TEXT NOT NULL,
+      game_type TEXT NOT NULL,
+      title TEXT,
+      notes TEXT,
+      is_public INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
     )
   `);
 
@@ -1760,7 +1916,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
                lu.is_reg_closed, lu.bubble, lu.is_itm, lu.locked_amount,
                lu.is_final_table, lu.places_left, lu.first_place_prize,
                lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
-               lu.total_entries, lu.is_bagged, lu.bag_day,
+               lu.total_entries, lu.is_bagged, lu.bag_day, lu.play_started_at,
                lu.update_text, lu.created_at,
                t.event_name, t.venue
         FROM live_updates lu
@@ -1793,6 +1949,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
           isBusted: row.is_busted,
           isBagged: row.is_bagged,
           bagDay: row.bag_day,
+          playStartedAt: row.play_started_at,
           updateText: row.update_text,
           updatedAt: row.created_at
         };
@@ -2110,16 +2267,28 @@ app.post('/api/tracking', authenticateToken, async (req, res) => {
     checkStmt.free();
     if (!exists) return res.status(400).json({ error: 'Tournament not found' });
 
-    db.run(
-      'INSERT INTO tracking_entries (user_id, tournament_id, num_entries, cashed, finish_place, cash_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [req.user.id, tournamentId, numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null]
-    );
-    await saveDatabase();
-    res.status(201).json({ message: 'Entry tracked' });
-  } catch (error) {
-    if (error.message && error.message.includes('UNIQUE')) {
-      return res.status(409).json({ error: 'Entry already tracked for this tournament' });
+    // Upsert: update existing entry if one exists for this user+tournament
+    const existStmt = db.prepare('SELECT id FROM tracking_entries WHERE user_id = ? AND tournament_id = ?');
+    existStmt.bind([req.user.id, tournamentId]);
+    const existing = existStmt.step() ? existStmt.getAsObject() : null;
+    existStmt.free();
+
+    if (existing) {
+      db.run(
+        'UPDATE tracking_entries SET num_entries = ?, cashed = ?, finish_place = ?, cash_amount = ?, notes = ? WHERE id = ? AND user_id = ?',
+        [numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null, existing.id, req.user.id]
+      );
+      await saveDatabase();
+      res.json({ message: 'Entry updated' });
+    } else {
+      db.run(
+        'INSERT INTO tracking_entries (user_id, tournament_id, num_entries, cashed, finish_place, cash_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [req.user.id, tournamentId, numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null]
+      );
+      await saveDatabase();
+      res.status(201).json({ message: 'Entry tracked' });
     }
+  } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
@@ -2163,7 +2332,7 @@ app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
 
 app.post('/api/live-update', authenticateToken, async (req, res) => {
   try {
-    const { tournamentId, stack, sb, bb, bbAnte, isRegClosed, bubble, isItm, lockedAmount, isFinalTable, placesLeft, firstPlacePrize, isDeal, dealPlace, dealPayout, isBusted, totalEntries, isBagged, bagDay } = req.body;
+    const { tournamentId, stack, sb, bb, bbAnte, isRegClosed, bubble, isItm, lockedAmount, isFinalTable, placesLeft, firstPlacePrize, isDeal, dealPlace, dealPayout, isBusted, totalEntries, isBagged, bagDay, playStartedAt } = req.body;
     if (!tournamentId) return res.status(400).json({ error: 'Tournament is required' });
     if (!isBusted && (!stack || stack < 0)) return res.status(400).json({ error: 'Stack is required' });
 
@@ -2180,8 +2349,8 @@ app.post('/api/live-update', authenticateToken, async (req, res) => {
     if (!inSchedule) return res.status(400).json({ error: 'Tournament not in your schedule' });
 
     db.run(
-      `INSERT INTO live_updates (user_id, tournament_id, update_text, stack, sb, bb, bb_ante, is_reg_closed, bubble, is_itm, locked_amount, is_final_table, places_left, first_place_prize, is_deal, deal_place, deal_payout, is_busted, total_entries, is_bagged, bag_day)
-       VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO live_updates (user_id, tournament_id, update_text, stack, sb, bb, bb_ante, is_reg_closed, bubble, is_itm, locked_amount, is_final_table, places_left, first_place_prize, is_deal, deal_place, deal_payout, is_busted, total_entries, is_bagged, bag_day, play_started_at)
+       VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.user.id, tournamentId,
        Math.round(Number(stack)) || 0,
        sb ? Math.round(Number(sb)) : null,
@@ -2200,7 +2369,8 @@ app.post('/api/live-update', authenticateToken, async (req, res) => {
        isBusted ? 1 : 0,
        totalEntries ? Math.round(Number(totalEntries)) : null,
        isBagged ? 1 : 0,
-       isBagged && bagDay ? Math.round(Number(bagDay)) : null]
+       isBagged && bagDay ? Math.round(Number(bagDay)) : null,
+       playStartedAt || null]
     );
     await saveDatabase();
     res.status(201).json({ message: 'Update posted' });
@@ -2217,7 +2387,7 @@ app.get('/api/live-update/mine', authenticateToken, (req, res) => {
              lu.is_reg_closed, lu.bubble, lu.is_itm, lu.locked_amount,
              lu.is_final_table, lu.places_left, lu.first_place_prize,
              lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
-             lu.total_entries, lu.is_bagged, lu.bag_day,
+             lu.total_entries, lu.is_bagged, lu.bag_day, lu.play_started_at,
              lu.update_text, lu.created_at,
              t.event_name, t.venue
       FROM live_updates lu
@@ -2243,7 +2413,7 @@ app.get('/api/live-updates/active', authenticateToken, (req, res) => {
              lu.is_reg_closed, lu.bubble, lu.is_itm, lu.locked_amount,
              lu.is_final_table, lu.places_left, lu.first_place_prize,
              lu.is_deal, lu.deal_place, lu.deal_payout, lu.is_busted,
-             lu.total_entries, lu.is_bagged, lu.bag_day,
+             lu.total_entries, lu.is_bagged, lu.bag_day, lu.play_started_at,
              lu.created_at, t.event_name, t.venue, t.date,
              (SELECT COUNT(*) FROM live_updates b WHERE b.user_id = lu.user_id AND b.tournament_id = lu.tournament_id AND b.is_busted = 1) AS bust_count
       FROM live_updates lu
@@ -2298,6 +2468,1712 @@ app.get('/api/live-updates/history/:tournamentId', authenticateToken, (req, res)
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// ── Play Time Tracking ───────────────────────────────────────
+
+app.get('/api/playtime/:tournamentId', authenticateToken, (req, res) => {
+  try {
+    const tournamentId = Number(req.params.tournamentId);
+    if (!tournamentId) return res.status(400).json({ error: 'Invalid tournament ID' });
+
+    // Get all updates for this user+tournament ordered by time
+    const stmt = db.prepare(`
+      SELECT play_started_at, is_bagged, is_busted, created_at
+      FROM live_updates
+      WHERE user_id = ? AND tournament_id = ?
+      ORDER BY created_at ASC
+    `);
+    stmt.bind([req.user.id, tournamentId]);
+    const updates = [];
+    while (stmt.step()) updates.push(stmt.getAsObject());
+    stmt.free();
+
+    // Build sessions: a session starts when play_started_at is set,
+    // ends when a bagged or busted update follows
+    const sessions = [];
+    let activeStart = null;
+
+    for (const u of updates) {
+      if (u.play_started_at && !activeStart) {
+        activeStart = u.play_started_at;
+      }
+      if (activeStart && (u.is_bagged || u.is_busted)) {
+        const startMs = new Date(activeStart).getTime();
+        const endMs = new Date(u.created_at).getTime();
+        const minutes = Math.round((endMs - startMs) / 60000);
+        sessions.push({ start: activeStart, end: u.created_at, minutes });
+        activeStart = null;
+      }
+    }
+
+    // If there's an active session (started but not bagged/busted yet)
+    if (activeStart) {
+      const startMs = new Date(activeStart).getTime();
+      const nowMs = Date.now();
+      const minutes = Math.round((nowMs - startMs) / 60000);
+      sessions.push({ start: activeStart, end: null, minutes, active: true });
+    }
+
+    const totalMinutes = sessions.reduce((sum, s) => sum + s.minutes, 0);
+    res.json({ totalMinutes, sessions });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// ── Staking System ────────────────────────────────────────────
+
+// GUESS: Proof images stored as base64 data URIs (same pattern as avatars), limited to 2MB
+const proofUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\/(jpeg|png|webp)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Only JPEG, PNG, and WebP images are allowed'));
+  }
+});
+
+// Rate limiter for staking (slightly more generous than auth)
+const stakingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many staking requests, please try again later.' },
+});
+
+// ── Validation: check total action sold for a tournament doesn't exceed 100% ──
+// Returns { totalPct, agreements[] } for a given series + tournament buyin
+// GUESS: "profit_share_only" type doesn't count toward the 100% action cap since no buy-in money is exchanged
+// GUESS: "swap" and "crossbook" types count swap_my_pct / crossbook_my_pct toward action sold (player is giving away action)
+function getActionSoldForTournament(seriesId, tournamentId, excludeAgreementId) {
+  // Get tournament buyin to check buyin_range filters
+  const tStmt = db.prepare('SELECT buyin FROM tournaments WHERE id = ?');
+  tStmt.bind([tournamentId]);
+  let buyin = 0;
+  if (tStmt.step()) buyin = tStmt.getAsObject().buyin;
+  tStmt.free();
+
+  // Get all active agreements for this series
+  const aStmt = db.prepare(
+    'SELECT * FROM backer_agreements WHERE series_id = ? AND is_active = 1'
+  );
+  aStmt.bind([seriesId]);
+  const agreements = [];
+  while (aStmt.step()) agreements.push(aStmt.getAsObject());
+  aStmt.free();
+
+  let totalPct = 0;
+  const applicable = [];
+
+  for (const ag of agreements) {
+    // Skip the agreement we're excluding (for update validation)
+    if (excludeAgreementId && ag.id === excludeAgreementId) continue;
+
+    // Check buyin range filter
+    if (ag.buyin_range_min && buyin < ag.buyin_range_min) continue;
+    if (ag.buyin_range_max && buyin > ag.buyin_range_max) continue;
+
+    // Check event-level override (might be opted out)
+    const ovStmt = db.prepare(
+      'SELECT opt_out, override_percentage FROM backer_event_overrides WHERE agreement_id = ? AND tournament_id = ?'
+    );
+    ovStmt.bind([ag.id, tournamentId]);
+    let override = null;
+    if (ovStmt.step()) override = ovStmt.getAsObject();
+    ovStmt.free();
+
+    if (override && override.opt_out) continue; // Backer opted out of this event
+
+    // Determine effective percentage
+    let effectivePct = 0;
+    if (ag.backer_type === 'profit_share_only') {
+      // Profit share doesn't consume buy-in action
+      continue;
+    } else if (ag.backer_type === 'swap') {
+      effectivePct = ag.swap_my_pct || 0;
+    } else if (ag.backer_type === 'crossbook') {
+      effectivePct = ag.crossbook_my_pct || 0;
+    } else {
+      effectivePct = override && override.override_percentage != null
+        ? override.override_percentage
+        : ag.percentage;
+    }
+
+    totalPct += effectivePct;
+    applicable.push({ agreementId: ag.id, backerId: ag.backer_id, type: ag.backer_type, pct: effectivePct });
+  }
+
+  return { totalPct, agreements: applicable, buyin };
+}
+
+// ── Staking Series CRUD ──────────────────────────────────────
+
+// List user's staking series
+app.get('/api/staking/series', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM staking_series WHERE user_id = ? ORDER BY start_date DESC');
+    stmt.bind([req.user.id]);
+    const series = [];
+    while (stmt.step()) series.push(stmt.getAsObject());
+    stmt.free();
+    res.json(series);
+  } catch (error) {
+    console.error('Staking series list error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Create staking series
+app.post('/api/staking/series', authenticateToken, stakingLimiter, async (req, res) => {
+  try {
+    const { name, venue, startDate, endDate, currency, currencyConversionMethod } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Series name is required' });
+    }
+
+    const validCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CNY', 'JPY', 'CHF', 'SEK', 'NOK', 'DKK', 'MXN', 'BRL'];
+    const cur = currency || 'USD';
+    if (!validCurrencies.includes(cur)) {
+      return res.status(400).json({ error: 'Invalid currency' });
+    }
+
+    const validMethods = ['at_buyin', 'at_cash', 'at_settlement'];
+    const method = currencyConversionMethod || 'at_cash';
+    if (!validMethods.includes(method)) {
+      return res.status(400).json({ error: 'Invalid currency conversion method' });
+    }
+
+    db.run(
+      `INSERT INTO staking_series (user_id, name, venue, start_date, end_date, currency, currency_conversion_method)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.id, name.trim(), venue || null, startDate || null, endDate || null, cur, method]
+    );
+
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+
+    await saveDatabase();
+    res.status(201).json({ message: 'Series created', id });
+  } catch (error) {
+    console.error('Create staking series error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Update staking series
+app.put('/api/staking/series/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, venue, startDate, endDate, currency, currencyConversionMethod, status } = req.body;
+
+    // Verify ownership
+    const chk = db.prepare('SELECT id FROM staking_series WHERE id = ? AND user_id = ?');
+    chk.bind([id, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Series not found' });
+
+    const validStatuses = ['pre', 'active', 'settled'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    db.run(
+      `UPDATE staking_series SET name = COALESCE(?, name), venue = COALESCE(?, venue),
+       start_date = COALESCE(?, start_date), end_date = COALESCE(?, end_date),
+       currency = COALESCE(?, currency), currency_conversion_method = COALESCE(?, currency_conversion_method),
+       status = COALESCE(?, status) WHERE id = ? AND user_id = ?`,
+      [name || null, venue || null, startDate || null, endDate || null,
+       currency || null, currencyConversionMethod || null, status || null, id, req.user.id]
+    );
+
+    await saveDatabase();
+    res.json({ message: 'Series updated' });
+  } catch (error) {
+    console.error('Update staking series error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Delete staking series (cascades: agreements, overrides, event status, settlements, tokens)
+app.delete('/api/staking/series/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership
+    const chk = db.prepare('SELECT id FROM staking_series WHERE id = ? AND user_id = ?');
+    chk.bind([id, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Series not found' });
+
+    // GUESS: Cascade delete all related data when a series is deleted
+    // Get all agreement IDs for this series
+    const agStmt = db.prepare('SELECT id FROM backer_agreements WHERE series_id = ?');
+    agStmt.bind([id]);
+    const agIds = [];
+    while (agStmt.step()) agIds.push(agStmt.getAsObject().id);
+    agStmt.free();
+
+    for (const agId of agIds) {
+      db.run('DELETE FROM backer_tokens WHERE agreement_id = ?', [agId]);
+      db.run('DELETE FROM backer_event_overrides WHERE agreement_id = ?', [agId]);
+      db.run('DELETE FROM backer_event_status WHERE agreement_id = ?', [agId]);
+    }
+    db.run('DELETE FROM backer_agreements WHERE series_id = ?', [id]);
+    db.run('DELETE FROM backer_settlements WHERE series_id = ?', [id]);
+    db.run('DELETE FROM staking_series WHERE id = ? AND user_id = ?', [id, req.user.id]);
+
+    await saveDatabase();
+    res.json({ message: 'Series deleted' });
+  } catch (error) {
+    console.error('Delete staking series error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Backers CRUD ─────────────────────────────────────────────
+
+// List user's backers
+app.get('/api/staking/backers', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(
+      `SELECT b.*, u.username AS app_username
+       FROM backers b
+       LEFT JOIN users u ON b.app_user_id = u.id
+       WHERE b.user_id = ?
+       ORDER BY b.name`
+    );
+    stmt.bind([req.user.id]);
+    const backers = [];
+    while (stmt.step()) backers.push(stmt.getAsObject());
+    stmt.free();
+    res.json(backers);
+  } catch (error) {
+    console.error('List backers error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Create backer profile
+app.post('/api/staking/backers', authenticateToken, stakingLimiter, async (req, res) => {
+  try {
+    const { name, email, phone, notes, appUsername } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Backer name is required' });
+    }
+
+    // GUESS: If appUsername is provided, look up the user to link them
+    let appUserId = null;
+    if (appUsername) {
+      const uStmt = db.prepare('SELECT id FROM users WHERE username = ?');
+      uStmt.bind([appUsername]);
+      if (uStmt.step()) appUserId = uStmt.getAsObject().id;
+      uStmt.free();
+      if (!appUserId) {
+        return res.status(404).json({ error: `App user "${appUsername}" not found` });
+      }
+    }
+
+    db.run(
+      'INSERT INTO backers (user_id, name, email, phone, notes, app_user_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.id, name.trim(), email || null, phone || null, notes || null, appUserId]
+    );
+
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+
+    await saveDatabase();
+    res.status(201).json({ message: 'Backer created', id });
+  } catch (error) {
+    console.error('Create backer error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Update backer profile
+app.put('/api/staking/backers/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, notes, appUsername } = req.body;
+
+    const chk = db.prepare('SELECT id FROM backers WHERE id = ? AND user_id = ?');
+    chk.bind([id, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Backer not found' });
+
+    let appUserId = undefined; // undefined = don't update
+    if (appUsername !== undefined) {
+      if (appUsername) {
+        const uStmt = db.prepare('SELECT id FROM users WHERE username = ?');
+        uStmt.bind([appUsername]);
+        if (uStmt.step()) appUserId = uStmt.getAsObject().id;
+        uStmt.free();
+        if (!appUserId) return res.status(404).json({ error: `App user "${appUsername}" not found` });
+      } else {
+        appUserId = null; // Explicitly unlink
+      }
+    }
+
+    db.run(
+      `UPDATE backers SET name = COALESCE(?, name), email = COALESCE(?, email),
+       phone = COALESCE(?, phone), notes = COALESCE(?, notes)
+       ${appUserId !== undefined ? ', app_user_id = ?' : ''}
+       WHERE id = ? AND user_id = ?`,
+      appUserId !== undefined
+        ? [name || null, email || null, phone || null, notes || null, appUserId, id, req.user.id]
+        : [name || null, email || null, phone || null, notes || null, id, req.user.id]
+    );
+
+    await saveDatabase();
+    res.json({ message: 'Backer updated' });
+  } catch (error) {
+    console.error('Update backer error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Delete backer profile
+// GUESS: Prevent deletion if backer has active agreements (require user to remove agreements first)
+app.delete('/api/staking/backers/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const chk = db.prepare('SELECT id FROM backers WHERE id = ? AND user_id = ?');
+    chk.bind([id, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Backer not found' });
+
+    // Check for active agreements
+    const agChk = db.prepare('SELECT COUNT(*) as cnt FROM backer_agreements WHERE backer_id = ? AND is_active = 1');
+    agChk.bind([id]);
+    agChk.step();
+    const { cnt } = agChk.getAsObject();
+    agChk.free();
+    if (cnt > 0) {
+      return res.status(400).json({ error: 'Cannot delete backer with active agreements. Deactivate agreements first.' });
+    }
+
+    db.run('DELETE FROM backers WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Backer deleted' });
+  } catch (error) {
+    console.error('Delete backer error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Agreements CRUD ──────────────────────────────────────────
+
+const VALID_BACKER_TYPES = [
+  'pay_per_play', 'open_commitment', 'budget_capped', 'flat_package',
+  'profit_share_only', 'makeup', 'tiered_markup', 'swap', 'crossbook'
+];
+
+// List agreements for a series
+app.get('/api/staking/series/:seriesId/agreements', authenticateToken, (req, res) => {
+  try {
+    const { seriesId } = req.params;
+
+    // Verify series ownership
+    const sChk = db.prepare('SELECT id FROM staking_series WHERE id = ? AND user_id = ?');
+    sChk.bind([seriesId, req.user.id]);
+    const ownsSeries = sChk.step();
+    sChk.free();
+    if (!ownsSeries) return res.status(404).json({ error: 'Series not found' });
+
+    const stmt = db.prepare(
+      `SELECT ba.*, b.name AS backer_name, b.email AS backer_email,
+              su.username AS swap_username, cu.username AS crossbook_username
+       FROM backer_agreements ba
+       JOIN backers b ON ba.backer_id = b.id
+       LEFT JOIN users su ON ba.swap_user_id = su.id
+       LEFT JOIN users cu ON ba.crossbook_user_id = cu.id
+       WHERE ba.series_id = ?
+       ORDER BY ba.created_at`
+    );
+    stmt.bind([seriesId]);
+    const agreements = [];
+    while (stmt.step()) agreements.push(stmt.getAsObject());
+    stmt.free();
+    res.json(agreements);
+  } catch (error) {
+    console.error('List agreements error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Create agreement (with validation)
+app.post('/api/staking/series/:seriesId/agreements', authenticateToken, stakingLimiter, async (req, res) => {
+  try {
+    const { seriesId } = req.params;
+    const {
+      backerId, backerType, percentage, markup,
+      swapUsername, swapMyPct, swapTheirPct,
+      crossbookUsername, crossbookMyPct, crossbookTheirPct,
+      budgetCap, makeupBalance, tieredRules,
+      buyinRangeMin, buyinRangeMax
+    } = req.body;
+
+    // Verify series ownership
+    const sChk = db.prepare('SELECT id FROM staking_series WHERE id = ? AND user_id = ?');
+    sChk.bind([seriesId, req.user.id]);
+    const ownsSeries = sChk.step();
+    sChk.free();
+    if (!ownsSeries) return res.status(404).json({ error: 'Series not found' });
+
+    // Verify backer ownership
+    const bChk = db.prepare('SELECT id FROM backers WHERE id = ? AND user_id = ?');
+    bChk.bind([backerId, req.user.id]);
+    const ownsBacker = bChk.step();
+    bChk.free();
+    if (!ownsBacker) return res.status(404).json({ error: 'Backer not found' });
+
+    // Validate backer type
+    if (!VALID_BACKER_TYPES.includes(backerType)) {
+      return res.status(400).json({ error: `Invalid backer type. Must be one of: ${VALID_BACKER_TYPES.join(', ')}` });
+    }
+
+    // Type-specific validation
+    const pct = parseFloat(percentage) || 0;
+    const mkp = parseFloat(markup) || 1.0;
+
+    if (backerType !== 'swap' && backerType !== 'crossbook' && backerType !== 'profit_share_only') {
+      if (pct <= 0 || pct > 100) {
+        return res.status(400).json({ error: 'Percentage must be between 0 and 100' });
+      }
+    }
+
+    if (mkp < 1.0) {
+      return res.status(400).json({ error: 'Markup must be >= 1.0 (1.0 = no markup)' });
+    }
+
+    // Resolve swap/crossbook users
+    let swapUserId = null;
+    if (backerType === 'swap' && swapUsername) {
+      const uStmt = db.prepare('SELECT id FROM users WHERE username = ?');
+      uStmt.bind([swapUsername]);
+      if (uStmt.step()) swapUserId = uStmt.getAsObject().id;
+      uStmt.free();
+      if (!swapUserId) return res.status(404).json({ error: `Swap user "${swapUsername}" not found` });
+    }
+
+    let crossbookUserId = null;
+    if (backerType === 'crossbook' && crossbookUsername) {
+      const uStmt = db.prepare('SELECT id FROM users WHERE username = ?');
+      uStmt.bind([crossbookUsername]);
+      if (uStmt.step()) crossbookUserId = uStmt.getAsObject().id;
+      uStmt.free();
+      if (!crossbookUserId) return res.status(404).json({ error: `Crossbook user "${crossbookUsername}" not found` });
+    }
+
+    // Swap-specific validation
+    if (backerType === 'swap') {
+      const mySwapPct = parseFloat(swapMyPct) || 0;
+      const theirSwapPct = parseFloat(swapTheirPct) || 0;
+      if (mySwapPct <= 0 || mySwapPct > 100) return res.status(400).json({ error: 'Swap: your percentage must be 1-100' });
+      if (theirSwapPct <= 0 || theirSwapPct > 100) return res.status(400).json({ error: 'Swap: their percentage must be 1-100' });
+    }
+
+    // Crossbook-specific validation
+    if (backerType === 'crossbook') {
+      const myCbPct = parseFloat(crossbookMyPct) || 50;
+      const theirCbPct = parseFloat(crossbookTheirPct) || 50;
+      if (myCbPct <= 0 || myCbPct > 100) return res.status(400).json({ error: 'Crossbook: your percentage must be 1-100' });
+      if (theirCbPct <= 0 || theirCbPct > 100) return res.status(400).json({ error: 'Crossbook: their percentage must be 1-100' });
+    }
+
+    // Tiered-specific validation
+    let tieredRulesJson = null;
+    if (backerType === 'tiered_markup') {
+      if (!tieredRules || !Array.isArray(tieredRules) || tieredRules.length === 0) {
+        return res.status(400).json({ error: 'Tiered markup requires at least one tier rule' });
+      }
+      for (const rule of tieredRules) {
+        if (typeof rule.minBuyin !== 'number' || typeof rule.maxBuyin !== 'number' || typeof rule.markup !== 'number') {
+          return res.status(400).json({ error: 'Each tiered rule must have minBuyin, maxBuyin, and markup (numbers)' });
+        }
+      }
+      tieredRulesJson = JSON.stringify(tieredRules);
+    }
+
+    // Budget cap validation
+    if (backerType === 'budget_capped' && (!budgetCap || budgetCap <= 0)) {
+      return res.status(400).json({ error: 'Budget-capped type requires a positive budget_cap amount' });
+    }
+
+    db.run(
+      `INSERT INTO backer_agreements (
+        series_id, backer_id, backer_type, percentage, markup,
+        swap_user_id, swap_my_pct, swap_their_pct,
+        crossbook_user_id, crossbook_my_pct, crossbook_their_pct,
+        budget_cap, makeup_balance, tiered_rules,
+        buyin_range_min, buyin_range_max
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        seriesId, backerId, backerType, pct, mkp,
+        swapUserId, backerType === 'swap' ? (parseFloat(swapMyPct) || 0) : null,
+        backerType === 'swap' ? (parseFloat(swapTheirPct) || 0) : null,
+        crossbookUserId, backerType === 'crossbook' ? (parseFloat(crossbookMyPct) || 50) : null,
+        backerType === 'crossbook' ? (parseFloat(crossbookTheirPct) || 50) : null,
+        backerType === 'budget_capped' ? budgetCap : null,
+        backerType === 'makeup' ? (parseFloat(makeupBalance) || 0) : 0,
+        tieredRulesJson,
+        buyinRangeMin || null, buyinRangeMax || null
+      ]
+    );
+
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+
+    await saveDatabase();
+    res.status(201).json({ message: 'Agreement created', id });
+  } catch (error) {
+    console.error('Create agreement error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Update agreement
+app.put('/api/staking/agreements/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      percentage, markup, backerType,
+      swapMyPct, swapTheirPct, crossbookMyPct, crossbookTheirPct,
+      budgetCap, makeupBalance, tieredRules,
+      buyinRangeMin, buyinRangeMax, isActive
+    } = req.body;
+
+    // Verify ownership through series
+    const chk = db.prepare(
+      `SELECT ba.id FROM backer_agreements ba
+       JOIN staking_series ss ON ba.series_id = ss.id
+       WHERE ba.id = ? AND ss.user_id = ?`
+    );
+    chk.bind([id, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Agreement not found' });
+
+    // Build dynamic update
+    const fields = [];
+    const params = [];
+
+    if (percentage !== undefined) { fields.push('percentage = ?'); params.push(parseFloat(percentage)); }
+    if (markup !== undefined) { fields.push('markup = ?'); params.push(parseFloat(markup)); }
+    if (backerType !== undefined) {
+      if (!VALID_BACKER_TYPES.includes(backerType)) {
+        return res.status(400).json({ error: 'Invalid backer type' });
+      }
+      fields.push('backer_type = ?'); params.push(backerType);
+    }
+    if (swapMyPct !== undefined) { fields.push('swap_my_pct = ?'); params.push(parseFloat(swapMyPct)); }
+    if (swapTheirPct !== undefined) { fields.push('swap_their_pct = ?'); params.push(parseFloat(swapTheirPct)); }
+    if (crossbookMyPct !== undefined) { fields.push('crossbook_my_pct = ?'); params.push(parseFloat(crossbookMyPct)); }
+    if (crossbookTheirPct !== undefined) { fields.push('crossbook_their_pct = ?'); params.push(parseFloat(crossbookTheirPct)); }
+    if (budgetCap !== undefined) { fields.push('budget_cap = ?'); params.push(budgetCap); }
+    if (makeupBalance !== undefined) { fields.push('makeup_balance = ?'); params.push(parseFloat(makeupBalance)); }
+    if (tieredRules !== undefined) { fields.push('tiered_rules = ?'); params.push(JSON.stringify(tieredRules)); }
+    if (buyinRangeMin !== undefined) { fields.push('buyin_range_min = ?'); params.push(buyinRangeMin); }
+    if (buyinRangeMax !== undefined) { fields.push('buyin_range_max = ?'); params.push(buyinRangeMax); }
+    if (isActive !== undefined) { fields.push('is_active = ?'); params.push(isActive ? 1 : 0); }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    params.push(id);
+    db.run(`UPDATE backer_agreements SET ${fields.join(', ')} WHERE id = ?`, params);
+
+    await saveDatabase();
+    res.json({ message: 'Agreement updated' });
+  } catch (error) {
+    console.error('Update agreement error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Delete agreement (cascades overrides, event status, tokens)
+app.delete('/api/staking/agreements/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const chk = db.prepare(
+      `SELECT ba.id FROM backer_agreements ba
+       JOIN staking_series ss ON ba.series_id = ss.id
+       WHERE ba.id = ? AND ss.user_id = ?`
+    );
+    chk.bind([id, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Agreement not found' });
+
+    db.run('DELETE FROM backer_tokens WHERE agreement_id = ?', [id]);
+    db.run('DELETE FROM backer_event_overrides WHERE agreement_id = ?', [id]);
+    db.run('DELETE FROM backer_event_status WHERE agreement_id = ?', [id]);
+    db.run('DELETE FROM backer_agreements WHERE id = ?', [id]);
+
+    await saveDatabase();
+    res.json({ message: 'Agreement deleted' });
+  } catch (error) {
+    console.error('Delete agreement error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Validate agreement — check if it would conflict with existing action
+app.get('/api/staking/agreements/:id/validate', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get the agreement
+    const agStmt = db.prepare(
+      `SELECT ba.*, ss.user_id FROM backer_agreements ba
+       JOIN staking_series ss ON ba.series_id = ss.id
+       WHERE ba.id = ? AND ss.user_id = ?`
+    );
+    agStmt.bind([id, req.user.id]);
+    let agreement = null;
+    if (agStmt.step()) agreement = agStmt.getAsObject();
+    agStmt.free();
+    if (!agreement) return res.status(404).json({ error: 'Agreement not found' });
+
+    // Get all tournaments on the user's schedule within buyin range
+    let tQuery = `SELECT t.id, t.event_name, t.buyin FROM tournaments t
+                  JOIN user_schedules us ON t.id = us.tournament_id
+                  WHERE us.user_id = ? AND t.venue != 'Personal'`;
+    const tParams = [req.user.id];
+
+    if (agreement.buyin_range_min) { tQuery += ' AND t.buyin >= ?'; tParams.push(agreement.buyin_range_min); }
+    if (agreement.buyin_range_max) { tQuery += ' AND t.buyin <= ?'; tParams.push(agreement.buyin_range_max); }
+
+    const tStmt = db.prepare(tQuery);
+    tStmt.bind(tParams);
+    const conflicts = [];
+    while (tStmt.step()) {
+      const t = tStmt.getAsObject();
+      const action = getActionSoldForTournament(agreement.series_id, t.id, null);
+      if (action.totalPct > 100) {
+        conflicts.push({
+          tournamentId: t.id,
+          eventName: t.event_name,
+          buyin: t.buyin,
+          totalPct: action.totalPct,
+          agreements: action.agreements
+        });
+      }
+    }
+    tStmt.free();
+
+    res.json({
+      valid: conflicts.length === 0,
+      conflicts
+    });
+  } catch (error) {
+    console.error('Validate agreement error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Event Status ─────────────────────────────────────────────
+
+// Get event status across all backers for a series
+app.get('/api/staking/series/:seriesId/events', authenticateToken, (req, res) => {
+  try {
+    const { seriesId } = req.params;
+
+    const sChk = db.prepare('SELECT id FROM staking_series WHERE id = ? AND user_id = ?');
+    sChk.bind([seriesId, req.user.id]);
+    const ownsSeries = sChk.step();
+    sChk.free();
+    if (!ownsSeries) return res.status(404).json({ error: 'Series not found' });
+
+    const stmt = db.prepare(
+      `SELECT bes.*, ba.backer_type, ba.percentage, ba.markup,
+              b.name AS backer_name,
+              t.event_name, t.buyin, t.date, t.venue
+       FROM backer_event_status bes
+       JOIN backer_agreements ba ON bes.agreement_id = ba.id
+       JOIN backers b ON ba.backer_id = b.id
+       JOIN tournaments t ON bes.tournament_id = t.id
+       WHERE ba.series_id = ?
+       ORDER BY t.date, t.time, b.name`
+    );
+    stmt.bind([seriesId]);
+    const events = [];
+    while (stmt.step()) events.push(stmt.getAsObject());
+    stmt.free();
+
+    res.json(events);
+  } catch (error) {
+    console.error('List event status error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Update event status for a specific agreement + tournament
+app.post('/api/staking/events/:agreementId/:tournamentId/status', authenticateToken, async (req, res) => {
+  try {
+    const { agreementId, tournamentId } = req.params;
+    const { bulletsUsed, buyinAmount, cashAmount, status, tipAmount, currencyRate } = req.body;
+
+    // Verify ownership
+    const chk = db.prepare(
+      `SELECT ba.id FROM backer_agreements ba
+       JOIN staking_series ss ON ba.series_id = ss.id
+       WHERE ba.id = ? AND ss.user_id = ?`
+    );
+    chk.bind([agreementId, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Agreement not found' });
+
+    // Verify tournament exists
+    const tChk = db.prepare('SELECT id FROM tournaments WHERE id = ?');
+    tChk.bind([tournamentId]);
+    const tExists = tChk.step();
+    tChk.free();
+    if (!tExists) return res.status(404).json({ error: 'Tournament not found' });
+
+    const validStatuses = ['pending', 'bought_in', 'playing', 'busted', 'cashed', 'cancelled'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    // Upsert: check if record exists
+    const existing = db.prepare(
+      'SELECT id FROM backer_event_status WHERE agreement_id = ? AND tournament_id = ?'
+    );
+    existing.bind([agreementId, tournamentId]);
+    const hasExisting = existing.step();
+    let existingId = null;
+    if (hasExisting) existingId = existing.getAsObject().id;
+    existing.free();
+
+    if (existingId) {
+      // Update
+      db.run(
+        `UPDATE backer_event_status SET
+         bullets_used = COALESCE(?, bullets_used),
+         buyin_amount = COALESCE(?, buyin_amount),
+         cash_amount = COALESCE(?, cash_amount),
+         status = COALESCE(?, status),
+         tip_amount = COALESCE(?, tip_amount),
+         currency_rate = COALESCE(?, currency_rate)
+         WHERE id = ?`,
+        [bulletsUsed || null, buyinAmount || null, cashAmount || null,
+         status || null, tipAmount !== undefined ? tipAmount : null,
+         currencyRate || null, existingId]
+      );
+    } else {
+      // Insert
+      db.run(
+        `INSERT INTO backer_event_status (agreement_id, tournament_id, bullets_used, buyin_amount, cash_amount, status, tip_amount, currency_rate)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [agreementId, tournamentId,
+         bulletsUsed || 1, buyinAmount || null, cashAmount || null,
+         status || 'pending', tipAmount || 0, currencyRate || 1.0]
+      );
+    }
+
+    await saveDatabase();
+    res.json({ message: 'Event status updated' });
+  } catch (error) {
+    console.error('Update event status error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Upload proof image for event status
+app.post('/api/staking/events/:agreementId/:tournamentId/proof', authenticateToken, proofUpload.single('proof'), async (req, res) => {
+  try {
+    const { agreementId, tournamentId } = req.params;
+
+    // Verify ownership
+    const chk = db.prepare(
+      `SELECT ba.id FROM backer_agreements ba
+       JOIN staking_series ss ON ba.series_id = ss.id
+       WHERE ba.id = ? AND ss.user_id = ?`
+    );
+    chk.bind([agreementId, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Agreement not found' });
+
+    if (!req.file) return res.status(400).json({ error: 'No image provided' });
+
+    const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+    // Check if status record exists — if not, create one
+    const existing = db.prepare(
+      'SELECT id FROM backer_event_status WHERE agreement_id = ? AND tournament_id = ?'
+    );
+    existing.bind([agreementId, tournamentId]);
+    const hasExisting = existing.step();
+    existing.free();
+
+    if (hasExisting) {
+      db.run(
+        'UPDATE backer_event_status SET proof_image = ? WHERE agreement_id = ? AND tournament_id = ?',
+        [dataUri, agreementId, tournamentId]
+      );
+    } else {
+      db.run(
+        `INSERT INTO backer_event_status (agreement_id, tournament_id, proof_image, status)
+         VALUES (?, ?, ?, 'pending')`,
+        [agreementId, tournamentId, dataUri]
+      );
+    }
+
+    await saveDatabase();
+    res.json({ message: 'Proof uploaded' });
+  } catch (error) {
+    console.error('Upload proof error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Settlement ───────────────────────────────────────────────
+
+// Auto-generate settlement sheet for a series
+app.get('/api/staking/series/:seriesId/settlement', authenticateToken, (req, res) => {
+  try {
+    const { seriesId } = req.params;
+
+    const sChk = db.prepare('SELECT * FROM staking_series WHERE id = ? AND user_id = ?');
+    sChk.bind([seriesId, req.user.id]);
+    let series = null;
+    if (sChk.step()) series = sChk.getAsObject();
+    sChk.free();
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+
+    // Get all agreements for this series
+    const agStmt = db.prepare(
+      `SELECT ba.*, b.name AS backer_name, b.email AS backer_email
+       FROM backer_agreements ba
+       JOIN backers b ON ba.backer_id = b.id
+       WHERE ba.series_id = ?`
+    );
+    agStmt.bind([seriesId]);
+    const agreements = [];
+    while (agStmt.step()) agreements.push(agStmt.getAsObject());
+    agStmt.free();
+
+    // Get all event statuses for this series
+    const esStmt = db.prepare(
+      `SELECT bes.*, t.buyin, t.event_name, t.date
+       FROM backer_event_status bes
+       JOIN backer_agreements ba ON bes.agreement_id = ba.id
+       JOIN tournaments t ON bes.tournament_id = t.id
+       WHERE ba.series_id = ?`
+    );
+    esStmt.bind([seriesId]);
+    const allEventStatuses = [];
+    while (esStmt.step()) allEventStatuses.push(esStmt.getAsObject());
+    esStmt.free();
+
+    // Get event overrides
+    const ovStmt = db.prepare(
+      `SELECT beo.* FROM backer_event_overrides beo
+       JOIN backer_agreements ba ON beo.agreement_id = ba.id
+       WHERE ba.series_id = ?`
+    );
+    ovStmt.bind([seriesId]);
+    const overrides = [];
+    while (ovStmt.step()) overrides.push(ovStmt.getAsObject());
+    ovStmt.free();
+
+    // Build override lookup: agreementId:tournamentId -> override
+    const overrideMap = {};
+    for (const ov of overrides) {
+      overrideMap[`${ov.agreement_id}:${ov.tournament_id}`] = ov;
+    }
+
+    // Calculate settlement for each backer
+    const settlements = [];
+
+    for (const ag of agreements) {
+      // Get event statuses for this agreement
+      const agEvents = allEventStatuses.filter(es => es.agreement_id === ag.id);
+
+      let grossInvestment = 0;  // Total buy-in money the backer is responsible for
+      let grossReturn = 0;      // Total cash-out the backer gets back
+      let markupAmount = 0;     // Total markup charged
+      const eventDetails = [];
+
+      for (const ev of agEvents) {
+        if (ev.status === 'cancelled') continue; // Cancelled = refunded, no backer impact
+
+        // Get effective percentage and markup for this event
+        const ovKey = `${ag.id}:${ev.tournament_id}`;
+        const override = overrideMap[ovKey];
+
+        if (override && override.opt_out) continue; // Opted out
+
+        let effectivePct, effectiveMarkup;
+
+        if (ag.backer_type === 'swap') {
+          // Swap: backer's "investment" is their results on the swap partner's events
+          // Settlement handled differently — tracked as swap_my_pct of player's results
+          effectivePct = ag.swap_my_pct || 0;
+          effectiveMarkup = 1.0; // No markup on swaps
+        } else if (ag.backer_type === 'crossbook') {
+          effectivePct = ag.crossbook_my_pct || 50;
+          effectiveMarkup = 1.0;
+        } else if (ag.backer_type === 'tiered_markup' && ag.tiered_rules) {
+          effectivePct = override && override.override_percentage != null ? override.override_percentage : ag.percentage;
+          // Find matching tier for this buyin
+          const tiers = JSON.parse(ag.tiered_rules);
+          const buyinForEvent = ev.buyin_amount || ev.buyin || 0;
+          const matchedTier = tiers.find(t => buyinForEvent >= t.minBuyin && buyinForEvent <= t.maxBuyin);
+          effectiveMarkup = matchedTier ? matchedTier.markup : ag.markup;
+        } else if (ag.backer_type === 'profit_share_only') {
+          // No investment — only share of net profits
+          effectivePct = override && override.override_percentage != null ? override.override_percentage : ag.percentage;
+          effectiveMarkup = 1.0;
+        } else {
+          effectivePct = override && override.override_percentage != null ? override.override_percentage : ag.percentage;
+          effectiveMarkup = override && override.override_markup != null ? override.override_markup : ag.markup;
+        }
+
+        const pctFraction = effectivePct / 100;
+        const buyinCost = (ev.buyin_amount || ev.buyin || 0) * ev.bullets_used;
+        const cashResult = ev.cash_amount || 0;
+        const tipCost = ev.tip_amount || 0;
+        const rate = ev.currency_rate || 1.0;
+
+        // Convert to series currency if needed
+        const buyinConverted = buyinCost * rate;
+        const cashConverted = cashResult * rate;
+        const tipConverted = tipCost * rate;
+
+        if (ag.backer_type === 'profit_share_only') {
+          // No buy-in share — only get cut of net profits
+          const netResult = cashConverted - buyinConverted - tipConverted;
+          if (netResult > 0) {
+            grossReturn += netResult * pctFraction;
+          }
+          // GUESS: Profit share backers don't owe anything on losses
+        } else {
+          // Standard: backer's share of buy-in (with markup) and their share of return
+          const backerBuyinShare = buyinConverted * pctFraction * effectiveMarkup;
+          const backerReturnShare = (cashConverted - tipConverted) * pctFraction;
+          const backerMarkupPortion = buyinConverted * pctFraction * (effectiveMarkup - 1.0);
+
+          grossInvestment += backerBuyinShare;
+          grossReturn += backerReturnShare;
+          markupAmount += backerMarkupPortion;
+        }
+
+        eventDetails.push({
+          tournamentId: ev.tournament_id,
+          eventName: ev.event_name,
+          date: ev.date,
+          bullets: ev.bullets_used,
+          buyin: buyinConverted,
+          cash: cashConverted,
+          tip: tipConverted,
+          pct: effectivePct,
+          markup: effectiveMarkup,
+          status: ev.status
+        });
+      }
+
+      // Net P&L from backer's perspective: what they got back minus what they put in
+      let netPnl = grossReturn - grossInvestment;
+
+      // For makeup/running account: apply existing makeup balance
+      if (ag.backer_type === 'makeup') {
+        // If prior makeup balance was negative (backer was owed), add it to net
+        netPnl += (ag.makeup_balance || 0);
+      }
+
+      // Amount owed: positive = player owes backer, negative = backer owes player
+      // GUESS: From player's perspective, if netPnl > 0 the backer profited so player owes them the return minus investment already provided
+      const amountOwed = grossReturn - grossInvestment + markupAmount;
+      // Simplified: amountOwed positive means player needs to send money to backer (backer had net gains after markup)
+      // amountOwed negative means backer lost money (player keeps the difference — backer's risk)
+
+      // GUESS: For budget-capped, cap the total investment at the budget cap
+      let cappedInvestment = grossInvestment;
+      if (ag.backer_type === 'budget_capped' && ag.budget_cap) {
+        cappedInvestment = Math.min(grossInvestment, ag.budget_cap);
+      }
+
+      settlements.push({
+        agreementId: ag.id,
+        backerId: ag.backer_id,
+        backerName: ag.backer_name,
+        backerEmail: ag.backer_email,
+        backerType: ag.backer_type,
+        percentage: ag.percentage,
+        markup: ag.markup,
+        grossInvestment: ag.backer_type === 'budget_capped' ? cappedInvestment : grossInvestment,
+        grossReturn,
+        markupAmount,
+        netPnl,
+        amountOwed: ag.backer_type === 'budget_capped'
+          ? grossReturn - cappedInvestment + (cappedInvestment - (grossInvestment - markupAmount)) // GUESS: Refund unused budget
+          : amountOwed,
+        newMakeupBalance: ag.backer_type === 'makeup' ? netPnl : null,
+        events: eventDetails
+      });
+    }
+
+    res.json({
+      series,
+      settlements,
+      currency: series.currency,
+      status: series.status
+    });
+  } catch (error) {
+    console.error('Generate settlement error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Finalize settlement — create settlement records and update makeup balances
+app.post('/api/staking/series/:seriesId/settle', authenticateToken, async (req, res) => {
+  try {
+    const { seriesId } = req.params;
+    const { settlements } = req.body; // Array of { backerId, amountOwed, notes }
+
+    const sChk = db.prepare('SELECT id, status FROM staking_series WHERE id = ? AND user_id = ?');
+    sChk.bind([seriesId, req.user.id]);
+    let series = null;
+    if (sChk.step()) series = sChk.getAsObject();
+    sChk.free();
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+
+    if (!settlements || !Array.isArray(settlements)) {
+      return res.status(400).json({ error: 'Settlements array is required' });
+    }
+
+    // GUESS: Auto-generate settlement data by running the same calculation as GET, then persist
+    // The client can pass overrides (e.g. adjusted amounts after negotiation)
+    // But the base data comes from the server-side calculation
+
+    // First, generate the settlement sheet
+    const calcRes = { json: null };
+    // Re-use the settlement calculation inline
+    const agStmt = db.prepare(
+      `SELECT ba.*, b.name AS backer_name FROM backer_agreements ba
+       JOIN backers b ON ba.backer_id = b.id
+       WHERE ba.series_id = ?`
+    );
+    agStmt.bind([seriesId]);
+    const agreements = [];
+    while (agStmt.step()) agreements.push(agStmt.getAsObject());
+    agStmt.free();
+
+    for (const settlementInput of settlements) {
+      const { backerId, grossInvestment, grossReturn, markupAmount, netPnl, amountOwed, notes } = settlementInput;
+
+      // Upsert settlement record
+      const existChk = db.prepare(
+        'SELECT id FROM backer_settlements WHERE series_id = ? AND backer_id = ?'
+      );
+      existChk.bind([seriesId, backerId]);
+      const hasExisting = existChk.step();
+      let existingId = null;
+      if (hasExisting) existingId = existChk.getAsObject().id;
+      existChk.free();
+
+      if (existingId) {
+        db.run(
+          `UPDATE backer_settlements SET gross_investment = ?, gross_return = ?,
+           markup_amount = ?, net_pnl = ?, amount_owed = ?, notes = ? WHERE id = ?`,
+          [grossInvestment || 0, grossReturn || 0, markupAmount || 0,
+           netPnl || 0, amountOwed || 0, notes || null, existingId]
+        );
+      } else {
+        db.run(
+          `INSERT INTO backer_settlements (series_id, backer_id, gross_investment, gross_return, markup_amount, net_pnl, amount_owed, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [seriesId, backerId, grossInvestment || 0, grossReturn || 0,
+           markupAmount || 0, netPnl || 0, amountOwed || 0, notes || null]
+        );
+      }
+
+      // Update makeup balance for makeup-type agreements
+      const makeupAg = agreements.find(a => a.backer_id === backerId && a.backer_type === 'makeup');
+      if (makeupAg) {
+        db.run(
+          'UPDATE backer_agreements SET makeup_balance = ? WHERE id = ?',
+          [netPnl || 0, makeupAg.id]
+        );
+      }
+    }
+
+    // Mark series as settled
+    db.run("UPDATE staking_series SET status = 'settled' WHERE id = ?", [seriesId]);
+
+    await saveDatabase();
+    res.json({ message: 'Settlement finalized', settledCount: settlements.length });
+  } catch (error) {
+    console.error('Finalize settlement error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Mark settlement as paid
+app.put('/api/staking/settlements/:id/paid', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isPaid } = req.body;
+
+    // Verify ownership through series
+    const chk = db.prepare(
+      `SELECT bs.id FROM backer_settlements bs
+       JOIN staking_series ss ON bs.series_id = ss.id
+       WHERE bs.id = ? AND ss.user_id = ?`
+    );
+    chk.bind([id, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Settlement not found' });
+
+    db.run(
+      `UPDATE backer_settlements SET is_paid = ?, paid_at = ${isPaid !== false ? 'CURRENT_TIMESTAMP' : 'NULL'} WHERE id = ?`,
+      [isPaid !== false ? 1 : 0, id]
+    );
+
+    await saveDatabase();
+    res.json({ message: isPaid !== false ? 'Marked as paid' : 'Marked as unpaid' });
+  } catch (error) {
+    console.error('Mark paid error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Backer Tokens (private shareable links) ──────────────────
+
+// Generate private backer link
+app.post('/api/staking/agreements/:id/token', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership
+    const chk = db.prepare(
+      `SELECT ba.id FROM backer_agreements ba
+       JOIN staking_series ss ON ba.series_id = ss.id
+       WHERE ba.id = ? AND ss.user_id = ?`
+    );
+    chk.bind([id, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Agreement not found' });
+
+    // Check for existing token
+    const tokStmt = db.prepare('SELECT token FROM backer_tokens WHERE agreement_id = ?');
+    tokStmt.bind([id]);
+    let existingToken = null;
+    if (tokStmt.step()) existingToken = tokStmt.getAsObject().token;
+    tokStmt.free();
+
+    if (existingToken) {
+      return res.json({ token: existingToken });
+    }
+
+    const token = crypto.randomBytes(16).toString('hex');
+    db.run('INSERT INTO backer_tokens (agreement_id, token) VALUES (?, ?)', [id, token]);
+
+    await saveDatabase();
+    res.json({ token });
+  } catch (error) {
+    console.error('Generate backer token error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// PUBLIC endpoint: backer's view via private token (no auth)
+app.get('/api/backer/:token', (req, res) => {
+  try {
+    const { token } = req.params;
+
+    // Look up token
+    const tokStmt = db.prepare(
+      `SELECT bt.agreement_id, ba.series_id, ba.backer_id, ba.backer_type,
+              ba.percentage, ba.markup, ba.swap_my_pct, ba.swap_their_pct,
+              ba.crossbook_my_pct, ba.crossbook_their_pct,
+              ba.buyin_range_min, ba.buyin_range_max,
+              b.name AS backer_name,
+              ss.name AS series_name, ss.venue AS series_venue,
+              ss.start_date, ss.end_date, ss.currency, ss.status AS series_status,
+              u.username AS player_username
+       FROM backer_tokens bt
+       JOIN backer_agreements ba ON bt.agreement_id = ba.id
+       JOIN backers b ON ba.backer_id = b.id
+       JOIN staking_series ss ON ba.series_id = ss.id
+       JOIN users u ON ss.user_id = u.id
+       WHERE bt.token = ?`
+    );
+    tokStmt.bind([token]);
+    let info = null;
+    if (tokStmt.step()) info = tokStmt.getAsObject();
+    tokStmt.free();
+
+    if (!info) return res.status(404).json({ error: 'Invalid or expired backer link' });
+
+    // Get event statuses for this agreement
+    const esStmt = db.prepare(
+      `SELECT bes.*, t.event_name, t.buyin, t.date, t.time, t.venue, t.game_variant,
+              t.is_satellite, t.reentry
+       FROM backer_event_status bes
+       JOIN tournaments t ON bes.tournament_id = t.id
+       WHERE bes.agreement_id = ?
+       ORDER BY t.date, t.time`
+    );
+    esStmt.bind([info.agreement_id]);
+    const events = [];
+    while (esStmt.step()) {
+      const ev = esStmt.getAsObject();
+      events.push({
+        tournamentId: ev.tournament_id,
+        eventName: ev.event_name,
+        buyin: ev.buyin,
+        date: ev.date,
+        time: ev.time,
+        venue: ev.venue,
+        gameVariant: ev.game_variant,
+        isSatellite: ev.is_satellite,
+        reentry: ev.reentry,
+        bulletsUsed: ev.bullets_used,
+        buyinAmount: ev.buyin_amount,
+        cashAmount: ev.cash_amount,
+        // GUESS: Show proof images on the backer's view so they can verify receipts
+        proofImage: ev.proof_image,
+        status: ev.status,
+        tipAmount: ev.tip_amount,
+        currencyRate: ev.currency_rate,
+        createdAt: ev.created_at
+      });
+    }
+    esStmt.free();
+
+    // Get event overrides (opt-outs, adjusted percentages)
+    const ovStmt = db.prepare(
+      `SELECT beo.tournament_id, beo.override_percentage, beo.override_markup, beo.opt_out, beo.notes
+       FROM backer_event_overrides beo
+       WHERE beo.agreement_id = ?`
+    );
+    ovStmt.bind([info.agreement_id]);
+    const overridesArr = [];
+    while (ovStmt.step()) overridesArr.push(ovStmt.getAsObject());
+    ovStmt.free();
+
+    // Get settlement if exists
+    const settStmt = db.prepare(
+      'SELECT * FROM backer_settlements WHERE series_id = ? AND backer_id = ?'
+    );
+    settStmt.bind([info.series_id, info.backer_id]);
+    let settlement = null;
+    if (settStmt.step()) settlement = settStmt.getAsObject();
+    settStmt.free();
+
+    res.json({
+      playerUsername: info.player_username,
+      backerName: info.backer_name,
+      series: {
+        name: info.series_name,
+        venue: info.series_venue,
+        startDate: info.start_date,
+        endDate: info.end_date,
+        currency: info.currency,
+        status: info.series_status
+      },
+      agreement: {
+        type: info.backer_type,
+        percentage: info.percentage,
+        markup: info.markup,
+        swapMyPct: info.swap_my_pct,
+        swapTheirPct: info.swap_their_pct,
+        crossbookMyPct: info.crossbook_my_pct,
+        crossbookTheirPct: info.crossbook_their_pct,
+        buyinRangeMin: info.buyin_range_min,
+        buyinRangeMax: info.buyin_range_max
+      },
+      events,
+      overrides: overridesArr,
+      settlement
+    });
+  } catch (error) {
+    console.error('Public backer view error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Action Validation Endpoint ───────────────────────────────
+
+// Check total action sold for a specific tournament within a series
+app.get('/api/staking/series/:seriesId/action-check/:tournamentId', authenticateToken, (req, res) => {
+  try {
+    const { seriesId, tournamentId } = req.params;
+
+    // Verify series ownership
+    const sChk = db.prepare('SELECT id FROM staking_series WHERE id = ? AND user_id = ?');
+    sChk.bind([seriesId, req.user.id]);
+    const ownsSeries = sChk.step();
+    sChk.free();
+    if (!ownsSeries) return res.status(404).json({ error: 'Series not found' });
+
+    const result = getActionSoldForTournament(parseInt(seriesId), parseInt(tournamentId), null);
+
+    res.json({
+      tournamentId: parseInt(tournamentId),
+      seriesId: parseInt(seriesId),
+      totalActionSoldPct: result.totalPct,
+      playerRetainedPct: 100 - result.totalPct,
+      isValid: result.totalPct <= 100,
+      buyin: result.buyin,
+      agreements: result.agreements
+    });
+  } catch (error) {
+    console.error('Action check error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Backer Event Overrides ───────────────────────────────────
+
+// GUESS: Expose CRUD for event overrides so players can adjust or opt-out backers from specific events
+
+// Set/update event override
+app.post('/api/staking/agreements/:agreementId/overrides/:tournamentId', authenticateToken, async (req, res) => {
+  try {
+    const { agreementId, tournamentId } = req.params;
+    const { overridePercentage, overrideMarkup, optOut, notes } = req.body;
+
+    // Verify ownership
+    const chk = db.prepare(
+      `SELECT ba.id FROM backer_agreements ba
+       JOIN staking_series ss ON ba.series_id = ss.id
+       WHERE ba.id = ? AND ss.user_id = ?`
+    );
+    chk.bind([agreementId, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Agreement not found' });
+
+    // Upsert
+    const existing = db.prepare(
+      'SELECT id FROM backer_event_overrides WHERE agreement_id = ? AND tournament_id = ?'
+    );
+    existing.bind([agreementId, tournamentId]);
+    const hasExisting = existing.step();
+    existing.free();
+
+    if (hasExisting) {
+      db.run(
+        `UPDATE backer_event_overrides SET
+         override_percentage = ?, override_markup = ?, opt_out = ?, notes = ?
+         WHERE agreement_id = ? AND tournament_id = ?`,
+        [overridePercentage != null ? overridePercentage : null,
+         overrideMarkup != null ? overrideMarkup : null,
+         optOut ? 1 : 0, notes || null,
+         agreementId, tournamentId]
+      );
+    } else {
+      db.run(
+        `INSERT INTO backer_event_overrides (agreement_id, tournament_id, override_percentage, override_markup, opt_out, notes)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [agreementId, tournamentId,
+         overridePercentage != null ? overridePercentage : null,
+         overrideMarkup != null ? overrideMarkup : null,
+         optOut ? 1 : 0, notes || null]
+      );
+    }
+
+    await saveDatabase();
+    res.json({ message: 'Override saved' });
+  } catch (error) {
+    console.error('Set override error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Delete event override
+app.delete('/api/staking/agreements/:agreementId/overrides/:tournamentId', authenticateToken, async (req, res) => {
+  try {
+    const { agreementId, tournamentId } = req.params;
+
+    const chk = db.prepare(
+      `SELECT ba.id FROM backer_agreements ba
+       JOIN staking_series ss ON ba.series_id = ss.id
+       WHERE ba.id = ? AND ss.user_id = ?`
+    );
+    chk.bind([agreementId, req.user.id]);
+    const owns = chk.step();
+    chk.free();
+    if (!owns) return res.status(404).json({ error: 'Agreement not found' });
+
+    db.run(
+      'DELETE FROM backer_event_overrides WHERE agreement_id = ? AND tournament_id = ?',
+      [agreementId, tournamentId]
+    );
+
+    await saveDatabase();
+    res.json({ message: 'Override removed' });
+  } catch (error) {
+    console.error('Delete override error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Saved Hands (Hand Replayer) ──────────────────────────
+
+app.get('/api/hands', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT id, game_type, title, notes, is_public, created_at
+      FROM saved_hands
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `);
+    stmt.bind([req.user.id]);
+    const hands = [];
+    while (stmt.step()) hands.push(stmt.getAsObject());
+    stmt.free();
+    res.json(hands);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.post('/api/hands', authenticateToken, async (req, res) => {
+  try {
+    const { handData, gameType, title, notes, isPublic } = req.body;
+    if (!handData || !gameType) return res.status(400).json({ error: 'Hand data and game type are required' });
+
+    db.run(
+      'INSERT INTO saved_hands (user_id, hand_data, game_type, title, notes, is_public) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.id, typeof handData === 'string' ? handData : JSON.stringify(handData), gameType, title || null, notes || null, isPublic ? 1 : 0]
+    );
+    await saveDatabase();
+    // Get the inserted id
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+    res.status(201).json({ message: 'Hand saved', id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/hands/public', (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT sh.id, sh.game_type, sh.title, sh.notes, sh.hand_data, sh.created_at,
+             u.username
+      FROM saved_hands sh
+      JOIN users u ON sh.user_id = u.id
+      WHERE sh.is_public = 1
+      ORDER BY sh.created_at DESC
+      LIMIT 50
+    `);
+    const hands = [];
+    while (stmt.step()) hands.push(stmt.getAsObject());
+    stmt.free();
+    res.json(hands);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/hands/:id', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const stmt = db.prepare(`
+      SELECT sh.*, u.username
+      FROM saved_hands sh
+      JOIN users u ON sh.user_id = u.id
+      WHERE sh.id = ? AND (sh.user_id = ? OR sh.is_public = 1)
+    `);
+    stmt.bind([id, req.user.id]);
+    if (!stmt.step()) {
+      stmt.free();
+      return res.status(404).json({ error: 'Hand not found' });
+    }
+    const hand = stmt.getAsObject();
+    stmt.free();
+    res.json(hand);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.put('/api/hands/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { handData, gameType, title, notes, isPublic } = req.body;
+    const checkStmt = db.prepare('SELECT id FROM saved_hands WHERE id = ? AND user_id = ?');
+    checkStmt.bind([id, req.user.id]);
+    const owns = checkStmt.step();
+    checkStmt.free();
+    if (!owns) return res.status(404).json({ error: 'Hand not found' });
+
+    db.run(
+      'UPDATE saved_hands SET hand_data = ?, game_type = ?, title = ?, notes = ?, is_public = ? WHERE id = ? AND user_id = ?',
+      [typeof handData === 'string' ? handData : JSON.stringify(handData), gameType, title || null, notes || null, isPublic ? 1 : 0, id, req.user.id]
+    );
+    await saveDatabase();
+    res.json({ message: 'Hand updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.delete('/api/hands/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    db.run('DELETE FROM saved_hands WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Hand deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// SPA catch-all for backer view
+app.get('/backer/:token', serveIndex);
+
+// ── Saved Hands (Hand Replayer) ──────────────────────────
+
+app.get('/api/hands', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT id, game_type, title, notes, is_public, created_at
+      FROM saved_hands
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `);
+    stmt.bind([req.user.id]);
+    const hands = [];
+    while (stmt.step()) hands.push(stmt.getAsObject());
+    stmt.free();
+    res.json(hands);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.post('/api/hands', authenticateToken, async (req, res) => {
+  try {
+    const { handData, gameType, title, notes, isPublic } = req.body;
+    if (!handData || !gameType) return res.status(400).json({ error: 'Hand data and game type are required' });
+
+    db.run(
+      'INSERT INTO saved_hands (user_id, hand_data, game_type, title, notes, is_public) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.id, typeof handData === 'string' ? handData : JSON.stringify(handData), gameType, title || null, notes || null, isPublic ? 1 : 0]
+    );
+    await saveDatabase();
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+    res.status(201).json({ message: 'Hand saved', id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/hands/public', (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT sh.id, sh.game_type, sh.title, sh.notes, sh.hand_data, sh.created_at,
+             u.username
+      FROM saved_hands sh
+      JOIN users u ON sh.user_id = u.id
+      WHERE sh.is_public = 1
+      ORDER BY sh.created_at DESC
+      LIMIT 50
+    `);
+    const hands = [];
+    while (stmt.step()) hands.push(stmt.getAsObject());
+    stmt.free();
+    res.json(hands);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/hands/:id', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const stmt = db.prepare(`
+      SELECT sh.*, u.username
+      FROM saved_hands sh
+      JOIN users u ON sh.user_id = u.id
+      WHERE sh.id = ? AND (sh.user_id = ? OR sh.is_public = 1)
+    `);
+    stmt.bind([id, req.user.id]);
+    if (!stmt.step()) {
+      stmt.free();
+      return res.status(404).json({ error: 'Hand not found' });
+    }
+    const hand = stmt.getAsObject();
+    stmt.free();
+    res.json(hand);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.put('/api/hands/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { handData, gameType, title, notes, isPublic } = req.body;
+    const checkStmt = db.prepare('SELECT id FROM saved_hands WHERE id = ? AND user_id = ?');
+    checkStmt.bind([id, req.user.id]);
+    const owns = checkStmt.step();
+    checkStmt.free();
+    if (!owns) return res.status(404).json({ error: 'Hand not found' });
+
+    db.run(
+      'UPDATE saved_hands SET hand_data = ?, game_type = ?, title = ?, notes = ?, is_public = ? WHERE id = ? AND user_id = ?',
+      [typeof handData === 'string' ? handData : JSON.stringify(handData), gameType, title || null, notes || null, isPublic ? 1 : 0, id, req.user.id]
+    );
+    await saveDatabase();
+    res.json({ message: 'Hand updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.delete('/api/hands/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    db.run('DELETE FROM saved_hands WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Hand deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
