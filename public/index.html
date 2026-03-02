@@ -3023,6 +3023,114 @@
     }
     .create-group-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* ── Notifications ── */
+    .notif-btn {
+      position: relative;
+      padding: 6px 8px !important;
+      min-width: 0;
+    }
+    .notif-btn svg { width: 18px; height: 18px; }
+    .notif-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.55rem;
+      font-weight: 700;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .notif-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+    }
+    .notif-panel {
+      position: fixed;
+      top: calc(var(--header-h, 60px) + 4px);
+      right: 12px;
+      width: min(360px, calc(100vw - 24px));
+      max-height: calc(100vh - var(--header-h, 60px) - 20px);
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      z-index: 9999;
+      animation: notifSlideDown 0.15s ease-out;
+    }
+    @keyframes notifSlideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .notif-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .notif-panel-title {
+      font-family: 'Oswald', sans-serif;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .notif-list { padding: 0; }
+    .notif-section { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .notif-section:last-child { border-bottom: none; }
+    .notif-section-title {
+      font-family: 'Oswald', sans-serif;
+      text-transform: uppercase;
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      padding: 0 14px 4px;
+    }
+    .notif-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+    }
+    .notif-item-content { flex: 1; min-width: 0; }
+    .notif-item-text { font-size: 13px; line-height: 1.3; }
+    .notif-item-text strong { font-weight: 600; }
+    .notif-item-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .notif-item-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .btn-xs {
+      padding: 3px 10px !important;
+      font-size: 11px !important;
+      border-radius: 6px !important;
+    }
+    .notif-item-info { opacity: 0.75; }
+    .notif-empty {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 24px 14px;
+      font-size: 13px;
+    }
+    .group-member-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .group-member-card:last-child { border-bottom: none; }
+
     /* Quick Actions */
     .dash-actions-grid {
       display: grid;
@@ -3862,6 +3970,17 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="4" width="12" height="16" rx="1.5" transform="rotate(-8 8 12)"/>
           <rect x="10" y="4" width="12" height="16" rx="1.5" transform="rotate(8 16 12)"/>
+        </svg>
+      ),
+      bell: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+      ),
+      check: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
         </svg>
       ),
     };
@@ -11546,6 +11665,170 @@
       );
     }
 
+    // ── Notifications Panel ─────────────────────────────────────
+    function NotificationsPanel({ notifications, token, onClose, fetchNotifications, fetchShareBuddies, fetchMyGroups }) {
+      const { groupInvites, buddyRequests, acceptedBuddies } = notifications;
+      const isEmpty = groupInvites.length === 0 && buddyRequests.length === 0 && acceptedBuddies.length === 0;
+
+      const handleAcceptGroupInvite = async (inviteId) => {
+        try {
+          const res = await fetch(`/api/group-invites/${inviteId}/accept`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            fetchNotifications();
+            fetchMyGroups();
+          }
+        } catch {}
+      };
+
+      const handleDeclineGroupInvite = async (inviteId) => {
+        try {
+          const res = await fetch(`/api/group-invites/${inviteId}/decline`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) fetchNotifications();
+        } catch {}
+      };
+
+      const handleAcceptBuddy = async (requestId) => {
+        try {
+          const res = await fetch(`/api/share-request/${requestId}/accept`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            fetchNotifications();
+            fetchShareBuddies();
+          }
+        } catch {}
+      };
+
+      const handleDeclineBuddy = async (requestId) => {
+        try {
+          const res = await fetch(`/api/share-request/${requestId}/reject`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            fetchNotifications();
+            fetchShareBuddies();
+          }
+        } catch {}
+      };
+
+      const timeAgo = (dateStr) => {
+        if (!dateStr) return '';
+        const now = new Date();
+        const d = new Date(dateStr);
+        const diffMs = now - d;
+        const mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return `${hrs}h ago`;
+        const days = Math.floor(hrs / 24);
+        return `${days}d ago`;
+      };
+
+      return ReactDOM.createPortal(
+        React.createElement('div', null,
+          React.createElement('div', { className: 'notif-backdrop', onClick: onClose }),
+          React.createElement('div', { className: 'notif-panel' },
+            React.createElement('div', { className: 'notif-panel-header' },
+              React.createElement('span', { className: 'notif-panel-title' }, 'Notifications'),
+              React.createElement('button', {
+                className: 'btn btn-ghost btn-sm',
+                onClick: onClose,
+                style: { padding: '2px 6px', fontSize: '1.1rem', lineHeight: 1 }
+              }, '×')
+            ),
+            isEmpty
+              ? React.createElement('div', { className: 'notif-empty' },
+                  React.createElement('div', { style: { width: 20, height: 20, margin: '0 auto 8px', color: 'var(--text-muted)' } },
+                    React.createElement(Icon.check)
+                  ),
+                  'All caught up!'
+                )
+              : React.createElement('div', { className: 'notif-list' },
+                  groupInvites.length > 0 && React.createElement('div', { className: 'notif-section' },
+                    React.createElement('div', { className: 'notif-section-title' }, 'Group Invites'),
+                    groupInvites.map(inv =>
+                      React.createElement('div', { key: `gi-${inv.id}`, className: 'notif-item' },
+                        React.createElement('div', { className: 'notif-item-content' },
+                          React.createElement('div', { className: 'notif-item-text' },
+                            React.createElement('strong', null, inv.invited_by_username),
+                            ' invited you to ',
+                            React.createElement('strong', null, inv.group_name)
+                          ),
+                          React.createElement('div', { className: 'notif-item-time' }, timeAgo(inv.created_at))
+                        ),
+                        React.createElement('div', { className: 'notif-item-actions' },
+                          React.createElement('button', {
+                            className: 'btn btn-primary btn-xs',
+                            onClick: () => handleAcceptGroupInvite(inv.id)
+                          }, 'Accept'),
+                          React.createElement('button', {
+                            className: 'btn btn-ghost btn-xs',
+                            onClick: () => handleDeclineGroupInvite(inv.id)
+                          }, 'Decline')
+                        )
+                      )
+                    )
+                  ),
+                  buddyRequests.length > 0 && React.createElement('div', { className: 'notif-section' },
+                    React.createElement('div', { className: 'notif-section-title' }, 'Connection Requests'),
+                    buddyRequests.map(req =>
+                      React.createElement('div', { key: `br-${req.id}`, className: 'notif-item' },
+                        React.createElement('div', { className: 'notif-item-content' },
+                          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                            React.createElement(Avatar, { src: req.avatar, username: req.username, size: 24 }),
+                            React.createElement('div', { className: 'notif-item-text' },
+                              React.createElement('strong', null, req.username),
+                              ' wants to connect'
+                            )
+                          ),
+                          React.createElement('div', { className: 'notif-item-time' }, timeAgo(req.created_at))
+                        ),
+                        React.createElement('div', { className: 'notif-item-actions' },
+                          React.createElement('button', {
+                            className: 'btn btn-primary btn-xs',
+                            onClick: () => handleAcceptBuddy(req.id)
+                          }, 'Accept'),
+                          React.createElement('button', {
+                            className: 'btn btn-ghost btn-xs',
+                            onClick: () => handleDeclineBuddy(req.id)
+                          }, 'Decline')
+                        )
+                      )
+                    )
+                  ),
+                  acceptedBuddies.length > 0 && React.createElement('div', { className: 'notif-section' },
+                    React.createElement('div', { className: 'notif-section-title' }, 'Recent Activity'),
+                    acceptedBuddies.map(ab =>
+                      React.createElement('div', { key: `ab-${ab.id}`, className: 'notif-item notif-item-info' },
+                        React.createElement('div', { className: 'notif-item-content' },
+                          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                            React.createElement(Avatar, { src: ab.avatar, username: ab.username, size: 24 }),
+                            React.createElement('div', { className: 'notif-item-text' },
+                              React.createElement('strong', null, ab.username),
+                              ' accepted your request'
+                            )
+                          ),
+                          React.createElement('div', { className: 'notif-item-time' }, timeAgo(ab.responded_at))
+                        )
+                      )
+                    )
+                  )
+                )
+          )
+        ),
+        document.body
+      );
+    }
+
     // ── Placeholder: Social View ─────────────────────────────────
     function SocialView({
       shareBuddies, buddyLiveUpdates, myGroups, activeGroupId, setActiveGroupId,
@@ -11764,18 +12047,20 @@
           }
           const { id: groupId } = await createRes.json();
 
-          // Add selected buddies
+          // Send invites to selected buddies
+          let inviteCount = 0;
           for (const buddy of shareBuddies) {
             if (selected.has(buddy.id)) {
-              await fetch(`${API_URL}/groups/${groupId}/members`, {
+              const invRes = await fetch(`${API_URL}/groups/${groupId}/members`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: buddy.username })
               });
+              if (invRes.ok) inviteCount++;
             }
           }
 
-          onCreated();
+          onCreated(inviteCount);
         } catch {
           setError('Something went wrong');
         }
@@ -11851,15 +12136,17 @@
       const [msgText, setMsgText] = useState('');
       const [sending, setSending] = useState(false);
       const [showAddMember, setShowAddMember] = useState(false);
+      const [pendingInvites, setPendingInvites] = useState([]);
       const feedEndRef = React.useRef(null);
 
       const groupId = group?.id;
 
-      // Fetch members when component mounts or group changes
+      // Fetch members + pending invites when component mounts or group changes
       useEffect(() => {
         if (!groupId) return;
         fetchGroupFeed(groupId);
         fetchMembers();
+        fetchPendingInvites();
       }, [groupId]);
 
       // Scroll feed to bottom when new messages arrive
@@ -11895,6 +12182,18 @@
             }
             // If no schedule data, just set empty — members section will show group info
             setMembers(mems);
+          }
+        } catch {}
+      };
+
+      const fetchPendingInvites = async () => {
+        try {
+          const res = await fetch(`${API_URL}/groups/${groupId}/invites`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setPendingInvites(Array.isArray(data) ? data : []);
           }
         } catch {}
       };
@@ -11950,6 +12249,7 @@
           if (res.ok) {
             setShowAddMember(false);
             fetchMyGroups();
+            fetchPendingInvites();
           }
         } catch {}
       };
@@ -12085,21 +12385,20 @@
           {/* Members tab */}
           {segment === 'members' && (
             <div className="group-members-list">
-              {/* Use shareBuddies + self to show who might be in group (simplified approach) */}
               <div style={{marginBottom:12}}>
-                {isOwner && (
-                  <button
-                    className="create-group-submit"
-                    style={{fontSize:13,padding:'8px 16px',marginBottom:8}}
-                    onClick={() => setShowAddMember(!showAddMember)}
-                  >
-                    {showAddMember ? 'Cancel' : '+ Add Member'}
-                  </button>
-                )}
+                <button
+                  className="create-group-submit"
+                  style={{fontSize:13,padding:'8px 16px',marginBottom:8}}
+                  onClick={() => setShowAddMember(!showAddMember)}
+                >
+                  {showAddMember ? 'Cancel' : '+ Invite Buddy'}
+                </button>
 
                 {showAddMember && (
                   <div className="create-group-buddies" style={{marginBottom:12}}>
-                    {shareBuddies.map(b => (
+                    {shareBuddies
+                      .filter(b => !pendingInvites.some(p => p.invited_user_id === b.id))
+                      .map(b => (
                       <button
                         key={b.id}
                         className="create-group-buddy-btn"
@@ -12107,7 +12406,7 @@
                       >
                         <Avatar src={b.avatar} username={b.username} size={24} />
                         <span>{b.username}</span>
-                        <span style={{marginLeft:'auto',fontSize:12,color:'var(--accent)'}}>Add</span>
+                        <span style={{marginLeft:'auto',fontSize:12,color:'var(--accent)'}}>Invite</span>
                       </button>
                     ))}
                   </div>
@@ -12117,6 +12416,25 @@
               <div style={{fontSize:12,color:'var(--text-secondary)',marginBottom:8}}>
                 {group.member_count} member{group.member_count !== 1 ? 's' : ''}
               </div>
+
+              {/* Pending invites */}
+              {pendingInvites.length > 0 && (
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:11,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontFamily:'Oswald, sans-serif',marginBottom:6}}>
+                    Pending Invites
+                  </div>
+                  {pendingInvites.map(inv => (
+                    <div key={inv.id} className="group-member-card" style={{opacity:0.6}}>
+                      <Avatar src={inv.avatar} username={inv.username} size={28} />
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:500}}>{inv.username}</div>
+                        <div style={{fontSize:11,color:'var(--text-muted)'}}>Invited by {inv.invited_by_username}</div>
+                      </div>
+                      <span style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic'}}>Pending</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {!isOwner && (
                 <button
@@ -12191,7 +12509,7 @@
         { id: 'social', label: 'Social', icon: Icon.people },
         { id: 'dashboard', label: 'Dashboard', icon: Icon.home, center: true },
         { id: 'staking', label: 'Staking', icon: Icon.handshake },
-        { id: 'more', label: 'More', icon: Icon.dots, badge: newShareCount },
+        { id: 'more', label: 'More', icon: Icon.dots },
       ];
 
       return (
@@ -13473,6 +13791,10 @@
       const [groupFeed, setGroupFeed] = useState([]);
       const [groupSchedule, setGroupSchedule] = useState([]);
 
+      // ── Notifications ──
+      const [notifications, setNotifications] = useState({ groupInvites: [], buddyRequests: [], acceptedBuddies: [] });
+      const [showNotifications, setShowNotifications] = useState(false);
+
       // ── Milestones ──
       const [activeMilestone, setActiveMilestone] = useState(null);
 
@@ -13504,6 +13826,7 @@
           fetchShareToken();
           fetchShareBuddies();
           fetchMyGroups();
+          fetchNotifications();
           fetchTracking();
           fetchMyLiveUpdate();
         }
@@ -13540,7 +13863,7 @@
         });
 
         es.addEventListener('buddy-schedule-change', () => fetchShareBuddies());
-        es.addEventListener('buddy-request', () => fetchShareBuddies());
+        es.addEventListener('buddy-request', () => { fetchShareBuddies(); fetchNotifications(); });
         es.addEventListener('buddy-tracking', () => {}); // future use
 
         // Group SSE events
@@ -13584,6 +13907,8 @@
             }
           } catch (err) { console.error('SSE group-live-update error:', err); }
         });
+        es.addEventListener('group-invite', () => fetchNotifications());
+        es.addEventListener('group-invite-response', () => { fetchNotifications(); fetchMyGroups(); });
 
         es.onerror = () => console.warn('SSE connection error, will auto-reconnect');
 
@@ -13817,6 +14142,31 @@
         } catch {}
       };
 
+      const fetchNotifications = async () => {
+        try {
+          const res = await fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const data = await res.json();
+            setNotifications({
+              groupInvites: data.groupInvites || [],
+              buddyRequests: data.buddyRequests || [],
+              acceptedBuddies: data.acceptedBuddies || []
+            });
+          }
+        } catch {}
+      };
+
+      const markNotificationsSeen = async () => {
+        try {
+          await fetch('/api/seen-notifications', {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        } catch {}
+      };
+
+      const notifCount = notifications.groupInvites.length + notifications.buddyRequests.length + notifications.acceptedBuddies.length;
+
       const handleGenerateShareToken = async () => {
         try {
           const res = await fetch(`${API_URL}/share-token`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
@@ -13926,6 +14276,8 @@
         setPendingOutgoing([]);
         setLastSeenShares(null);
         setNewShareCount(0);
+        setNotifications({ groupInvites: [], buddyRequests: [], acceptedBuddies: [] });
+        setShowNotifications(false);
         setShareError('');
         setShareSuccess('');
         setTrackingData([]);
@@ -14097,6 +14449,19 @@
                 <Avatar src={avatar} username={username} size={22} />
                 {username}
               </span>
+              <button
+                className="notif-btn btn btn-ghost btn-sm"
+                onClick={() => {
+                  setShowNotifications(prev => {
+                    if (!prev) markNotificationsSeen();
+                    return !prev;
+                  });
+                }}
+                title="Notifications"
+              >
+                <Icon.bell />
+                {notifCount > 0 && <span className="notif-badge">{notifCount}</span>}
+              </button>
               <LiveUpdateButton
                 mySchedule={mySchedule}
                 myActiveUpdates={myActiveUpdates}
@@ -14108,6 +14473,17 @@
               </button>
             </div>
           </header>
+
+          {showNotifications && (
+            <NotificationsPanel
+              notifications={notifications}
+              token={token}
+              onClose={() => setShowNotifications(false)}
+              fetchNotifications={fetchNotifications}
+              fetchShareBuddies={fetchShareBuddies}
+              fetchMyGroups={fetchMyGroups}
+            />
+          )}
 
           <main className="content-area">
             {error && <div className="alert alert-error">{error}</div>}

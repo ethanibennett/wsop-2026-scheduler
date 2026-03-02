@@ -1169,6 +1169,33 @@ async function initDatabase() {
         console.log('Created groups, group_members, group_messages tables');
       }
     },
+    {
+      name: 'group-invites-2026-03',
+      fn: () => {
+        db.run(`CREATE TABLE IF NOT EXISTS group_invites (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          group_id INTEGER NOT NULL,
+          invited_by INTEGER NOT NULL,
+          invited_user_id INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          responded_at DATETIME,
+          FOREIGN KEY (group_id) REFERENCES groups(id),
+          FOREIGN KEY (invited_by) REFERENCES users(id),
+          FOREIGN KEY (invited_user_id) REFERENCES users(id),
+          UNIQUE(group_id, invited_user_id)
+        )`);
+
+        // Add last_seen_notifications column to users
+        try {
+          db.run('ALTER TABLE users ADD COLUMN last_seen_notifications DATETIME');
+        } catch (e) {
+          // Column may already exist
+        }
+
+        console.log('Created group_invites table, added last_seen_notifications column');
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -2240,6 +2267,7 @@ app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
     // Get member IDs for SSE broadcast before deleting
     const memberIds = getGroupMemberIds(groupId);
 
+    db.run('DELETE FROM group_invites WHERE group_id = ?', [groupId]);
     db.run('DELETE FROM group_messages WHERE group_id = ?', [groupId]);
     db.run('DELETE FROM group_members WHERE group_id = ?', [groupId]);
     db.run('DELETE FROM groups WHERE id = ?', [groupId]);
@@ -2261,7 +2289,7 @@ app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Add member to group (must be an existing buddy)
+// Invite buddy to group (sends invite instead of direct-add)
 app.post('/api/groups/:id/members', authenticateToken, async (req, res) => {
   try {
     const groupId = Number(req.params.id);
@@ -2276,7 +2304,7 @@ app.post('/api/groups/:id/members', authenticateToken, async (req, res) => {
     if (!callerRow) return res.status(403).json({ error: 'You are not a member of this group' });
 
     // Look up the target user
-    const uStmt = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
+    const uStmt = db.prepare('SELECT id, username FROM users WHERE LOWER(username) = LOWER(?)');
     uStmt.bind([username]);
     const targetUser = uStmt.step() ? uStmt.getAsObject() : null;
     uStmt.free();
@@ -2285,7 +2313,7 @@ app.post('/api/groups/:id/members', authenticateToken, async (req, res) => {
     // Check they are an existing buddy
     const buddyIds = getBuddyIds(req.user.id);
     if (!buddyIds.includes(targetUser.id)) {
-      return res.status(400).json({ error: 'You can only add your existing connections to a group' });
+      return res.status(400).json({ error: 'You can only invite your existing connections to a group' });
     }
 
     // Check not already a member
@@ -2295,14 +2323,43 @@ app.post('/api/groups/:id/members', authenticateToken, async (req, res) => {
     existChk.free();
     if (already) return res.status(400).json({ error: 'User is already a member' });
 
-    db.run('INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)', [groupId, targetUser.id, 'member']);
+    // Check not already invited (pending)
+    const invChk = db.prepare('SELECT id FROM group_invites WHERE group_id = ? AND invited_user_id = ? AND status = ?');
+    invChk.bind([groupId, targetUser.id, 'pending']);
+    const alreadyInvited = invChk.step();
+    invChk.free();
+    if (alreadyInvited) return res.status(400).json({ error: 'Invite already pending for this user' });
+
+    db.run(
+      "INSERT INTO group_invites (group_id, invited_by, invited_user_id, status) VALUES (?, ?, ?, 'pending')",
+      [groupId, req.user.id, targetUser.id]
+    );
     await saveDatabase();
 
-    broadcastToGroup(groupId, 'group-updated', { groupId, action: 'member-added', username });
+    // Get group name for the SSE payload
+    const gStmt = db.prepare('SELECT name FROM groups WHERE id = ?');
+    gStmt.bind([groupId]);
+    const group = gStmt.step() ? gStmt.getAsObject() : null;
+    gStmt.free();
 
-    res.status(201).json({ message: 'Member added' });
+    // Get the invite ID
+    const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
+
+    // SSE: notify the invited user
+    const invitedClients = sseClients.get(targetUser.id);
+    if (invitedClients) {
+      const msg = `event: group-invite\ndata: ${JSON.stringify({
+        inviteId: lastId,
+        groupId,
+        groupName: group ? group.name : 'Unknown',
+        invitedBy: req.user.username
+      })}\n\n`;
+      for (const client of invitedClients) client.write(msg);
+    }
+
+    res.status(201).json({ message: `Invite sent to ${targetUser.username}` });
   } catch (error) {
-    console.error('Add group member error:', error);
+    console.error('Invite group member error:', error);
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
@@ -2498,6 +2555,205 @@ app.get('/api/groups/:id/schedule', authenticateToken, (req, res) => {
     res.json(Object.values(byTournament));
   } catch (error) {
     console.error('Group schedule error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// ── Group Invite Endpoints ────────────────────────────────────
+
+// Get pending invites for a specific group (visible to group members)
+app.get('/api/groups/:id/invites', authenticateToken, (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+
+    // Verify caller is a member
+    const memChk = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+    memChk.bind([groupId, req.user.id]);
+    const isMember = memChk.step();
+    memChk.free();
+    if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
+
+    const stmt = db.prepare(`
+      SELECT gi.id, gi.invited_user_id, gi.invited_by, gi.created_at,
+             u.username, u.avatar,
+             inv.username AS invited_by_username
+      FROM group_invites gi
+      JOIN users u ON gi.invited_user_id = u.id
+      JOIN users inv ON gi.invited_by = inv.id
+      WHERE gi.group_id = ? AND gi.status = 'pending'
+      ORDER BY gi.created_at DESC
+    `);
+    stmt.bind([groupId]);
+    const invites = [];
+    while (stmt.step()) invites.push(stmt.getAsObject());
+    stmt.free();
+
+    res.json(invites);
+  } catch (error) {
+    console.error('Get group invites error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Accept a group invite
+app.put('/api/group-invites/:id/accept', authenticateToken, async (req, res) => {
+  try {
+    const inviteId = Number(req.params.id);
+    const stmt = db.prepare('SELECT * FROM group_invites WHERE id = ? AND invited_user_id = ? AND status = ?');
+    stmt.bind([inviteId, req.user.id, 'pending']);
+    let invite = null;
+    if (stmt.step()) invite = stmt.getAsObject();
+    stmt.free();
+
+    if (!invite) return res.status(404).json({ error: 'Invite not found' });
+
+    // Update invite status
+    db.run("UPDATE group_invites SET status = 'accepted', responded_at = CURRENT_TIMESTAMP WHERE id = ?", [inviteId]);
+
+    // Add user to group_members
+    db.run('INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)', [invite.group_id, req.user.id, 'member']);
+    await saveDatabase();
+
+    // Broadcast group-updated to all group members (including the new member)
+    broadcastToGroup(invite.group_id, 'group-updated', { groupId: invite.group_id, action: 'member-added', username: req.user.username });
+
+    // SSE: notify the inviter that invite was accepted
+    const inviterClients = sseClients.get(invite.invited_by);
+    if (inviterClients) {
+      const msg = `event: group-invite-response\ndata: ${JSON.stringify({
+        groupId: invite.group_id,
+        username: req.user.username,
+        action: 'accepted'
+      })}\n\n`;
+      for (const client of inviterClients) client.write(msg);
+    }
+
+    res.json({ message: 'Invite accepted' });
+  } catch (error) {
+    console.error('Accept group invite error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Decline a group invite (deletes so they can be re-invited)
+app.put('/api/group-invites/:id/decline', authenticateToken, async (req, res) => {
+  try {
+    const inviteId = Number(req.params.id);
+    const stmt = db.prepare('SELECT * FROM group_invites WHERE id = ? AND invited_user_id = ? AND status = ?');
+    stmt.bind([inviteId, req.user.id, 'pending']);
+    let invite = null;
+    if (stmt.step()) invite = stmt.getAsObject();
+    stmt.free();
+
+    if (!invite) return res.status(404).json({ error: 'Invite not found' });
+
+    // Delete the invite so they can be re-invited later
+    db.run('DELETE FROM group_invites WHERE id = ?', [inviteId]);
+    await saveDatabase();
+
+    // SSE: notify the inviter that invite was declined
+    const inviterClients = sseClients.get(invite.invited_by);
+    if (inviterClients) {
+      const msg = `event: group-invite-response\ndata: ${JSON.stringify({
+        groupId: invite.group_id,
+        username: req.user.username,
+        action: 'declined'
+      })}\n\n`;
+      for (const client of inviterClients) client.write(msg);
+    }
+
+    res.json({ message: 'Invite declined' });
+  } catch (error) {
+    console.error('Decline group invite error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// ── Notifications Endpoints ──────────────────────────────────
+
+// Get all notifications for the authenticated user
+app.get('/api/notifications', authenticateToken, (req, res) => {
+  try {
+    const uid = req.user.id;
+
+    // Pending group invites
+    const giStmt = db.prepare(`
+      SELECT gi.id, gi.group_id, gi.invited_by, gi.created_at,
+             g.name AS group_name,
+             u.username AS invited_by_username, u.avatar AS invited_by_avatar
+      FROM group_invites gi
+      JOIN groups g ON gi.group_id = g.id
+      JOIN users u ON gi.invited_by = u.id
+      WHERE gi.invited_user_id = ? AND gi.status = 'pending'
+      ORDER BY gi.created_at DESC
+    `);
+    giStmt.bind([uid]);
+    const groupInvites = [];
+    while (giStmt.step()) groupInvites.push(giStmt.getAsObject());
+    giStmt.free();
+
+    // Pending incoming buddy requests
+    const brStmt = db.prepare(`
+      SELECT sr.id, u.id AS from_user_id, u.username, u.avatar, sr.created_at
+      FROM share_requests sr
+      JOIN users u ON sr.from_user_id = u.id
+      WHERE sr.to_user_id = ? AND sr.status = 'pending'
+      ORDER BY sr.created_at DESC
+    `);
+    brStmt.bind([uid]);
+    const buddyRequests = [];
+    while (brStmt.step()) buddyRequests.push(brStmt.getAsObject());
+    brStmt.free();
+
+    // Recently accepted buddy requests (ones the user sent that were accepted)
+    const lsnStmt = db.prepare('SELECT last_seen_notifications FROM users WHERE id = ?');
+    lsnStmt.bind([uid]);
+    let lastSeen = null;
+    if (lsnStmt.step()) lastSeen = lsnStmt.getAsObject().last_seen_notifications;
+    lsnStmt.free();
+
+    let acceptedBuddies = [];
+    if (lastSeen) {
+      const abStmt = db.prepare(`
+        SELECT sr.id, u.id AS user_id, u.username, u.avatar, sr.responded_at
+        FROM share_requests sr
+        JOIN users u ON sr.to_user_id = u.id
+        WHERE sr.from_user_id = ? AND sr.status = 'accepted' AND sr.responded_at > ?
+        ORDER BY sr.responded_at DESC
+      `);
+      abStmt.bind([uid, lastSeen]);
+      while (abStmt.step()) acceptedBuddies.push(abStmt.getAsObject());
+      abStmt.free();
+    } else {
+      // If never seen, show all recently accepted (last 7 days)
+      const abStmt = db.prepare(`
+        SELECT sr.id, u.id AS user_id, u.username, u.avatar, sr.responded_at
+        FROM share_requests sr
+        JOIN users u ON sr.to_user_id = u.id
+        WHERE sr.from_user_id = ? AND sr.status = 'accepted'
+          AND sr.responded_at > datetime('now', '-7 days')
+        ORDER BY sr.responded_at DESC
+      `);
+      abStmt.bind([uid]);
+      while (abStmt.step()) acceptedBuddies.push(abStmt.getAsObject());
+      abStmt.free();
+    }
+
+    res.json({ groupInvites, buddyRequests, acceptedBuddies, lastSeenNotifications: lastSeen });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Mark notifications as seen
+app.put('/api/seen-notifications', authenticateToken, async (req, res) => {
+  try {
+    db.run('UPDATE users SET last_seen_notifications = CURRENT_TIMESTAMP WHERE id = ?', [req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'ok' });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
