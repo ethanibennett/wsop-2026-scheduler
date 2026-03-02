@@ -2697,6 +2697,332 @@
       font-variant-numeric: tabular-nums;
     }
 
+    /* ── Groups ── */
+    .social-group-card {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-align: left;
+      color: var(--text);
+      font-family: inherit;
+      width: 100%;
+    }
+    .social-group-card:hover { background: var(--hover-overlay); }
+
+    .social-group-avatar {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .social-group-meta {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Group Detail View ── */
+    .group-detail-view {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .group-detail-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+
+    .group-back-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px 4px 0;
+      font-family: inherit;
+    }
+
+    .group-segments {
+      display: flex;
+      gap: 0;
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .group-segment-btn {
+      flex: 1;
+      padding: 8px 0;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-family: 'Oswald', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .group-segment-btn:hover { background: var(--hover-overlay); }
+    .group-segment-btn.active {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* ── Group Feed ── */
+    .group-feed-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .group-feed {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 8px;
+      max-height: 60vh;
+    }
+
+    .group-feed-item {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .group-feed-item-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .group-feed-item-header {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .group-feed-item-name {
+      font-family: 'Oswald', sans-serif;
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
+
+    .group-feed-item-time {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    .group-feed-item-text {
+      font-size: 0.82rem;
+      color: var(--text);
+      word-break: break-word;
+      line-height: 1.4;
+    }
+
+    .group-feed-item.live-update .group-feed-item-text {
+      color: var(--accent);
+      font-size: 0.75rem;
+    }
+
+    .group-feed-input {
+      display: flex;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .group-feed-input input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 8px 12px;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+    .group-feed-input input:focus { border-color: var(--accent); }
+
+    .group-feed-input button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 8px 16px;
+      font-family: 'Oswald', sans-serif;
+      text-transform: uppercase;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+    }
+    .group-feed-input button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Group Schedule ── */
+    .group-schedule {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .group-schedule-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+    }
+
+    .group-schedule-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }
+
+    .group-schedule-members {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-wrap: wrap;
+    }
+
+    .group-schedule-member {
+      margin-right: -4px;
+    }
+
+    /* ── Group Members ── */
+    .group-members-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Create Group Modal ── */
+    .create-group-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .create-group-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      width: 100%;
+      max-width: 360px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .create-group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .create-group-label {
+      display: block;
+      font-family: 'Oswald', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .create-group-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 8px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      box-sizing: border-box;
+    }
+    .create-group-input:focus { border-color: var(--accent); }
+
+    .create-group-buddies {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .create-group-buddy-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      text-align: left;
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+    .create-group-buddy-btn:hover { border-color: var(--accent); }
+    .create-group-buddy-btn.selected { border-color: var(--accent); background: var(--hover-overlay); }
+
+    .create-group-submit {
+      width: 100%;
+      margin-top: 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 10px 0;
+      font-family: 'Oswald', sans-serif;
+      text-transform: uppercase;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+    }
+    .create-group-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
     /* Quick Actions */
     .dash-actions-grid {
       display: grid;
@@ -11221,10 +11547,37 @@
     }
 
     // ── Placeholder: Social View ─────────────────────────────────
-    function SocialView({ shareBuddies, buddyLiveUpdates, onNavigate }) {
+    function SocialView({
+      shareBuddies, buddyLiveUpdates, myGroups, activeGroupId, setActiveGroupId,
+      groupFeed, groupSchedule, fetchGroupFeed, fetchGroupSchedule, fetchMyGroups,
+      token, onNavigate
+    }) {
       const [expandedId, setExpandedId] = useState(null);
+      const [showCreateGroup, setShowCreateGroup] = useState(false);
 
-      if (!shareBuddies || shareBuddies.length === 0) {
+      // If a group is active, show GroupDetailView
+      if (activeGroupId) {
+        const group = myGroups.find(g => g.id === activeGroupId);
+        return (
+          <GroupDetailView
+            group={group}
+            groupFeed={groupFeed}
+            groupSchedule={groupSchedule}
+            fetchGroupFeed={fetchGroupFeed}
+            fetchGroupSchedule={fetchGroupSchedule}
+            fetchMyGroups={fetchMyGroups}
+            shareBuddies={shareBuddies}
+            buddyLiveUpdates={buddyLiveUpdates}
+            token={token}
+            onBack={() => { setActiveGroupId(null); setExpandedId(null); }}
+          />
+        );
+      }
+
+      const hasBuddies = shareBuddies && shareBuddies.length > 0;
+      const hasGroups = myGroups && myGroups.length > 0;
+
+      if (!hasBuddies && !hasGroups) {
         return (
           <div className="placeholder-view">
             <Icon.people />
@@ -11240,82 +11593,549 @@
         );
       }
 
+      const timeAgo = (ts) => {
+        if (!ts) return '';
+        const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+        if (diff < 60) return 'just now';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+        return Math.floor(diff / 86400) + 'd ago';
+      };
+
       return (
         <div className="social-view">
+          {/* ── Groups section ── */}
           <div className="dashboard-section-header" style={{marginBottom:'8px'}}>
-            <div className="dashboard-section-title">Connections</div>
-            <span className="dashboard-section-badge">{shareBuddies.length} friend{shareBuddies.length !== 1 ? 's' : ''}</span>
-          </div>
-          {shareBuddies.map(buddy => {
-            const lu = buddyLiveUpdates?.[buddy.id];
-            const isLive = lu && !lu.isBusted;
-            const isExpanded = expandedId === buddy.id;
-            return (
+            <div className="dashboard-section-title">Groups</div>
+            {hasBuddies && (
               <button
-                key={buddy.id}
-                className={`social-buddy-card${isLive ? ' live' : ''}`}
-                onClick={() => setExpandedId(isExpanded ? null : buddy.id)}
-              >
-                <div className="social-buddy-row">
-                  <Avatar src={buddy.avatar} username={buddy.username} size={36} />
-                  <div className="social-buddy-info">
-                    <div className="social-buddy-name">{buddy.username}</div>
-                    {isLive ? (
-                      <div className="social-buddy-status live">
-                        <span className="social-live-dot" />
-                        {getVenueInfo(lu.venue).abbr} | {lu.eventName}
-                      </div>
-                    ) : lu?.isBusted ? (
-                      <div className="social-buddy-status busted">Busted</div>
-                    ) : (
-                      <div className="social-buddy-status idle">Offline</div>
+                className="dashboard-section-badge"
+                style={{cursor:'pointer',background:'var(--accent)',color:'#fff',border:'none',borderRadius:12,padding:'2px 10px',fontSize:12,fontWeight:700}}
+                onClick={() => setShowCreateGroup(true)}
+              >+ New</button>
+            )}
+          </div>
+
+          {hasGroups ? myGroups.map(g => (
+            <button
+              key={g.id}
+              className="social-group-card"
+              onClick={() => {
+                setActiveGroupId(g.id);
+                fetchGroupFeed(g.id);
+              }}
+            >
+              <div className="social-buddy-row">
+                <div className="social-group-avatar">{g.name.charAt(0).toUpperCase()}</div>
+                <div className="social-buddy-info">
+                  <div className="social-buddy-name">{g.name}</div>
+                  <div className="social-group-meta">
+                    {g.member_count} member{g.member_count !== 1 ? 's' : ''}
+                    {g.last_message && (
+                      <span> · {g.last_message_by}: "{g.last_message.length > 25 ? g.last_message.slice(0, 25) + '…' : g.last_message}" {timeAgo(g.last_message_at)}</span>
                     )}
                   </div>
                 </div>
-                {isExpanded && isLive && (
-                  <div className="social-buddy-detail">
-                    <div className="social-detail-row">
-                      <span className="social-detail-label">Stack</span>
-                      <span className="social-detail-value">{lu.stack ? Number(lu.stack).toLocaleString() : '—'}</span>
+                <span style={{marginLeft:'auto',color:'var(--text-secondary)',fontSize:18}}>›</span>
+              </div>
+            </button>
+          )) : (
+            <div style={{color:'var(--text-secondary)',fontSize:13,padding:'8px 0 16px'}}>
+              {hasBuddies ? 'No groups yet. Create one to share schedules and chat with friends.' : 'Add connections first to create groups.'}
+            </div>
+          )}
+
+          {/* ── Connections section ── */}
+          {hasBuddies && (
+            <React.Fragment>
+              <div className="dashboard-section-header" style={{marginBottom:'8px',marginTop:12}}>
+                <div className="dashboard-section-title">Connections</div>
+                <span className="dashboard-section-badge">{shareBuddies.length} friend{shareBuddies.length !== 1 ? 's' : ''}</span>
+              </div>
+              {shareBuddies.map(buddy => {
+                const lu = buddyLiveUpdates?.[buddy.id];
+                const isLive = lu && !lu.isBusted;
+                const isExpanded = expandedId === buddy.id;
+                return (
+                  <button
+                    key={buddy.id}
+                    className={`social-buddy-card${isLive ? ' live' : ''}`}
+                    onClick={() => setExpandedId(isExpanded ? null : buddy.id)}
+                  >
+                    <div className="social-buddy-row">
+                      <Avatar src={buddy.avatar} username={buddy.username} size={36} />
+                      <div className="social-buddy-info">
+                        <div className="social-buddy-name">{buddy.username}</div>
+                        {isLive ? (
+                          <div className="social-buddy-status live">
+                            <span className="social-live-dot" />
+                            {getVenueInfo(lu.venue).abbr} | {lu.eventName}
+                          </div>
+                        ) : lu?.isBusted ? (
+                          <div className="social-buddy-status busted">Busted</div>
+                        ) : (
+                          <div className="social-buddy-status idle">Offline</div>
+                        )}
+                      </div>
                     </div>
-                    {lu.bb && (
-                      <div className="social-detail-row">
-                        <span className="social-detail-label">Blinds</span>
-                        <span className="social-detail-value">
-                          {lu.sb ? Number(lu.sb).toLocaleString() : '?'}/{Number(lu.bb).toLocaleString()}
-                          {(lu.bbAnte || lu.bb_ante) ? '/' + Number(lu.bbAnte || lu.bb_ante).toLocaleString() : ''}
-                        </span>
+                    {isExpanded && isLive && (
+                      <div className="social-buddy-detail">
+                        <div className="social-detail-row">
+                          <span className="social-detail-label">Stack</span>
+                          <span className="social-detail-value">{lu.stack ? Number(lu.stack).toLocaleString() : '—'}</span>
+                        </div>
+                        {lu.bb && (
+                          <div className="social-detail-row">
+                            <span className="social-detail-label">Blinds</span>
+                            <span className="social-detail-value">
+                              {lu.sb ? Number(lu.sb).toLocaleString() : '?'}/{Number(lu.bb).toLocaleString()}
+                              {(lu.bbAnte || lu.bb_ante) ? '/' + Number(lu.bbAnte || lu.bb_ante).toLocaleString() : ''}
+                            </span>
+                          </div>
+                        )}
+                        {lu.bb && lu.stack && (
+                          <div className="social-detail-row">
+                            <span className="social-detail-label">BB</span>
+                            <span className="social-detail-value">{(Number(lu.stack) / Number(lu.bb)).toFixed(1).replace(/\.0$/, '')}bb</span>
+                          </div>
+                        )}
+                        {(lu.isItm || lu.is_itm) && (
+                          <div className="social-detail-row">
+                            <span className="social-detail-label">Status</span>
+                            <span className="social-detail-value" style={{color:'#22c55e'}}>In the Money</span>
+                          </div>
+                        )}
+                        {(lu.isFinalTable || lu.is_final_table) && (
+                          <div className="social-detail-row">
+                            <span className="social-detail-label">Final Table</span>
+                            <span className="social-detail-value" style={{color:'#f59e0b'}}>
+                              {(lu.placesLeft || lu.places_left) ? (lu.placesLeft || lu.places_left) + ' left' : 'Yes'}
+                            </span>
+                          </div>
+                        )}
+                        <div className="social-detail-row">
+                          <span className="social-detail-label">Venue</span>
+                          <span className="social-detail-value">{lu.venue || '—'}</span>
+                        </div>
                       </div>
                     )}
-                    {lu.bb && lu.stack && (
-                      <div className="social-detail-row">
-                        <span className="social-detail-label">BB</span>
-                        <span className="social-detail-value">{(Number(lu.stack) / Number(lu.bb)).toFixed(1).replace(/\.0$/, '')}bb</span>
+                  </button>
+                );
+              })}
+            </React.Fragment>
+          )}
+
+          {/* ── Create Group Modal ── */}
+          {showCreateGroup && ReactDOM.createPortal(
+            <CreateGroupModal
+              shareBuddies={shareBuddies}
+              token={token}
+              onClose={() => setShowCreateGroup(false)}
+              onCreated={() => { setShowCreateGroup(false); fetchMyGroups(); }}
+            />,
+            document.body
+          )}
+        </div>
+      );
+    }
+
+    // ── Create Group Modal ──────────────────────────────────────
+    function CreateGroupModal({ shareBuddies, token, onClose, onCreated }) {
+      const [name, setName] = useState('');
+      const [selected, setSelected] = useState(new Set());
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState('');
+
+      const handleCreate = async () => {
+        if (!name.trim()) { setError('Group name is required'); return; }
+        setLoading(true);
+        setError('');
+        try {
+          const createRes = await fetch(`${API_URL}/groups`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name.trim() })
+          });
+          if (!createRes.ok) {
+            const d = await createRes.json();
+            setError(d.error || 'Failed to create group');
+            setLoading(false);
+            return;
+          }
+          const { id: groupId } = await createRes.json();
+
+          // Add selected buddies
+          for (const buddy of shareBuddies) {
+            if (selected.has(buddy.id)) {
+              await fetch(`${API_URL}/groups/${groupId}/members`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: buddy.username })
+              });
+            }
+          }
+
+          onCreated();
+        } catch {
+          setError('Something went wrong');
+        }
+        setLoading(false);
+      };
+
+      const toggleBuddy = (id) => {
+        setSelected(prev => {
+          const next = new Set(prev);
+          next.has(id) ? next.delete(id) : next.add(id);
+          return next;
+        });
+      };
+
+      return (
+        <div className="create-group-modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+          <div className="create-group-panel">
+            <div className="create-group-header">
+              <h3 style={{margin:0,fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:1}}>Create Group</h3>
+              <button onClick={onClose} style={{background:'none',border:'none',color:'var(--text)',fontSize:20,cursor:'pointer',padding:4}}>✕</button>
+            </div>
+
+            <label className="create-group-label">Group Name</label>
+            <input
+              className="create-group-input"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Vegas Crew"
+              maxLength={40}
+              autoFocus
+            />
+
+            {shareBuddies.length > 0 && (
+              <React.Fragment>
+                <label className="create-group-label" style={{marginTop:12}}>Add Members</label>
+                <div className="create-group-buddies">
+                  {shareBuddies.map(b => (
+                    <button
+                      key={b.id}
+                      className={`create-group-buddy-btn${selected.has(b.id) ? ' selected' : ''}`}
+                      onClick={() => toggleBuddy(b.id)}
+                    >
+                      <Avatar src={b.avatar} username={b.username} size={24} />
+                      <span>{b.username}</span>
+                      {selected.has(b.id) && <span style={{marginLeft:'auto',color:'var(--accent)'}}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </React.Fragment>
+            )}
+
+            {error && <div style={{color:'#ef4444',fontSize:13,marginTop:8}}>{error}</div>}
+
+            <button
+              className="create-group-submit"
+              onClick={handleCreate}
+              disabled={loading || !name.trim()}
+            >
+              {loading ? 'Creating…' : 'Create Group'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Group Detail View ───────────────────────────────────────
+    function GroupDetailView({
+      group, groupFeed, groupSchedule, fetchGroupFeed, fetchGroupSchedule,
+      fetchMyGroups, shareBuddies, buddyLiveUpdates, token, onBack
+    }) {
+      const [segment, setSegment] = useState('feed');
+      const [members, setMembers] = useState([]);
+      const [msgText, setMsgText] = useState('');
+      const [sending, setSending] = useState(false);
+      const [showAddMember, setShowAddMember] = useState(false);
+      const feedEndRef = React.useRef(null);
+
+      const groupId = group?.id;
+
+      // Fetch members when component mounts or group changes
+      useEffect(() => {
+        if (!groupId) return;
+        fetchGroupFeed(groupId);
+        fetchMembers();
+      }, [groupId]);
+
+      // Scroll feed to bottom when new messages arrive
+      useEffect(() => {
+        if (segment === 'feed' && feedEndRef.current) {
+          feedEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, [groupFeed, segment]);
+
+      // Fetch schedule when switching to schedule tab
+      useEffect(() => {
+        if (segment === 'schedule' && groupId) {
+          fetchGroupSchedule(groupId);
+        }
+      }, [segment, groupId]);
+
+      const fetchMembers = async () => {
+        // Members come from group schedule endpoint or we can parse from feed
+        // For now, get them from a dedicated members query
+        try {
+          const res = await fetch(`${API_URL}/groups/${groupId}/schedule`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            // Extract unique members from schedule data
+            const seen = new Set();
+            const mems = [];
+            for (const t of data) {
+              for (const m of (t.members || [])) {
+                if (!seen.has(m.id)) { seen.add(m.id); mems.push(m); }
+              }
+            }
+            // If no schedule data, just set empty — members section will show group info
+            setMembers(mems);
+          }
+        } catch {}
+      };
+
+      const handleSend = async () => {
+        if (!msgText.trim() || sending) return;
+        setSending(true);
+        try {
+          await fetch(`${API_URL}/groups/${groupId}/messages`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msgText.trim() })
+          });
+          setMsgText('');
+          fetchGroupFeed(groupId);
+        } catch {}
+        setSending(false);
+      };
+
+      const handleDeleteGroup = async () => {
+        if (!confirm('Delete this group? This cannot be undone.')) return;
+        try {
+          await fetch(`${API_URL}/groups/${groupId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchMyGroups();
+          onBack();
+        } catch {}
+      };
+
+      const handleLeaveGroup = async () => {
+        if (!confirm('Leave this group?')) return;
+        try {
+          // Need to know our own user ID — extract from token
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          await fetch(`${API_URL}/groups/${groupId}/members/${payload.id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchMyGroups();
+          onBack();
+        } catch {}
+      };
+
+      const handleAddMember = async (buddy) => {
+        try {
+          const res = await fetch(`${API_URL}/groups/${groupId}/members`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: buddy.username })
+          });
+          if (res.ok) {
+            setShowAddMember(false);
+            fetchMyGroups();
+          }
+        } catch {}
+      };
+
+      const handleRemoveMember = async (userId) => {
+        if (!confirm('Remove this member from the group?')) return;
+        try {
+          await fetch(`${API_URL}/groups/${groupId}/members/${userId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchMyGroups();
+          fetchMembers();
+        } catch {}
+      };
+
+      if (!group) return <div className="placeholder-view"><p>Group not found</p><button onClick={onBack}>Back</button></div>;
+
+      const isOwner = group.my_role === 'owner';
+
+      const timeAgo = (ts) => {
+        if (!ts) return '';
+        const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+        if (diff < 60) return 'just now';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h';
+        return Math.floor(diff / 86400) + 'd';
+      };
+
+      return (
+        <div className="group-detail-view">
+          {/* Header */}
+          <div className="group-detail-header">
+            <button className="group-back-btn" onClick={onBack}>←</button>
+            <div style={{flex:1}}>
+              <div className="social-buddy-name" style={{fontSize:16}}>{group.name}</div>
+              <div style={{fontSize:12,color:'var(--text-secondary)'}}>{group.member_count} member{group.member_count !== 1 ? 's' : ''}</div>
+            </div>
+            {isOwner ? (
+              <button onClick={handleDeleteGroup} style={{background:'none',border:'none',color:'var(--text-secondary)',fontSize:13,cursor:'pointer'}}>Delete</button>
+            ) : (
+              <button onClick={handleLeaveGroup} style={{background:'none',border:'none',color:'var(--text-secondary)',fontSize:13,cursor:'pointer'}}>Leave</button>
+            )}
+          </div>
+
+          {/* Segment tabs */}
+          <div className="group-segments">
+            {['feed', 'schedule', 'members'].map(s => (
+              <button
+                key={s}
+                className={`group-segment-btn${segment === s ? ' active' : ''}`}
+                onClick={() => setSegment(s)}
+              >
+                {s === 'feed' ? 'Live Feed' : s === 'schedule' ? 'Schedule' : 'Members'}
+              </button>
+            ))}
+          </div>
+
+          {/* Feed tab */}
+          {segment === 'feed' && (
+            <div className="group-feed-container">
+              <div className="group-feed">
+                {groupFeed.length === 0 ? (
+                  <div style={{textAlign:'center',color:'var(--text-secondary)',padding:'40px 20px',fontSize:13}}>
+                    No messages yet. Say something!
+                  </div>
+                ) : groupFeed.map((item, i) => (
+                  <div key={item.id || i} className={`group-feed-item ${item.type}`}>
+                    <Avatar src={item.avatar} username={item.username || '?'} size={28} />
+                    <div className="group-feed-item-body">
+                      <div className="group-feed-item-header">
+                        <span className="group-feed-item-name">{item.username}</span>
+                        <span className="group-feed-item-time">{timeAgo(item.created_at)}</span>
                       </div>
-                    )}
-                    {(lu.isItm || lu.is_itm) && (
-                      <div className="social-detail-row">
-                        <span className="social-detail-label">Status</span>
-                        <span className="social-detail-value" style={{color:'#22c55e'}}>In the Money</span>
-                      </div>
-                    )}
-                    {(lu.isFinalTable || lu.is_final_table) && (
-                      <div className="social-detail-row">
-                        <span className="social-detail-label">Final Table</span>
-                        <span className="social-detail-value" style={{color:'#f59e0b'}}>
-                          {(lu.placesLeft || lu.places_left) ? (lu.placesLeft || lu.places_left) + ' left' : 'Yes'}
-                        </span>
-                      </div>
-                    )}
-                    <div className="social-detail-row">
-                      <span className="social-detail-label">Venue</span>
-                      <span className="social-detail-value">{lu.venue || '—'}</span>
+                      {item.type === 'message' ? (
+                        <div className="group-feed-item-text">{item.content}</div>
+                      ) : item.type === 'live-update' && item.liveData ? (
+                        <div className="group-feed-item-text" style={{color:'var(--accent)',fontSize:12}}>
+                          ♠ {item.liveData.eventName || 'Tournament'} — {formatLiveUpdate(item.liveData)}
+                        </div>
+                      ) : (
+                        <div className="group-feed-item-text">{item.content}</div>
+                      )}
                     </div>
                   </div>
+                ))}
+                <div ref={feedEndRef} />
+              </div>
+              <div className="group-feed-input">
+                <input
+                  value={msgText}
+                  onChange={e => setMsgText(e.target.value)}
+                  placeholder="Type a message…"
+                  maxLength={500}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                />
+                <button onClick={handleSend} disabled={sending || !msgText.trim()}>Send</button>
+              </div>
+            </div>
+          )}
+
+          {/* Schedule tab */}
+          {segment === 'schedule' && (
+            <div className="group-schedule">
+              {groupSchedule.length === 0 ? (
+                <div style={{textAlign:'center',color:'var(--text-secondary)',padding:'40px 20px',fontSize:13}}>
+                  No members have scheduled any tournaments yet.
+                </div>
+              ) : groupSchedule.map(t => (
+                <div key={t.id} className="group-schedule-card">
+                  <div className="group-schedule-card-top">
+                    <div>
+                      <div style={{fontWeight:600,fontSize:14}}>{t.event_name}</div>
+                      <div style={{fontSize:12,color:'var(--text-secondary)'}}>{t.date} · {t.time} · ${Number(t.buyin).toLocaleString()}</div>
+                    </div>
+                    <div style={{fontSize:11,color:'var(--text-secondary)'}}>{getVenueInfo(t.venue).abbr}</div>
+                  </div>
+                  <div className="group-schedule-members">
+                    {t.members.map(m => (
+                      <div key={m.id} className="group-schedule-member" title={m.username}>
+                        <Avatar src={m.avatar} username={m.username} size={22} />
+                      </div>
+                    ))}
+                    <span style={{fontSize:11,color:'var(--text-secondary)',marginLeft:4}}>
+                      {t.members.map(m => m.username).join(', ')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Members tab */}
+          {segment === 'members' && (
+            <div className="group-members-list">
+              {/* Use shareBuddies + self to show who might be in group (simplified approach) */}
+              <div style={{marginBottom:12}}>
+                {isOwner && (
+                  <button
+                    className="create-group-submit"
+                    style={{fontSize:13,padding:'8px 16px',marginBottom:8}}
+                    onClick={() => setShowAddMember(!showAddMember)}
+                  >
+                    {showAddMember ? 'Cancel' : '+ Add Member'}
+                  </button>
                 )}
-              </button>
-            );
-          })}
+
+                {showAddMember && (
+                  <div className="create-group-buddies" style={{marginBottom:12}}>
+                    {shareBuddies.map(b => (
+                      <button
+                        key={b.id}
+                        className="create-group-buddy-btn"
+                        onClick={() => handleAddMember(b)}
+                      >
+                        <Avatar src={b.avatar} username={b.username} size={24} />
+                        <span>{b.username}</span>
+                        <span style={{marginLeft:'auto',fontSize:12,color:'var(--accent)'}}>Add</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{fontSize:12,color:'var(--text-secondary)',marginBottom:8}}>
+                {group.member_count} member{group.member_count !== 1 ? 's' : ''}
+              </div>
+
+              {!isOwner && (
+                <button
+                  onClick={handleLeaveGroup}
+                  style={{background:'none',border:'1px solid var(--border)',borderRadius:8,color:'#ef4444',cursor:'pointer',padding:'8px 16px',fontSize:13,width:'100%',marginTop:12}}
+                >
+                  Leave Group
+                </button>
+              )}
+              {isOwner && (
+                <button
+                  onClick={handleDeleteGroup}
+                  style={{background:'none',border:'1px solid #ef4444',borderRadius:8,color:'#ef4444',cursor:'pointer',padding:'8px 16px',fontSize:13,width:'100%',marginTop:12}}
+                >
+                  Delete Group
+                </button>
+              )}
+            </div>
+          )}
         </div>
       );
     }
@@ -12647,6 +13467,12 @@
       const [myActiveUpdates, setMyActiveUpdates] = useState([]);
       const [buddyLiveUpdates, setBuddyLiveUpdates] = useState({});
 
+      // ── Groups state ──
+      const [myGroups, setMyGroups] = useState([]);
+      const [activeGroupId, setActiveGroupId] = useState(null);
+      const [groupFeed, setGroupFeed] = useState([]);
+      const [groupSchedule, setGroupSchedule] = useState([]);
+
       // ── Milestones ──
       const [activeMilestone, setActiveMilestone] = useState(null);
 
@@ -12677,6 +13503,7 @@
           fetchVenues();
           fetchShareToken();
           fetchShareBuddies();
+          fetchMyGroups();
           fetchTracking();
           fetchMyLiveUpdate();
         }
@@ -12715,6 +13542,48 @@
         es.addEventListener('buddy-schedule-change', () => fetchShareBuddies());
         es.addEventListener('buddy-request', () => fetchShareBuddies());
         es.addEventListener('buddy-tracking', () => {}); // future use
+
+        // Group SSE events
+        es.addEventListener('group-message', (e) => {
+          try {
+            const d = JSON.parse(e.data);
+            setGroupFeed(prev => [...prev, {
+              id: Date.now(),
+              type: 'message',
+              user_id: d.userId,
+              username: d.username,
+              avatar: d.avatar,
+              content: d.message,
+              created_at: d.createdAt
+            }]);
+            // Refresh group list for last-message preview
+            fetchMyGroups();
+          } catch (err) { console.error('SSE group-message error:', err); }
+        });
+        es.addEventListener('group-updated', () => fetchMyGroups());
+        es.addEventListener('group-deleted', (e) => {
+          try {
+            const d = JSON.parse(e.data);
+            fetchMyGroups();
+            setActiveGroupId(prev => prev === d.groupId ? null : prev);
+          } catch {}
+        });
+        es.addEventListener('group-live-update', (e) => {
+          try {
+            const d = JSON.parse(e.data);
+            if (!d.cleared) {
+              setGroupFeed(prev => [...prev, {
+                id: Date.now(),
+                type: 'live-update',
+                user_id: d.userId,
+                username: d.username,
+                content: null,
+                liveData: d,
+                created_at: d.updatedAt
+              }]);
+            }
+          } catch (err) { console.error('SSE group-live-update error:', err); }
+        });
 
         es.onerror = () => console.warn('SSE connection error, will auto-reconnect');
 
@@ -12918,6 +13787,36 @@
           setNewShareCount(newBuddies + (data.pendingIncoming || []).length);
         } catch {}
       };
+
+      // ── Groups fetch functions ──
+      const fetchMyGroups = async () => {
+        try {
+          const res = await fetch(`${API_URL}/groups`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const data = await res.json();
+            setMyGroups(Array.isArray(data) ? data : []);
+          }
+        } catch {}
+      };
+      const fetchGroupFeed = async (groupId) => {
+        try {
+          const res = await fetch(`${API_URL}/groups/${groupId}/feed`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const data = await res.json();
+            setGroupFeed(Array.isArray(data) ? data : []);
+          }
+        } catch {}
+      };
+      const fetchGroupSchedule = async (groupId) => {
+        try {
+          const res = await fetch(`${API_URL}/groups/${groupId}/schedule`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const data = await res.json();
+            setGroupSchedule(Array.isArray(data) ? data : []);
+          }
+        } catch {}
+      };
+
       const handleGenerateShareToken = async () => {
         try {
           const res = await fetch(`${API_URL}/share-token`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
@@ -13320,6 +14219,15 @@
               <SocialView
                 shareBuddies={shareBuddies}
                 buddyLiveUpdates={buddyLiveUpdates}
+                myGroups={myGroups}
+                activeGroupId={activeGroupId}
+                setActiveGroupId={setActiveGroupId}
+                groupFeed={groupFeed}
+                groupSchedule={groupSchedule}
+                fetchGroupFeed={fetchGroupFeed}
+                fetchGroupSchedule={fetchGroupSchedule}
+                fetchMyGroups={fetchMyGroups}
+                token={token}
                 onNavigate={(v) => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }}
               />
             )}

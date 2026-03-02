@@ -1133,6 +1133,42 @@ async function initDatabase() {
         console.log('Added play_started_at column to live_updates table');
       }
     },
+    {
+      name: 'groups-tables-2026-03',
+      fn: () => {
+        db.run(`CREATE TABLE IF NOT EXISTS groups (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          created_by INTEGER NOT NULL,
+          avatar TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (created_by) REFERENCES users(id)
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS group_members (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          group_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          role TEXT NOT NULL DEFAULT 'member',
+          joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (group_id) REFERENCES groups(id),
+          FOREIGN KEY (user_id) REFERENCES users(id),
+          UNIQUE(group_id, user_id)
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS group_messages (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          group_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          message TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (group_id) REFERENCES groups(id),
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )`);
+
+        console.log('Created groups, group_members, group_messages tables');
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -1297,6 +1333,38 @@ function broadcastToBuddies(userId, eventType, payload) {
   const message = `event: ${eventType}\ndata: ${JSON.stringify(payload)}\n\n`;
   for (const buddyId of buddyIds) {
     const clients = sseClients.get(buddyId);
+    if (clients) {
+      for (const res of clients) {
+        res.write(message);
+      }
+    }
+  }
+}
+
+function getGroupMemberIds(groupId) {
+  const stmt = db.prepare('SELECT user_id FROM group_members WHERE group_id = ?');
+  stmt.bind([groupId]);
+  const ids = [];
+  while (stmt.step()) ids.push(stmt.getAsObject().user_id);
+  stmt.free();
+  return ids;
+}
+
+function getUserGroupIds(userId) {
+  const stmt = db.prepare('SELECT group_id FROM group_members WHERE user_id = ?');
+  stmt.bind([userId]);
+  const ids = [];
+  while (stmt.step()) ids.push(stmt.getAsObject().group_id);
+  stmt.free();
+  return ids;
+}
+
+function broadcastToGroup(groupId, eventType, payload, excludeUserId) {
+  const memberIds = getGroupMemberIds(groupId);
+  const message = `event: ${eventType}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const memberId of memberIds) {
+    if (excludeUserId && memberId === excludeUserId) continue;
+    const clients = sseClients.get(memberId);
     if (clients) {
       for (const res of clients) {
         res.write(message);
@@ -2104,6 +2172,336 @@ app.delete('/api/share-buddy/:userId', authenticateToken, async (req, res) => {
   }
 });
 
+// ── Groups ─────────────────────────────────────────────────────
+
+// Create a group
+app.post('/api/groups', authenticateToken, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || name.trim().length < 1 || name.trim().length > 40) {
+      return res.status(400).json({ error: 'Group name must be 1–40 characters' });
+    }
+
+    db.run('INSERT INTO groups (name, created_by) VALUES (?, ?)', [name.trim(), req.user.id]);
+    const groupId = db.exec('SELECT last_insert_rowid() AS id')[0].values[0][0];
+
+    // Auto-add creator as owner
+    db.run('INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)', [groupId, req.user.id, 'owner']);
+    await saveDatabase();
+
+    res.status(201).json({ id: groupId, name: name.trim(), message: 'Group created' });
+  } catch (error) {
+    console.error('Create group error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// List user's groups
+app.get('/api/groups', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT g.id, g.name, g.avatar, g.created_by, g.created_at,
+             (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS member_count,
+             (SELECT gm3.role FROM group_members gm3 WHERE gm3.group_id = g.id AND gm3.user_id = ?) AS my_role,
+             (SELECT m.message FROM group_messages m WHERE m.group_id = g.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,
+             (SELECT u2.username FROM group_messages m2 JOIN users u2 ON m2.user_id = u2.id WHERE m2.group_id = g.id ORDER BY m2.created_at DESC LIMIT 1) AS last_message_by,
+             (SELECT m3.created_at FROM group_messages m3 WHERE m3.group_id = g.id ORDER BY m3.created_at DESC LIMIT 1) AS last_message_at
+      FROM groups g
+      JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = ?
+      ORDER BY COALESCE(
+        (SELECT m4.created_at FROM group_messages m4 WHERE m4.group_id = g.id ORDER BY m4.created_at DESC LIMIT 1),
+        g.created_at
+      ) DESC
+    `);
+    stmt.bind([req.user.id, req.user.id]);
+    const groups = [];
+    while (stmt.step()) groups.push(stmt.getAsObject());
+    stmt.free();
+
+    res.json(groups);
+  } catch (error) {
+    console.error('List groups error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Delete a group (owner only)
+app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+
+    // Verify ownership
+    const chk = db.prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
+    chk.bind([groupId, req.user.id]);
+    const row = chk.step() ? chk.getAsObject() : null;
+    chk.free();
+    if (!row || row.role !== 'owner') return res.status(403).json({ error: 'Only the group owner can delete this group' });
+
+    // Get member IDs for SSE broadcast before deleting
+    const memberIds = getGroupMemberIds(groupId);
+
+    db.run('DELETE FROM group_messages WHERE group_id = ?', [groupId]);
+    db.run('DELETE FROM group_members WHERE group_id = ?', [groupId]);
+    db.run('DELETE FROM groups WHERE id = ?', [groupId]);
+    await saveDatabase();
+
+    // Broadcast to all former members (including owner)
+    const message = `event: group-deleted\ndata: ${JSON.stringify({ groupId })}\n\n`;
+    for (const memberId of memberIds) {
+      const clients = sseClients.get(memberId);
+      if (clients) {
+        for (const c of clients) c.write(message);
+      }
+    }
+
+    res.json({ message: 'Group deleted' });
+  } catch (error) {
+    console.error('Delete group error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Add member to group (must be an existing buddy)
+app.post('/api/groups/:id/members', authenticateToken, async (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'Username is required' });
+
+    // Verify caller is a member of this group
+    const memChk = db.prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
+    memChk.bind([groupId, req.user.id]);
+    const callerRow = memChk.step() ? memChk.getAsObject() : null;
+    memChk.free();
+    if (!callerRow) return res.status(403).json({ error: 'You are not a member of this group' });
+
+    // Look up the target user
+    const uStmt = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
+    uStmt.bind([username]);
+    const targetUser = uStmt.step() ? uStmt.getAsObject() : null;
+    uStmt.free();
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    // Check they are an existing buddy
+    const buddyIds = getBuddyIds(req.user.id);
+    if (!buddyIds.includes(targetUser.id)) {
+      return res.status(400).json({ error: 'You can only add your existing connections to a group' });
+    }
+
+    // Check not already a member
+    const existChk = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+    existChk.bind([groupId, targetUser.id]);
+    const already = existChk.step();
+    existChk.free();
+    if (already) return res.status(400).json({ error: 'User is already a member' });
+
+    db.run('INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)', [groupId, targetUser.id, 'member']);
+    await saveDatabase();
+
+    broadcastToGroup(groupId, 'group-updated', { groupId, action: 'member-added', username });
+
+    res.status(201).json({ message: 'Member added' });
+  } catch (error) {
+    console.error('Add group member error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Remove member from group (owner removes, or self-leave)
+app.delete('/api/groups/:id/members/:userId', authenticateToken, async (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+    const targetUserId = Number(req.params.userId);
+
+    // Verify caller is a member
+    const memChk = db.prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
+    memChk.bind([groupId, req.user.id]);
+    const callerRow = memChk.step() ? memChk.getAsObject() : null;
+    memChk.free();
+    if (!callerRow) return res.status(403).json({ error: 'You are not a member of this group' });
+
+    if (targetUserId === req.user.id) {
+      // Self-leave
+      if (callerRow.role === 'owner') {
+        return res.status(400).json({ error: 'Owners cannot leave their group. Delete it instead.' });
+      }
+      db.run('DELETE FROM group_members WHERE group_id = ? AND user_id = ?', [groupId, req.user.id]);
+    } else {
+      // Only owner can remove others
+      if (callerRow.role !== 'owner') {
+        return res.status(403).json({ error: 'Only the group owner can remove members' });
+      }
+      db.run('DELETE FROM group_members WHERE group_id = ? AND user_id = ?', [groupId, targetUserId]);
+    }
+    await saveDatabase();
+
+    broadcastToGroup(groupId, 'group-updated', { groupId, action: 'member-removed', userId: targetUserId });
+
+    // Also notify the removed user directly if they were removed by owner
+    if (targetUserId !== req.user.id) {
+      const removedClients = sseClients.get(targetUserId);
+      if (removedClients) {
+        const msg = `event: group-deleted\ndata: ${JSON.stringify({ groupId })}\n\n`;
+        for (const c of removedClients) c.write(msg);
+      }
+    }
+
+    res.json({ message: 'Member removed' });
+  } catch (error) {
+    console.error('Remove group member error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Get group feed (messages + live-update entries, paginated)
+app.get('/api/groups/:id/feed', authenticateToken, (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const before = req.query.before; // ISO timestamp for pagination
+
+    // Verify membership
+    const memChk = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+    memChk.bind([groupId, req.user.id]);
+    const isMember = memChk.step();
+    memChk.free();
+    if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
+
+    // Get messages
+    let msgSql = `
+      SELECT gm.id, 'message' AS type, gm.user_id, u.username, u.avatar,
+             gm.message AS content, gm.created_at
+      FROM group_messages gm
+      JOIN users u ON gm.user_id = u.id
+      WHERE gm.group_id = ?
+    `;
+    const msgParams = [groupId];
+
+    if (before) {
+      msgSql += ' AND gm.created_at < ?';
+      msgParams.push(before);
+    }
+    msgSql += ' ORDER BY gm.created_at DESC LIMIT ?';
+    msgParams.push(limit);
+
+    const msgStmt = db.prepare(msgSql);
+    msgStmt.bind(msgParams);
+    const feed = [];
+    while (msgStmt.step()) feed.push(msgStmt.getAsObject());
+    msgStmt.free();
+
+    // Sort chronologically (oldest first) for display
+    feed.sort((a, b) => a.created_at < b.created_at ? -1 : 1);
+
+    res.json(feed);
+  } catch (error) {
+    console.error('Group feed error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Post a message to group
+app.post('/api/groups/:id/messages', authenticateToken, async (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+    const { message } = req.body;
+    if (!message || message.trim().length < 1 || message.trim().length > 500) {
+      return res.status(400).json({ error: 'Message must be 1–500 characters' });
+    }
+
+    // Verify membership
+    const memChk = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+    memChk.bind([groupId, req.user.id]);
+    const isMember = memChk.step();
+    memChk.free();
+    if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
+
+    db.run('INSERT INTO group_messages (group_id, user_id, message) VALUES (?, ?, ?)',
+      [groupId, req.user.id, message.trim()]);
+    await saveDatabase();
+
+    // Get avatar from DB (not in JWT)
+    const avStmt = db.prepare('SELECT avatar FROM users WHERE id = ?');
+    avStmt.bind([req.user.id]);
+    const avRow = avStmt.step() ? avStmt.getAsObject() : {};
+    avStmt.free();
+
+    const now = new Date().toISOString();
+    broadcastToGroup(groupId, 'group-message', {
+      groupId,
+      userId: req.user.id,
+      username: req.user.username,
+      avatar: avRow.avatar || null,
+      message: message.trim(),
+      createdAt: now
+    });
+
+    res.status(201).json({ message: 'Sent' });
+  } catch (error) {
+    console.error('Post group message error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Get merged group schedule
+app.get('/api/groups/:id/schedule', authenticateToken, (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+
+    // Verify membership
+    const memChk = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+    memChk.bind([groupId, req.user.id]);
+    const isMember = memChk.step();
+    memChk.free();
+    if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
+
+    // Get all member schedules with tournament data
+    const stmt = db.prepare(`
+      SELECT t.id AS tournament_id, t.event_number, t.event_name, t.date, t.time,
+             t.buyin, t.game_variant, t.venue, t.notes,
+             u.id AS user_id, u.username, u.avatar
+      FROM user_schedules us
+      JOIN tournaments t ON us.tournament_id = t.id
+      JOIN users u ON us.user_id = u.id
+      JOIN group_members gm ON gm.user_id = us.user_id AND gm.group_id = ?
+      ORDER BY t.date, t.time
+    `);
+    stmt.bind([groupId]);
+    const rows = [];
+    while (stmt.step()) rows.push(stmt.getAsObject());
+    stmt.free();
+
+    // Group by tournament — { tournamentId -> { ...tournament, members: [{id, username, avatar}] } }
+    const byTournament = {};
+    for (const row of rows) {
+      if (!byTournament[row.tournament_id]) {
+        byTournament[row.tournament_id] = {
+          id: row.tournament_id,
+          event_number: row.event_number,
+          event_name: row.event_name,
+          date: row.date,
+          time: row.time,
+          buyin: row.buyin,
+          game_variant: row.game_variant,
+          venue: row.venue,
+          notes: row.notes,
+          members: []
+        };
+      }
+      byTournament[row.tournament_id].members.push({
+        id: row.user_id,
+        username: row.username,
+        avatar: row.avatar
+      });
+    }
+
+    res.json(Object.values(byTournament));
+  } catch (error) {
+    console.error('Group schedule error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
 // Mark all shared schedules as seen
 app.put('/api/seen-shares', authenticateToken, async (req, res) => {
   try {
@@ -2487,6 +2885,23 @@ app.post('/api/live-update', authenticateToken, async (req, res) => {
       updatedAt: new Date().toISOString()
     });
 
+    // SSE: broadcast to user's groups
+    const userGroups = getUserGroupIds(req.user.id);
+    for (const gid of userGroups) {
+      broadcastToGroup(gid, 'group-live-update', {
+        groupId: gid,
+        userId: req.user.id,
+        username: req.user.username,
+        tournamentId,
+        eventName: tInfo.event_name || null,
+        venue: tInfo.venue || null,
+        stack: Math.round(Number(stack)) || 0,
+        isItm: !!isItm, isBusted: !!isBusted, isBagged: !!isBagged,
+        isFinalTable: !!isFinalTable,
+        updatedAt: new Date().toISOString()
+      }, req.user.id);
+    }
+
     res.status(201).json({ message: 'Update posted' });
   } catch (error) {
     console.error(error);
@@ -2557,6 +2972,15 @@ app.delete('/api/live-update/:id', authenticateToken, async (req, res) => {
     broadcastToBuddies(req.user.id, 'buddy-live-update', {
       buddyId: req.user.id, username: req.user.username, cleared: true
     });
+
+    // SSE: broadcast to user's groups
+    const userGroups = getUserGroupIds(req.user.id);
+    for (const gid of userGroups) {
+      broadcastToGroup(gid, 'group-live-update', {
+        groupId: gid, userId: req.user.id, username: req.user.username, cleared: true
+      }, req.user.id);
+    }
+
     res.json({ message: 'Update removed' });
   } catch (error) {
     console.error(error);
