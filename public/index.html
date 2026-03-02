@@ -12086,14 +12086,9 @@
                 normaliseDate(t.date) > normaliseDate(event.date)
               );
               const undoBag = () => {
-                if (onPost) {
-                  const bu = event._bagUpdate;
-                  onPost({
-                    tournamentId: event.id,
-                    stack: bu?.stack || event.starting_chips || 20000,
-                    isBagged: false,
-                    playStartedAt: new Date().toISOString(),
-                  });
+                const bu = event._bagUpdate;
+                if (bu?.id && onDeleteUpdate) {
+                  onDeleteUpdate(bu.id);
                 }
               };
               if (restartT) {
