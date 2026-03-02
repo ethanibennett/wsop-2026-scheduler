@@ -1196,6 +1196,17 @@ async function initDatabase() {
         console.log('Created group_invites table, added last_seen_notifications column');
       }
     },
+    {
+      name: 'group-leaderboard-2026-03',
+      fn: () => {
+        try {
+          db.run('ALTER TABLE groups ADD COLUMN leaderboard_enabled INTEGER NOT NULL DEFAULT 0');
+        } catch (e) {
+          // Column may already exist
+        }
+        console.log('Added leaderboard_enabled column to groups');
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -2227,7 +2238,7 @@ app.post('/api/groups', authenticateToken, async (req, res) => {
 app.get('/api/groups', authenticateToken, (req, res) => {
   try {
     const stmt = db.prepare(`
-      SELECT g.id, g.name, g.avatar, g.created_by, g.created_at,
+      SELECT g.id, g.name, g.avatar, g.created_by, g.created_at, g.leaderboard_enabled,
              (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS member_count,
              (SELECT gm3.role FROM group_members gm3 WHERE gm3.group_id = g.id AND gm3.user_id = ?) AS my_role,
              (SELECT m.message FROM group_messages m WHERE m.group_id = g.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,
@@ -2555,6 +2566,103 @@ app.get('/api/groups/:id/schedule', authenticateToken, (req, res) => {
     res.json(Object.values(byTournament));
   } catch (error) {
     console.error('Group schedule error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// ── Group Leaderboard Endpoints ───────────────────────────────
+
+// Get leaderboard data for a group
+app.get('/api/groups/:id/leaderboard', authenticateToken, (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+
+    // Verify caller is a member
+    const memChk = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+    memChk.bind([groupId, req.user.id]);
+    const isMember = memChk.step();
+    memChk.free();
+    if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
+
+    // Check leaderboard is enabled
+    const grpChk = db.prepare('SELECT leaderboard_enabled FROM groups WHERE id = ?');
+    grpChk.bind([groupId]);
+    const grp = grpChk.step() ? grpChk.getAsObject() : null;
+    grpChk.free();
+    if (!grp) return res.status(404).json({ error: 'Group not found' });
+    if (!grp.leaderboard_enabled) return res.status(403).json({ error: 'Leaderboard is not enabled for this group' });
+
+    const stmt = db.prepare(`
+      SELECT u.id, u.username, u.avatar,
+             COUNT(te.id) as events_played,
+             SUM(CASE WHEN te.cashed = 1 THEN 1 ELSE 0 END) as cashes,
+             SUM(COALESCE(t.buyin, 0) * COALESCE(te.num_entries, 1)) as total_buyins,
+             SUM(CASE WHEN te.cashed = 1 THEN COALESCE(te.cash_amount, 0) ELSE 0 END) as total_won,
+             SUM(CASE WHEN te.finish_place = 1 THEN 1 ELSE 0 END) as wins,
+             SUM(CASE WHEN te.finish_place IS NOT NULL AND te.finish_place <= 9 AND te.cashed = 1 THEN 1 ELSE 0 END) as final_tables
+      FROM group_members gm
+      JOIN users u ON gm.user_id = u.id
+      LEFT JOIN tracking_entries te ON te.user_id = u.id
+      LEFT JOIN tournaments t ON te.tournament_id = t.id
+      WHERE gm.group_id = ?
+      GROUP BY u.id, u.username, u.avatar
+    `);
+    stmt.bind([groupId]);
+    const rows = [];
+    while (stmt.step()) rows.push(stmt.getAsObject());
+    stmt.free();
+
+    // Compute net_pl and roi, sort by net_pl DESC
+    const leaderboard = rows.map(r => ({
+      id: r.id,
+      username: r.username,
+      avatar: r.avatar,
+      events_played: r.events_played || 0,
+      cashes: r.cashes || 0,
+      total_buyins: r.total_buyins || 0,
+      total_won: r.total_won || 0,
+      wins: r.wins || 0,
+      final_tables: r.final_tables || 0,
+      net_pl: (r.total_won || 0) - (r.total_buyins || 0),
+      roi: r.total_buyins > 0 ? Math.round(((r.total_won - r.total_buyins) / r.total_buyins) * 100) : 0
+    })).sort((a, b) => b.net_pl - a.net_pl);
+
+    res.json(leaderboard);
+  } catch (error) {
+    console.error('Group leaderboard error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// Toggle leaderboard on/off (owner only)
+app.put('/api/groups/:id/leaderboard', authenticateToken, async (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+    const { enabled } = req.body;
+
+    // Verify ownership
+    const chk = db.prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
+    chk.bind([groupId, req.user.id]);
+    const row = chk.step() ? chk.getAsObject() : null;
+    chk.free();
+    if (!row || row.role !== 'owner') return res.status(403).json({ error: 'Only the group owner can toggle the leaderboard' });
+
+    db.run('UPDATE groups SET leaderboard_enabled = ? WHERE id = ?', [enabled ? 1 : 0, groupId]);
+    await saveDatabase();
+
+    // Broadcast to all group members
+    const memberIds = getGroupMemberIds(groupId);
+    const message = `event: group-updated\ndata: ${JSON.stringify({ groupId, leaderboard_enabled: enabled ? 1 : 0 })}\n\n`;
+    for (const memberId of memberIds) {
+      const clients = sseClients.get(memberId);
+      if (clients) {
+        for (const c of clients) c.write(message);
+      }
+    }
+
+    res.json({ message: `Leaderboard ${enabled ? 'enabled' : 'disabled'}`, leaderboard_enabled: enabled ? 1 : 0 });
+  } catch (error) {
+    console.error('Toggle leaderboard error:', error);
     res.status(500).json({ error: 'Something went wrong' });
   }
 });

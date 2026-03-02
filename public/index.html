@@ -26,6 +26,7 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <style>
     :root {
       --bg:        #111111;
@@ -3022,6 +3023,174 @@
       cursor: pointer;
     }
     .create-group-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Leaderboard ── */
+    .group-leaderboard {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .leaderboard-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .leaderboard-rank {
+      font-weight: 700;
+      font-size: 16px;
+      min-width: 32px;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+    .leaderboard-stats {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .leaderboard-net-pos { color: #22c55e; font-weight: 600; }
+    .leaderboard-net-neg { color: #ef4444; font-weight: 600; }
+    .leaderboard-bar-wrap {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .leaderboard-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent);
+      transition: width 0.3s ease;
+    }
+    .leaderboard-toggle-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .leaderboard-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: var(--border);
+      border-radius: 22px;
+      transition: 0.2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    /* ── Staking ── */
+    .staking-series-card {
+      display: block; width: 100%; text-align: left;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin: 0 16px 8px;
+      cursor: pointer; color: var(--text);
+      font-family: inherit; font-size: inherit;
+      box-sizing: border-box;
+    }
+    .staking-series-card:hover { border-color: var(--accent); }
+    .staking-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 999px; letter-spacing: 0.5px;
+      border: 1px solid;
+    }
+    .staking-badge-pre { color: var(--text-muted); border-color: var(--border); }
+    .staking-badge-active { color: var(--accent); border-color: var(--accent); }
+    .staking-badge-settled { color: #22c55e; border-color: #22c55e; }
+    .staking-type-badge {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      padding: 2px 6px; border-radius: 4px; letter-spacing: 0.3px;
+      background: var(--border); color: var(--text-secondary);
+    }
+    .staking-modal {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; width: min(400px, 90vw); max-height: 85vh;
+      overflow-y: auto; z-index: 10001;
+    }
+    .staking-modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+    }
+    .staking-modal-body { padding: 16px; }
+    .staking-modal-footer {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px; border-top: 1px solid var(--border);
+    }
+    .staking-field {
+      display: block; margin-bottom: 10px; font-size: 12px; color: var(--text-secondary);
+    }
+    .staking-field span { display: block; margin-bottom: 3px; font-weight: 500; }
+    .staking-field input, .staking-field select {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--border);
+      border-radius: 8px; background: var(--bg); color: var(--text);
+      font-size: 13px; font-family: inherit; box-sizing: border-box;
+    }
+    .staking-field input:focus, .staking-field select:focus {
+      outline: none; border-color: var(--accent);
+    }
+    .staking-backer-card, .staking-agreement-card, .staking-event-card, .staking-settlement-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px; margin-bottom: 8px;
+    }
+    .staking-backer-card { display: flex; align-items: flex-start; gap: 10px; }
+    .staking-agreement-card.inactive { opacity: 0.5; }
+    .staking-pnl-pos { color: #22c55e; }
+    .staking-pnl-neg { color: #ef4444; }
+
+    /* ── Schedule Export ── */
+    .export-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 0 4px;
+    }
+    .export-option-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: left;
+      color: var(--text);
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .export-option-btn:hover:not(:disabled) { border-color: var(--accent); }
+    .export-option-btn:disabled { opacity: 0.5; cursor: wait; }
+    .export-option-icon { font-size: 28px; flex-shrink: 0; }
+    .export-option-label { font-weight: 600; font-size: 0.92rem; margin-bottom: 2px; }
+    .export-option-desc { font-size: 0.75rem; color: var(--text-muted); }
 
     /* ── Notifications ── */
     .notif-btn {
@@ -6089,6 +6258,286 @@
       }
       const a = document.createElement('a');
       a.href = dataUrl; a.download = filename; a.click();
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ── SCHEDULE EXPORT FUNCTIONS (PDF + Image) ─────────────
+    // ══════════════════════════════════════════════════════════
+
+    // Venue color lookup for canvas (not CSS vars — returns hex)
+    const VENUE_CANVAS_COLORS = {
+      'WSOP': '#c0c0c0', 'IPO': '#1a6b3c', 'PERSONAL': '#4a9eff',
+      'WYNN': '#8a3030', 'ARIA': '#5a3a9a', 'GOLDEN NUGGET': '#7a6520',
+      'RESORTS WORLD': '#2a7a72', 'SOUTH POINT': '#5e4430',
+      'ORLEANS': '#944828', 'MGM GRAND': '#2a6a3e', 'MGM NH': '#8a7020',
+      'Turning Stone': '#8a6508', 'TCH': '#a0522d', 'PRS': '#909090', 'VEN': '#858585'
+    };
+    function getVenueCanvasColor(venueName) {
+      const info = getVenueInfo(venueName);
+      return VENUE_CANVAS_COLORS[info.abbr] || '#808080';
+    }
+
+    // Generate schedule PDF using plain jsPDF (no autotable dependency)
+    function generateSchedulePDF(events) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pw = doc.internal.pageSize.width;
+      const ph = doc.internal.pageSize.height;
+
+      // Sort and group by date
+      const sorted = [...events].sort((a, b) => {
+        const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
+        const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+        return da - db;
+      });
+
+      const dates = sorted.map(e => e.date).filter(Boolean);
+      const fmtRange = (d) => {
+        if (!d) return '';
+        const dt = new Date(d + 'T12:00:00');
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      };
+
+      const margin = 14;
+      const colWidths = [22, 0, 24, 28, 28]; // Event col is auto (remaining)
+      colWidths[1] = pw - margin * 2 - colWidths[0] - colWidths[2] - colWidths[3] - colWidths[4];
+      const colX = [margin];
+      for (let i = 1; i < 5; i++) colX[i] = colX[i - 1] + colWidths[i - 1];
+
+      let y = 0;
+      let pageNum = 1;
+
+      function drawHeader() {
+        y = 16;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.setTextColor(30);
+        doc.text('MY SCHEDULE', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(120);
+        doc.text(fmtRange(dates[0]) + ' \u2013 ' + fmtRange(dates[dates.length - 1]) + '  \u00B7  ' + sorted.filter(t => !t.is_restart).length + ' events', margin, y + 5);
+
+        // Table header
+        y += 12;
+        doc.setFillColor(30, 30, 30);
+        doc.rect(margin, y - 4, pw - margin * 2, 7, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(255);
+        const headers = ['Time', 'Event', 'Buy-in', 'Venue', 'Game'];
+        headers.forEach((h, i) => doc.text(h, colX[i] + 1, y));
+        doc.setTextColor(0);
+        y += 6;
+      }
+
+      function drawFooter() {
+        doc.setFontSize(7);
+        doc.setTextColor(160);
+        doc.text('Generated by shonabish', margin, ph - 6);
+        doc.text('Page ' + pageNum, pw - 25, ph - 6);
+      }
+
+      function checkPage(needed) {
+        if (y + needed > ph - 12) {
+          drawFooter();
+          doc.addPage();
+          pageNum++;
+          drawHeader();
+        }
+      }
+
+      drawHeader();
+
+      let lastDate = '';
+      for (const ev of sorted) {
+        const d = ev.date || '';
+
+        // Date group header
+        if (d !== lastDate) {
+          checkPage(12);
+          const dateObj = new Date(d + 'T12:00:00');
+          const label = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+          doc.setFillColor(235, 235, 235);
+          doc.rect(margin, y - 3.5, pw - margin * 2, 6, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(50);
+          doc.text(label, margin + 1, y);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(0);
+          y += 5;
+          lastDate = d;
+        }
+
+        checkPage(7);
+
+        // Draw row with light border
+        doc.setDrawColor(220);
+        doc.line(margin, y + 2.5, pw - margin, y + 2.5);
+
+        doc.setFontSize(8);
+        doc.setTextColor(30);
+        doc.text(ev.time || 'TBD', colX[0] + 1, y);
+
+        // Event name — truncate if too long
+        const maxNameW = colWidths[1] - 2;
+        let name = ev.event_name || '';
+        while (doc.getTextWidth(name) > maxNameW && name.length > 3) {
+          name = name.slice(0, -4) + '\u2026';
+        }
+        doc.text(name, colX[1] + 1, y);
+
+        doc.text(ev.buyin ? formatBuyin(ev.buyin) : '\u2014', colX[2] + 1, y);
+
+        const venue = getVenueInfo(ev.venue);
+        doc.text(venue.abbr, colX[3] + 1, y);
+
+        doc.setTextColor(100);
+        doc.text(ev.game_variant || '', colX[4] + 1, y);
+        doc.setTextColor(0);
+
+        y += 5.5;
+      }
+
+      drawFooter();
+      doc.save('my-schedule.pdf');
+    }
+
+    // Draw a single schedule page on canvas (1080x1920 story format)
+    function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages) {
+      drawShareBackground(ctx, w, h);
+
+      const pad = Math.round(w * 0.06);
+      const contentW = w - pad * 2;
+
+      // Title
+      const titleY = Math.round(h * 0.05);
+      ctx.font = '700 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.fillStyle = '#22c55e';
+      ctx.letterSpacing = '4px';
+      ctx.textAlign = 'left';
+      ctx.fillText('MY SCHEDULE', pad, titleY);
+      ctx.letterSpacing = '0px';
+
+      // Subtitle: date range for this page
+      const pageDates = [...new Set(pageEvents.map(e => e.date))].sort();
+      const fmtD = (d) => {
+        const dt = new Date(d + 'T12:00:00');
+        return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      };
+      const subtitle = pageDates.length === 1 ? fmtD(pageDates[0]) : fmtD(pageDates[0]) + ' \u2013 ' + fmtD(pageDates[pageDates.length - 1]);
+      ctx.font = '400 ' + Math.round(h * 0.013) + 'px Oswald, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText(subtitle, pad, titleY + Math.round(h * 0.025));
+
+      // Draw events
+      let y = titleY + Math.round(h * 0.05);
+      const rowH = Math.round(h * 0.058);
+      const gap = Math.round(h * 0.008);
+      let lastDate = '';
+
+      for (const ev of pageEvents) {
+        // Date separator
+        if (ev.date !== lastDate) {
+          if (lastDate !== '') y += Math.round(gap * 0.5);
+          const dateObj = new Date(ev.date + 'T12:00:00');
+          const dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+          ctx.font = '600 ' + Math.round(h * 0.012) + 'px Oswald, sans-serif';
+          ctx.fillStyle = '#22c55e';
+          ctx.fillText(dateLabel.toUpperCase(), pad, y + Math.round(h * 0.01));
+          y += Math.round(h * 0.022);
+          lastDate = ev.date;
+        }
+
+        // Event card background
+        const cardR = 10;
+        roundedRect(ctx, pad, y, contentW, rowH, cardR);
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fill();
+
+        // Venue color stripe
+        const stripeW = 5;
+        const venueColor = getVenueCanvasColor(ev.venue);
+        ctx.save();
+        roundedRect(ctx, pad, y, stripeW + cardR, rowH, cardR);
+        ctx.clip();
+        ctx.fillStyle = venueColor;
+        ctx.fillRect(pad, y, stripeW + cardR, rowH);
+        ctx.restore();
+
+        // Time
+        const textY = y + rowH * 0.42;
+        const textY2 = y + rowH * 0.72;
+        const timeX = pad + 18;
+        ctx.font = '600 ' + Math.round(h * 0.013) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(ev.time || 'TBD', timeX, textY);
+
+        // Buy-in badge
+        const buyinText = ev.buyin ? formatBuyin(ev.buyin) : '\u2014';
+        const buyinX = pad + Math.round(contentW * 0.22);
+        ctx.font = '700 ' + Math.round(h * 0.012) + 'px Oswald, sans-serif';
+        ctx.fillStyle = '#22c55e';
+        ctx.fillText(buyinText, buyinX, textY);
+
+        // Event name (truncate if needed)
+        const nameX = pad + Math.round(contentW * 0.36);
+        const maxNameW = contentW - (nameX - pad) - 10;
+        ctx.font = '400 ' + Math.round(h * 0.012) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        let name = ev.event_name || '';
+        while (ctx.measureText(name).width > maxNameW && name.length > 3) {
+          name = name.slice(0, -4) + '\u2026';
+        }
+        ctx.fillText(name, nameX, textY);
+
+        // Venue + game variant (second line)
+        const venue = getVenueInfo(ev.venue);
+        ctx.font = '400 ' + Math.round(h * 0.009) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        const detail = [venue.abbr, ev.game_variant].filter(Boolean).join(' \u00B7 ');
+        ctx.fillText(detail, timeX, textY2);
+
+        y += rowH + gap;
+      }
+
+      // Page indicator
+      if (totalPages > 1) {
+        ctx.font = '400 ' + Math.round(h * 0.012) + 'px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.textAlign = 'center';
+        ctx.fillText(pageNum + ' / ' + totalPages, w / 2, Math.round(h * 0.94));
+        ctx.textAlign = 'left';
+      }
+
+      drawWatermark(ctx, w, h, 'bottom-center');
+    }
+
+    // Generate array of schedule image canvases
+    function generateScheduleImages(events) {
+      const sorted = [...events].sort((a, b) => {
+        const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
+        const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+        return da - db;
+      });
+
+      // Paginate: ~13 events per 1080x1920 page
+      const perPage = 13;
+      const pages = [];
+      for (let i = 0; i < sorted.length; i += perPage) {
+        pages.push(sorted.slice(i, i + perPage));
+      }
+
+      const canvases = [];
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1080; canvas.height = 1920;
+        const ctx = canvas.getContext('2d');
+        drawSchedulePage(ctx, 1080, 1920, pages[i], i + 1, pages.length);
+        canvases.push(canvas);
+      }
+      return canvases;
     }
 
     // ── 1. Chip Stack Graph Over Time (Instagram Story 1080x1920) ──
@@ -9511,7 +9960,7 @@
                   const needsRef = !scrollRefAssigned && group.date >= todayISO;
                   if (needsRef) scrollRefAssigned = true;
                   return (
-                    <div key={group.date} ref={needsRef ? todayScrollRef : undefined} style={{marginTop: gi === 0 ? 0 : '8px'}}>
+                    <div key={group.date} ref={needsRef ? todayScrollRef : undefined} data-today-scroll={needsRef ? 'true' : undefined} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                       <div className="schedule-date-break" style={{
                         position: 'sticky', top: '-12px', zIndex: 5,
                         padding: '20px 12px 8px 2px',
@@ -9669,6 +10118,7 @@
       const dayOffDateRef = React.useRef(null);
       const [focusEventId, setFocusEventId] = useState(null);
       const [showTravelPicker, setShowTravelPicker] = useState(false);
+      const [showExportModal, setShowExportModal] = useState(false);
 
       const todayISO = getToday();
 
@@ -9735,9 +10185,16 @@
             </div>
           ) : (
           <>
-          <div className="section-header">
+          <div className="section-header" style={{display:'flex',alignItems:'center',gap:'8px'}}>
             <h2>My Schedule</h2>
-            <span style={{fontSize:'0.82rem',color:'var(--text-muted)'}}>{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
+            <span style={{fontSize:'0.82rem',color:'var(--text-muted)',flex:1}}>{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
+            <button className="btn btn-ghost btn-sm"
+              style={{display:'inline-flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',padding:'4px 10px'}}
+              onClick={() => setShowExportModal(true)}
+              title="Export schedule">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export
+            </button>
           </div>
           {onAddPersonalEvent && (
             <>
@@ -9863,6 +10320,8 @@
               </p>
             )}
           </div>
+
+          {showExportModal && <ScheduleExportModal events={sorted} onClose={() => setShowExportModal(false)} />}
         </div>
       );
     }
@@ -10559,6 +11018,109 @@
               React.createElement('button', { className: 'btn btn-primary btn-sm', onClick: handleShare }, 'Share This Slide'),
               React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: handleShareAll }, 'Download All'),
               React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: onClose }, 'Close')
+            )
+          )
+        ),
+        document.body
+      );
+    }
+
+    // ── Schedule Export Modal ──
+    function ScheduleExportModal({ events, onClose }) {
+      const [mode, setMode] = useState('menu'); // menu | preview
+      const [canvases, setCanvases] = useState([]);
+      const [currentSlide, setCurrentSlide] = useState(0);
+      const [generating, setGenerating] = useState(false);
+      const previewRef = useRef(null);
+
+      const handlePDF = () => {
+        generateSchedulePDF(events);
+        onClose();
+      };
+
+      const handleImages = () => {
+        setGenerating(true);
+        setTimeout(() => {
+          const imgs = generateScheduleImages(events);
+          setCanvases(imgs);
+          setMode('preview');
+          setGenerating(false);
+        }, 50);
+      };
+
+      // Render preview canvas when slide changes
+      useEffect(() => {
+        if (mode !== 'preview' || !previewRef.current || canvases.length === 0) return;
+        const cvs = previewRef.current;
+        cvs.width = 1080; cvs.height = 1920;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(canvases[currentSlide], 0, 0);
+      }, [mode, currentSlide, canvases]);
+
+      const handleShareSlide = async () => {
+        if (canvases[currentSlide]) {
+          await shareOrDownloadCanvas(canvases[currentSlide], 'my-schedule-' + (currentSlide + 1) + '.png');
+        }
+      };
+
+      const handleDownloadAll = async () => {
+        for (let i = 0; i < canvases.length; i++) {
+          await shareOrDownloadCanvas(canvases[i], 'my-schedule-' + (i + 1) + '.png');
+          if (i < canvases.length - 1) await new Promise(r => setTimeout(r, 400));
+        }
+      };
+
+      return ReactDOM.createPortal(
+        React.createElement(React.Fragment, null,
+          React.createElement('div', { className: 'share-menu-backdrop', onClick: onClose }),
+          React.createElement('div', { className: 'share-menu-panel', style: { maxHeight: '85vh' } },
+            mode === 'menu' ? React.createElement(React.Fragment, null,
+              React.createElement('h3', null, 'Export Schedule'),
+              React.createElement('div', { className: 'export-options' },
+                React.createElement('button', { className: 'export-option-btn', onClick: handlePDF },
+                  React.createElement('span', { className: 'export-option-icon' }, '\uD83D\uDCC4'),
+                  React.createElement('div', null,
+                    React.createElement('div', { className: 'export-option-label' }, 'Download PDF'),
+                    React.createElement('div', { className: 'export-option-desc' }, 'Table layout, great for printing')
+                  )
+                ),
+                React.createElement('button', {
+                  className: 'export-option-btn',
+                  onClick: handleImages,
+                  disabled: generating
+                },
+                  React.createElement('span', { className: 'export-option-icon' }, generating ? '\u23F3' : '\uD83D\uDDBC\uFE0F'),
+                  React.createElement('div', null,
+                    React.createElement('div', { className: 'export-option-label' }, generating ? 'Generating...' : 'Download Images'),
+                    React.createElement('div', { className: 'export-option-desc' }, 'Story-sized, perfect for sharing')
+                  )
+                )
+              ),
+              React.createElement('div', { style: { textAlign: 'center', marginTop: '12px' } },
+                React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: onClose }, 'Cancel')
+              )
+            ) : React.createElement(React.Fragment, null,
+              React.createElement('h3', null, 'Schedule Images'),
+              canvases.length > 1 && React.createElement('div', { className: 'wrapup-slide-picker' },
+                canvases.map((_, i) =>
+                  React.createElement('button', {
+                    key: i,
+                    className: currentSlide === i ? 'active' : '',
+                    onClick: () => setCurrentSlide(i)
+                  }, 'Page ' + (i + 1))
+                )
+              ),
+              React.createElement('div', { style: { textAlign: 'center', margin: '12px 0' } },
+                React.createElement('canvas', {
+                  ref: previewRef,
+                  style: { width: '200px', height: '356px', borderRadius: '8px', border: '1px solid var(--border)' }
+                })
+              ),
+              React.createElement('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center' } },
+                React.createElement('button', { className: 'btn btn-primary btn-sm', onClick: handleShareSlide }, canvases.length > 1 ? 'Share This Page' : 'Share Image'),
+                canvases.length > 1 && React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: handleDownloadAll }, 'Download All'),
+                React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setMode('menu'); setCanvases([]); setCurrentSlide(0); } }, 'Back')
+              )
             )
           )
         ),
@@ -11654,13 +12216,809 @@
       );
     }
 
-    // ── Placeholder: Staking View ────────────────────────────────
-    function StakingView() {
+    // ── Staking Platform ────────────────────────────────────────
+
+    const BACKER_TYPE_LABELS = {
+      pay_per_play: 'Pay Per Play',
+      open_commitment: 'Open Commitment',
+      budget_capped: 'Budget Capped',
+      flat_package: 'Flat Package',
+      profit_share_only: 'Profit Share',
+      makeup: 'Makeup',
+      tiered_markup: 'Tiered Markup',
+      swap: 'Swap',
+      crossbook: 'Crossbook'
+    };
+
+    function StakingView({ token, tournaments, mySchedule }) {
+      const [subView, setSubView] = useState('list'); // list | detail | backers
+      const [series, setSeries] = useState([]);
+      const [backers, setBackers] = useState([]);
+      const [activeSeriesId, setActiveSeriesId] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [showSeriesForm, setShowSeriesForm] = useState(false);
+      const [editSeries, setEditSeries] = useState(null);
+
+      const fetchSeries = async () => {
+        try {
+          const res = await fetch(`${API_URL}/staking/series`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) setSeries(await res.json());
+        } catch {} finally { setLoading(false); }
+      };
+
+      const fetchBackers = async () => {
+        try {
+          const res = await fetch(`${API_URL}/staking/backers`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) setBackers(await res.json());
+        } catch {}
+      };
+
+      useEffect(() => { fetchSeries(); fetchBackers(); }, []);
+
+      const activeSeries = series.find(s => s.id === activeSeriesId);
+
+      if (subView === 'backers') {
+        return <BackerManager token={token} backers={backers} fetchBackers={fetchBackers} onBack={() => setSubView('list')} />;
+      }
+
+      if (subView === 'detail' && activeSeries) {
+        return (
+          <StakingSeriesDetail
+            series={activeSeries}
+            token={token}
+            backers={backers}
+            tournaments={tournaments}
+            mySchedule={mySchedule}
+            fetchSeries={fetchSeries}
+            onBack={() => { setSubView('list'); setActiveSeriesId(null); }}
+            onEdit={() => { setEditSeries(activeSeries); setShowSeriesForm(true); }}
+          />
+        );
+      }
+
       return (
-        <div className="placeholder-view">
-          <Icon.handshake />
-          <h2>Staking</h2>
-          <p>Manage staking deals, track markup, and coordinate with your backers. Coming soon.</p>
+        <div>
+          <StakingSeriesList
+            series={series}
+            loading={loading}
+            onSelect={s => { setActiveSeriesId(s.id); setSubView('detail'); }}
+            onCreate={() => { setEditSeries(null); setShowSeriesForm(true); }}
+            onBackers={() => setSubView('backers')}
+          />
+          {showSeriesForm && (
+            <StakingSeriesForm
+              token={token}
+              series={editSeries}
+              tournaments={tournaments}
+              onClose={() => { setShowSeriesForm(false); setEditSeries(null); }}
+              onSaved={() => { setShowSeriesForm(false); setEditSeries(null); fetchSeries(); }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    function StakingSeriesList({ series, loading, onSelect, onCreate, onBackers }) {
+      if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>Loading…</div>;
+
+      return (
+        <div style={{padding:'0 0 20px'}}>
+          <div className="section-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 16px 8px'}}>
+            <h2 style={{fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:1,fontSize:14,margin:0,color:'var(--text-muted)'}}>Staking</h2>
+            <div style={{display:'flex',gap:8}}>
+              <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px',background:'transparent',color:'var(--accent)',border:'1px solid var(--accent)'}} onClick={onBackers}>Backers</button>
+              <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px'}} onClick={onCreate}>+ Series</button>
+            </div>
+          </div>
+
+          {series.length === 0 ? (
+            <div className="empty-state">
+              <Icon.handshake />
+              <h3>No staking series yet</h3>
+              <p>Create a series to start tracking your staking deals</p>
+            </div>
+          ) : series.map(s => (
+            <button key={s.id} className="staking-series-card" onClick={() => onSelect(s)}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontWeight:600,fontSize:14}}>{s.name}</div>
+                  {s.venue && <div style={{fontSize:12,color:'var(--text-secondary)',marginTop:2}}>{s.venue}</div>}
+                  {(s.start_date || s.end_date) && (
+                    <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
+                      {s.start_date && new Date(s.start_date + 'T12:00:00').toLocaleDateString('en-US', {month:'short',day:'numeric'})}
+                      {s.start_date && s.end_date && ' – '}
+                      {s.end_date && new Date(s.end_date + 'T12:00:00').toLocaleDateString('en-US', {month:'short',day:'numeric'})}
+                    </div>
+                  )}
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span className={`staking-badge staking-badge-${s.status}`}>
+                    {s.status === 'pre' ? 'Pre' : s.status === 'active' ? 'Active' : 'Settled'}
+                  </span>
+                  <span style={{color:'var(--text-muted)',fontSize:16}}>›</span>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    function StakingSeriesForm({ token, series, tournaments, onClose, onSaved }) {
+      const [name, setName] = useState(series?.name || '');
+      const [venue, setVenue] = useState(series?.venue || '');
+      const [startDate, setStartDate] = useState(series?.start_date || '');
+      const [endDate, setEndDate] = useState(series?.end_date || '');
+      const [currency, setCurrency] = useState(series?.currency || 'USD');
+      const [saving, setSaving] = useState(false);
+      const [error, setError] = useState('');
+
+      // Build venue options from tournaments in DB
+      const venueOptions = useMemo(() => {
+        if (!tournaments) return [];
+        return [...new Set(tournaments.map(t => t.venue))].sort();
+      }, [tournaments]);
+
+      const handleSave = async () => {
+        if (!name.trim()) { setError('Name is required'); return; }
+        setSaving(true);
+        setError('');
+        try {
+          const body = { name: name.trim(), venue: venue || undefined, startDate: startDate || undefined, endDate: endDate || undefined, currency };
+          const url = series ? `${API_URL}/staking/series/${series.id}` : `${API_URL}/staking/series`;
+          const res = await fetch(url, {
+            method: series ? 'PUT' : 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          if (res.ok) { onSaved(); } else {
+            const d = await res.json(); setError(d.error || 'Failed to save');
+          }
+        } catch { setError('Network error'); }
+        setSaving(false);
+      };
+
+      const handleDelete = async () => {
+        if (!series || !confirm('Delete this series and all its agreements? This cannot be undone.')) return;
+        try {
+          await fetch(`${API_URL}/staking/series/${series.id}`, {
+            method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+          });
+          onSaved();
+        } catch {}
+      };
+
+      return ReactDOM.createPortal(
+        <div className="notif-backdrop" onClick={onClose}>
+          <div className="staking-modal" onClick={e => e.stopPropagation()}>
+            <div className="staking-modal-header">
+              <h3 style={{margin:0,fontSize:16,fontWeight:600}}>{series ? 'Edit Series' : 'New Series'}</h3>
+              <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+            </div>
+            <div className="staking-modal-body">
+              {error && <div style={{color:'#ef4444',fontSize:12,marginBottom:8}}>{error}</div>}
+              <label className="staking-field"><span>Series *</span>
+                <select value={name} onChange={e => {
+                  const v = e.target.value;
+                  setName(v);
+                  if (v) setVenue(v);
+                }}>
+                  <option value="">Select a series…</option>
+                  {venueOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </label>
+              <label className="staking-field"><span>Venue</span>
+                <input type="text" value={venue} onChange={e => setVenue(e.target.value)} placeholder="Auto-filled from series" />
+              </label>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                <label className="staking-field"><span>Start Date</span>
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                </label>
+                <label className="staking-field"><span>End Date</span>
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                </label>
+              </div>
+              <label className="staking-field"><span>Currency</span>
+                <select value={currency} onChange={e => setCurrency(e.target.value)}>
+                  {['USD','EUR','GBP','CAD','AUD','CNY','JPY','CHF','SEK','NOK','DKK','MXN','BRL'].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="staking-modal-footer">
+              {series && <button className="btn btn-ghost btn-sm" style={{color:'#ef4444'}} onClick={handleDelete}>Delete</button>}
+              <div style={{flex:1}} />
+              <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+              <button className="create-group-submit" style={{fontSize:13,padding:'8px 20px'}} onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      );
+    }
+
+    // ── Backer Manager ──────────────────────────────────────────
+
+    function BackerManager({ token, backers, fetchBackers, onBack }) {
+      const [showForm, setShowForm] = useState(false);
+      const [editBacker, setEditBacker] = useState(null);
+      const [name, setName] = useState('');
+      const [email, setEmail] = useState('');
+      const [phone, setPhone] = useState('');
+      const [notes, setNotes] = useState('');
+      const [saving, setSaving] = useState(false);
+      const [error, setError] = useState('');
+
+      const resetForm = () => { setName(''); setEmail(''); setPhone(''); setNotes(''); setEditBacker(null); setShowForm(false); setError(''); };
+
+      const openEdit = (b) => {
+        setEditBacker(b); setName(b.name); setEmail(b.email || ''); setPhone(b.phone || ''); setNotes(b.notes || ''); setShowForm(true);
+      };
+
+      const handleSave = async () => {
+        if (!name.trim()) { setError('Name is required'); return; }
+        setSaving(true); setError('');
+        try {
+          const body = { name: name.trim(), email: email || undefined, phone: phone || undefined, notes: notes || undefined };
+          const url = editBacker ? `${API_URL}/staking/backers/${editBacker.id}` : `${API_URL}/staking/backers`;
+          const res = await fetch(url, {
+            method: editBacker ? 'PUT' : 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          if (res.ok) { resetForm(); fetchBackers(); } else {
+            const d = await res.json(); setError(d.error || 'Failed');
+          }
+        } catch { setError('Network error'); }
+        setSaving(false);
+      };
+
+      const handleDelete = async (id) => {
+        if (!confirm('Delete this backer?')) return;
+        try {
+          const res = await fetch(`${API_URL}/staking/backers/${id}`, {
+            method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!res.ok) { const d = await res.json(); alert(d.error || 'Failed'); }
+          else fetchBackers();
+        } catch {}
+      };
+
+      return (
+        <div>
+          <div className="group-detail-header">
+            <button className="group-back-btn" onClick={onBack}>←</button>
+            <div style={{flex:1}}><div className="social-buddy-name" style={{fontSize:16}}>Backers</div></div>
+            <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px'}} onClick={() => { resetForm(); setShowForm(!showForm); }}>
+              {showForm ? 'Cancel' : '+ Add'}
+            </button>
+          </div>
+
+          {showForm && (
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)'}}>
+              {error && <div style={{color:'#ef4444',fontSize:12,marginBottom:8}}>{error}</div>}
+              <label className="staking-field"><span>Name *</span>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Backer name" />
+              </label>
+              <label className="staking-field"><span>Email</span>
+                <input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" />
+              </label>
+              <label className="staking-field"><span>Phone</span>
+                <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" />
+              </label>
+              <label className="staking-field"><span>Notes</span>
+                <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes" />
+              </label>
+              <button className="create-group-submit" style={{fontSize:13,padding:'8px 20px',width:'100%'}} onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving…' : editBacker ? 'Update Backer' : 'Add Backer'}
+              </button>
+            </div>
+          )}
+
+          <div style={{padding:'12px 16px'}}>
+            {backers.length === 0 ? (
+              <div className="empty-state">
+                <Icon.people />
+                <h3>No backers yet</h3>
+                <p>Add your backers to start creating staking agreements</p>
+              </div>
+            ) : backers.map(b => (
+              <div key={b.id} className="staking-backer-card">
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:14}}>{b.name}</div>
+                  {b.email && <div style={{fontSize:12,color:'var(--text-secondary)'}}>{b.email}</div>}
+                  {b.phone && <div style={{fontSize:12,color:'var(--text-muted)'}}>{b.phone}</div>}
+                  {b.notes && <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',marginTop:2}}>{b.notes}</div>}
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(b)} style={{fontSize:11}}>Edit</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(b.id)} style={{fontSize:11,color:'#ef4444'}}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Series Detail View ──────────────────────────────────────
+
+    function StakingSeriesDetail({ series, token, backers, tournaments, mySchedule, fetchSeries, onBack, onEdit }) {
+      const [segment, setSegment] = useState('agreements');
+      const [agreements, setAgreements] = useState([]);
+      const [showAgreementForm, setShowAgreementForm] = useState(false);
+      const [eventStatuses, setEventStatuses] = useState([]);
+      const [settlementData, setSettlementData] = useState(null);
+
+      const fetchAgreements = async () => {
+        try {
+          const res = await fetch(`${API_URL}/staking/series/${series.id}/agreements`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) setAgreements(await res.json());
+        } catch {}
+      };
+
+      const fetchEvents = async () => {
+        try {
+          const res = await fetch(`${API_URL}/staking/series/${series.id}/events`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) setEventStatuses(await res.json());
+        } catch {}
+      };
+
+      const fetchSettlement = async () => {
+        try {
+          const res = await fetch(`${API_URL}/staking/series/${series.id}/settlement`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) setSettlementData(await res.json());
+        } catch {}
+      };
+
+      useEffect(() => { fetchAgreements(); }, [series.id]);
+      useEffect(() => {
+        if (segment === 'events') fetchEvents();
+        if (segment === 'settlement') fetchSettlement();
+      }, [segment, series.id]);
+
+      const totalPct = useMemo(() => agreements.filter(a => a.is_active && a.backer_type !== 'profit_share_only').reduce((s, a) => s + (a.percentage || 0), 0), [agreements]);
+
+      return (
+        <div className="group-detail-view">
+          <div className="group-detail-header">
+            <button className="group-back-btn" onClick={onBack}>←</button>
+            <div style={{flex:1}}>
+              <div className="social-buddy-name" style={{fontSize:16}}>{series.name}</div>
+              <div style={{fontSize:12,color:'var(--text-secondary)'}}>
+                {agreements.length} agreement{agreements.length !== 1 ? 's' : ''} · {totalPct}% sold
+              </div>
+            </div>
+            <span className={`staking-badge staking-badge-${series.status}`}>
+              {series.status === 'pre' ? 'Pre' : series.status === 'active' ? 'Active' : 'Settled'}
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={onEdit} style={{fontSize:12,marginLeft:4}}>✎</button>
+          </div>
+
+          <div className="group-segments">
+            {['agreements', 'events', 'settlement'].map(s => (
+              <button key={s} className={`group-segment-btn${segment === s ? ' active' : ''}`} onClick={() => setSegment(s)}>
+                {s === 'agreements' ? 'Agreements' : s === 'events' ? 'Events' : 'Settlement'}
+              </button>
+            ))}
+          </div>
+
+          {segment === 'agreements' && (
+            <AgreementsList
+              agreements={agreements}
+              token={token}
+              seriesId={series.id}
+              backers={backers}
+              fetchAgreements={fetchAgreements}
+              onAdd={() => setShowAgreementForm(true)}
+            />
+          )}
+
+          {segment === 'events' && (
+            <StakingEventTracking
+              seriesId={series.id}
+              agreements={agreements}
+              eventStatuses={eventStatuses}
+              tournaments={tournaments}
+              mySchedule={mySchedule}
+              series={series}
+              token={token}
+              fetchEvents={fetchEvents}
+            />
+          )}
+
+          {segment === 'settlement' && (
+            <StakingSettlementView
+              seriesId={series.id}
+              settlementData={settlementData}
+              token={token}
+              fetchSettlement={fetchSettlement}
+              fetchSeries={fetchSeries}
+            />
+          )}
+
+          {showAgreementForm && (
+            <AgreementForm
+              token={token}
+              seriesId={series.id}
+              backers={backers}
+              onClose={() => setShowAgreementForm(false)}
+              onSaved={() => { setShowAgreementForm(false); fetchAgreements(); }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    function AgreementsList({ agreements, token, seriesId, backers, fetchAgreements, onAdd }) {
+      const handleDelete = async (id) => {
+        if (!confirm('Delete this agreement?')) return;
+        try {
+          await fetch(`${API_URL}/staking/agreements/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+          fetchAgreements();
+        } catch {}
+      };
+
+      const toggleActive = async (ag) => {
+        try {
+          await fetch(`${API_URL}/staking/agreements/${ag.id}`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isActive: ag.is_active ? false : true })
+          });
+          fetchAgreements();
+        } catch {}
+      };
+
+      return (
+        <div style={{padding:'12px 16px'}}>
+          <button className="create-group-submit" style={{fontSize:13,padding:'8px 16px',marginBottom:12,width:'100%'}} onClick={onAdd}>
+            + Add Agreement
+          </button>
+
+          {agreements.length === 0 ? (
+            <div style={{textAlign:'center',color:'var(--text-secondary)',padding:'30px 20px',fontSize:13}}>
+              No agreements yet. Add a backer agreement to get started.
+            </div>
+          ) : agreements.map(ag => (
+            <div key={ag.id} className={`staking-agreement-card${ag.is_active ? '' : ' inactive'}`}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontWeight:600,fontSize:14}}>{ag.backer_name}</div>
+                  <div style={{display:'flex',gap:6,alignItems:'center',marginTop:4,flexWrap:'wrap'}}>
+                    <span className="staking-type-badge">{BACKER_TYPE_LABELS[ag.backer_type] || ag.backer_type}</span>
+                    {ag.backer_type !== 'profit_share_only' && ag.percentage > 0 && (
+                      <span style={{fontSize:12,color:'var(--text-secondary)'}}>{ag.percentage}%</span>
+                    )}
+                    {ag.markup > 1 && <span style={{fontSize:12,color:'var(--accent)'}}>{ag.markup}x markup</span>}
+                    {ag.backer_type === 'profit_share_only' && <span style={{fontSize:12,color:'var(--text-secondary)'}}>{ag.percentage}% of profit</span>}
+                  </div>
+                  {(ag.buyin_range_min || ag.buyin_range_max) && (
+                    <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
+                      Buyin range: {ag.buyin_range_min ? formatBuyin(ag.buyin_range_min) : '$0'} – {ag.buyin_range_max ? formatBuyin(ag.buyin_range_max) : '∞'}
+                    </div>
+                  )}
+                </div>
+                <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                  <label className="toggle-switch" style={{width:32,height:18}} title={ag.is_active ? 'Active' : 'Inactive'}>
+                    <input type="checkbox" checked={!!ag.is_active} onChange={() => toggleActive(ag)} />
+                    <span className="toggle-slider" />
+                  </label>
+                  <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(ag.id)} style={{fontSize:11,color:'#ef4444',padding:'2px 4px'}}>✕</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function AgreementForm({ token, seriesId, backers, onClose, onSaved }) {
+      const [backerId, setBackerId] = useState('');
+      const [backerType, setBackerType] = useState('pay_per_play');
+      const [percentage, setPercentage] = useState('');
+      const [markup, setMarkup] = useState('1.0');
+      const [buyinMin, setBuyinMin] = useState('');
+      const [buyinMax, setBuyinMax] = useState('');
+      const [saving, setSaving] = useState(false);
+      const [error, setError] = useState('');
+
+      const mvpTypes = ['pay_per_play', 'flat_package', 'profit_share_only'];
+
+      const handleSave = async () => {
+        if (!backerId) { setError('Select a backer'); return; }
+        const pct = parseFloat(percentage);
+        if (isNaN(pct) || pct <= 0 || pct > 100) { setError('Percentage must be 1–100'); return; }
+        const mkp = parseFloat(markup);
+        if (backerType !== 'profit_share_only' && (isNaN(mkp) || mkp < 1)) { setError('Markup must be ≥ 1.0'); return; }
+        setSaving(true); setError('');
+        try {
+          const body = {
+            backerId: Number(backerId),
+            backerType,
+            percentage: pct,
+            markup: backerType === 'profit_share_only' ? 1.0 : mkp,
+            buyinRangeMin: buyinMin ? Number(buyinMin) : undefined,
+            buyinRangeMax: buyinMax ? Number(buyinMax) : undefined,
+          };
+          const res = await fetch(`${API_URL}/staking/series/${seriesId}/agreements`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          if (res.ok) onSaved();
+          else { const d = await res.json(); setError(d.error || 'Failed'); }
+        } catch { setError('Network error'); }
+        setSaving(false);
+      };
+
+      return ReactDOM.createPortal(
+        <div className="notif-backdrop" onClick={onClose}>
+          <div className="staking-modal" onClick={e => e.stopPropagation()}>
+            <div className="staking-modal-header">
+              <h3 style={{margin:0,fontSize:16,fontWeight:600}}>Add Agreement</h3>
+              <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+            </div>
+            <div className="staking-modal-body">
+              {error && <div style={{color:'#ef4444',fontSize:12,marginBottom:8}}>{error}</div>}
+
+              <label className="staking-field"><span>Backer *</span>
+                <select value={backerId} onChange={e => setBackerId(e.target.value)}>
+                  <option value="">Select a backer…</option>
+                  {backers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </label>
+
+              <div className="staking-field"><span>Type</span>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {mvpTypes.map(t => (
+                    <button key={t} className={`filter-chip${backerType === t ? ' active' : ''}`} onClick={() => setBackerType(t)}>
+                      {BACKER_TYPE_LABELS[t]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="staking-field"><span>Percentage *</span>
+                <input type="number" value={percentage} onChange={e => setPercentage(e.target.value)} placeholder="e.g. 50" min="1" max="100" step="1" />
+              </label>
+
+              {backerType !== 'profit_share_only' && (
+                <label className="staking-field"><span>Markup</span>
+                  <input type="number" value={markup} onChange={e => setMarkup(e.target.value)} placeholder="1.0 = no markup" min="1" step="0.1" />
+                </label>
+              )}
+
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                <label className="staking-field"><span>Min Buyin</span>
+                  <input type="number" value={buyinMin} onChange={e => setBuyinMin(e.target.value)} placeholder="Optional" />
+                </label>
+                <label className="staking-field"><span>Max Buyin</span>
+                  <input type="number" value={buyinMax} onChange={e => setBuyinMax(e.target.value)} placeholder="Optional" />
+                </label>
+              </div>
+            </div>
+            <div className="staking-modal-footer">
+              <div style={{flex:1}} />
+              <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+              <button className="create-group-submit" style={{fontSize:13,padding:'8px 20px'}} onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving…' : 'Add'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      );
+    }
+
+    // ── Staking Event Tracking ──────────────────────────────────
+
+    function StakingEventTracking({ seriesId, agreements, eventStatuses, tournaments, mySchedule, series, token, fetchEvents }) {
+      const [logFor, setLogFor] = useState(null); // { agreementId, tournamentId }
+      const [bullets, setBullets] = useState('1');
+      const [buyinAmt, setBuyinAmt] = useState('');
+      const [cashAmt, setCashAmt] = useState('');
+      const [tipAmt, setTipAmt] = useState('');
+      const [saving, setSaving] = useState(false);
+
+      // Get tournaments from user's schedule that fall within series date range
+      const seriesEvents = useMemo(() => {
+        if (!mySchedule || !tournaments) return [];
+        const schedIds = new Set(mySchedule.map(s => s.tournament_id || s.id));
+        return tournaments.filter(t => {
+          if (!schedIds.has(t.id)) return false;
+          if (series.start_date && t.date < series.start_date) return false;
+          if (series.end_date && t.date > series.end_date) return false;
+          return true;
+        }).sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+      }, [mySchedule, tournaments, series]);
+
+      // Build lookup: { tournamentId_agreementId -> status }
+      const statusMap = useMemo(() => {
+        const m = {};
+        for (const es of eventStatuses) {
+          m[`${es.tournament_id}_${es.agreement_id}`] = es;
+        }
+        return m;
+      }, [eventStatuses]);
+
+      const handleLog = async () => {
+        if (!logFor) return;
+        setSaving(true);
+        try {
+          await fetch(`${API_URL}/staking/events/${logFor.agreementId}/${logFor.tournamentId}/status`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bulletsUsed: Number(bullets) || 1,
+              buyinAmount: Number(buyinAmt) || 0,
+              cashAmount: Number(cashAmt) || 0,
+              tipAmount: Number(tipAmt) || 0,
+            })
+          });
+          setLogFor(null); setBullets('1'); setBuyinAmt(''); setCashAmt(''); setTipAmt('');
+          fetchEvents();
+        } catch {}
+        setSaving(false);
+      };
+
+      const activeAgreements = agreements.filter(a => a.is_active);
+
+      if (activeAgreements.length === 0) {
+        return <div style={{textAlign:'center',color:'var(--text-secondary)',padding:'30px 20px',fontSize:13}}>Add active agreements first to track events.</div>;
+      }
+
+      if (seriesEvents.length === 0) {
+        return <div style={{textAlign:'center',color:'var(--text-secondary)',padding:'30px 20px',fontSize:13}}>No scheduled tournaments in this series date range.</div>;
+      }
+
+      return (
+        <div style={{padding:'12px 16px'}}>
+          {seriesEvents.map(t => (
+            <div key={t.id} className="staking-event-card">
+              <div style={{fontWeight:600,fontSize:13}}>{t.event_name}</div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:6}}>{t.date} · {t.time} · {formatBuyin(t.buyin)}</div>
+              {activeAgreements.map(ag => {
+                const key = `${t.id}_${ag.id}`;
+                const status = statusMap[key];
+                const isLogging = logFor && logFor.agreementId === ag.id && logFor.tournamentId === t.id;
+                return (
+                  <div key={ag.id} style={{borderTop:'1px solid var(--border)',padding:'6px 0'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{fontSize:12}}>
+                        <span style={{fontWeight:500}}>{ag.backer_name}</span>
+                        <span style={{color:'var(--text-muted)',marginLeft:4}}>{ag.percentage}%</span>
+                      </div>
+                      {status ? (
+                        <div style={{fontSize:11}}>
+                          <span style={{color:'var(--text-muted)'}}>B:{status.bullets_used || 1}</span>
+                          <span style={{marginLeft:6,color:'var(--text-secondary)'}}>In:{formatBuyin(status.buyin_amount || 0)}</span>
+                          <span style={{marginLeft:6,color: (status.cash_amount || 0) > 0 ? '#22c55e' : 'var(--text-muted)'}}>
+                            Out:{formatBuyin(status.cash_amount || 0)}
+                          </span>
+                        </div>
+                      ) : (
+                        <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--accent)'}} onClick={() => {
+                          setLogFor({ agreementId: ag.id, tournamentId: t.id });
+                          setBuyinAmt(String(t.buyin || ''));
+                        }}>Log</button>
+                      )}
+                    </div>
+                    {isLogging && (
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:6,marginTop:6}}>
+                        <label className="staking-field" style={{marginBottom:0}}><span style={{fontSize:10}}>Bullets</span>
+                          <input type="number" value={bullets} onChange={e => setBullets(e.target.value)} min="1" />
+                        </label>
+                        <label className="staking-field" style={{marginBottom:0}}><span style={{fontSize:10}}>Buyin</span>
+                          <input type="number" value={buyinAmt} onChange={e => setBuyinAmt(e.target.value)} />
+                        </label>
+                        <label className="staking-field" style={{marginBottom:0}}><span style={{fontSize:10}}>Cash</span>
+                          <input type="number" value={cashAmt} onChange={e => setCashAmt(e.target.value)} />
+                        </label>
+                        <label className="staking-field" style={{marginBottom:0}}><span style={{fontSize:10}}>Tip</span>
+                          <input type="number" value={tipAmt} onChange={e => setTipAmt(e.target.value)} />
+                        </label>
+                        <div style={{gridColumn:'span 4',display:'flex',gap:6}}>
+                          <button className="create-group-submit" style={{fontSize:11,padding:'6px 12px',flex:1}} onClick={handleLog} disabled={saving}>
+                            {saving ? '…' : 'Save'}
+                          </button>
+                          <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={() => setLogFor(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ── Staking Settlement ──────────────────────────────────────
+
+    function StakingSettlementView({ seriesId, settlementData, token, fetchSettlement, fetchSeries }) {
+      const [settling, setSettling] = useState(false);
+
+      const handleFinalize = async () => {
+        if (!confirm('Finalize settlement? This will lock in the P&L calculations.')) return;
+        setSettling(true);
+        try {
+          const res = await fetch(`${API_URL}/staking/series/${seriesId}/settle`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settlements: settlementData?.settlements || [] })
+          });
+          if (res.ok) { fetchSettlement(); fetchSeries(); }
+        } catch {}
+        setSettling(false);
+      };
+
+      const handleMarkPaid = async (settlementId, isPaid) => {
+        try {
+          await fetch(`${API_URL}/staking/settlements/${settlementId}/paid`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isPaid: !isPaid })
+          });
+          fetchSettlement();
+        } catch {}
+      };
+
+      if (!settlementData) {
+        return <div style={{textAlign:'center',color:'var(--text-secondary)',padding:'30px 20px',fontSize:13}}>Loading settlement data…</div>;
+      }
+
+      const settlements = settlementData.settlements || [];
+
+      if (settlements.length === 0) {
+        return <div style={{textAlign:'center',color:'var(--text-secondary)',padding:'30px 20px',fontSize:13}}>No agreements to settle. Add agreements and log events first.</div>;
+      }
+
+      return (
+        <div style={{padding:'12px 16px'}}>
+          {settlements.map((s, i) => {
+            const netPl = (s.gross_return || s.grossReturn || 0) - (s.gross_investment || s.grossInvestment || 0);
+            const amtOwed = s.amount_owed || s.amountOwed || 0;
+            return (
+              <div key={s.backer_id || s.backerId || i} className="staking-settlement-card">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:14}}>{s.backer_name || s.backerName || 'Backer'}</div>
+                    <div style={{fontSize:12,color:'var(--text-muted)',marginTop:2}}>{BACKER_TYPE_LABELS[s.backer_type || s.backerType] || s.backer_type || s.backerType || ''} · {s.percentage || 0}%</div>
+                  </div>
+                  {s.id && (
+                    <label className="toggle-switch" style={{width:32,height:18}} title={s.is_paid ? 'Paid' : 'Unpaid'}>
+                      <input type="checkbox" checked={!!s.is_paid} onChange={() => handleMarkPaid(s.id, s.is_paid)} />
+                      <span className="toggle-slider" />
+                    </label>
+                  )}
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginTop:8,fontSize:12}}>
+                  <div>Invested: <strong>{formatBuyin(s.gross_investment || s.grossInvestment || 0)}</strong></div>
+                  <div>Returned: <strong>{formatBuyin(s.gross_return || s.grossReturn || 0)}</strong></div>
+                  {(s.markup_amount || s.markupAmount) > 0 && <div>Markup: <strong>{formatBuyin(s.markup_amount || s.markupAmount || 0)}</strong></div>}
+                  <div>Owed: <strong className={amtOwed >= 0 ? 'staking-pnl-pos' : 'staking-pnl-neg'}>{formatBuyin(Math.abs(amtOwed))}</strong></div>
+                </div>
+                <div style={{marginTop:6,fontSize:14,fontWeight:700}} className={netPl >= 0 ? 'staking-pnl-pos' : 'staking-pnl-neg'}>
+                  {netPl >= 0 ? '+' : ''}{formatBuyin(netPl)} net
+                </div>
+                {s.is_paid && <div style={{fontSize:11,color:'#22c55e',marginTop:4}}>✓ Paid{s.paid_at ? ` · ${new Date(s.paid_at).toLocaleDateString()}` : ''}</div>}
+              </div>
+            );
+          })}
+
+          {!settlementData.isSettled && (
+            <button
+              className="create-group-submit"
+              style={{fontSize:13,padding:'10px 20px',width:'100%',marginTop:12}}
+              onClick={handleFinalize}
+              disabled={settling}
+            >
+              {settling ? 'Finalizing…' : 'Finalize Settlement'}
+            </button>
+          )}
         </div>
       );
     }
@@ -12137,6 +13495,7 @@
       const [sending, setSending] = useState(false);
       const [showAddMember, setShowAddMember] = useState(false);
       const [pendingInvites, setPendingInvites] = useState([]);
+      const [leaderboardData, setLeaderboardData] = useState([]);
       const feedEndRef = React.useRef(null);
 
       const groupId = group?.id;
@@ -12160,6 +13519,13 @@
       useEffect(() => {
         if (segment === 'schedule' && groupId) {
           fetchGroupSchedule(groupId);
+        }
+      }, [segment, groupId]);
+
+      // Fetch leaderboard when switching to leaderboard tab
+      useEffect(() => {
+        if (segment === 'leaderboard' && groupId && group.leaderboard_enabled) {
+          fetchLeaderboard();
         }
       }, [segment, groupId]);
 
@@ -12195,6 +13561,26 @@
             const data = await res.json();
             setPendingInvites(Array.isArray(data) ? data : []);
           }
+        } catch {}
+      };
+
+      const fetchLeaderboard = async () => {
+        try {
+          const res = await fetch(`${API_URL}/groups/${groupId}/leaderboard`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) setLeaderboardData(await res.json());
+        } catch {}
+      };
+
+      const toggleLeaderboard = async (enabled) => {
+        try {
+          const res = await fetch(`${API_URL}/groups/${groupId}/leaderboard`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled })
+          });
+          if (res.ok) fetchMyGroups();
         } catch {}
       };
 
@@ -12297,13 +13683,18 @@
 
           {/* Segment tabs */}
           <div className="group-segments">
-            {['feed', 'schedule', 'members'].map(s => (
+            {(() => {
+              const segs = ['feed', 'schedule'];
+              if (group.leaderboard_enabled) segs.push('leaderboard');
+              segs.push('members');
+              return segs;
+            })().map(s => (
               <button
                 key={s}
                 className={`group-segment-btn${segment === s ? ' active' : ''}`}
                 onClick={() => setSegment(s)}
               >
-                {s === 'feed' ? 'Live Feed' : s === 'schedule' ? 'Schedule' : 'Members'}
+                {s === 'feed' ? 'Live Feed' : s === 'schedule' ? 'Schedule' : s === 'leaderboard' ? 'Leaderboard' : 'Members'}
               </button>
             ))}
           </div>
@@ -12382,6 +13773,46 @@
             </div>
           )}
 
+          {/* Leaderboard tab */}
+          {segment === 'leaderboard' && (
+            <div className="group-leaderboard">
+              {leaderboardData.length === 0 ? (
+                <div style={{textAlign:'center',color:'var(--text-secondary)',padding:'40px 20px',fontSize:13}}>
+                  No results tracked yet. Members' tournament results will appear here.
+                </div>
+              ) : (() => {
+                const maxWon = Math.max(...leaderboardData.map(m => m.total_won), 1);
+                return leaderboardData.map((m, i) => (
+                  <div key={m.id} className="leaderboard-card">
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div className="leaderboard-rank">
+                        {i === 0 ? '🏆' : `#${i + 1}`}
+                      </div>
+                      <Avatar src={m.avatar} username={m.username} size={32} />
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:600,fontSize:14}}>{m.username}</div>
+                        <div className="leaderboard-stats">
+                          <span className={m.net_pl >= 0 ? 'leaderboard-net-pos' : 'leaderboard-net-neg'}>
+                            {m.net_pl >= 0 ? '+' : ''}{formatBuyin(m.net_pl)} net
+                          </span>
+                          {' · '}{m.cashes} cash{m.cashes !== 1 ? 'es' : ''}
+                          {' · '}{m.final_tables} FT{m.final_tables !== 1 ? 's' : ''}
+                          {' · '}{m.wins}W
+                        </div>
+                        <div className="leaderboard-bar-wrap">
+                          <div className="leaderboard-bar" style={{width: `${Math.max((m.total_won / maxWon) * 100, 2)}%`}} />
+                        </div>
+                        <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
+                          {formatBuyin(m.total_won)} won · {m.events_played} event{m.events_played !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+
           {/* Members tab */}
           {segment === 'members' && (
             <div className="group-members-list">
@@ -12433,6 +13864,26 @@
                       <span style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic'}}>Pending</span>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Owner settings */}
+              {isOwner && (
+                <div className="leaderboard-toggle-section">
+                  <div style={{fontSize:11,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontFamily:'Oswald, sans-serif',marginBottom:8}}>
+                    Owner Settings
+                  </div>
+                  <div className="leaderboard-toggle-row">
+                    <span style={{fontSize:13}}>Enable Leaderboard</span>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={!!group.leaderboard_enabled}
+                        onChange={e => toggleLeaderboard(e.target.checked)}
+                      />
+                      <span className="toggle-slider" />
+                    </label>
+                  </div>
                 </div>
               )}
 
@@ -14590,7 +16041,7 @@
               />
             )}
 
-            {currentView === 'staking' && <StakingView />}
+            {currentView === 'staking' && <StakingView token={token} tournaments={tournaments} mySchedule={mySchedule} />}
             {currentView === 'social' && (
               <SocialView
                 shareBuddies={shareBuddies}
@@ -14619,6 +16070,18 @@
           <BottomNav
             current={['tracking', 'calendar', 'settings', 'schedule'].includes(currentView) ? 'more' : currentView}
             onChange={v => {
+              if (v === currentView && v === 'tournaments') {
+                // Re-tap Schedule tab: scroll to today's events
+                const todayEl = document.querySelector('[data-today-scroll]');
+                const container = document.querySelector('.content-area');
+                if (todayEl && container) {
+                  const sticky = container.querySelector('.sticky-filters');
+                  const stickyH = sticky ? sticky.offsetHeight : 0;
+                  const elTop = todayEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+                  container.scrollTo({ top: Math.max(0, elTop - stickyH - 8), behavior: 'smooth' });
+                }
+                return;
+              }
               setCurrentView(v);
               const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
             }}
