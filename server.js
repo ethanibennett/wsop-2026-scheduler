@@ -1274,6 +1274,71 @@ function authenticateToken(req, res, next) {
   });
 }
 
+// ── SSE: real-time buddy updates ─────────────────────────────
+// Map<userId: number, Set<http.ServerResponse>>
+const sseClients = new Map();
+
+function getBuddyIds(userId) {
+  const stmt = db.prepare(`
+    SELECT CASE WHEN sr.from_user_id = ? THEN sr.to_user_id ELSE sr.from_user_id END AS buddy_id
+    FROM share_requests sr
+    WHERE sr.status = 'accepted'
+      AND (sr.from_user_id = ? OR sr.to_user_id = ?)
+  `);
+  stmt.bind([userId, userId, userId]);
+  const ids = [];
+  while (stmt.step()) ids.push(stmt.getAsObject().buddy_id);
+  stmt.free();
+  return ids;
+}
+
+function broadcastToBuddies(userId, eventType, payload) {
+  const buddyIds = getBuddyIds(userId);
+  const message = `event: ${eventType}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const buddyId of buddyIds) {
+    const clients = sseClients.get(buddyId);
+    if (clients) {
+      for (const res of clients) {
+        res.write(message);
+      }
+    }
+  }
+}
+
+app.get('/api/events', (req, res) => {
+  const token = req.query.token;
+  if (!token) return res.status(401).json({ error: 'Token required' });
+
+  let user;
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders();
+
+  if (!sseClients.has(user.id)) sseClients.set(user.id, new Set());
+  sseClients.get(user.id).add(res);
+
+  const heartbeat = setInterval(() => res.write(':heartbeat\n\n'), 30000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    const set = sseClients.get(user.id);
+    if (set) {
+      set.delete(res);
+      if (set.size === 0) sseClients.delete(user.id);
+    }
+  });
+});
+
 // API Routes
 
 // User registration
@@ -1484,9 +1549,12 @@ app.post('/api/schedule', authenticateToken, async (req, res) => {
       'INSERT OR IGNORE INTO user_schedules (user_id, tournament_id) VALUES (?, ?)',
       [req.user.id, tournamentId]
     );
-    
+
     await saveDatabase();
-    
+    broadcastToBuddies(req.user.id, 'buddy-schedule-change', {
+      buddyId: req.user.id, username: req.user.username, action: 'added', tournamentId
+    });
+
     res.json({ message: 'Tournament added to schedule' });
   } catch (error) {
     console.error(error);
@@ -1509,6 +1577,9 @@ app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) =>
     );
 
     await saveDatabase();
+    broadcastToBuddies(req.user.id, 'buddy-schedule-change', {
+      buddyId: req.user.id, username: req.user.username, action: 'removed', tournamentId: Number(tournamentId)
+    });
 
     res.json({ message: 'Tournament removed from schedule' });
   } catch (error) {
@@ -1976,6 +2047,14 @@ app.put('/api/share-request/:id/accept', authenticateToken, async (req, res) => 
 
     db.run("UPDATE share_requests SET status = 'accepted', responded_at = CURRENT_TIMESTAMP WHERE id = ?", [row.id]);
     await saveDatabase();
+
+    // SSE: notify the sender that their request was accepted
+    const senderClients = sseClients.get(row.from_user_id);
+    if (senderClients) {
+      const msg = `event: buddy-request\ndata: ${JSON.stringify({ action: 'accepted', byUserId: req.user.id })}\n\n`;
+      for (const client of senderClients) client.write(msg);
+    }
+
     res.json({ message: 'Request accepted' });
   } catch (error) {
     console.error(error);
@@ -2279,6 +2358,7 @@ app.post('/api/tracking', authenticateToken, async (req, res) => {
         [numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null, existing.id, req.user.id]
       );
       await saveDatabase();
+      broadcastToBuddies(req.user.id, 'buddy-tracking', { buddyId: req.user.id, username: req.user.username, tournamentId });
       res.json({ message: 'Entry updated' });
     } else {
       db.run(
@@ -2286,6 +2366,7 @@ app.post('/api/tracking', authenticateToken, async (req, res) => {
         [req.user.id, tournamentId, numEntries || 1, cashed ? 1 : 0, finishPlace || null, cashAmount || 0, notes || null]
       );
       await saveDatabase();
+      broadcastToBuddies(req.user.id, 'buddy-tracking', { buddyId: req.user.id, username: req.user.username, tournamentId });
       res.status(201).json({ message: 'Entry tracked' });
     }
   } catch (error) {
@@ -2373,6 +2454,39 @@ app.post('/api/live-update', authenticateToken, async (req, res) => {
        playStartedAt || null]
     );
     await saveDatabase();
+
+    // SSE: broadcast to buddies
+    const tStmt = db.prepare('SELECT event_name, venue FROM tournaments WHERE id = ?');
+    tStmt.bind([tournamentId]);
+    const tInfo = tStmt.step() ? tStmt.getAsObject() : {};
+    tStmt.free();
+    broadcastToBuddies(req.user.id, 'buddy-live-update', {
+      buddyId: req.user.id,
+      username: req.user.username,
+      tournamentId,
+      eventName: tInfo.event_name || null,
+      venue: tInfo.venue || null,
+      stack: Math.round(Number(stack)) || 0,
+      sb: sb ? Math.round(Number(sb)) : null,
+      bb: bb ? Math.round(Number(bb)) : null,
+      bbAnte: bbAnte ? Math.round(Number(bbAnte)) : null,
+      isItm: !!isItm, isRegClosed: !!isRegClosed,
+      bubble: isRegClosed && !isItm && bubble ? Math.round(Number(bubble)) : null,
+      lockedAmount: isItm && lockedAmount ? Math.round(Number(lockedAmount)) : null,
+      isFinalTable: !!isFinalTable,
+      placesLeft: isFinalTable && placesLeft ? Math.round(Number(placesLeft)) : null,
+      firstPlacePrize: isFinalTable && firstPlacePrize ? Math.round(Number(firstPlacePrize)) : null,
+      isDeal: !!isDeal,
+      dealPlace: isDeal && dealPlace ? Math.round(Number(dealPlace)) : null,
+      dealPayout: isDeal && dealPayout ? Math.round(Number(dealPayout)) : null,
+      isBusted: !!isBusted,
+      totalEntries: totalEntries ? Math.round(Number(totalEntries)) : null,
+      isBagged: !!isBagged,
+      bagDay: isBagged && bagDay ? Math.round(Number(bagDay)) : null,
+      playStartedAt: playStartedAt || null,
+      updatedAt: new Date().toISOString()
+    });
+
     res.status(201).json({ message: 'Update posted' });
   } catch (error) {
     console.error(error);
@@ -2440,6 +2554,9 @@ app.delete('/api/live-update/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     db.run('DELETE FROM live_updates WHERE id = ? AND user_id = ?', [id, req.user.id]);
     await saveDatabase();
+    broadcastToBuddies(req.user.id, 'buddy-live-update', {
+      buddyId: req.user.id, username: req.user.username, cleared: true
+    });
     res.json({ message: 'Update removed' });
   } catch (error) {
     console.error(error);
@@ -4203,7 +4320,18 @@ app.get('/shared/:token', serveIndex);
 
 // Start server
 initDatabase().then(() => {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+
+  const shutdown = () => {
+    console.log('Shutting down...');
+    for (const [, clients] of sseClients) {
+      for (const res of clients) res.end();
+    }
+    sseClients.clear();
+    server.close(() => process.exit(0));
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 });

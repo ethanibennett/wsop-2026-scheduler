@@ -2038,6 +2038,14 @@
       display: flex;
       flex-direction: column;
       gap: 20px;
+      min-height: 100%;
+    }
+
+    .dash-bottom-stack {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
     .dashboard-section {
@@ -2586,6 +2594,107 @@
     .dash-friend-detail-stack {
       font-size: 0.72rem;
       color: var(--text-muted);
+    }
+
+    /* ── Social View ── */
+    .social-view {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .social-buddy-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-align: left;
+      color: var(--text);
+      font-family: inherit;
+      width: 100%;
+    }
+    .social-buddy-card:hover { background: var(--hover-overlay); }
+    .social-buddy-card.live { border-color: var(--accent); }
+
+    .social-buddy-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .social-buddy-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .social-buddy-name {
+      font-family: 'Oswald', sans-serif;
+      font-weight: 600;
+      font-size: 0.88rem;
+    }
+
+    .social-buddy-status {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .social-buddy-status.live {
+      color: #22c55e;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .social-buddy-status.busted { color: #ef4444; }
+
+    .social-live-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+      flex-shrink: 0;
+      animation: livePulse 2s ease-in-out infinite;
+    }
+
+    @keyframes livePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .social-buddy-detail {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .social-detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+    }
+
+    .social-detail-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      font-size: 0.65rem;
+    }
+
+    .social-detail-value {
+      color: var(--text);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
     }
 
     /* Quick Actions */
@@ -10624,7 +10733,7 @@
           !isExpanded ? 'collapsed' : '',
           isBustedDone ? 'done' : '',
           event._type === 'bagged' ? 'bagged' : '',
-          event._type === 'anchor' ? 'anchor' : '',
+          event._type === 'anchor' && !isConditionalOnPlaying ? 'anchor' : '',
           (event._type === 'conditional' || isConditionalOnPlaying) ? 'conditional' : '',
           isCurrentlyPlaying ? 'playing' : '',
           regClosed && event._type !== 'bagged' ? 'reg-closed' : '',
@@ -10953,8 +11062,9 @@
             )}
           </div>
 
+          <div className="dash-bottom-stack">
           {/* ── Buyins / Cashes ── */}
-          <div className="dashboard-section" style={{marginTop:'20px'}}>
+          <div className="dashboard-section">
             <div className="dashboard-section-header">
               <div className="dashboard-section-title">Buyins / Cashes</div>
               {plData.count > 0 && (
@@ -11094,6 +11204,7 @@
               </div>
             )}
           </div>
+          </div>
         </div>
       );
     }
@@ -11110,12 +11221,101 @@
     }
 
     // ── Placeholder: Social View ─────────────────────────────────
-    function SocialView() {
+    function SocialView({ shareBuddies, buddyLiveUpdates, onNavigate }) {
+      const [expandedId, setExpandedId] = useState(null);
+
+      if (!shareBuddies || shareBuddies.length === 0) {
+        return (
+          <div className="placeholder-view">
+            <Icon.people />
+            <h2>Social</h2>
+            <p>
+              No connections yet.{' '}
+              <button onClick={() => onNavigate('settings')} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline',padding:0}}>
+                Add friends
+              </button>{' '}
+              to see their live updates here.
+            </p>
+          </div>
+        );
+      }
+
       return (
-        <div className="placeholder-view">
-          <Icon.people />
-          <h2>Social</h2>
-          <p>See what your friends are playing, share updates, and follow the action. Coming soon.</p>
+        <div className="social-view">
+          <div className="dashboard-section-header" style={{marginBottom:'8px'}}>
+            <div className="dashboard-section-title">Connections</div>
+            <span className="dashboard-section-badge">{shareBuddies.length} friend{shareBuddies.length !== 1 ? 's' : ''}</span>
+          </div>
+          {shareBuddies.map(buddy => {
+            const lu = buddyLiveUpdates?.[buddy.id];
+            const isLive = lu && !lu.isBusted;
+            const isExpanded = expandedId === buddy.id;
+            return (
+              <button
+                key={buddy.id}
+                className={`social-buddy-card${isLive ? ' live' : ''}`}
+                onClick={() => setExpandedId(isExpanded ? null : buddy.id)}
+              >
+                <div className="social-buddy-row">
+                  <Avatar src={buddy.avatar} username={buddy.username} size={36} />
+                  <div className="social-buddy-info">
+                    <div className="social-buddy-name">{buddy.username}</div>
+                    {isLive ? (
+                      <div className="social-buddy-status live">
+                        <span className="social-live-dot" />
+                        {getVenueInfo(lu.venue).abbr} | {lu.eventName}
+                      </div>
+                    ) : lu?.isBusted ? (
+                      <div className="social-buddy-status busted">Busted</div>
+                    ) : (
+                      <div className="social-buddy-status idle">Offline</div>
+                    )}
+                  </div>
+                </div>
+                {isExpanded && isLive && (
+                  <div className="social-buddy-detail">
+                    <div className="social-detail-row">
+                      <span className="social-detail-label">Stack</span>
+                      <span className="social-detail-value">{lu.stack ? Number(lu.stack).toLocaleString() : '—'}</span>
+                    </div>
+                    {lu.bb && (
+                      <div className="social-detail-row">
+                        <span className="social-detail-label">Blinds</span>
+                        <span className="social-detail-value">
+                          {lu.sb ? Number(lu.sb).toLocaleString() : '?'}/{Number(lu.bb).toLocaleString()}
+                          {(lu.bbAnte || lu.bb_ante) ? '/' + Number(lu.bbAnte || lu.bb_ante).toLocaleString() : ''}
+                        </span>
+                      </div>
+                    )}
+                    {lu.bb && lu.stack && (
+                      <div className="social-detail-row">
+                        <span className="social-detail-label">BB</span>
+                        <span className="social-detail-value">{(Number(lu.stack) / Number(lu.bb)).toFixed(1).replace(/\.0$/, '')}bb</span>
+                      </div>
+                    )}
+                    {(lu.isItm || lu.is_itm) && (
+                      <div className="social-detail-row">
+                        <span className="social-detail-label">Status</span>
+                        <span className="social-detail-value" style={{color:'#22c55e'}}>In the Money</span>
+                      </div>
+                    )}
+                    {(lu.isFinalTable || lu.is_final_table) && (
+                      <div className="social-detail-row">
+                        <span className="social-detail-label">Final Table</span>
+                        <span className="social-detail-value" style={{color:'#f59e0b'}}>
+                          {(lu.placesLeft || lu.places_left) ? (lu.placesLeft || lu.places_left) + ' left' : 'Yes'}
+                        </span>
+                      </div>
+                    )}
+                    <div className="social-detail-row">
+                      <span className="social-detail-label">Venue</span>
+                      <span className="social-detail-value">{lu.venue || '—'}</span>
+                    </div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
       );
     }
@@ -12482,6 +12682,45 @@
         }
       }, [token]);
 
+      // ── SSE: real-time buddy updates ──
+      useEffect(() => {
+        if (!token) return;
+        const es = new EventSource(`${API_URL}/events?token=${token}`);
+
+        es.addEventListener('buddy-live-update', (e) => {
+          try {
+            const d = JSON.parse(e.data);
+            if (d.cleared) {
+              setBuddyLiveUpdates(prev => {
+                const next = { ...prev };
+                delete next[d.buddyId];
+                return next;
+              });
+            } else {
+              setBuddyLiveUpdates(prev => ({ ...prev, [d.buddyId]: {
+                tournamentId: d.tournamentId, eventName: d.eventName, venue: d.venue,
+                stack: d.stack, sb: d.sb, bb: d.bb, bbAnte: d.bbAnte,
+                isItm: d.isItm, isRegClosed: d.isRegClosed, bubble: d.bubble,
+                lockedAmount: d.lockedAmount, isFinalTable: d.isFinalTable,
+                placesLeft: d.placesLeft, firstPlacePrize: d.firstPlacePrize,
+                isDeal: d.isDeal, dealPlace: d.dealPlace, dealPayout: d.dealPayout,
+                isBusted: d.isBusted, totalEntries: d.totalEntries,
+                isBagged: d.isBagged, bagDay: d.bagDay,
+                playStartedAt: d.playStartedAt, updatedAt: d.updatedAt
+              }}));
+            }
+          } catch (err) { console.error('SSE buddy-live-update error:', err); }
+        });
+
+        es.addEventListener('buddy-schedule-change', () => fetchShareBuddies());
+        es.addEventListener('buddy-request', () => fetchShareBuddies());
+        es.addEventListener('buddy-tracking', () => {}); // future use
+
+        es.onerror = () => console.warn('SSE connection error, will auto-reconnect');
+
+        return () => es.close();
+      }, [token]);
+
       // Auto-logout on 401/403 (expired/invalid token)
       const guardedFetch = async (url, opts) => {
         const res = await fetch(url, opts);
@@ -12545,7 +12784,8 @@
           const res = await fetch(`${API_URL}/tracking`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          setTrackingData(await res.json());
+          const data = await res.json();
+          setTrackingData(Array.isArray(data) ? data : []);
         } catch { setError('Failed to load tracking data'); }
       };
 
@@ -13076,7 +13316,13 @@
             )}
 
             {currentView === 'staking' && <StakingView />}
-            {currentView === 'social' && <SocialView />}
+            {currentView === 'social' && (
+              <SocialView
+                shareBuddies={shareBuddies}
+                buddyLiveUpdates={buddyLiveUpdates}
+                onNavigate={(v) => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }}
+              />
+            )}
 
             {currentView === 'more' && (
               <MoreView onNavigate={(v) => {
