@@ -2085,12 +2085,42 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px 16px;
+      padding: 24px 16px 14px;
       display: flex;
       flex-direction: column;
       gap: 10px;
       transition: background 0.15s;
       position: relative;
+      overflow: hidden;
+    }
+
+    .dash-venue-strip {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.45rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      user-select: none;
+      overflow: hidden;
+    }
+
+    .dash-event-card.playing .dash-venue-strip,
+    .dash-event-card.next-up .dash-venue-strip {
+      height: 22px;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+    }
+
+    .dash-event-card.playing,
+    .dash-event-card.next-up {
+      padding-top: 30px;
     }
 
     .dash-event-card:hover {
@@ -2098,13 +2128,110 @@
     }
 
     .dash-event-card.collapsed {
-      padding: 10px 14px;
-      gap: 6px;
-      opacity: 0.85;
+      padding: 20px 0 0; gap: 0; opacity: 0.85;
+      border: 1px dashed var(--border);
+      border-top: none;
+      border-radius: var(--radius);
+      background: none;
+      overflow: visible;
+      position: relative;
+    }
+
+    .dash-event-card.collapsed .dash-venue-strip {
+      top: -1px; left: -1px; right: -1px;
+      border-radius: var(--radius) var(--radius) 0 0;
     }
 
     .dash-event-card.collapsed .dash-event-meta {
       display: none;
+    }
+
+    .dash-collapsed-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      min-height: 36px;
+    }
+    .dash-collapsed-strip {
+      width: 3px;
+      height: 20px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .dash-collapsed-time {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      min-width: 52px;
+      flex-shrink: 0;
+    }
+    .dash-collapsed-name {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .dash-collapsed-buyin {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .dash-collapsed-tag {
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .dash-collapsed-countdown {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      min-width: 42px;
+      text-align: right;
+    }
+    .dash-collapsed-countdown.soon {
+      color: var(--accent);
+    }
+    .dash-collapsed-countdown.live {
+      color: #22c55e;
+      font-weight: 700;
+    }
+
+    .dash-up-next-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .dash-stack-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.82rem;
+      color: var(--text);
+      padding: 4px 0;
+    }
+    .dash-stack-display .dash-stack-value {
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .dash-stack-display .dash-stack-bb {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
     }
 
     .dash-event-card.bagged {
@@ -2115,7 +2242,8 @@
       border-left: 3px solid var(--text) !important;
     }
 
-    .dash-event-card.playing {
+    .dash-event-card.playing,
+    .dash-event-card.next-up {
       border-width: 2px;
     }
 
@@ -2418,9 +2546,10 @@
       border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
       border-radius: 50%;
       color: var(--accent);
-      width: 22px;
-      height: 22px;
-      font-size: 0.7rem;
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      font-size: 0.75rem;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2428,8 +2557,11 @@
       padding: 0;
       opacity: 0.7;
       transition: opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
     .dash-undo-x:hover { opacity: 1; }
+    .dash-undo-x:active { opacity: 1; transform: scale(0.9); }
     .dash-undo-x.muted {
       border-color: color-mix(in srgb, var(--text-muted) 40%, transparent);
       color: var(--text-muted);
@@ -2441,9 +2573,10 @@
       border: 1px solid color-mix(in srgb, #22c55e 40%, transparent);
       border-radius: 50%;
       color: #22c55e;
-      width: 22px;
-      height: 22px;
-      font-size: 0.7rem;
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      font-size: 0.75rem;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2451,8 +2584,11 @@
       padding: 0;
       opacity: 0.7;
       transition: opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
     .dash-unbag-x:hover { opacity: 1; }
+    .dash-unbag-x:active { opacity: 1; transform: scale(0.9); }
 
     /* P&L Widget */
     .dash-pl-grid {
@@ -4312,17 +4448,18 @@
 
     // ── Mini Late Reg Bar (collapsed calendar row) ────────────
 
-    function MiniLateRegBar({ lateRegEnd, date, time, venueAbbr }) {
+    function MiniLateRegBar({ lateRegEnd, date, time, venueAbbr, openOnly }) {
       const [now, setNow] = React.useState(getNow());
       useEffect(() => {
         const id = setInterval(() => setNow(getNow()), 30000);
         return () => clearInterval(id);
       }, []);
 
-      // Before start — show countdown to start
+      // Before start — show countdown to start (hidden in openOnly mode)
       if (date) {
         const startMs = new Date(`${date} ${time || '12:00 AM'}`).getTime();
         if (now < startMs) {
+          if (openOnly) return null;
           const totalSec = Math.floor((startMs - now) / 1000);
           const d = Math.floor(totalSec / 86400);
           const h = Math.floor((totalSec % 86400) / 3600);
@@ -4348,6 +4485,7 @@
       const endClock = new Date(endMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
       if (diffMs <= 0) {
+        if (openOnly) return null;
         return (
           <div className="mini-late-reg">
             <span className="mini-late-reg-time" style={{opacity:0.4}}>late reg closed</span>
@@ -9012,7 +9150,7 @@
                 </>
               )}
             </div>
-            {showMiniLateReg && !open && <MiniLateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />}
+            {showMiniLateReg && !open && <MiniLateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} openOnly />}
             <div className={`cal-event-chevron ${open ? 'open' : ''}`} onClick={() => setOpen(o => !o)}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="6 9 12 15 18 9"/>
@@ -9506,8 +9644,8 @@
         return () => document.removeEventListener('mousedown', handler);
       }, [open]);
 
-      const hasActive = filters.minBuyin || filters.maxBuyin || filters.maxRake ||
-        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || (filters.hiddenMonths && filters.hiddenMonths.length > 0);
+      const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRange || filters.maxRake ||
+        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || (filters.hiddenMonths && filters.hiddenMonths.length > 0) || filters.hideWomens || filters.hideSeniors || filters.dateFrom || filters.dateTo;
 
       return (
         <div>
@@ -9546,7 +9684,16 @@
                 >✕</span>
               </span>
             )}
-            {(filters.minBuyin || filters.maxBuyin) && (
+            {filters.buyinRange && (
+              <span className="filter-chip active">
+                {filters.buyinRange === '10000+' ? '$10K+' : `≤ $${({'0-500':'500','0-1000':'1K','0-3000':'3K','0-10000':'10K'})[filters.buyinRange]}`}
+                <span
+                  style={{marginLeft:'4px',cursor:'pointer'}}
+                  onClick={() => setFilters(f => ({...f, buyinRange:''}))}
+                >✕</span>
+              </span>
+            )}
+            {!filters.buyinRange && (filters.minBuyin || filters.maxBuyin) && (
               <span className="filter-chip active">
                 Buy-in{filters.minBuyin ? ` ≥ $${Number(filters.minBuyin).toLocaleString()}` : ''}
                 {filters.maxBuyin ? ` ≤ $${Number(filters.maxBuyin).toLocaleString()}` : ''}
@@ -9590,6 +9737,24 @@
                   style={{marginLeft:'4px',cursor:'pointer'}}
                   onClick={() => setFilters(f => ({...f, hiddenVenues:[]}))}
                 >✕</span>
+              </span>
+            )}
+            {filters.hideWomens && (
+              <span className="filter-chip active">
+                No Women's
+                <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, hideWomens:false}))}>✕</span>
+              </span>
+            )}
+            {filters.hideSeniors && (
+              <span className="filter-chip active">
+                No Seniors
+                <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, hideSeniors:false}))}>✕</span>
+              </span>
+            )}
+            {(filters.dateFrom || filters.dateTo) && (
+              <span className="filter-chip active">
+                {filters.dateFrom && filters.dateTo ? `${filters.dateFrom} — ${filters.dateTo}` : filters.dateFrom ? `From ${filters.dateFrom}` : `Until ${filters.dateTo}`}
+                <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, dateFrom:'', dateTo:''}))}>✕</span>
               </span>
             )}
           </div>
@@ -9642,6 +9807,25 @@
                       </label>
                     );
                   })}
+                  <div style={{borderTop:'1px solid var(--border)',margin:'8px 0 2px',paddingTop:'8px'}}>
+                    <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Date Range</label>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',paddingLeft:'21px'}}>
+                      <div>
+                        <label style={{fontSize:'0.7rem',color:'var(--text-muted)',marginBottom:'2px',display:'block'}}>From</label>
+                        <input type="date" value={filters.dateFrom}
+                          onChange={e => setFilters(f => ({...f, dateFrom: e.target.value}))}
+                          style={{width:'100%',fontSize:'0.8rem'}}
+                        />
+                      </div>
+                      <div>
+                        <label style={{fontSize:'0.7rem',color:'var(--text-muted)',marginBottom:'2px',display:'block'}}>To</label>
+                        <input type="date" value={filters.dateTo}
+                          onChange={e => setFilters(f => ({...f, dateTo: e.target.value}))}
+                          style={{width:'100%',fontSize:'0.8rem'}}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>)}
               </div>
               <div className="filter-group filter-span2">
@@ -9681,41 +9865,20 @@
                   <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: howMuchOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
                 </label>
                 {howMuchOpen && (<div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
-                    <div>
-                      <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'4px',display:'block'}}>Min Buy-in ($)</label>
-                      <select value={filters.minBuyin}
-                        onChange={e => setFilters(f => {
-                          const min = e.target.value;
-                          const max = f.maxBuyin && Number(min) > Number(f.maxBuyin) ? min : f.maxBuyin;
-                          return {...f, minBuyin: min, maxBuyin: max};
-                        })}>
-                        <option value="">Any</option>
-                        {(buyinOptions || []).map(b => (
-                          <option key={b} value={b}>${Number(b).toLocaleString()}</option>
-                        ))}
-                      </select>
-                      <input type="number" value={filters.minBuyin}
-                        onChange={e => setFilters(f => {
-                          const min = e.target.value;
-                          const max = f.maxBuyin && min && Number(min) > Number(f.maxBuyin) ? min : f.maxBuyin;
-                          return {...f, minBuyin: min, maxBuyin: max};
-                        })}
-                        placeholder="Custom" min="0" style={{marginTop:'4px'}} />
-                    </div>
-                    <div>
-                      <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'4px',display:'block'}}>Max Buy-in ($)</label>
-                      <select value={filters.maxBuyin}
-                        onChange={e => setFilters(f => ({...f, maxBuyin: e.target.value}))}>
-                        <option value="">Any</option>
-                        {(buyinOptions || []).filter(b => !filters.minBuyin || Number(b) >= Number(filters.minBuyin)).map(b => (
-                          <option key={b} value={b}>${Number(b).toLocaleString()}</option>
-                        ))}
-                      </select>
-                      <input type="number" value={filters.maxBuyin}
-                        onChange={e => setFilters(f => ({...f, maxBuyin: e.target.value}))}
-                        placeholder="Custom" min="0" style={{marginTop:'4px'}} />
-                    </div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+                    {[
+                      { key: '', label: 'Any' },
+                      { key: '0-500', label: '≤ $500' },
+                      { key: '0-1000', label: '≤ $1K' },
+                      { key: '0-3000', label: '≤ $3K' },
+                      { key: '0-10000', label: '≤ $10K' },
+                      { key: '10000+', label: '$10K+' },
+                    ].map(opt => (
+                      <button key={opt.key} className={'filter-chip' + (filters.buyinRange === opt.key ? ' active' : '')}
+                        onClick={() => setFilters(f => ({...f, buyinRange: opt.key, minBuyin: '', maxBuyin: ''}))}
+                        style={{cursor:'pointer',border: filters.buyinRange === opt.key ? '1px solid var(--accent)' : '1px solid var(--border)',background: filters.buyinRange === opt.key ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--surface)'}}
+                      >{opt.label}</button>
+                    ))}
                   </div>
                   <div>
                     <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'4px',display:'block'}}>Max Rake (%)</label>
@@ -9800,13 +9963,28 @@
                         style={{marginTop:'1px'}}
                       /> Bounty only
                     </label>
+                    <div style={{borderTop:'1px solid var(--border)',margin:'6px 0 2px',paddingTop:'8px'}}>
+                      <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Hide Events</label>
+                      <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)',paddingLeft:'21px',marginBottom:'4px'}}>
+                        <input type="checkbox" checked={filters.hideWomens}
+                          onChange={e => setFilters(f => ({...f, hideWomens:e.target.checked}))}
+                          style={{marginTop:'1px'}}
+                        /> Women's / Ladies events
+                      </label>
+                      <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)',paddingLeft:'21px'}}>
+                        <input type="checkbox" checked={filters.hideSeniors}
+                          onChange={e => setFilters(f => ({...f, hideSeniors:e.target.checked}))}
+                          style={{marginTop:'1px'}}
+                        /> Seniors events
+                      </label>
+                    </div>
                   </div>);
                 })()}
               </div>
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',maxRake:'',selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[]})
+                    setFilters({minBuyin:'',maxBuyin:'',buyinRange:'',maxRake:'',selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],hideWomens:false,hideSeniors:false,dateFrom:'',dateTo:''})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -9822,7 +10000,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', maxRake: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: []
+        minBuyin: '', maxBuyin: '', buyinRange: '', maxRake: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], hideWomens: false, hideSeniors: false, dateFrom: '', dateTo: ''
       });
       const [focusEventId, setFocusEventId] = useState(null);
       const todayScrollRef = useRef(null);
@@ -9858,8 +10036,17 @@
                   !String(t.event_number).includes(q) &&
                   !t.game_variant?.toLowerCase().includes(q)) return false;
             }
-            if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
-            if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
+            if (filters.buyinRange) {
+              const b = Number(t.buyin) || 0;
+              if (filters.buyinRange === '0-500' && b > 500) return false;
+              if (filters.buyinRange === '0-1000' && b > 1000) return false;
+              if (filters.buyinRange === '0-3000' && b > 3000) return false;
+              if (filters.buyinRange === '0-10000' && b > 10000) return false;
+              if (filters.buyinRange === '10000+' && b <= 10000) return false;
+            } else {
+              if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
+              if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
+            }
             if (filters.maxRake && t.rake_pct != null && t.rake_pct > Number(filters.maxRake)) return false;
             if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
             if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
@@ -9867,10 +10054,14 @@
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
             if (filters.hideSideEvents && t.is_deepstack) return false;
+            if (filters.hideWomens && /women|ladies/i.test(t.event_name)) return false;
+            if (filters.hideSeniors && /senior/i.test(t.event_name)) return false;
             if (filters.hiddenMonths && filters.hiddenMonths.length > 0) {
               const m = new Date(t.date).getMonth();
               if (filters.hiddenMonths.includes(m)) return false;
             }
+            if (filters.dateFrom && t.date < filters.dateFrom) return false;
+            if (filters.dateTo && t.date > filters.dateTo) return false;
             return true;
           })
           .sort((a, b) => {
@@ -9985,6 +10176,7 @@
                           isInSchedule={scheduleIds.has(t.id)}
                           onToggle={onToggle}
                           isPast={past}
+                          showMiniLateReg={!past}
                           focusEventId={focusEventId}
                           onNavigateToEvent={(num, sat) => {
                             const targetId = findBestFlight(num, sat);
@@ -10446,7 +10638,7 @@
           tournament={t}
           isInSchedule={scheduleIds.has(t.id)}
           onToggle={onToggle}
-          showMiniLateReg={isToday}
+          showMiniLateReg={selectedDate >= today}
           focusEventId={focusEventId}
           onNavigateToEvent={(num, sat) => {
             const flights = allTournaments.filter(f => f.event_number === num);
@@ -11590,6 +11782,35 @@
       );
     }
 
+    // ── CountdownClock (lightweight per-event ticking countdown) ──
+    function CountdownClock({ startMs }) {
+      const [now, setNow] = React.useState(Date.now());
+      useEffect(() => {
+        const diff = startMs - Date.now();
+        const interval = diff < 3600000 ? 1000 : 30000;
+        const id = setInterval(() => setNow(Date.now()), interval);
+        return () => clearInterval(id);
+      }, [startMs]);
+
+      const diff = startMs - now;
+      if (diff <= 0) return React.createElement('span', { className: 'dash-collapsed-countdown live' }, 'LIVE');
+
+      const totalSec = Math.floor(diff / 1000);
+      const d = Math.floor(totalSec / 86400);
+      const h = Math.floor((totalSec % 86400) / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+
+      let label;
+      if (d > 0) label = `${d}d ${h}h`;
+      else if (h > 0) label = `${h}h ${m}m`;
+      else if (m > 0) label = `${m}m ${s}s`;
+      else label = `${s}s`;
+
+      const cls = 'dash-collapsed-countdown' + (h === 0 && d === 0 ? ' soon' : '');
+      return React.createElement('span', { className: cls }, label);
+    }
+
     // ── Dashboard View ──────────────────────────────────────────
 
     function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, onPost, onDeleteUpdate, onAddTracking, onNavigate, tournaments, onToggle }) {
@@ -11727,22 +11948,51 @@
         const blindInfo = started ? estimateBlindLevel(startMs, levelDuration) : null;
         const startingChips = event.starting_chips || 20000; // GUESS: default starting stack
 
-        const bbCount = blindInfo ? Math.floor(startingChips / blindInfo.bb) : null;
+        const currentStack = (activeEventMap[event.id]?.stack) ? Number(activeEventMap[event.id].stack) : startingChips;
+        const bbCount = blindInfo ? Math.floor(currentStack / blindInfo.bb) : null;
+        const hasLiveStack = !!(activeEventMap[event.id]?.stack);
         const isCurrentlyPlaying = !!activeEventMap[event.id];
         const isExpanded = isCurrentlyPlaying || event.id === nextUpEventId;
         const isConditionalOnPlaying = !isCurrentlyPlaying && hasActivePlaying && event._type !== 'bagged';
         const bustedUpdate = bustedEventMap[event.id];
         const isBustedDone = bustedUpdate && (bustedUpdate.bust_count || 1) >= getMaxEntries(event.reentry);
 
-        const venueColor = getVenueBrandColor(getVenueInfo(event.venue).abbr);
+        const venueInfo = getVenueInfo(event.venue);
+        const venueColor = getVenueBrandColor(venueInfo.abbr);
+        const venueStripText = venueInfo.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)';
+
+        // Compact collapsed row for non-playing, non-expanded events
+        if (!isExpanded && !isCurrentlyPlaying) {
+          return (
+            <div key={event.id} className={'dash-event-card collapsed' + (isBustedDone ? ' done' : '') + (isConditionalOnPlaying ? ' conditional' : '') + (regClosed && event._type !== 'bagged' ? ' reg-closed' : '')}
+              style={{borderColor: venueColor}}>
+              <div className="dash-venue-strip" style={{background: venueColor, color: venueStripText}}>{venueInfo.abbr}</div>
+              <div className="dash-collapsed-row">
+                <span className="dash-collapsed-time">{event.time || 'TBD'}</span>
+                <span className="dash-collapsed-name">{event.event_name}</span>
+                {isBustedDone && <span className="dash-collapsed-tag" style={{color:'var(--text-muted)',border:'1px solid var(--border)'}}>Done</span>}
+                {isConditionalOnPlaying && onToggle && (
+                  <button className="dash-undo-x muted" onClick={(e) => { e.stopPropagation(); if (confirm('Remove from schedule?')) onToggle(event.id); }} title="Remove from schedule" style={{marginLeft:0}}>✕</button>
+                )}
+                <span className="dash-collapsed-buyin">{formatBuyin(event.buyin)}</span>
+                <CountdownClock startMs={startMs} />
+              </div>
+              {event._type !== 'bagged' && !isBustedDone && !(isConditionalOnPlaying && regClosed) && (
+                (bustedEventMap[event.id] || isConditionalOnPlaying) ? (
+                  <MiniLateRegBar lateRegEnd={event.late_reg_end} date={event.date} time={event.time} venueAbbr={getVenueInfo(event.venue).abbr} openOnly />
+                ) : null
+              )}
+            </div>
+          );
+        }
+
         const cardClass = [
           'dash-event-card',
-          !isExpanded ? 'collapsed' : '',
           isBustedDone ? 'done' : '',
           event._type === 'bagged' ? 'bagged' : '',
           event._type === 'anchor' && !isConditionalOnPlaying ? 'anchor' : '',
           (event._type === 'conditional' || isConditionalOnPlaying) ? 'conditional' : '',
-          isCurrentlyPlaying ? 'playing' : '',
+          isCurrentlyPlaying ? 'playing' : (event.id === nextUpEventId ? 'next-up' : ''),
           regClosed && event._type !== 'bagged' ? 'reg-closed' : '',
         ].filter(Boolean).join(' ');
 
@@ -11752,8 +12002,13 @@
             ? { borderColor: 'var(--border)' }
             : { borderColor: venueColor };
 
+        const activeUpdate = activeEventMap[event.id];
+        const liveStack = activeUpdate?.stack;
+        const stackBB = blindInfo && liveStack ? Math.floor(liveStack / blindInfo.bb) : null;
+
         return (
           <div key={event.id} className={cardClass} style={cardStyle}>
+            <div className="dash-venue-strip" style={{background: venueColor, color: venueStripText}}>{isExpanded ? (venueInfo.longName || venueInfo.abbr) : venueInfo.abbr}</div>
             {!isConditionalOnPlaying && (
               <div style={{display:'flex',flexWrap:'wrap',gap:'4px',alignItems:'center'}}>
                 {event._type === 'bagged' && (
@@ -11777,14 +12032,21 @@
               <div className="dash-event-name">{getVenueInfo(event.venue).abbr} | {event.event_name}</div>
               <div className="dash-event-buyin">{formatBuyin(event.buyin)}</div>
               {isConditionalOnPlaying && onToggle && (
-                <button className="dash-undo-x muted" onClick={() => onToggle(event.id)} title="Remove from schedule">✕</button>
+                <button className="dash-undo-x muted" onClick={(e) => { e.stopPropagation(); if (confirm('Remove from schedule?')) onToggle(event.id); }} title="Remove from schedule">✕</button>
               )}
             </div>
+
+            {isCurrentlyPlaying && liveStack && (
+              <div className="dash-stack-display">
+                <span className="dash-stack-value">{Number(liveStack).toLocaleString()}</span>
+                {stackBB && <span className="dash-stack-bb">({stackBB} BB)</span>}
+              </div>
+            )}
 
             {!isConditionalOnPlaying && (
               <div className="dash-event-meta">
                 <span><Icon.clock /> {event.time || 'TBD'}</span>
-                <span>{event.venue}</span>
+                <span>{getVenueInfo(event.venue).abbr}</span>
                 {event.game_variant && <span>{event.game_variant}</span>}
               </div>
             )}
@@ -11797,7 +12059,7 @@
                 </div>
                 <div className="dash-stat-box">
                   <div className="dash-stat-value">{bbCount ? `${bbCount} BB` : '—'}</div>
-                  <div className="dash-stat-label">Start Stack</div>
+                  <div className="dash-stat-label">{hasLiveStack ? currentStack.toLocaleString() : 'Start Stack'}</div>
                 </div>
                 <div className="dash-stat-box">
                   <div className="dash-stat-value">
@@ -11834,7 +12096,7 @@
                   return (
                     <div className="dash-restart-badge">
                       <Icon.restart /> Restart in {h}:{String(m).padStart(2, '0')}
-                      <button className="dash-unbag-x" onClick={undoBag} title="Undo bag">✕</button>
+                      <button className="dash-unbag-x" onClick={(e) => { e.stopPropagation(); if (confirm('Undo bag?')) undoBag(); }} title="Undo bag">✕</button>
                     </div>
                   );
                 }
@@ -11842,7 +12104,7 @@
               return (
                 <div className="dash-restart-badge">
                   <Icon.restart /> Bagged
-                  <button className="dash-unbag-x" onClick={undoBag} title="Undo bag">✕</button>
+                  <button className="dash-unbag-x" onClick={(e) => { e.stopPropagation(); if (confirm('Undo bag?')) undoBag(); }} title="Undo bag">✕</button>
                 </div>
               );
             })()}
@@ -11861,8 +12123,9 @@
                   <div className="dash-status-row">
                     <div className="dash-finished-badge">
                       Finished
-                      <button className="dash-undo-x muted" onClick={() => {
-                        if (bustedUpdate?.id && onDeleteUpdate) onDeleteUpdate(bustedUpdate.id);
+                      <button className="dash-undo-x muted" onClick={(e) => {
+                        e.stopPropagation();
+                        if (bustedUpdate?.id && onDeleteUpdate && confirm('Undo finish? This will restore the event to playing.')) onDeleteUpdate(bustedUpdate.id);
                       }} title="Undo finish">✕</button>
                     </div>
                     {canRebuy ? (
@@ -11935,8 +12198,9 @@
                   <div className="dash-status-row">
                     <div className="dash-playing-badge">
                       <span className="dash-playing-dot" /> Currently Playing{bulletNum > 1 ? `; Bullet ${bulletNum}` : ''}
-                      <button className="dash-undo-x" onClick={() => {
-                        if (activeUpdate?.id && onDeleteUpdate) onDeleteUpdate(activeUpdate.id);
+                      <button className="dash-undo-x" onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeUpdate?.id && onDeleteUpdate && confirm('Undo playing status for this event?')) onDeleteUpdate(activeUpdate.id);
                       }} title="Undo start">✕</button>
                     </div>
                     <button className="dash-update-btn" onClick={() => {
@@ -12056,9 +12320,20 @@
                 <span className="dashboard-section-badge">{whatsNextEvents.length} event{whatsNextEvents.length !== 1 ? 's' : ''}</span>
               )}
             </div>
-            {whatsNextEvents.length > 0 ? (
-              whatsNextEvents.map(event => renderEventCard(event))
-            ) : (
+            {whatsNextEvents.length > 0 ? (() => {
+              const expandedEvents = whatsNextEvents.filter(e => !!activeEventMap[e.id] || e.id === nextUpEventId || e._type === 'bagged');
+              const collapsedEvents = whatsNextEvents.filter(e => !activeEventMap[e.id] && e.id !== nextUpEventId && e._type !== 'bagged');
+              return (
+                <React.Fragment>
+                  {expandedEvents.map(event => renderEventCard(event))}
+                  {collapsedEvents.length > 0 && (
+                    <div className="dash-up-next-list">
+                      {collapsedEvents.map(event => renderEventCard(event))}
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })() : (
               <div className="dash-empty">
                 <Icon.calendar />
                 <div>No events on your agenda today</div>
@@ -12230,8 +12505,201 @@
       crossbook: 'Crossbook'
     };
 
+    // ── Staking Settings (Sell Params + Markup) ──────────────
+
+    function StakingSettings({ token, tournaments, onBack }) {
+      const [sellParams, setSellParams] = useState([]);
+      const [markupSettings, setMarkupSettings] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [saving, setSaving] = useState(false);
+      const [tab, setTab] = useState('sell'); // sell | markup
+
+      const BUYIN_TIERS = [
+        { key: '0-500', label: '≤ $500' },
+        { key: '500-1000', label: '$500–$1K' },
+        { key: '1000-3000', label: '$1K–$3K' },
+        { key: '3000-10000', label: '$3K–$10K' },
+        { key: '10000+', label: '$10K+' },
+      ];
+
+      const GAME_PRESETS = useMemo(() => {
+        if (!tournaments) return [];
+        const vars = new Set();
+        tournaments.forEach(t => { if (t.game_variant) vars.add(t.game_variant); });
+        return [...vars].sort().slice(0, 12);
+      }, [tournaments]);
+
+      useEffect(() => {
+        (async () => {
+          try {
+            const [sp, ms] = await Promise.all([
+              fetch(`${API_URL}/staking/sell-params`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+              fetch(`${API_URL}/staking/markup-settings`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+            ]);
+            if (Array.isArray(sp)) setSellParams(sp);
+            if (Array.isArray(ms)) setMarkupSettings(ms);
+          } catch {}
+          setLoading(false);
+        })();
+      }, []);
+
+      const getSellPct = (type, key) => {
+        const p = sellParams.find(s => s.param_type === type && s.param_key === key);
+        return p ? p.sell_pct : '';
+      };
+
+      const setSellPct = (type, key, val) => {
+        setSellParams(prev => {
+          const idx = prev.findIndex(s => s.param_type === type && s.param_key === key);
+          const entry = { param_type: type, param_key: key, sell_pct: parseFloat(val) || 0 };
+          if (idx >= 0) { const copy = [...prev]; copy[idx] = { ...copy[idx], ...entry }; return copy; }
+          return [...prev, entry];
+        });
+      };
+
+      const getMarkup = (type, key) => {
+        const m = markupSettings.find(s => s.setting_type === type && s.setting_key === key);
+        return m ? m.markup : '';
+      };
+
+      const setMarkupVal = (type, key, val) => {
+        setMarkupSettings(prev => {
+          const idx = prev.findIndex(s => s.setting_type === type && s.setting_key === key);
+          const entry = { setting_type: type, setting_key: key, markup: parseFloat(val) || 1.0 };
+          if (idx >= 0) { const copy = [...prev]; copy[idx] = { ...copy[idx], ...entry }; return copy; }
+          return [...prev, entry];
+        });
+      };
+
+      const handleSave = async () => {
+        setSaving(true);
+        try {
+          const validSell = sellParams.filter(s => s.sell_pct > 0);
+          const validMarkup = markupSettings.filter(m => m.markup > 0);
+          await Promise.all([
+            fetch(`${API_URL}/staking/sell-params`, {
+              method: 'PUT',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify(validSell)
+            }),
+            fetch(`${API_URL}/staking/markup-settings`, {
+              method: 'PUT',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify(validMarkup)
+            }),
+          ]);
+        } catch {}
+        setSaving(false);
+      };
+
+      if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>Loading…</div>;
+
+      return (
+        <div style={{padding:'0 0 20px'}}>
+          <div className="section-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 16px 8px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <button className="btn btn-ghost btn-sm" onClick={onBack} style={{fontSize:16,padding:'4px 8px'}}>←</button>
+              <h2 style={{fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:1,fontSize:14,margin:0,color:'var(--text-muted)'}}>Sell & Markup Settings</h2>
+            </div>
+            <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px'}} onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+
+          <div style={{display:'flex',gap:0,borderBottom:'1px solid var(--border)',margin:'0 16px 12px'}}>
+            {[{k:'sell',l:'Default Sell %'},{k:'markup',l:'Default Markup'}].map(t => (
+              <button key={t.k}
+                style={{flex:1,padding:'10px 0',fontSize:12,fontWeight:tab === t.k ? 600 : 400,
+                  color: tab === t.k ? 'var(--accent)' : 'var(--text-muted)',
+                  borderBottom: tab === t.k ? '2px solid var(--accent)' : '2px solid transparent',
+                  background:'none',border:'none',cursor:'pointer'}}
+                onClick={() => setTab(t.k)}>{t.l}</button>
+            ))}
+          </div>
+
+          <div style={{padding:'0 16px'}}>
+            {tab === 'sell' && (
+              <div>
+                <p style={{fontSize:11,color:'var(--text-muted)',margin:'0 0 12px'}}>
+                  Set default sell percentages by buyin tier or game type. These are used when creating new agreements.
+                </p>
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:'var(--text-secondary)'}}>By Buyin Tier</div>
+                  {BUYIN_TIERS.map(tier => (
+                    <div key={tier.key} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--border)'}}>
+                      <span style={{fontSize:12}}>{tier.label}</span>
+                      <div style={{display:'flex',alignItems:'center',gap:4}}>
+                        <input type="number" value={getSellPct('buyin_tier', tier.key)} onChange={e => setSellPct('buyin_tier', tier.key, e.target.value)}
+                          placeholder="—" min="0" max="100" step="5"
+                          style={{width:60,textAlign:'right',fontSize:12,padding:'4px 6px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-card)',color:'var(--text-primary)'}} />
+                        <span style={{fontSize:11,color:'var(--text-muted)'}}>%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {GAME_PRESETS.length > 0 && (
+                  <div>
+                    <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:'var(--text-secondary)'}}>By Game Type</div>
+                    {GAME_PRESETS.map(game => (
+                      <div key={game} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--border)'}}>
+                        <span style={{fontSize:12}}>{game}</span>
+                        <div style={{display:'flex',alignItems:'center',gap:4}}>
+                          <input type="number" value={getSellPct('game_type', game)} onChange={e => setSellPct('game_type', game, e.target.value)}
+                            placeholder="—" min="0" max="100" step="5"
+                            style={{width:60,textAlign:'right',fontSize:12,padding:'4px 6px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-card)',color:'var(--text-primary)'}} />
+                          <span style={{fontSize:11,color:'var(--text-muted)'}}>%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tab === 'markup' && (
+              <div>
+                <p style={{fontSize:11,color:'var(--text-muted)',margin:'0 0 12px'}}>
+                  Set default markup multipliers by buyin tier or game type. 1.0 = no markup, 1.1 = 10% markup.
+                </p>
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:'var(--text-secondary)'}}>By Buyin Tier</div>
+                  {BUYIN_TIERS.map(tier => (
+                    <div key={tier.key} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--border)'}}>
+                      <span style={{fontSize:12}}>{tier.label}</span>
+                      <div style={{display:'flex',alignItems:'center',gap:4}}>
+                        <input type="number" value={getMarkup('buyin_tier', tier.key)} onChange={e => setMarkupVal('buyin_tier', tier.key, e.target.value)}
+                          placeholder="—" min="1" max="3" step="0.05"
+                          style={{width:60,textAlign:'right',fontSize:12,padding:'4px 6px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-card)',color:'var(--text-primary)'}} />
+                        <span style={{fontSize:11,color:'var(--text-muted)'}}>×</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {GAME_PRESETS.length > 0 && (
+                  <div>
+                    <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:'var(--text-secondary)'}}>By Game Type</div>
+                    {GAME_PRESETS.map(game => (
+                      <div key={game} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--border)'}}>
+                        <span style={{fontSize:12}}>{game}</span>
+                        <div style={{display:'flex',alignItems:'center',gap:4}}>
+                          <input type="number" value={getMarkup('game_type', game)} onChange={e => setMarkupVal('game_type', game, e.target.value)}
+                            placeholder="—" min="1" max="3" step="0.05"
+                            style={{width:60,textAlign:'right',fontSize:12,padding:'4px 6px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-card)',color:'var(--text-primary)'}} />
+                          <span style={{fontSize:11,color:'var(--text-muted)'}}>×</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     function StakingView({ token, tournaments, mySchedule }) {
-      const [subView, setSubView] = useState('list'); // list | detail | backers
+      const [subView, setSubView] = useState('list'); // list | detail | backers | settings
       const [series, setSeries] = useState([]);
       const [backers, setBackers] = useState([]);
       const [activeSeriesId, setActiveSeriesId] = useState(null);
@@ -12256,6 +12724,10 @@
       useEffect(() => { fetchSeries(); fetchBackers(); }, []);
 
       const activeSeries = series.find(s => s.id === activeSeriesId);
+
+      if (subView === 'settings') {
+        return <StakingSettings token={token} tournaments={tournaments} onBack={() => setSubView('list')} />;
+      }
 
       if (subView === 'backers') {
         return <BackerManager token={token} backers={backers} fetchBackers={fetchBackers} onBack={() => setSubView('list')} />;
@@ -12284,6 +12756,7 @@
             onSelect={s => { setActiveSeriesId(s.id); setSubView('detail'); }}
             onCreate={() => { setEditSeries(null); setShowSeriesForm(true); }}
             onBackers={() => setSubView('backers')}
+            onSettings={() => setSubView('settings')}
           />
           {showSeriesForm && (
             <StakingSeriesForm
@@ -12298,7 +12771,7 @@
       );
     }
 
-    function StakingSeriesList({ series, loading, onSelect, onCreate, onBackers }) {
+    function StakingSeriesList({ series, loading, onSelect, onCreate, onBackers, onSettings }) {
       if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>Loading…</div>;
 
       return (
@@ -12306,6 +12779,7 @@
           <div className="section-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 16px 8px'}}>
             <h2 style={{fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:1,fontSize:14,margin:0,color:'var(--text-muted)'}}>Staking</h2>
             <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-ghost btn-sm" style={{fontSize:12,padding:'6px 10px',color:'var(--text-muted)'}} onClick={onSettings} title="Sell & Markup Settings">⚙</button>
               <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px',background:'transparent',color:'var(--accent)',border:'1px solid var(--accent)'}} onClick={onBackers}>Backers</button>
               <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px'}} onClick={onCreate}>+ Series</button>
             </div>
@@ -12643,6 +13117,7 @@
               token={token}
               seriesId={series.id}
               backers={backers}
+              tournaments={tournaments}
               onClose={() => setShowAgreementForm(false)}
               onSaved={() => { setShowAgreementForm(false); fetchAgreements(); }}
             />
@@ -12699,6 +13174,20 @@
                       Buyin range: {ag.buyin_range_min ? formatBuyin(ag.buyin_range_min) : '$0'} – {ag.buyin_range_max ? formatBuyin(ag.buyin_range_max) : '∞'}
                     </div>
                   )}
+                  {(ag.scope === 'custom_dates' || ag.variant_filter || ag.start_date) && (
+                    <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4}}>
+                      {ag.scope === 'custom_dates' && ag.start_date && (
+                        <span style={{fontSize:10,background:'var(--bg-hover)',padding:'1px 6px',borderRadius:4,color:'var(--text-muted)'}}>
+                          {ag.start_date}{ag.end_date ? ` → ${ag.end_date}` : '+'}
+                        </span>
+                      )}
+                      {ag.variant_filter && (() => {
+                        try { const vf = JSON.parse(ag.variant_filter); return vf.map(v => (
+                          <span key={v} style={{fontSize:10,background:'var(--bg-hover)',padding:'1px 6px',borderRadius:4,color:'var(--text-muted)'}}>{v}</span>
+                        )); } catch { return null; }
+                      })()}
+                    </div>
+                  )}
                 </div>
                 <div style={{display:'flex',gap:4,alignItems:'center'}}>
                   <label className="toggle-switch" style={{width:32,height:18}} title={ag.is_active ? 'Active' : 'Inactive'}>
@@ -12714,15 +13203,27 @@
       );
     }
 
-    function AgreementForm({ token, seriesId, backers, onClose, onSaved }) {
+    function AgreementForm({ token, seriesId, backers, onClose, onSaved, tournaments }) {
       const [backerId, setBackerId] = useState('');
       const [backerType, setBackerType] = useState('pay_per_play');
       const [percentage, setPercentage] = useState('');
       const [markup, setMarkup] = useState('1.0');
       const [buyinMin, setBuyinMin] = useState('');
       const [buyinMax, setBuyinMax] = useState('');
+      const [scope, setScope] = useState('series');
+      const [startDate, setStartDate] = useState('');
+      const [endDate, setEndDate] = useState('');
+      const [variantFilter, setVariantFilter] = useState([]);
+      const [showAdvanced, setShowAdvanced] = useState(false);
       const [saving, setSaving] = useState(false);
       const [error, setError] = useState('');
+
+      const availableVariants = useMemo(() => {
+        if (!tournaments || tournaments.length === 0) return [];
+        const variants = new Set();
+        tournaments.forEach(t => { if (t.game_variant) variants.add(t.game_variant); });
+        return [...variants].sort();
+      }, [tournaments]);
 
       const mvpTypes = ['pay_per_play', 'flat_package', 'profit_share_only'];
 
@@ -12741,6 +13242,12 @@
             markup: backerType === 'profit_share_only' ? 1.0 : mkp,
             buyinRangeMin: buyinMin ? Number(buyinMin) : undefined,
             buyinRangeMax: buyinMax ? Number(buyinMax) : undefined,
+            scope,
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
+            variantFilter: variantFilter.length > 0 ? variantFilter : undefined,
+            buyinMin: buyinMin ? Number(buyinMin) : undefined,
+            buyinMax: buyinMax ? Number(buyinMax) : undefined,
           };
           const res = await fetch(`${API_URL}/staking/series/${seriesId}/agreements`, {
             method: 'POST',
@@ -12798,6 +13305,52 @@
                   <input type="number" value={buyinMax} onChange={e => setBuyinMax(e.target.value)} placeholder="Optional" />
                 </label>
               </div>
+
+              <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--text-muted)',marginTop:4,padding:'4px 0'}} onClick={() => setShowAdvanced(!showAdvanced)}>
+                {showAdvanced ? '▾ Hide Advanced' : '▸ Advanced Options'}
+              </button>
+
+              {showAdvanced && (
+                <div style={{borderTop:'1px solid var(--border)',paddingTop:10,marginTop:4}}>
+                  <div className="staking-field"><span>Scope</span>
+                    <div style={{display:'flex',gap:6}}>
+                      {['series','custom_dates'].map(s => (
+                        <button key={s} className={`filter-chip${scope === s ? ' active' : ''}`}
+                          onClick={() => setScope(s)}>{s === 'series' ? 'Full Series' : 'Custom Dates'}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {scope === 'custom_dates' && (
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                      <label className="staking-field"><span>Start Date</span>
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                      </label>
+                      <label className="staking-field"><span>End Date</span>
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                      </label>
+                    </div>
+                  )}
+
+                  {availableVariants.length > 0 && (
+                    <div className="staking-field"><span>Game Filter</span>
+                      <div style={{display:'flex',gap:4,flexWrap:'wrap',maxHeight:80,overflowY:'auto'}}>
+                        {availableVariants.map(v => (
+                          <button key={v} className={`filter-chip${variantFilter.includes(v) ? ' active' : ''}`}
+                            style={{fontSize:10,padding:'2px 8px'}}
+                            onClick={() => setVariantFilter(f => f.includes(v) ? f.filter(x => x !== v) : [...f, v])}
+                          >{v}</button>
+                        ))}
+                      </div>
+                      {variantFilter.length > 0 && (
+                        <div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>
+                          {variantFilter.length} game{variantFilter.length !== 1 ? 's' : ''} selected
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="staking-modal-footer">
               <div style={{flex:1}} />

@@ -1207,6 +1207,55 @@ async function initDatabase() {
         console.log('Added leaderboard_enabled column to groups');
       }
     },
+    {
+      name: 'staking-agreement-enhancements-2026-03',
+      fn: () => {
+        const cols = [
+          ['start_date', 'TEXT'],
+          ['end_date', 'TEXT'],
+          ['variant_filter', 'TEXT'],
+          ['scope', "TEXT DEFAULT 'series'"],
+          ['buyin_min', 'INTEGER'],
+          ['buyin_max', 'INTEGER'],
+        ];
+        for (const [col, type] of cols) {
+          try { db.run(`ALTER TABLE backer_agreements ADD COLUMN ${col} ${type}`); } catch(e) {}
+        }
+        console.log('Added scope/date/variant/buyin columns to backer_agreements');
+      }
+    },
+    {
+      name: 'staking-sell-params-2026-03',
+      fn: () => {
+        db.run(`CREATE TABLE IF NOT EXISTS staking_sell_params (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          param_type TEXT NOT NULL,
+          param_key TEXT NOT NULL,
+          sell_pct REAL NOT NULL DEFAULT 50,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id),
+          UNIQUE(user_id, param_type, param_key)
+        )`);
+        console.log('Created staking_sell_params table');
+      }
+    },
+    {
+      name: 'staking-markup-settings-2026-03',
+      fn: () => {
+        db.run(`CREATE TABLE IF NOT EXISTS staking_markup_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          setting_type TEXT NOT NULL,
+          setting_key TEXT NOT NULL,
+          markup REAL NOT NULL DEFAULT 1.0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id),
+          UNIQUE(user_id, setting_type, setting_key)
+        )`);
+        console.log('Created staking_markup_settings table');
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -3827,7 +3876,8 @@ app.post('/api/staking/series/:seriesId/agreements', authenticateToken, stakingL
       swapUsername, swapMyPct, swapTheirPct,
       crossbookUsername, crossbookMyPct, crossbookTheirPct,
       budgetCap, makeupBalance, tieredRules,
-      buyinRangeMin, buyinRangeMax
+      buyinRangeMin, buyinRangeMax,
+      scope, startDate, endDate, variantFilter, buyinMin, buyinMax
     } = req.body;
 
     // Verify series ownership
@@ -3923,8 +3973,9 @@ app.post('/api/staking/series/:seriesId/agreements', authenticateToken, stakingL
         swap_user_id, swap_my_pct, swap_their_pct,
         crossbook_user_id, crossbook_my_pct, crossbook_their_pct,
         budget_cap, makeup_balance, tiered_rules,
-        buyin_range_min, buyin_range_max
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        buyin_range_min, buyin_range_max,
+        scope, start_date, end_date, variant_filter, buyin_min, buyin_max
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         seriesId, backerId, backerType, pct, mkp,
         swapUserId, backerType === 'swap' ? (parseFloat(swapMyPct) || 0) : null,
@@ -3934,7 +3985,10 @@ app.post('/api/staking/series/:seriesId/agreements', authenticateToken, stakingL
         backerType === 'budget_capped' ? budgetCap : null,
         backerType === 'makeup' ? (parseFloat(makeupBalance) || 0) : 0,
         tieredRulesJson,
-        buyinRangeMin || null, buyinRangeMax || null
+        buyinRangeMin || null, buyinRangeMax || null,
+        scope || 'series', startDate || null, endDate || null,
+        variantFilter ? JSON.stringify(variantFilter) : null,
+        buyinMin || null, buyinMax || null
       ]
     );
 
@@ -3959,7 +4013,8 @@ app.put('/api/staking/agreements/:id', authenticateToken, async (req, res) => {
       percentage, markup, backerType,
       swapMyPct, swapTheirPct, crossbookMyPct, crossbookTheirPct,
       budgetCap, makeupBalance, tieredRules,
-      buyinRangeMin, buyinRangeMax, isActive
+      buyinRangeMin, buyinRangeMax, isActive,
+      scope, startDate, endDate, variantFilter, buyinMin, buyinMax
     } = req.body;
 
     // Verify ownership through series
@@ -3995,6 +4050,12 @@ app.put('/api/staking/agreements/:id', authenticateToken, async (req, res) => {
     if (buyinRangeMin !== undefined) { fields.push('buyin_range_min = ?'); params.push(buyinRangeMin); }
     if (buyinRangeMax !== undefined) { fields.push('buyin_range_max = ?'); params.push(buyinRangeMax); }
     if (isActive !== undefined) { fields.push('is_active = ?'); params.push(isActive ? 1 : 0); }
+    if (scope !== undefined) { fields.push('scope = ?'); params.push(scope); }
+    if (startDate !== undefined) { fields.push('start_date = ?'); params.push(startDate || null); }
+    if (endDate !== undefined) { fields.push('end_date = ?'); params.push(endDate || null); }
+    if (variantFilter !== undefined) { fields.push('variant_filter = ?'); params.push(variantFilter ? JSON.stringify(variantFilter) : null); }
+    if (buyinMin !== undefined) { fields.push('buyin_min = ?'); params.push(buyinMin || null); }
+    if (buyinMax !== undefined) { fields.push('buyin_max = ?'); params.push(buyinMax || null); }
 
     if (fields.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -4835,6 +4896,80 @@ app.delete('/api/staking/agreements/:agreementId/overrides/:tournamentId', authe
   } catch (error) {
     console.error('Delete override error:', error);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// ── Staking Sell Params ──────────────────────────────────
+
+app.get('/api/staking/sell-params', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM staking_sell_params WHERE user_id = ?');
+    stmt.bind([req.user.id]);
+    const rows = [];
+    while (stmt.step()) rows.push(stmt.getAsObject());
+    stmt.free();
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.put('/api/staking/sell-params', authenticateToken, async (req, res) => {
+  try {
+    const { params } = req.body; // Array of { param_type, param_key, sell_pct }
+    if (!Array.isArray(params)) return res.status(400).json({ error: 'params must be an array' });
+
+    for (const p of params) {
+      if (!p.param_type || !p.param_key || p.sell_pct == null) continue;
+      db.run(
+        `INSERT INTO staking_sell_params (user_id, param_type, param_key, sell_pct) VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id, param_type, param_key) DO UPDATE SET sell_pct = excluded.sell_pct`,
+        [req.user.id, p.param_type, p.param_key, p.sell_pct]
+      );
+    }
+    await saveDatabase();
+    res.json({ message: 'Sell params updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+// ── Staking Markup Settings ─────────────────────────────
+
+app.get('/api/staking/markup-settings', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM staking_markup_settings WHERE user_id = ?');
+    stmt.bind([req.user.id]);
+    const rows = [];
+    while (stmt.step()) rows.push(stmt.getAsObject());
+    stmt.free();
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.put('/api/staking/markup-settings', authenticateToken, async (req, res) => {
+  try {
+    const { settings } = req.body; // Array of { setting_type, setting_key, markup }
+    if (!Array.isArray(settings)) return res.status(400).json({ error: 'settings must be an array' });
+
+    for (const s of settings) {
+      if (!s.setting_type || !s.setting_key || s.markup == null) continue;
+      db.run(
+        `INSERT INTO staking_markup_settings (user_id, setting_type, setting_key, markup) VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id, setting_type, setting_key) DO UPDATE SET markup = excluded.markup`,
+        [req.user.id, s.setting_type, s.setting_key, s.markup]
+      );
+    }
+    await saveDatabase();
+    res.json({ message: 'Markup settings updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong' });
   }
 });
 
