@@ -10158,7 +10158,7 @@
                   return (
                     <div key={group.date} ref={needsRef ? todayScrollRef : undefined} data-today-scroll={needsRef ? 'true' : undefined} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                       <div className="schedule-date-break" style={{
-                        position: 'sticky', top: '-12px', zIndex: 5,
+                        position: 'sticky', top: 0, zIndex: 5,
                         padding: '20px 12px 8px 2px',
                         background: 'var(--bg)',
                         color: 'var(--text)',
@@ -10452,7 +10452,7 @@
                   <div key={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                     <div ref={group.events[0].globalIdx === firstCurrentIdx ? todayRef : null}
                       className="schedule-date-break" style={{
-                      position: 'sticky', top: '-12px', zIndex: 5,
+                      position: 'sticky', top: 0, zIndex: 5,
                       padding: '20px 12px 8px 2px',
                       background: 'var(--bg)',
                       color: 'var(--text)',
