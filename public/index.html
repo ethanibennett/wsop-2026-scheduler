@@ -1288,6 +1288,17 @@
 
     .section-header h2 { font-size: 1rem; font-weight: 700; color: var(--text); }
 
+    .schedule-sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      background: var(--bg);
+      padding: 0 0 10px;
+      margin: 0 -12px;
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
     /* ── Calendar event rows (collapsible) ── */
     .cal-event-row {
       background: var(--surface);
@@ -10382,16 +10393,18 @@
             </div>
           ) : (
           <>
-          <div className="section-header" style={{display:'flex',alignItems:'center',gap:'8px'}}>
-            <h2>My Schedule</h2>
-            <span style={{fontSize:'0.82rem',color:'var(--text-muted)',flex:1}}>{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
-            <button className="btn btn-ghost btn-sm"
-              style={{display:'inline-flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',padding:'4px 10px'}}
-              onClick={() => setShowExportModal(true)}
-              title="Export schedule">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Export
-            </button>
+          <div className="schedule-sticky-header">
+            <div className="section-header" style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:0}}>
+              <h2>My Schedule</h2>
+              <span style={{fontSize:'0.82rem',color:'var(--text-muted)',flex:1}}>{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
+              <button className="btn btn-ghost btn-sm"
+                style={{display:'inline-flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',padding:'4px 10px'}}
+                onClick={() => setShowExportModal(true)}
+                title="Export schedule">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export
+              </button>
+            </div>
           </div>
           {onAddPersonalEvent && (
             <>
@@ -10452,8 +10465,8 @@
                   <div key={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                     <div ref={group.events[0].globalIdx === firstCurrentIdx ? todayRef : null}
                       className="schedule-date-break" style={{
-                      position: 'sticky', top: 0, zIndex: 5,
-                      padding: '20px 12px 8px 2px',
+                      position: 'sticky', top: '34px', zIndex: 5,
+                      padding: '12px 12px 8px 2px',
                       background: 'var(--bg)',
                       color: 'var(--text)',
                       fontWeight: 700, fontSize: '0.85rem',
