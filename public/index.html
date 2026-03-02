@@ -2043,10 +2043,13 @@
     }
 
     .dash-bottom-stack {
-      margin-top: auto;
       display: flex;
       flex-direction: column;
       gap: 20px;
+      flex: 1;
+    }
+    .dash-bottom-stack > :last-child {
+      margin-top: auto;
     }
 
     .dashboard-section {
