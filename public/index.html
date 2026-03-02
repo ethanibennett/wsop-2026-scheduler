@@ -2112,14 +2112,16 @@
     }
 
     .dash-event-card.playing .dash-venue-strip,
-    .dash-event-card.next-up .dash-venue-strip {
+    .dash-event-card.next-up .dash-venue-strip,
+    .dash-event-card.manually-expanded .dash-venue-strip {
       height: 22px;
       font-size: 0.65rem;
       letter-spacing: 0.12em;
     }
 
     .dash-event-card.playing,
-    .dash-event-card.next-up {
+    .dash-event-card.next-up,
+    .dash-event-card.manually-expanded {
       padding-top: 30px;
     }
 
@@ -11817,6 +11819,7 @@
       const [expandedFriend, setExpandedFriend] = useState(null);
       const [now, setNow] = useState(getNow());
       const [bustMenuEventId, setBustMenuEventId] = useState(null);
+      const [manuallyExpandedId, setManuallyExpandedId] = useState(null);
 
       useEffect(() => {
         const id = setInterval(() => setNow(getNow()), 30000);
@@ -11952,7 +11955,8 @@
         const bbCount = blindInfo ? Math.floor(currentStack / blindInfo.bb) : null;
         const hasLiveStack = !!(activeEventMap[event.id]?.stack);
         const isCurrentlyPlaying = !!activeEventMap[event.id];
-        const isExpanded = isCurrentlyPlaying || event.id === nextUpEventId;
+        const isAutoExpanded = isCurrentlyPlaying || event.id === nextUpEventId;
+        const isExpanded = isAutoExpanded || event.id === manuallyExpandedId;
         const isConditionalOnPlaying = !isCurrentlyPlaying && hasActivePlaying && event._type !== 'bagged';
         const bustedUpdate = bustedEventMap[event.id];
         const isBustedDone = bustedUpdate && (bustedUpdate.bust_count || 1) >= getMaxEntries(event.reentry);
@@ -11965,7 +11969,8 @@
         if (!isExpanded && !isCurrentlyPlaying) {
           return (
             <div key={event.id} className={'dash-event-card collapsed' + (isBustedDone ? ' done' : '') + (isConditionalOnPlaying ? ' conditional' : '') + (regClosed && event._type !== 'bagged' ? ' reg-closed' : '')}
-              style={{borderColor: venueColor}}>
+              style={{borderColor: venueColor, cursor: 'pointer'}}
+              onClick={() => setManuallyExpandedId(event.id)}>
               <div className="dash-venue-strip" style={{background: venueColor, color: venueStripText}}>{venueInfo.abbr}</div>
               <div className="dash-collapsed-row">
                 <span className="dash-collapsed-time">{event.time || 'TBD'}</span>
@@ -11986,6 +11991,8 @@
           );
         }
 
+        const isManuallyExpanded = event.id === manuallyExpandedId && !isAutoExpanded;
+
         const cardClass = [
           'dash-event-card',
           isBustedDone ? 'done' : '',
@@ -11993,6 +12000,7 @@
           event._type === 'anchor' && !isConditionalOnPlaying ? 'anchor' : '',
           (event._type === 'conditional' || isConditionalOnPlaying) ? 'conditional' : '',
           isCurrentlyPlaying ? 'playing' : (event.id === nextUpEventId ? 'next-up' : ''),
+          isManuallyExpanded ? 'manually-expanded' : '',
           regClosed && event._type !== 'bagged' ? 'reg-closed' : '',
         ].filter(Boolean).join(' ');
 
@@ -12007,7 +12015,8 @@
         const stackBB = blindInfo && liveStack ? Math.floor(liveStack / blindInfo.bb) : null;
 
         return (
-          <div key={event.id} className={cardClass} style={cardStyle}>
+          <div key={event.id} className={cardClass} style={{...cardStyle, cursor: isManuallyExpanded ? 'pointer' : undefined}}
+            onClick={isManuallyExpanded ? () => setManuallyExpandedId(null) : undefined}>
             <div className="dash-venue-strip" style={{background: venueColor, color: venueStripText}}>{isExpanded ? (venueInfo.longName || venueInfo.abbr) : venueInfo.abbr}</div>
             {!isConditionalOnPlaying && (
               <div style={{display:'flex',flexWrap:'wrap',gap:'4px',alignItems:'center'}}>
@@ -12031,8 +12040,8 @@
             <div className="dash-event-header">
               <div className="dash-event-name">{getVenueInfo(event.venue).abbr} | {event.event_name}</div>
               <div className="dash-event-buyin">{formatBuyin(event.buyin)}</div>
-              {isConditionalOnPlaying && onToggle && (
-                <button className="dash-undo-x muted" onClick={(e) => { e.stopPropagation(); if (confirm('Remove from schedule?')) onToggle(event.id); }} title="Remove from schedule">✕</button>
+              {onToggle && (
+                <button className="dash-undo-x muted" onClick={(e) => { e.stopPropagation(); if (confirm('Remove from schedule?')) { setManuallyExpandedId(null); onToggle(event.id); } }} title="Remove from schedule">✕</button>
               )}
             </div>
 
@@ -12321,8 +12330,9 @@
               )}
             </div>
             {whatsNextEvents.length > 0 ? (() => {
-              const expandedEvents = whatsNextEvents.filter(e => !!activeEventMap[e.id] || e.id === nextUpEventId || e._type === 'bagged');
-              const collapsedEvents = whatsNextEvents.filter(e => !activeEventMap[e.id] && e.id !== nextUpEventId && e._type !== 'bagged');
+              const isAutoExpanded = (e) => !!activeEventMap[e.id] || e.id === nextUpEventId || e._type === 'bagged';
+              const expandedEvents = whatsNextEvents.filter(e => isAutoExpanded(e) || e.id === manuallyExpandedId);
+              const collapsedEvents = whatsNextEvents.filter(e => !isAutoExpanded(e) && e.id !== manuallyExpandedId);
               return (
                 <React.Fragment>
                   {expandedEvents.map(event => renderEventCard(event))}
