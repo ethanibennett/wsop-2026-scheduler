@@ -170,7 +170,13 @@
       color: var(--text-muted);
     }
 
-    .top-bar-actions { display: flex; align-items: center; gap: 8px; }
+    .top-bar-actions { display: flex; align-items: center; gap: 6px; }
+    .top-bar-actions .btn-icon {
+      width: 32px; height: 32px; min-width: 32px;
+      padding: 0; display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+    }
+    .top-bar-actions .btn-icon svg { width: 17px; height: 17px; }
 
     .username-chip {
       font-size: 0.8rem;
@@ -5601,7 +5607,7 @@
         <div ref={containerRef} style={{position:'relative'}}>
           <button
             ref={toggleRef}
-            className={`btn btn-ghost btn-sm live-update-btn ${myActiveUpdates.some(u => !u.is_busted) ? 'has-update' : ''}`}
+            className={`btn btn-ghost btn-icon live-update-btn ${myActiveUpdates.some(u => !u.is_busted) ? 'has-update' : ''}`}
             onClick={() => setOpen(o => !o)}
             title="Post live update"
           >
@@ -16497,12 +16503,8 @@
               <small>summer 2026</small>
             </div>
             <div className="top-bar-actions">
-              <span className="username-chip" style={{display:'flex',alignItems:'center',gap:'6px'}}>
-                <Avatar src={avatar} username={username} size={22} />
-                {username}
-              </span>
               <button
-                className="notif-btn btn btn-ghost btn-sm"
+                className="notif-btn btn btn-ghost btn-icon"
                 onClick={() => {
                   setShowNotifications(prev => {
                     if (!prev) markNotificationsSeen();
@@ -16520,9 +16522,13 @@
                 onPost={postLiveUpdate}
                 onAddTracking={addTracking}
               />
-              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+              <button className="btn btn-ghost btn-icon" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
                 {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
               </button>
+              <span className="username-chip" style={{display:'flex',alignItems:'center',gap:'6px',marginLeft:'2px'}}>
+                <Avatar src={avatar} username={username} size={22} />
+                {username}
+              </span>
             </div>
           </header>
 
