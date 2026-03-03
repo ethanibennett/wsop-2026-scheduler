@@ -9090,14 +9090,14 @@
         const container = el.closest('.content-area');
         if (!container) return;
         const caTop = container.getBoundingClientRect().top;
-        const sticky = container.querySelector('.sticky-filters');
-        const stickyBottom = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
-        // Also account for the sticky date break below the filters
-        const dateBreak = el.closest('[style*="marginTop"]')?.querySelector('.schedule-date-break');
-        const dateH = dateBreak ? dateBreak.offsetHeight : 0;
-        const totalStickyH = stickyBottom + dateH;
+        // Find the lowest sticky element above the content
+        let lowestBottom = 0;
+        container.querySelectorAll('.sticky-filters, .schedule-date-break, .schedule-sticky-header').forEach(s => {
+          const b = s.getBoundingClientRect().bottom - caTop;
+          if (b > lowestBottom) lowestBottom = b;
+        });
         const rowTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-        container.scrollTo({ top: rowTop - totalStickyH - 4, behavior: 'smooth' });
+        container.scrollTo({ top: rowTop - lowestBottom - 4, behavior: 'smooth' });
       }
 
       // Auto-expand and scroll when this event is the focus target
