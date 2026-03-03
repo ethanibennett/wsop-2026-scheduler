@@ -10309,7 +10309,8 @@
                   const isToday = group.date === todayISO;
                   const past = group.date < todayISO;
                   const dateObj = new Date(group.date + 'T12:00:00');
-                  const dateLabel = `${DOW[dateObj.getDay()]}, ${MONTHS[dateObj.getMonth()]} ${dateObj.getDate()}`;
+                  const dayLetter = DOW[dateObj.getDay()].charAt(0);
+                  const dayNum = String(dateObj.getDate()).padStart(2, '0');
                   // Assign scroll ref to first group that is today or future
                   const needsRef = !scrollRefAssigned && group.date >= todayISO;
                   if (needsRef) scrollRefAssigned = true;
@@ -10320,16 +10321,17 @@
                         padding: '12px 12px 8px 2px',
                         background: 'var(--bg)',
                         color: 'var(--text)',
-                        fontWeight: 700, fontSize: '0.85rem',
+                        fontWeight: 700,
                         borderBottom: 'none',
-                        display: 'flex', alignItems: 'center', gap: '8px'
+                        display: 'flex', alignItems: 'baseline', gap: '4px'
                       }}>
-                        {dateLabel}
+                        <span style={{fontSize: '1.7rem', lineHeight: 1}}>{dayLetter}</span>
+                        <span style={{fontSize: '3.4rem', lineHeight: 1}}>{dayNum}</span>
                         {isToday && <span style={{
                           background: 'var(--accent)', color: '#fff',
                           fontSize: '0.7rem', fontWeight: 700,
                           padding: '2px 8px', borderRadius: '999px',
-                          lineHeight: 1.4
+                          lineHeight: 1.4, marginLeft: '4px'
                         }}>Today</span>}
                       </div>
                       {group.events.map(t => (
@@ -10617,7 +10619,8 @@
               return groups.map((group, gi) => {
                 const isGroupToday = group.date === todayISO;
                 const dateObj = new Date(group.date + 'T12:00:00');
-                const dateLabel = `${DOW[dateObj.getDay()]}, ${MONTHS[dateObj.getMonth()]} ${dateObj.getDate()}`;
+                const dayLetter = DOW[dateObj.getDay()].charAt(0);
+                const dayNum = String(dateObj.getDate()).padStart(2, '0');
                 const past = group.date < todayISO;
                 return (
                   <div key={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
@@ -10627,16 +10630,17 @@
                       padding: '12px 12px 8px 2px',
                       background: 'var(--bg)',
                       color: 'var(--text)',
-                      fontWeight: 700, fontSize: '0.85rem',
+                      fontWeight: 700,
                       borderBottom: 'none',
-                      display: 'flex', alignItems: 'center', gap: '8px'
+                      display: 'flex', alignItems: 'baseline', gap: '4px'
                     }}>
-                      {dateLabel}
+                      <span style={{fontSize: '1.7rem', lineHeight: 1}}>{dayLetter}</span>
+                      <span style={{fontSize: '3.4rem', lineHeight: 1}}>{dayNum}</span>
                       {isGroupToday && <span style={{
                         background: 'var(--accent)', color: '#fff',
                         fontSize: '0.7rem', fontWeight: 700,
                         padding: '2px 8px', borderRadius: '999px',
-                        lineHeight: 1.4
+                        lineHeight: 1.4, marginLeft: '4px'
                       }}>Today</span>}
                     </div>
                     {group.events.map(({ t, globalIdx: gIdx }) => (
