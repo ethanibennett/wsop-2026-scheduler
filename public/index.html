@@ -2467,6 +2467,21 @@
       gap: 6px;
       align-items: stretch;
     }
+    .dash-status-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .dash-status-stack .dash-playing-badge {
+      width: 100%;
+    }
+    .dash-status-stack .dash-action-row {
+      display: flex;
+      gap: 6px;
+    }
+    .dash-status-stack .dash-action-row > button {
+      flex: 1;
+    }
 
     .dash-status-row .dash-playing-badge {
       flex: 1;
@@ -12382,7 +12397,7 @@
                 }
 
                 return (
-                  <div className="dash-status-row">
+                  <div className="dash-status-stack">
                     <div className="dash-playing-badge">
                       <span className="dash-playing-dot" /> Currently Playing{bulletNum > 1 ? `; Bullet ${bulletNum}` : ''}
                       <button className="dash-undo-x" onClick={(e) => {
@@ -12390,26 +12405,28 @@
                         if (activeUpdate?.id && onDeleteUpdate && confirm('Undo playing status for this event?')) onDeleteUpdate(activeUpdate.id);
                       }} title="Undo start">✕</button>
                     </div>
-                    <button className="dash-update-btn" onClick={() => {
-                      window.dispatchEvent(new CustomEvent('openLiveUpdate', {
-                        detail: { tab: 'update', tournamentId: event.id }
-                      }));
-                    }}>Update</button>
-                    <button className="dash-bag-btn" onClick={() => {
-                      const nextBagDay = (activeUpdate?.bag_day || 0) + 1 || 1;
-                      window.dispatchEvent(new CustomEvent('openLiveUpdate', {
-                        detail: { tab: 'update', tournamentId: event.id, bag: nextBagDay }
-                      }));
-                    }}>Bag</button>
-                    {!regClosed ? (
-                      <button className="dash-bust-btn" onClick={() => setBustMenuEventId(event.id)}>Bust</button>
-                    ) : (
-                      <button className="dash-bust-btn" onClick={() => {
+                    <div className="dash-action-row">
+                      <button className="dash-update-btn" onClick={() => {
                         window.dispatchEvent(new CustomEvent('openLiveUpdate', {
-                          detail: { tab: 'finish', tournamentId: event.id }
+                          detail: { tab: 'update', tournamentId: event.id }
                         }));
-                      }}>Finish</button>
-                    )}
+                      }}>Update</button>
+                      <button className="dash-bag-btn" onClick={() => {
+                        const nextBagDay = (activeUpdate?.bag_day || 0) + 1 || 1;
+                        window.dispatchEvent(new CustomEvent('openLiveUpdate', {
+                          detail: { tab: 'update', tournamentId: event.id, bag: nextBagDay }
+                        }));
+                      }}>Bag</button>
+                      {!regClosed ? (
+                        <button className="dash-bust-btn" onClick={() => setBustMenuEventId(event.id)}>Bust</button>
+                      ) : (
+                        <button className="dash-bust-btn" onClick={() => {
+                          window.dispatchEvent(new CustomEvent('openLiveUpdate', {
+                            detail: { tab: 'finish', tournamentId: event.id }
+                          }));
+                        }}>Finish</button>
+                      )}
+                    </div>
                   </div>
                 );
               }
