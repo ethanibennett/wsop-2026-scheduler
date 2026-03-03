@@ -11993,6 +11993,7 @@
       const [selectedUpNextIdx, setSelectedUpNextIdx] = useState(0);
       const [connDropdownId, setConnDropdownId] = useState(null);
       const [now, setNow] = useState(getNow());
+      const rebuyingRef = useRef(false);
       const [bustMenuEventId, setBustMenuEventId] = useState(null);
 
       // Smooth swipe handling for carousel
@@ -12158,9 +12159,10 @@
         return nextUp?.id || null;
       }, [whatsNextEvents, hasActivePlaying, bustedEventMap]);
 
-      // ── Auto-advance carousel when current event finishes ──
+      // ── Auto-advance carousel when current event finishes (not on rebuy) ──
       const prevBustedRef = useRef(new Set());
       useEffect(() => {
+        if (rebuyingRef.current) return; // skip auto-advance during rebuy
         const curBusted = new Set(Object.keys(bustedEventMap).map(Number));
         const prev = prevBustedRef.current;
         if (whatsNextEvents.length > 1) {
@@ -12391,6 +12393,7 @@
                       {canRebuy && (
                         <button className="dash-rebuy-btn" onClick={() => {
                           if (onPost) {
+                            rebuyingRef.current = true;
                             onPost({
                               tournamentId: event.id,
                               stack: event.starting_chips || 20000,
@@ -12404,6 +12407,7 @@
                                 update_text: `Re-entry — Bullet ${bulletNum + 1}`,
                                 playStartedAt: new Date().toISOString(),
                               });
+                              setTimeout(() => { rebuyingRef.current = false; }, 500);
                             }, 300);
                           }
                           setBustMenuEventId(null);
