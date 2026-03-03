@@ -4022,6 +4022,11 @@
 
     // Debug: override "today" for testing via Settings page
     // Stored in localStorage('debugNow') — mutable at runtime
+    // ── Haptic feedback ──
+    function haptic(ms = 15) {
+      try { if (navigator.vibrate) navigator.vibrate(ms); } catch {}
+    }
+
     let _debugNow = localStorage.getItem('debugNow') || '';
     function setDebugNow(v) { _debugNow = v || ''; localStorage.setItem('debugNow', _debugNow); }
     function getToday() { return _debugNow ? _debugNow.slice(0, 10) : new Date().toISOString().slice(0, 10); }
@@ -5747,6 +5752,7 @@
         if (!selectedTournamentId) return;
         if (updateType === 'update' && !isBusted && !stack) return;
         if (updateType === 'hand' && !parseCardNotation(heroHand).length) return;
+        haptic(25);
         const data = buildUpdateData();
         onPost(data);
         // Auto-create tracking entry on bust
@@ -12704,6 +12710,7 @@
                       <button className="dash-update-btn" onClick={() => setBustMenuEventId(null)}>Cancel</button>
                       {canRebuy && (
                         <button className="dash-rebuy-btn" onClick={() => {
+                          haptic(25);
                           if (onPost) {
                             rebuyingRef.current = true;
                             onPost({
@@ -12726,6 +12733,7 @@
                         }}>Rebuys: {maxEntries >= 99 ? 'Unlimited' : maxEntries - bulletNum}</button>
                       )}
                       <button className="dash-bust-btn" onClick={() => {
+                        haptic(25);
                         window.dispatchEvent(new CustomEvent('openLiveUpdate', {
                           detail: { tab: 'finish', tournamentId: event.id }
                         }));
@@ -12751,15 +12759,17 @@
                         }));
                       }}>Update</button>
                       <button className="dash-bag-btn" onClick={() => {
+                        haptic(25);
                         const nextBagDay = (activeUpdate?.bag_day || 0) + 1 || 1;
                         window.dispatchEvent(new CustomEvent('openLiveUpdate', {
                           detail: { tab: 'update', tournamentId: event.id, bag: nextBagDay }
                         }));
                       }}>Bag</button>
                       {!regClosed ? (
-                        <button className="dash-bust-btn" onClick={() => setBustMenuEventId(event.id)}>Bust</button>
+                        <button className="dash-bust-btn" onClick={() => { haptic(); setBustMenuEventId(event.id); }}>Bust</button>
                       ) : (
                         <button className="dash-bust-btn" onClick={() => {
+                          haptic(25);
                           window.dispatchEvent(new CustomEvent('openLiveUpdate', {
                             detail: { tab: 'finish', tournamentId: event.id }
                           }));
@@ -12775,6 +12785,7 @@
                 <button
                   className="dash-start-btn"
                   onClick={() => {
+                    haptic(25);
                     if (onPost) {
                       onPost({
                         tournamentId: event.id,
@@ -15132,7 +15143,7 @@
             <button
               key={tab.id}
               className={`nav-tab ${current === tab.id ? 'active' : ''}${tab.center ? ' nav-tab-center' : ''}`}
-              onClick={() => onChange(tab.id)}
+              onClick={() => { haptic(10); onChange(tab.id); }}
               style={{position:'relative'}}
             >
               <tab.icon />
@@ -16620,6 +16631,7 @@
       };
 
       const postLiveUpdate = async (data) => {
+        haptic();
         try {
           const res = await fetch(`${API_URL}/live-update`, {
             method: 'POST',
@@ -16940,6 +16952,7 @@
       };
 
       const toggleTournament = async (tournamentId) => {
+        haptic();
         const existing = mySchedule.find(t => t.id === tournamentId);
         const isIn = !!existing;
         try {
