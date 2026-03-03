@@ -12277,11 +12277,11 @@
             {isExpanded && blindInfo && (
               <div className="dash-event-stats">
                 <div className="dash-stat-box">
-                  <div className="dash-stat-value">{blindInfo.ante ? `${blindInfo.sb.toLocaleString()}/${blindInfo.bb.toLocaleString()}/${blindInfo.ante.toLocaleString()}` : `${blindInfo.sb.toLocaleString()}/${blindInfo.bb.toLocaleString()}`}</div>
+                  <div className="dash-stat-value">{blindInfo.ante ? `${formatChips(blindInfo.sb)}/${formatChips(blindInfo.bb)}/${formatChips(blindInfo.ante)}` : `${formatChips(blindInfo.sb)}/${formatChips(blindInfo.bb)}`}</div>
                   <div className="dash-stat-label">Level {blindInfo.level}</div>
                 </div>
                 <div className="dash-stat-box">
-                  <div className="dash-stat-value">{currentStack.toLocaleString()}</div>
+                  <div className="dash-stat-value">{formatChips(currentStack)}</div>
                   <div className="dash-stat-label">{bbCount ? `${bbCount} BB` : 'START STACK'}</div>
                 </div>
                 <div className="dash-stat-box">
