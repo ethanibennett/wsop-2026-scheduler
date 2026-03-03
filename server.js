@@ -481,6 +481,24 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  // Migrate: add satellite/restart/category columns for filtering
+  const tourneyMigCols = [
+    ['is_satellite', 'INTEGER DEFAULT 0'],
+    ['target_event', 'TEXT'],
+    ['is_restart', 'INTEGER DEFAULT 0'],
+    ['parent_event', 'TEXT'],
+    ['category', 'TEXT'],
+    ['late_reg_end', 'TEXT']
+  ];
+  for (const [col, type] of tourneyMigCols) {
+    try {
+      db.run(`ALTER TABLE tournaments ADD COLUMN ${col} ${type}`);
+      console.log(`Added column tournaments.${col}`);
+    } catch (e) {
+      // Column already exists — ignore
+    }
+  }
+
   // Migrate: add last_seen_shares to users
   try {
     db.run('ALTER TABLE users ADD COLUMN last_seen_shares DATETIME');
@@ -1254,6 +1272,31 @@ async function initDatabase() {
           UNIQUE(user_id, setting_type, setting_key)
         )`);
         console.log('Created staking_markup_settings table');
+      }
+    },
+    {
+      name: 'backfill-satellite-restart-flags-2026-03',
+      fn: () => {
+        // Flag satellites by name keywords
+        const satResult = db.run(
+          `UPDATE tournaments SET is_satellite = 1
+           WHERE is_satellite = 0
+           AND (event_name LIKE '%Satellite%' OR event_name LIKE '%Super Sat%'
+                OR event_name LIKE '%Mega Sat%' OR event_name LIKE '%Qualifier%')`
+        );
+        const satCount = db.getRowsModified();
+
+        // Flag restarts (Day 2+, Final Table, etc.)
+        const rstResult = db.run(
+          `UPDATE tournaments SET is_restart = 1
+           WHERE is_restart = 0
+           AND (event_name LIKE '%Day 2%' OR event_name LIKE '%Day 3%'
+                OR event_name LIKE '%Day 4%' OR event_name LIKE '%Day 5%'
+                OR event_name LIKE '%Final Table%' OR event_name LIKE '%RESTART%')`
+        );
+        const rstCount = db.getRowsModified();
+
+        console.log(`Backfill: flagged ${satCount} satellites, ${rstCount} restarts`);
       }
     },
   ];
