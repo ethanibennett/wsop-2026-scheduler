@@ -10021,6 +10021,22 @@
       const [focusEventId, setFocusEventId] = useState(null);
       const todayScrollRef = useRef(null);
       const hasScrolled = useRef(false);
+      const stickyFiltersRef = useRef(null);
+      const [dateBreakTop, setDateBreakTop] = useState(0);
+
+      useEffect(() => {
+        const measure = () => {
+          if (stickyFiltersRef.current) {
+            const h = stickyFiltersRef.current.offsetHeight;
+            const style = getComputedStyle(stickyFiltersRef.current);
+            const mt = parseFloat(style.marginTop) || 0;
+            setDateBreakTop(h + mt);
+          }
+        };
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+      }, [filters, search]);
 
       const buyinOptions = useMemo(() =>
         [...new Set(tournaments.map(t => parseInt(t.buyin, 10)).filter(n => n > 0 && !isNaN(n)))].sort((a, b) => a - b),
@@ -10117,7 +10133,7 @@
 
       return (
         <div>
-          <div className="sticky-filters">
+          <div className="sticky-filters" ref={stickyFiltersRef}>
             <div className="search-bar">
               <Icon.search />
               <input
@@ -10169,8 +10185,8 @@
                   return (
                     <div key={group.date} ref={needsRef ? todayScrollRef : undefined} data-today-scroll={needsRef ? 'true' : undefined} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                       <div className="schedule-date-break" style={{
-                        position: 'sticky', top: 0, zIndex: 5,
-                        padding: '20px 12px 8px 2px',
+                        position: 'sticky', top: dateBreakTop + 'px', zIndex: 5,
+                        padding: '12px 12px 8px 2px',
                         background: 'var(--bg)',
                         color: 'var(--text)',
                         fontWeight: 700, fontSize: '0.85rem',
@@ -10324,9 +10340,20 @@
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
       const dayOffDateRef = React.useRef(null);
+      const schedHeaderRef = React.useRef(null);
       const [focusEventId, setFocusEventId] = useState(null);
       const [showTravelPicker, setShowTravelPicker] = useState(false);
       const [showExportModal, setShowExportModal] = useState(false);
+      const [schedDateTop, setSchedDateTop] = useState(0);
+
+      useEffect(() => {
+        const measure = () => {
+          if (schedHeaderRef.current) setSchedDateTop(schedHeaderRef.current.offsetHeight);
+        };
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+      }, []);
 
       const todayISO = getToday();
 
@@ -10393,7 +10420,7 @@
             </div>
           ) : (
           <>
-          <div className="schedule-sticky-header">
+          <div className="schedule-sticky-header" ref={schedHeaderRef}>
             <div className="section-header" style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:0}}>
               <h2>My Schedule</h2>
               <span style={{fontSize:'0.82rem',color:'var(--text-muted)',flex:1}}>{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
@@ -10465,7 +10492,7 @@
                   <div key={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                     <div ref={group.events[0].globalIdx === firstCurrentIdx ? todayRef : null}
                       className="schedule-date-break" style={{
-                      position: 'sticky', top: '34px', zIndex: 5,
+                      position: 'sticky', top: schedDateTop + 'px', zIndex: 5,
                       padding: '12px 12px 8px 2px',
                       background: 'var(--bg)',
                       color: 'var(--text)',
