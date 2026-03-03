@@ -3460,41 +3460,41 @@
     }
     .group-member-card:last-child { border-bottom: none; }
 
-    /* Quick Actions */
-    .dash-actions-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-    }
-
-    .dash-action-btn {
+    /* Quick Actions pill bar */
+    .dash-actions-bar {
       display: flex;
-      flex-direction: column;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .dash-actions-bar button {
+      flex: 1;
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 3px;
-      padding: 8px 6px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text);
+      gap: 4px;
+      padding: 7px 0;
+      border: none;
+      border-right: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
       font-family: 'Oswald', sans-serif;
-      font-size: 0.6rem;
-      font-weight: 600;
+      font-size: 0.62rem;
+      font-weight: 500;
       cursor: pointer;
-      transition: background 0.15s;
+      transition: background 0.15s, color 0.15s;
       text-transform: uppercase;
       letter-spacing: 0.03em;
-      text-align: center;
     }
 
-    .dash-action-btn:hover {
-      background: var(--hover-overlay);
+    .dash-actions-bar button:last-child { border-right: none; }
+    .dash-actions-bar button:hover {
+      background: var(--surface2, var(--border));
+      color: var(--text);
     }
-
-    .dash-action-btn svg {
-      width: 18px;
-      height: 18px;
+    .dash-actions-bar button svg {
+      width: 14px;
+      height: 14px;
     }
 
     /* Placeholder views */
@@ -12493,29 +12493,24 @@
             )}
           </div>
 
-          {/* ── Quick Actions ── */}
-          <div className="dashboard-section">
-            <div className="dashboard-section-header">
-              <div className="dashboard-section-title">Quick Actions</div>
-            </div>
-            <div className="dash-actions-grid">
-              <button className="dash-action-btn" onClick={() => onNavigate('_liveUpdate')}>
-                <Icon.signal />
-                Post Update
-              </button>
-              <button className="dash-action-btn" onClick={() => onNavigate('tracking')}>
-                <Icon.dollarSign />
-                Log Result
-              </button>
-              <button className="dash-action-btn" onClick={() => onNavigate('_share')}>
-                <Icon.link />
-                Share
-              </button>
-              <button className="dash-action-btn" onClick={() => onNavigate('tournaments')}>
-                <Icon.search />
-                Find Events
-              </button>
-            </div>
+          {/* ── Quick Actions pill bar ── */}
+          <div className="dash-actions-bar">
+            <button onClick={() => onNavigate('_liveUpdate')}>
+              <Icon.signal />
+              Update
+            </button>
+            <button onClick={() => onNavigate('tracking')}>
+              <Icon.dollarSign />
+              Log Result
+            </button>
+            <button onClick={() => onNavigate('_share')}>
+              <Icon.link />
+              Share
+            </button>
+            <button onClick={() => onNavigate('tournaments')}>
+              <Icon.search />
+              Find Events
+            </button>
           </div>
 
           {/* ── Friends Playing ── */}
