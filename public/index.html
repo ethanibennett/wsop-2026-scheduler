@@ -2277,15 +2277,18 @@
 
     .dash-event-card.conditional {
       opacity: 0.7;
+      overflow: visible;
     }
     .dash-event-card.conditional::after {
       content: '';
       position: absolute;
-      top: -2px; left: -2px; right: -2px; bottom: -2px;
-      border: 2px dashed var(--conditional-venue);
-      border-top: 2px solid var(--conditional-venue);
-      border-radius: var(--radius);
+      top: 20px; left: -2px; right: -2px; bottom: -2px;
+      border-left: 2px dashed var(--conditional-venue);
+      border-right: 2px dashed var(--conditional-venue);
+      border-bottom: 2px dashed var(--conditional-venue);
+      border-radius: 0 0 var(--radius) var(--radius);
       pointer-events: none;
+      z-index: 1;
     }
 
     .dash-event-card.done {
@@ -12221,7 +12224,7 @@
         ].filter(Boolean).join(' ');
 
         const cardStyle = isConditionalOnPlaying
-          ? { borderTop: `2px solid ${venueColor}`, borderLeft: 'none', borderRight: 'none', borderBottom: 'none', '--conditional-venue': venueColor }
+          ? { borderTop: `2px solid ${venueColor}`, borderLeft: `2px solid transparent`, borderRight: `2px solid transparent`, borderBottom: `2px solid transparent`, '--conditional-venue': venueColor }
           : isBustedDone
             ? { borderColor: 'var(--border)' }
             : { borderColor: venueColor };
