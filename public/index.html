@@ -2689,6 +2689,36 @@
       font-weight: 600;
     }
 
+    /* Connections toggle */
+    .connections-toggle {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .connections-toggle button {
+      flex: 1;
+      padding: 4px 0;
+      border: none;
+      border-right: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.62rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .connections-toggle button:last-child { border-right: none; }
+    .connections-toggle button.active {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .connections-toggle button:not(.active):hover {
+      background: var(--surface2, var(--border));
+    }
+
     /* Friends widget */
     .dash-friends-row {
       display: flex;
@@ -11893,8 +11923,9 @@
 
     // ── Dashboard View ──────────────────────────────────────────
 
-    function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, onPost, onDeleteUpdate, onAddTracking, onNavigate, tournaments, onToggle }) {
+    function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, buddyEvents, onPost, onDeleteUpdate, onAddTracking, onNavigate, tournaments, onToggle }) {
       const [expandedFriend, setExpandedFriend] = useState(null);
+      const [connectionsTab, setConnectionsTab] = useState('playing');
       const [now, setNow] = useState(getNow());
       const [bustMenuEventId, setBustMenuEventId] = useState(null);
       const [manuallyExpandedId, setManuallyExpandedId] = useState(null);
@@ -12391,6 +12422,28 @@
           }));
       }, [shareBuddies, buddyLiveUpdates]);
 
+      // ── Friends with upcoming scheduled events ──
+      const scheduledFriends = useMemo(() => {
+        if (!shareBuddies || !buddyEvents || !tournaments) return [];
+        const todayISO = getToday();
+        // Build a map of buddyId -> upcoming tournament names
+        const buddyUpcoming = {};
+        Object.entries(buddyEvents).forEach(([tid, buddies]) => {
+          const t = tournaments.find(x => x.id === Number(tid));
+          if (!t || t.date < todayISO) return;
+          buddies.forEach(b => {
+            if (!buddyUpcoming[b.id]) buddyUpcoming[b.id] = [];
+            buddyUpcoming[b.id].push(t);
+          });
+        });
+        return shareBuddies
+          .filter(b => buddyUpcoming[b.id] && buddyUpcoming[b.id].length > 0)
+          .map(b => ({
+            ...b,
+            upcomingEvents: buddyUpcoming[b.id].sort((a, c) => a.date < c.date ? -1 : 1).slice(0, 3),
+          }));
+      }, [shareBuddies, buddyEvents, tournaments]);
+
       return (
         <div className="dashboard-view">
 
@@ -12513,57 +12566,85 @@
             </button>
           </div>
 
-          {/* ── Friends Playing ── */}
+          {/* ── Connections ── */}
           <div className="dashboard-section">
             <div className="dashboard-section-header">
-              <div className="dashboard-section-title">Friends Playing</div>
-              {activeFriends.length > 0 && (
+              <div className="dashboard-section-title">Connections</div>
+              {connectionsTab === 'playing' && activeFriends.length > 0 && (
                 <span className="dashboard-section-badge">{activeFriends.length} live</span>
               )}
+              {connectionsTab === 'scheduled' && scheduledFriends.length > 0 && (
+                <span className="dashboard-section-badge">{scheduledFriends.length}</span>
+              )}
             </div>
-            {activeFriends.length > 0 ? (
-              <>
-                <div className="dash-friends-row">
-                  {activeFriends.map(f => (
-                    <button
-                      key={f.id}
-                      className="dash-friend-chip"
-                      onClick={() => setExpandedFriend(expandedFriend === f.id ? null : f.id)}
-                    >
-                      <Avatar src={f.avatar} username={f.username} size={38} />
-                      <span className="friend-name">{f.username}</span>
-                    </button>
-                  ))}
+            <div className="connections-toggle">
+              <button className={connectionsTab === 'scheduled' ? 'active' : ''} onClick={() => setConnectionsTab('scheduled')}>Scheduled</button>
+              <button className={connectionsTab === 'playing' ? 'active' : ''} onClick={() => setConnectionsTab('playing')}>Playing</button>
+            </div>
+            {connectionsTab === 'playing' ? (
+              activeFriends.length > 0 ? (
+                <>
+                  <div className="dash-friends-row">
+                    {activeFriends.map(f => (
+                      <button
+                        key={f.id}
+                        className="dash-friend-chip"
+                        onClick={() => setExpandedFriend(expandedFriend === f.id ? null : f.id)}
+                      >
+                        <Avatar src={f.avatar} username={f.username} size={38} />
+                        <span className="friend-name">{f.username}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {expandedFriend && (() => {
+                    const friend = activeFriends.find(f => f.id === expandedFriend);
+                    if (!friend) return null;
+                    const lu = friend.liveUpdate;
+                    return (
+                      <div className="dash-friend-detail">
+                        <Avatar src={friend.avatar} username={friend.username} size={32} />
+                        <div className="dash-friend-detail-info">
+                          <div className="dash-friend-detail-event">{lu.eventName}</div>
+                          <div className="dash-friend-detail-stack">
+                            {lu.stack ? `Stack: ${Number(lu.stack).toLocaleString()}` : ''}
+                            {lu.bb ? ` | Blinds: ${Number(lu.sb).toLocaleString()}/${Number(lu.bb).toLocaleString()}` : ''}
+                            {lu.venue ? ` | ${lu.venue}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <div className="dash-empty" style={{padding:'6px 16px',display:'flex',alignItems:'center',gap:'8px'}}>
+                  <Icon.people />
+                  <div>No friends are playing right now</div>
                 </div>
-                {expandedFriend && (() => {
-                  const friend = activeFriends.find(f => f.id === expandedFriend);
-                  if (!friend) return null;
-                  const lu = friend.liveUpdate;
-                  return (
-                    <div className="dash-friend-detail">
-                      <Avatar src={friend.avatar} username={friend.username} size={32} />
+              )
+            ) : (
+              scheduledFriends.length > 0 ? (
+                <div className="dash-friends-row" style={{flexDirection:'column',gap:'6px'}}>
+                  {scheduledFriends.map(f => (
+                    <div key={f.id} className="dash-friend-detail" style={{cursor:'pointer'}} onClick={() => setExpandedFriend(expandedFriend === f.id ? null : f.id)}>
+                      <Avatar src={f.avatar} username={f.username} size={28} />
                       <div className="dash-friend-detail-info">
-                        <div className="dash-friend-detail-event">{lu.eventName}</div>
+                        <div className="dash-friend-detail-event" style={{fontSize:'0.72rem'}}>{f.username}</div>
                         <div className="dash-friend-detail-stack">
-                          {lu.stack ? `Stack: ${Number(lu.stack).toLocaleString()}` : ''}
-                          {lu.bb ? ` | Blinds: ${Number(lu.sb).toLocaleString()}/${Number(lu.bb).toLocaleString()}` : ''}
-                          {lu.venue ? ` | ${lu.venue}` : ''}
+                          {expandedFriend === f.id
+                            ? f.upcomingEvents.map((t, i) => <div key={i}>{t.date.slice(5)} — {t.event_name}</div>)
+                            : `${f.upcomingEvents.length} upcoming event${f.upcomingEvents.length !== 1 ? 's' : ''}`
+                          }
                         </div>
                       </div>
                     </div>
-                  );
-                })()}
-              </>
-            ) : (
-              <div className="dash-empty" style={{padding:'6px 16px',display:'flex',alignItems:'center',gap:'8px'}}>
-                <Icon.people />
-                <div>
-                  <div>No friends are playing right now</div>
-                  <div style={{fontSize:'0.72rem',marginTop:'2px'}}>
-                    Connect with friends in <button onClick={() => onNavigate('settings')} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline',padding:0}}>settings</button>
-                  </div>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="dash-empty" style={{padding:'6px 16px',display:'flex',alignItems:'center',gap:'8px'}}>
+                  <Icon.people />
+                  <div>No friends have upcoming events</div>
+                </div>
+              )
             )}
           </div>
           </div>
@@ -16580,6 +16661,7 @@
                 trackingData={trackingData}
                 shareBuddies={shareBuddies}
                 buddyLiveUpdates={buddyLiveUpdates}
+                buddyEvents={buddyEvents}
                 onPost={postLiveUpdate}
                 onDeleteUpdate={deleteLiveUpdate}
                 onAddTracking={addTracking}
