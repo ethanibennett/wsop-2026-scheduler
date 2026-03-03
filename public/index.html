@@ -810,6 +810,71 @@
     .alert-error { background: rgba(136,136,136,0.15); border: 1px solid rgba(136,136,136,0.4); color: #999999; }
     .alert-success { background: rgba(160,160,160,0.12); border: 1px solid rgba(160,160,160,0.4); color: var(--accent); }
 
+    /* ── Toasts ── */
+    .toast-container {
+      position: fixed;
+      bottom: calc(var(--tab-h) + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 8px;
+      pointer-events: none;
+      width: calc(100% - 24px);
+      max-width: 400px;
+    }
+    .toast {
+      pointer-events: auto;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      animation: toastIn 0.25s ease-out;
+      cursor: pointer;
+    }
+    .toast.exiting {
+      animation: toastOut 0.2s ease-in forwards;
+    }
+    .toast-error {
+      background: var(--surface);
+      border: 1px solid #ef4444;
+      color: #ef4444;
+    }
+    .toast-success {
+      background: var(--surface);
+      border: 1px solid #22c55e;
+      color: #22c55e;
+    }
+    .toast-info {
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+    .toast-icon {
+      flex-shrink: 0;
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .toast-message {
+      flex: 1;
+      min-width: 0;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(8px) scale(0.95); }
+    }
+
     /* ── Settings ── */
     .settings-view { padding: 0 4px; }
     .settings-section {
@@ -3851,7 +3916,57 @@
   </div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo, useCallback, useRef } = React;
+    const { useState, useEffect, useMemo, useCallback, useRef, createContext, useContext } = React;
+
+    // ── Toast notification system ──
+    const ToastContext = createContext(null);
+    function useToast() { return useContext(ToastContext); }
+
+    let toastIdCounter = 0;
+    function ToastProvider({ children }) {
+      const [toasts, setToasts] = useState([]);
+
+      const addToast = useCallback((message, type = 'info', duration = 3500) => {
+        const id = ++toastIdCounter;
+        setToasts(prev => [...prev, { id, message, type }]);
+        setTimeout(() => {
+          setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+          setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 200);
+        }, duration);
+      }, []);
+
+      const dismiss = useCallback((id) => {
+        setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 200);
+      }, []);
+
+      const ctx = useMemo(() => ({
+        success: (msg) => addToast(msg, 'success'),
+        error: (msg) => addToast(msg, 'error', 5000),
+        info: (msg) => addToast(msg, 'info'),
+      }), [addToast]);
+
+      const icons = { success: '✓', error: '✕', info: 'ℹ' };
+
+      return React.createElement(ToastContext.Provider, { value: ctx },
+        children,
+        ReactDOM.createPortal(
+          React.createElement('div', { className: 'toast-container' },
+            toasts.map(t =>
+              React.createElement('div', {
+                key: t.id,
+                className: 'toast toast-' + t.type + (t.exiting ? ' exiting' : ''),
+                onClick: () => dismiss(t.id),
+              },
+                React.createElement('span', { className: 'toast-icon' }, icons[t.type]),
+                React.createElement('span', { className: 'toast-message' }, t.message),
+              )
+            )
+          ),
+          document.body
+        )
+      );
+    }
 
     const API_URL = window.location.origin + '/api';
 
@@ -15016,8 +15131,6 @@
                   <input className="settings-debug-input" name="shareUsername" placeholder="Enter username" style={{flex:1}} />
                   <button type="submit" className="btn btn-ghost btn-sm">Send</button>
                 </form>
-                {shareError && <div className="alert alert-error" style={{margin:'4px 0'}}>{shareError}</div>}
-                {shareSuccess && <div className="alert alert-success" style={{margin:'4px 0'}}>{shareSuccess}</div>}
                 {pendingOutgoing && pendingOutgoing.length > 0 && (
                   <div style={{marginTop:'4px'}}>
                     <span style={{fontSize:'0.7rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px'}}>Pending</span>
@@ -15081,8 +15194,6 @@
                   Import a PDF schedule from any poker series. The format is auto-detected.
                 </p>
                 <input type="text" placeholder="Venue (optional — auto-detected from PDF)" value={uploadVenue} onChange={e => onUploadVenueChange(e.target.value)} style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.8rem',width:'100%',boxSizing:'border-box'}} />
-                {uploadError && <div className="alert alert-error" style={{margin:'4px 0'}}>{uploadError}</div>}
-                {uploadSuccess && <div className="alert alert-success" style={{margin:'4px 0'}}>{uploadSuccess}</div>}
                 <input type="file" id="pdf-upload-settings" className="file-input" accept=".pdf" onChange={onUpload} />
                 <label htmlFor="pdf-upload-settings" className="btn btn-ghost btn-sm" style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px'}}>
                   <Icon.upload /> Choose PDF
@@ -16163,6 +16274,7 @@
       const [mySchedule, setMySchedule] = useState([]);
       const [gameVariants, setGameVariants] = useState([]);
       const [venues, setVenues] = useState([]);
+      const toast = useToast();
       const [error, setError] = useState('');
       const [success, setSuccess] = useState('');
       const [uploadError, setUploadError] = useState('');
@@ -16353,7 +16465,7 @@
           if (!res) return;
           const data = await res.json();
           setTournaments(Array.isArray(data) ? data : []);
-        } catch { setError('Failed to load tournaments'); }
+        } catch { toast.error('Failed to load tournaments'); }
       };
 
       const fetchMySchedule = async () => {
@@ -16397,7 +16509,7 @@
           });
           const data = await res.json();
           setTrackingData(Array.isArray(data) ? data : []);
-        } catch { setError('Failed to load tracking data'); }
+        } catch { toast.error('Failed to load tracking data'); }
       };
 
       const fetchMyLiveUpdate = async () => {
@@ -16599,7 +16711,6 @@
       };
       const handleSendShareRequest = async (e) => {
         e.preventDefault();
-        setShareError(''); setShareSuccess('');
         const username = new FormData(e.target).get('shareUsername');
         if (!username) return;
         try {
@@ -16609,11 +16720,11 @@
             body: JSON.stringify({ username })
           });
           const data = await res.json();
-          if (!res.ok) { setShareError(data.error); return; }
-          setShareSuccess(data.message);
+          if (!res.ok) { toast.error(data.error); return; }
+          toast.success(data.message);
           e.target.reset();
           fetchShareBuddies();
-        } catch { setShareError('Failed to send request'); }
+        } catch { toast.error('Failed to send request'); }
       };
       const handleAcceptRequest = async (id) => {
         try {
@@ -16832,22 +16943,21 @@
       const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        setUploadError(''); setUploadSuccess('');
         const fd = new FormData();
         fd.append('pdf', file);
         if (uploadVenue) fd.append('venue', uploadVenue);
         try {
-          setUploadSuccess('Uploading and parsing PDF…');
+          toast.info('Uploading and parsing PDF…');
           const res = await fetch(`${API_URL}/upload-schedule`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
             body: fd
           });
           const data = await res.json();
-          setUploadSuccess(`Successfully imported ${data.tournamentsCount} tournaments from ${data.format === 'wsop' ? 'WSOP' : 'generic'} format!`);
+          toast.success(`Imported ${data.tournamentsCount} tournaments from ${data.format === 'wsop' ? 'WSOP' : 'generic'} format!`);
           setUploadVenue('');
           fetchTournaments();
-        } catch { setUploadError('Failed to upload schedule'); }
+        } catch { toast.error('Failed to upload schedule'); }
       };
 
       if (!token) {
@@ -16906,7 +17016,6 @@
             <div className={'ptr-indicator' + (refreshing ? ' visible' : '')} ref={ptrIndicator}>
               <div className={'ptr-spinner' + (refreshing ? ' spinning' : '')} />
             </div>
-            {error && <div className="alert alert-error">{error}</div>}
             <div className="view-fade" key={viewKey}>
             {currentView === 'dashboard' && (
               <DashboardView
@@ -17085,7 +17194,7 @@
     if (SHARED_TOKEN) {
       ReactDOM.render(<SharedScheduleView shareToken={SHARED_TOKEN} />, document.getElementById('root'));
     } else {
-      ReactDOM.render(<App />, document.getElementById('root'));
+      ReactDOM.render(<ToastProvider><App /></ToastProvider>, document.getElementById('root'));
     }
   </script>
 </body>
