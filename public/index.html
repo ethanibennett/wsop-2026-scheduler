@@ -9076,6 +9076,22 @@
     // ── Currency helper ─────────────────────────────────────────
     function currencySymbol(venue) { return venue === 'Irish Poker Open' ? '€' : '$'; }
 
+    // Measure combined height of sticky elements (filters + stuck date break)
+    function measureStickyStack(container) {
+      const caTop = container.getBoundingClientRect().top;
+      let bottom = 0;
+      const sticky = container.querySelector('.sticky-filters') || container.querySelector('.schedule-sticky-header');
+      if (sticky) bottom = sticky.getBoundingClientRect().bottom - caTop;
+      container.querySelectorAll('.schedule-date-break').forEach(db => {
+        const dbTop = db.getBoundingClientRect().top - caTop;
+        if (dbTop < bottom + 5) {
+          const dbBottom = db.getBoundingClientRect().bottom - caTop;
+          if (dbBottom > bottom) bottom = dbBottom;
+        }
+      });
+      return bottom;
+    }
+
     // ── Calendar Event Row (collapsible) ──────────────────────
 
     function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates }) {
@@ -9089,27 +9105,8 @@
       function scrollBelowSticky(el) {
         const container = el.closest('.content-area');
         if (!container) return;
-        const caRect = container.getBoundingClientRect();
-
-        // 1. Measure primary sticky header (filters bar or schedule header)
-        let stickyBottom = 0;
-        const primarySticky = container.querySelector('.sticky-filters') || container.querySelector('.schedule-sticky-header');
-        if (primarySticky) {
-          stickyBottom = primarySticky.getBoundingClientRect().bottom - caRect.top;
-        }
-
-        // 2. Check if a date break is stuck just below the primary sticky
-        //    A stuck date break's top will be at or above the primary sticky's bottom
-        container.querySelectorAll('.schedule-date-break').forEach(db => {
-          const dbRect = db.getBoundingClientRect();
-          const dbTop = dbRect.top - caRect.top;
-          if (dbTop < stickyBottom + 5) {
-            const dbBottom = dbRect.bottom - caRect.top;
-            if (dbBottom > stickyBottom) stickyBottom = dbBottom;
-          }
-        });
-
-        const rowTop = el.getBoundingClientRect().top - caRect.top + container.scrollTop;
+        const stickyBottom = measureStickyStack(container);
+        const rowTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
         container.scrollTo({ top: rowTop - stickyBottom - 4, behavior: 'smooth' });
       }
 
@@ -10144,26 +10141,27 @@
       useEffect(() => {
         if (!hasScrolled.current && todayScrollRef.current) {
           hasScrolled.current = true;
-          // Use double-rAF to ensure layout is fully settled after mount
           requestAnimationFrame(() => requestAnimationFrame(() => {
             const el = todayScrollRef.current;
             if (!el) return;
             const container = el.closest('.content-area') || document.querySelector('.content-area');
             if (!container) return;
+            // Phase 1: rough scroll to get today's group near the top
             const caTop = container.getBoundingClientRect().top;
             const sticky = container.querySelector('.sticky-filters');
             const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
-            const dateBreak = el.querySelector('.schedule-date-break');
-            const dbH = dateBreak ? dateBreak.offsetHeight : 0;
-            // Position the first event card right below both sticky elements
-            const firstCard = el.querySelector('.cal-event-row');
-            if (firstCard) {
-              const cardTop = firstCard.getBoundingClientRect().top - caTop + container.scrollTop;
-              container.scrollTo({ top: Math.max(0, cardTop - stickyH - dbH - 2) });
-            } else {
-              const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-              container.scrollTo({ top: Math.max(0, elTop - stickyH) });
-            }
+            const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+            container.scrollTo({ top: Math.max(0, elTop - stickyH) });
+            // Phase 2: post-scroll correction using actual sticky positions
+            requestAnimationFrame(() => {
+              const firstCard = el.querySelector('.cal-event-row');
+              if (!firstCard) return;
+              const stickyBottom = measureStickyStack(container);
+              const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
+              if (cardVisualTop < stickyBottom + 2) {
+                container.scrollTop -= (stickyBottom + 2 - cardVisualTop);
+              }
+            });
           }));
         }
       }, [filtered]);
@@ -16716,16 +16714,18 @@
                   const caTop = container.getBoundingClientRect().top;
                   const sticky = container.querySelector('.sticky-filters');
                   const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
-                  const dateBreak = todayEl.querySelector('.schedule-date-break');
-                  const dbH = dateBreak ? dateBreak.offsetHeight : 0;
-                  const firstCard = todayEl.querySelector('.cal-event-row');
-                  if (firstCard) {
-                    const cardTop = firstCard.getBoundingClientRect().top - caTop + container.scrollTop;
-                    container.scrollTo({ top: Math.max(0, cardTop - stickyH - dbH - 2), behavior: 'smooth' });
-                  } else {
-                    const elTop = todayEl.getBoundingClientRect().top - caTop + container.scrollTop;
-                    container.scrollTo({ top: Math.max(0, elTop - stickyH), behavior: 'smooth' });
-                  }
+                  const elTop = todayEl.getBoundingClientRect().top - caTop + container.scrollTop;
+                  container.scrollTo({ top: Math.max(0, elTop - stickyH), behavior: 'smooth' });
+                  // Post-scroll correction after smooth scroll settles
+                  setTimeout(() => {
+                    const firstCard = todayEl.querySelector('.cal-event-row');
+                    if (!firstCard) return;
+                    const stickyBottom = measureStickyStack(container);
+                    const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
+                    if (cardVisualTop < stickyBottom + 2) {
+                      container.scrollBy({ top: -(stickyBottom + 2 - cardVisualTop), behavior: 'smooth' });
+                    }
+                  }, 350);
                 }
                 return;
               }
