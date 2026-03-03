@@ -2278,6 +2278,12 @@
     .dash-event-card.conditional {
       opacity: 0.7;
       border-top: none;
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+    }
+    .dash-event-card.conditional .dash-venue-strip {
+      border-radius: var(--radius) var(--radius) 0 0;
+      top: -1px; left: -2px; right: -2px;
     }
 
     .dash-event-card.done {
@@ -12224,7 +12230,7 @@
 
         return (
           <div key={event.id} className={cardClass} style={cardStyle}>
-            <div className="dash-venue-strip" style={{background: isConditionalOnPlaying ? 'var(--surface2)' : venueColor, color: isConditionalOnPlaying ? 'var(--text-muted)' : venueStripText}}>{isExpanded ? (venueInfo.longName || venueInfo.abbr) : venueInfo.abbr}</div>
+            <div className="dash-venue-strip" style={{background: venueColor, color: venueStripText}}>{isExpanded ? (venueInfo.longName || venueInfo.abbr) : venueInfo.abbr}</div>
             {!isConditionalOnPlaying && (
               <div style={{display:'flex',flexWrap:'wrap',gap:'4px',alignItems:'center'}}>
                 {event._type === 'bagged' && (
