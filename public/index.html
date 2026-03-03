@@ -2695,35 +2695,19 @@
 
     /* Connections toggle */
     /* Up Next carousel selector */
-    .dash-upnext-selector {
+    .dash-carousel-track {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 0 2px;
+      transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+      will-change: transform;
     }
-    .dash-upnext-selector button {
-      width: 24px; height: 24px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      background: var(--surface2);
-      color: var(--text-muted);
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; font-size: 0.7rem; flex-shrink: 0;
-      padding: 0;
-    }
-    .dash-upnext-selector button:hover { background: var(--hover-overlay); color: var(--text); }
-    .dash-upnext-label {
-      flex: 1;
-      text-align: center;
-      font-family: 'Oswald', sans-serif;
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .dash-carousel-track.swiping { transition: none; }
+    .dash-carousel-slide {
+      flex: 0 0 100%;
+      width: 100%;
+      min-width: 0;
     }
     .dash-upnext-dots {
-      display: flex; gap: 5px; justify-content: center; padding: 2px 0;
+      display: flex; gap: 5px; justify-content: center; padding: 10px 0 2px;
     }
     .dash-upnext-dot {
       width: 6px; height: 6px; border-radius: 50%;
@@ -11974,18 +11958,45 @@
       const [now, setNow] = useState(getNow());
       const [bustMenuEventId, setBustMenuEventId] = useState(null);
 
-      // Swipe handling for carousel
-      const swipeRef = useRef(null);
-      const swipeStart = useRef(null);
-      const onTouchStart = useCallback((e) => { swipeStart.current = e.touches[0].clientX; }, []);
+      // Smooth swipe handling for carousel
+      const swipeRef = useRef(null);       // total event count
+      const swipeStart = useRef(null);     // starting X
+      const swipeDx = useRef(0);           // current drag offset
+      const trackRef = useRef(null);       // DOM ref to track element
+      const onTouchStart = useCallback((e) => {
+        swipeStart.current = e.touches[0].clientX;
+        swipeDx.current = 0;
+        if (trackRef.current) trackRef.current.classList.add('swiping');
+      }, []);
+      const onTouchMove = useCallback((e) => {
+        if (swipeStart.current === null) return;
+        const dx = e.touches[0].clientX - swipeStart.current;
+        swipeDx.current = dx;
+        if (trackRef.current) {
+          const len = swipeRef.current || 1;
+          // Read current index from data attribute
+          const idx = parseInt(trackRef.current.dataset.idx || '0', 10);
+          const pct = -(idx * 100) + (dx / trackRef.current.parentElement.offsetWidth) * 100;
+          trackRef.current.style.transform = `translateX(${pct}%)`;
+        }
+      }, []);
       const onTouchEnd = useCallback((e) => {
         if (swipeStart.current === null) return;
-        const dx = e.changedTouches[0].clientX - swipeStart.current;
+        const dx = swipeDx.current;
         swipeStart.current = null;
-        if (Math.abs(dx) < 40) return; // threshold
+        if (trackRef.current) trackRef.current.classList.remove('swiping');
+        const threshold = 40;
+        if (Math.abs(dx) < threshold) {
+          // Snap back — re-apply current position with transition
+          if (trackRef.current) {
+            const idx = parseInt(trackRef.current.dataset.idx || '0', 10);
+            trackRef.current.style.transform = `translateX(${-(idx * 100)}%)`;
+          }
+          return;
+        }
         setSelectedUpNextIdx(i => {
           const len = swipeRef.current || 1;
-          return dx < 0 ? (i + 1) % len : (i - 1 + len) % len;
+          return dx < 0 ? Math.min(i + 1, len - 1) : Math.max(i - 1, 0);
         });
       }, []);
 
@@ -12553,18 +12564,26 @@
             </div>
             {whatsNextEvents.length > 0 ? (() => {
               const safeIdx = Math.min(selectedUpNextIdx, whatsNextEvents.length - 1);
-              const currentEvent = whatsNextEvents[safeIdx];
               swipeRef.current = whatsNextEvents.length;
               return (
-                <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{touchAction:'pan-y'}}>
-                  {whatsNextEvents.length > 1 && (
-                    <div className="dash-upnext-selector">
-                      <button onClick={() => setSelectedUpNextIdx(i => (i - 1 + whatsNextEvents.length) % whatsNextEvents.length)} title="Previous">‹</button>
-                      <span className="dash-upnext-label">{safeIdx + 1} of {whatsNextEvents.length} — {currentEvent.event_name}</span>
-                      <button onClick={() => setSelectedUpNextIdx(i => (i + 1) % whatsNextEvents.length)} title="Next">›</button>
-                    </div>
-                  )}
-                  {renderEventCard(currentEvent)}
+                <div
+                  onTouchStart={onTouchStart}
+                  onTouchMove={onTouchMove}
+                  onTouchEnd={onTouchEnd}
+                  style={{overflow:'hidden', touchAction:'pan-y'}}
+                >
+                  <div
+                    className="dash-carousel-track"
+                    ref={trackRef}
+                    data-idx={safeIdx}
+                    style={{transform: `translateX(${-(safeIdx * 100)}%)`}}
+                  >
+                    {whatsNextEvents.map((evt, i) => (
+                      <div className="dash-carousel-slide" key={evt.id}>
+                        {renderEventCard(evt)}
+                      </div>
+                    ))}
+                  </div>
                   {whatsNextEvents.length > 1 && (
                     <div className="dash-upnext-dots">
                       {whatsNextEvents.map((_, i) => (
