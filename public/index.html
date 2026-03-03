@@ -10310,7 +10310,7 @@
                   const past = group.date < todayISO;
                   const dateObj = new Date(group.date + 'T12:00:00');
                   const monthAbbr = MONTHS[dateObj.getMonth()];
-                  const dayOfWeek = DOW[dateObj.getDay()];
+                  const dayOfWeek = ['S','M','T','W','Th','F','S'][dateObj.getDay()];
                   const dayNum = String(dateObj.getDate()).padStart(2, '0');
                   // Assign scroll ref to first group that is today or future
                   const needsRef = !scrollRefAssigned && group.date >= todayISO;
@@ -10327,14 +10327,14 @@
                         display: 'flex', alignItems: 'baseline', gap: '4px'
                       }}>
                         <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
-                        <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'uppercase'}}>{monthAbbr}</span>
+                        <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
                         {isToday && <span style={{
                           background: 'var(--accent)', color: '#fff',
                           fontSize: '0.7rem', fontWeight: 700,
                           padding: '2px 8px', borderRadius: '999px',
                           lineHeight: 1.4
                         }}>Today</span>}
-                        <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{dayOfWeek}</span>
+                        <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", }}>{dayOfWeek}</span>
                       </div>
                       {group.events.map(t => (
                         <CalendarEventRow
@@ -10622,7 +10622,7 @@
                 const isGroupToday = group.date === todayISO;
                 const dateObj = new Date(group.date + 'T12:00:00');
                 const monthAbbr = MONTHS[dateObj.getMonth()];
-                const dayOfWeek = DOW[dateObj.getDay()];
+                const dayOfWeek = ['S','M','T','W','Th','F','S'][dateObj.getDay()];
                 const dayNum = String(dateObj.getDate()).padStart(2, '0');
                 const past = group.date < todayISO;
                 return (
@@ -10638,14 +10638,14 @@
                       display: 'flex', alignItems: 'baseline', gap: '4px'
                     }}>
                       <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
-                      <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'uppercase'}}>{monthAbbr}</span>
+                      <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
                       {isGroupToday && <span style={{
                         background: 'var(--accent)', color: '#fff',
                         fontSize: '0.7rem', fontWeight: 700,
                         padding: '2px 8px', borderRadius: '999px',
                         lineHeight: 1.4
                       }}>Today</span>}
-                      <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{dayOfWeek}</span>
+                      <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", }}>{dayOfWeek}</span>
                     </div>
                     {group.events.map(({ t, globalIdx: gIdx }) => (
                       <div key={t.id} ref={gIdx === firstCurrentIdx && gIdx !== group.events[0].globalIdx ? todayRef : null}>
