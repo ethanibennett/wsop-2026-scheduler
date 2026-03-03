@@ -10326,7 +10326,7 @@
                         borderBottom: 'none',
                         display: 'flex', alignItems: 'baseline', gap: '4px'
                       }}>
-                        <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{monthAbbr}</span>
+                        <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'uppercase'}}>{monthAbbr}</span>
                         <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
                         {isToday && <span style={{
                           background: 'var(--accent)', color: '#fff',
@@ -10334,7 +10334,7 @@
                           padding: '2px 8px', borderRadius: '999px',
                           lineHeight: 1.4
                         }}>Today</span>}
-                        <span style={{marginLeft: 'auto', fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)'}}>{dayOfWeek}</span>
+                        <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'uppercase'}}>{dayOfWeek}</span>
                       </div>
                       {group.events.map(t => (
                         <CalendarEventRow
@@ -10637,7 +10637,7 @@
                       borderBottom: 'none',
                       display: 'flex', alignItems: 'baseline', gap: '4px'
                     }}>
-                      <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{monthAbbr}</span>
+                      <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'uppercase'}}>{monthAbbr}</span>
                       <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
                       {isGroupToday && <span style={{
                         background: 'var(--accent)', color: '#fff',
@@ -10645,7 +10645,7 @@
                         padding: '2px 8px', borderRadius: '999px',
                         lineHeight: 1.4
                       }}>Today</span>}
-                      <span style={{marginLeft: 'auto', fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)'}}>{dayOfWeek}</span>
+                      <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'uppercase'}}>{dayOfWeek}</span>
                     </div>
                     {group.events.map(({ t, globalIdx: gIdx }) => (
                       <div key={t.id} ref={gIdx === firstCurrentIdx && gIdx !== group.events[0].globalIdx ? todayRef : null}>
