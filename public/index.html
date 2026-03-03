@@ -2348,16 +2348,17 @@
     }
 
     .dash-event-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      display: flex;
       gap: 8px;
     }
 
     .dash-stat-box {
+      flex: 1 1 0;
       background: var(--surface2);
       border-radius: var(--radius-sm);
-      padding: 8px 10px;
+      padding: 8px 6px;
       text-align: center;
+      min-width: 0;
     }
 
     .dash-stat-value {
@@ -12281,7 +12282,7 @@
                   <div className="dash-stat-label">Level {blindInfo.level}</div>
                 </div>
                 <div className="dash-stat-box">
-                  <div className="dash-stat-value">{formatChips(currentStack)}</div>
+                  <div className="dash-stat-value">{currentStack.toLocaleString()}</div>
                   <div className="dash-stat-label">{bbCount ? `${bbCount} BB` : 'START STACK'}</div>
                 </div>
                 <div className="dash-stat-box">
