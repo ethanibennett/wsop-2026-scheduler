@@ -9085,14 +9085,19 @@
       const [travelNotes, setTravelNotes] = useState(tournament.notes || '');
       const rowRef = React.useRef(null);
 
-      // Scroll a row to just below the sticky header
+      // Scroll a row to just below all sticky headers (filters + date break)
       function scrollBelowSticky(el) {
         const container = el.closest('.content-area');
         if (!container) return;
+        const caTop = container.getBoundingClientRect().top;
         const sticky = container.querySelector('.sticky-filters');
-        const stickyH = sticky ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
-        const rowTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-        container.scrollTo({ top: rowTop - stickyH - 4, behavior: 'smooth' });
+        const stickyBottom = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
+        // Also account for the sticky date break below the filters
+        const dateBreak = el.closest('[style*="marginTop"]')?.querySelector('.schedule-date-break');
+        const dateH = dateBreak ? dateBreak.offsetHeight : 0;
+        const totalStickyH = stickyBottom + dateH;
+        const rowTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+        container.scrollTo({ top: rowTop - totalStickyH - 4, behavior: 'smooth' });
       }
 
       // Auto-expand and scroll when this event is the focus target
