@@ -12193,13 +12193,6 @@
               )}
             </div>
 
-            {isCurrentlyPlaying && liveStack && (
-              <div className="dash-stack-display">
-                <span className="dash-stack-value">{Number(liveStack).toLocaleString()}</span>
-                {stackBB && <span className="dash-stack-bb">({stackBB} BB)</span>}
-              </div>
-            )}
-
             {!isConditionalOnPlaying && (
               <div className="dash-event-meta">
                 <span><Icon.clock /> {event.time || 'TBD'}</span>
