@@ -621,6 +621,10 @@
       -webkit-overflow-scrolling: touch;
       padding: 12px 12px 80px; /* bottom pad clears the tab bar */
     }
+    .content-area:has(> .dashboard-view) {
+      overflow: hidden;
+      padding-bottom: 12px;
+    }
 
     /* ── Bottom tab bar ── */
     .bottom-nav {
@@ -2055,9 +2059,9 @@
     .dashboard-view {
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      min-height: calc(100vh - var(--header-h) - var(--tab-h) - 12px);
-      margin-bottom: -68px;
+      gap: 16px;
+      height: 100%;
+      overflow: hidden;
     }
 
     .dash-bottom-stack {
@@ -2690,102 +2694,143 @@
     }
 
     /* Connections toggle */
-    .connections-toggle {
+    /* Up Next carousel selector */
+    .dash-upnext-selector {
       display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 2px;
+    }
+    .dash-upnext-selector button {
+      width: 24px; height: 24px;
+      border-radius: 50%;
       border: 1px solid var(--border);
-      border-radius: 6px;
-      overflow: hidden;
-      margin-bottom: 6px;
-    }
-    .connections-toggle button {
-      flex: 1;
-      padding: 4px 0;
-      border: none;
-      border-right: 1px solid var(--border);
-      background: transparent;
+      background: var(--surface2);
       color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 0.7rem; flex-shrink: 0;
+      padding: 0;
+    }
+    .dash-upnext-selector button:hover { background: var(--hover-overlay); color: var(--text); }
+    .dash-upnext-label {
+      flex: 1;
+      text-align: center;
       font-family: 'Oswald', sans-serif;
-      font-size: 0.62rem;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .connections-toggle button:last-child { border-right: none; }
-    .connections-toggle button.active {
-      background: var(--accent);
-      color: #fff;
-      font-weight: 600;
+    .dash-upnext-dots {
+      display: flex; gap: 5px; justify-content: center; padding: 2px 0;
     }
-    .connections-toggle button:not(.active):hover {
-      background: var(--surface2, var(--border));
+    .dash-upnext-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--border);
+      transition: background 0.15s;
     }
+    .dash-upnext-dot.active { background: var(--accent); }
 
-    /* Friends widget */
-    .dash-friends-row {
+    /* Connections avatar row */
+    .dash-connections-row {
       display: flex;
-      gap: 10px;
-      overflow-x: auto;
-      padding: 4px 0;
-      -webkit-overflow-scrolling: touch;
+      gap: 8px;
+      overflow: hidden;
+      padding: 2px 0;
     }
 
-    .dash-friend-chip {
+    .dash-conn-avatar {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 2px;
-      min-width: 48px;
+      width: 44px;
       cursor: pointer;
-      padding: 3px;
+      padding: 2px;
       border-radius: var(--radius-sm);
       transition: background 0.15s;
       border: none;
       background: none;
       color: var(--text);
+      position: relative;
+      flex-shrink: 0;
     }
-
-    .dash-friend-chip:hover {
-      background: var(--hover-overlay);
-    }
-
-    .dash-friend-chip .friend-name {
-      font-size: 0.62rem;
+    .dash-conn-avatar:hover { background: var(--hover-overlay); }
+    .dash-conn-avatar .conn-name {
+      font-size: 0.55rem;
+      font-family: 'Oswald', sans-serif;
       color: var(--text-muted);
       text-align: center;
-      max-width: 56px;
+      max-width: 44px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-
-    .dash-friend-detail {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 8px 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.72rem;
+    .dash-conn-avatar .playing-dot {
+      position: absolute;
+      top: 0; right: 4px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      border: 2px solid var(--bg);
     }
-
-    .dash-friend-detail-info {
-      flex: 1;
+    .dash-conn-overflow {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      cursor: pointer;
+      padding: 2px;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.65rem;
+      flex-shrink: 0;
     }
+    .dash-conn-overflow:hover { color: var(--text); }
 
-    .dash-friend-detail-event {
+    /* Connection dropdown popup */
+    .dash-conn-dropdown {
+      position: absolute;
+      z-index: 50;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      padding: 10px 12px;
+      min-width: 200px;
+      max-width: 260px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .dash-conn-dropdown.above { bottom: calc(100% + 4px); }
+    .dash-conn-dropdown.below { top: calc(100% + 4px); }
+    .dash-conn-dropdown-name {
       font-family: 'Oswald', sans-serif;
       font-weight: 600;
       font-size: 0.8rem;
       color: var(--text);
+      margin-bottom: 6px;
     }
-
-    .dash-friend-detail-stack {
-      font-size: 0.72rem;
+    .dash-conn-dropdown-label {
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       color: var(--text-muted);
+      margin-bottom: 2px;
+      margin-top: 6px;
     }
+    .dash-conn-dropdown-label:first-of-type { margin-top: 0; }
+    .dash-conn-dropdown-event {
+      font-size: 0.7rem;
+      color: var(--text);
+      padding: 2px 0;
+    }
+    .dash-conn-dropdown-event .muted { color: var(--text-muted); }
 
     /* ── Social View ── */
     .social-view {
@@ -11924,11 +11969,10 @@
     // ── Dashboard View ──────────────────────────────────────────
 
     function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, buddyEvents, onPost, onDeleteUpdate, onAddTracking, onNavigate, tournaments, onToggle }) {
-      const [expandedFriend, setExpandedFriend] = useState(null);
-      const [connectionsTab, setConnectionsTab] = useState('playing');
+      const [selectedUpNextIdx, setSelectedUpNextIdx] = useState(0);
+      const [connDropdownId, setConnDropdownId] = useState(null);
       const [now, setNow] = useState(getNow());
       const [bustMenuEventId, setBustMenuEventId] = useState(null);
-      const [manuallyExpandedId, setManuallyExpandedId] = useState(null);
 
       useEffect(() => {
         const id = setInterval(() => setNow(getNow()), 30000);
@@ -12064,8 +12108,7 @@
         const bbCount = blindInfo ? Math.floor(currentStack / blindInfo.bb) : null;
         const hasLiveStack = !!(activeEventMap[event.id]?.stack);
         const isCurrentlyPlaying = !!activeEventMap[event.id];
-        const isAutoExpanded = isCurrentlyPlaying || event.id === nextUpEventId;
-        const isExpanded = isAutoExpanded || event.id === manuallyExpandedId;
+        const isExpanded = true; // Always expanded in carousel mode
         const isConditionalOnPlaying = !isCurrentlyPlaying && hasActivePlaying && event._type !== 'bagged';
         const bustedUpdate = bustedEventMap[event.id];
         const isBustedDone = bustedUpdate && (bustedUpdate.bust_count || 1) >= getMaxEntries(event.reentry);
@@ -12074,12 +12117,12 @@
         const venueColor = getVenueBrandColor(venueInfo.abbr);
         const venueStripText = venueInfo.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)';
 
-        // Compact collapsed row for non-playing, non-expanded events
-        if (!isExpanded && !isCurrentlyPlaying) {
+        // NOTE: collapsed branch removed — carousel shows 1 expanded card at a time
+        if (false) {
           return (
             <div key={event.id} className={'dash-event-card collapsed' + (isBustedDone ? ' done' : '') + (isConditionalOnPlaying ? ' conditional' : '') + (regClosed && event._type !== 'bagged' ? ' reg-closed' : '')}
               style={{borderColor: venueColor, cursor: 'pointer'}}
-              onClick={() => setManuallyExpandedId(event.id)}>
+              onClick={() => {}}>
               <div className="dash-venue-strip" style={{background: venueColor, color: venueStripText}}>{venueInfo.abbr}</div>
               <div className="dash-collapsed-row">
                 <span className="dash-collapsed-time">{event.time || 'TBD'}</span>
@@ -12100,16 +12143,13 @@
           );
         }
 
-        const isManuallyExpanded = event.id === manuallyExpandedId && !isAutoExpanded;
-
         const cardClass = [
           'dash-event-card',
           isBustedDone ? 'done' : '',
           event._type === 'bagged' ? 'bagged' : '',
           event._type === 'anchor' && !isConditionalOnPlaying ? 'anchor' : '',
           (event._type === 'conditional' || isConditionalOnPlaying) ? 'conditional' : '',
-          isCurrentlyPlaying ? 'playing' : (event.id === nextUpEventId ? 'next-up' : ''),
-          isManuallyExpanded ? 'manually-expanded' : '',
+          isCurrentlyPlaying ? 'playing' : 'next-up',
           regClosed && event._type !== 'bagged' ? 'reg-closed' : '',
         ].filter(Boolean).join(' ');
 
@@ -12124,8 +12164,7 @@
         const stackBB = blindInfo && liveStack ? Math.floor(liveStack / blindInfo.bb) : null;
 
         return (
-          <div key={event.id} className={cardClass} style={{...cardStyle, cursor: isManuallyExpanded ? 'pointer' : undefined}}
-            onClick={isManuallyExpanded ? () => setManuallyExpandedId(null) : undefined}>
+          <div key={event.id} className={cardClass} style={cardStyle}>
             <div className="dash-venue-strip" style={{background: venueColor, color: venueStripText}}>{isExpanded ? (venueInfo.longName || venueInfo.abbr) : venueInfo.abbr}</div>
             {!isConditionalOnPlaying && (
               <div style={{display:'flex',flexWrap:'wrap',gap:'4px',alignItems:'center'}}>
@@ -12150,7 +12189,7 @@
               <div className="dash-event-name">{getVenueInfo(event.venue).abbr} | {event.event_name}</div>
               <div className="dash-event-buyin">{formatBuyin(event.buyin)}</div>
               {onToggle && (
-                <button className="dash-undo-x muted" onClick={(e) => { e.stopPropagation(); if (confirm('Remove from schedule?')) { setManuallyExpandedId(null); onToggle(event.id); } }} title="Remove from schedule">✕</button>
+                <button className="dash-undo-x muted" onClick={(e) => { e.stopPropagation(); if (confirm('Remove from schedule?')) onToggle(event.id); }} title="Remove from schedule">✕</button>
               )}
             </div>
 
@@ -12422,27 +12461,60 @@
           }));
       }, [shareBuddies, buddyLiveUpdates]);
 
-      // ── Friends with upcoming scheduled events ──
+      // ── Friends with events scheduled today ──
       const scheduledFriends = useMemo(() => {
         if (!shareBuddies || !buddyEvents || !tournaments) return [];
         const todayISO = getToday();
-        // Build a map of buddyId -> upcoming tournament names
-        const buddyUpcoming = {};
+        // Build a map of buddyId -> today's tournaments
+        const buddyToday = {};
         Object.entries(buddyEvents).forEach(([tid, buddies]) => {
           const t = tournaments.find(x => x.id === Number(tid));
-          if (!t || t.date < todayISO) return;
+          if (!t || t.date !== todayISO) return;
           buddies.forEach(b => {
-            if (!buddyUpcoming[b.id]) buddyUpcoming[b.id] = [];
-            buddyUpcoming[b.id].push(t);
+            if (!buddyToday[b.id]) buddyToday[b.id] = [];
+            buddyToday[b.id].push(t);
           });
         });
         return shareBuddies
-          .filter(b => buddyUpcoming[b.id] && buddyUpcoming[b.id].length > 0)
+          .filter(b => buddyToday[b.id] && buddyToday[b.id].length > 0)
           .map(b => ({
             ...b,
-            upcomingEvents: buddyUpcoming[b.id].sort((a, c) => a.date < c.date ? -1 : 1).slice(0, 3),
+            todayEvents: buddyToday[b.id].sort((a, c) => (a.time || '') < (c.time || '') ? -1 : 1),
           }));
       }, [shareBuddies, buddyEvents, tournaments]);
+
+      // ── Merged connections: playing + scheduled, deduplicated ──
+      const allConnections = useMemo(() => {
+        const map = {};
+        // Add playing friends first
+        activeFriends.forEach(f => {
+          map[f.id] = { ...f, isPlaying: true, liveUpdate: f.liveUpdate, todayEvents: [] };
+        });
+        // Merge scheduled friends
+        scheduledFriends.forEach(f => {
+          if (map[f.id]) {
+            map[f.id].todayEvents = f.todayEvents || [];
+          } else {
+            map[f.id] = { ...f, isPlaying: false, liveUpdate: null, todayEvents: f.todayEvents || [] };
+          }
+        });
+        // Sort: playing first, then scheduled-only
+        return Object.values(map).sort((a, b) => (b.isPlaying ? 1 : 0) - (a.isPlaying ? 1 : 0));
+      }, [activeFriends, scheduledFriends]);
+
+      const connDropdownRef = useRef(null);
+
+      // Close connection dropdown on outside click
+      useEffect(() => {
+        if (!connDropdownId) return;
+        const handler = (e) => {
+          if (connDropdownRef.current && !connDropdownRef.current.contains(e.target)) {
+            setConnDropdownId(null);
+          }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+      }, [connDropdownId]);
 
       return (
         <div className="dashboard-view">
@@ -12456,15 +12528,23 @@
               )}
             </div>
             {whatsNextEvents.length > 0 ? (() => {
-              const isAutoExpanded = (e) => !!activeEventMap[e.id] || e.id === nextUpEventId || e._type === 'bagged';
-              const expandedEvents = whatsNextEvents.filter(e => isAutoExpanded(e) || e.id === manuallyExpandedId);
-              const collapsedEvents = whatsNextEvents.filter(e => !isAutoExpanded(e) && e.id !== manuallyExpandedId);
+              const safeIdx = Math.min(selectedUpNextIdx, whatsNextEvents.length - 1);
+              const currentEvent = whatsNextEvents[safeIdx];
               return (
                 <React.Fragment>
-                  {expandedEvents.map(event => renderEventCard(event))}
-                  {collapsedEvents.length > 0 && (
-                    <div className="dash-up-next-list">
-                      {collapsedEvents.map(event => renderEventCard(event))}
+                  {whatsNextEvents.length > 1 && (
+                    <div className="dash-upnext-selector">
+                      <button onClick={() => setSelectedUpNextIdx(i => (i - 1 + whatsNextEvents.length) % whatsNextEvents.length)} title="Previous">‹</button>
+                      <span className="dash-upnext-label">{safeIdx + 1} of {whatsNextEvents.length} — {currentEvent.event_name}</span>
+                      <button onClick={() => setSelectedUpNextIdx(i => (i + 1) % whatsNextEvents.length)} title="Next">›</button>
+                    </div>
+                  )}
+                  {renderEventCard(currentEvent)}
+                  {whatsNextEvents.length > 1 && (
+                    <div className="dash-upnext-dots">
+                      {whatsNextEvents.map((_, i) => (
+                        <div key={i} className={'dash-upnext-dot' + (i === safeIdx ? ' active' : '')} onClick={() => setSelectedUpNextIdx(i)} style={{cursor:'pointer'}} />
+                      ))}
                     </div>
                   )}
                 </React.Fragment>
@@ -12552,81 +12632,67 @@
           <div className="dashboard-section">
             <div className="dashboard-section-header">
               <div className="dashboard-section-title">Connections</div>
-              {connectionsTab === 'playing' && activeFriends.length > 0 && (
-                <span className="dashboard-section-badge">{activeFriends.length} live</span>
-              )}
-              {connectionsTab === 'scheduled' && scheduledFriends.length > 0 && (
-                <span className="dashboard-section-badge">{scheduledFriends.length}</span>
+              {allConnections.length > 0 && (
+                <span className="dashboard-section-badge">
+                  {activeFriends.length > 0 ? `${activeFriends.length} live` : `${allConnections.length}`}
+                </span>
               )}
             </div>
-            <div className="connections-toggle">
-              <button className={connectionsTab === 'scheduled' ? 'active' : ''} onClick={() => setConnectionsTab('scheduled')}>Scheduled</button>
-              <button className={connectionsTab === 'playing' ? 'active' : ''} onClick={() => setConnectionsTab('playing')}>Playing</button>
-            </div>
-            {connectionsTab === 'playing' ? (
-              activeFriends.length > 0 ? (
-                <>
-                  <div className="dash-friends-row">
-                    {activeFriends.map(f => (
-                      <button
-                        key={f.id}
-                        className="dash-friend-chip"
-                        onClick={() => setExpandedFriend(expandedFriend === f.id ? null : f.id)}
-                      >
-                        <Avatar src={f.avatar} username={f.username} size={38} />
-                        <span className="friend-name">{f.username}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {expandedFriend && (() => {
-                    const friend = activeFriends.find(f => f.id === expandedFriend);
-                    if (!friend) return null;
-                    const lu = friend.liveUpdate;
-                    return (
-                      <div className="dash-friend-detail">
-                        <Avatar src={friend.avatar} username={friend.username} size={32} />
-                        <div className="dash-friend-detail-info">
-                          <div className="dash-friend-detail-event">{lu.eventName}</div>
-                          <div className="dash-friend-detail-stack">
-                            {lu.stack ? `Stack: ${Number(lu.stack).toLocaleString()}` : ''}
-                            {lu.bb ? ` | Blinds: ${Number(lu.sb).toLocaleString()}/${Number(lu.bb).toLocaleString()}` : ''}
-                            {lu.venue ? ` | ${lu.venue}` : ''}
-                          </div>
+            {allConnections.length > 0 ? (
+              <div className="dash-connections-row">
+                {allConnections.slice(0, 10).map(f => (
+                  <button
+                    key={f.id}
+                    className="dash-conn-avatar"
+                    onClick={() => setConnDropdownId(connDropdownId === f.id ? null : f.id)}
+                    ref={connDropdownId === f.id ? connDropdownRef : undefined}
+                  >
+                    <Avatar src={f.avatar} username={f.username} size={32} />
+                    {f.isPlaying && <span className="playing-dot" />}
+                    <span className="conn-name">{f.username}</span>
+                    {connDropdownId === f.id && (() => {
+                      const rect = connDropdownRef.current?.getBoundingClientRect();
+                      const openAbove = rect && rect.top > window.innerHeight / 2;
+                      return (
+                        <div className={'dash-conn-dropdown ' + (openAbove ? 'above' : 'below')} onClick={e => e.stopPropagation()}>
+                          <div className="dash-conn-dropdown-name">{f.username}</div>
+                          {f.isPlaying && f.liveUpdate && (
+                            <>
+                              <div className="dash-conn-dropdown-label">Now Playing</div>
+                              <div className="dash-conn-dropdown-event">
+                                {f.liveUpdate.eventName}
+                                {f.liveUpdate.stack && <span className="muted"> — {Number(f.liveUpdate.stack).toLocaleString()}</span>}
+                              </div>
+                            </>
+                          )}
+                          {f.todayEvents && f.todayEvents.length > 0 && (
+                            <>
+                              <div className="dash-conn-dropdown-label">{f.isPlaying ? 'Also Scheduled' : 'Scheduled Today'}</div>
+                              {f.todayEvents.map((t, i) => {
+                                const v = getVenueInfo(t.venue);
+                                return <div key={i} className="dash-conn-dropdown-event">{v.abbr} | {currencySymbol(t.venue)}{Number(t.buyin).toLocaleString()} {t.event_name}</div>;
+                              })}
+                            </>
+                          )}
+                          {!f.isPlaying && (!f.todayEvents || f.todayEvents.length === 0) && (
+                            <div className="dash-conn-dropdown-event" style={{color:'var(--text-muted)'}}>No events today</div>
+                          )}
                         </div>
-                      </div>
-                    );
-                  })()}
-                </>
-              ) : (
-                <div className="dash-empty" style={{padding:'6px 16px',display:'flex',alignItems:'center',gap:'8px'}}>
-                  <Icon.people />
-                  <div>No friends are playing right now</div>
-                </div>
-              )
+                      );
+                    })()}
+                  </button>
+                ))}
+                {allConnections.length > 10 && (
+                  <button className="dash-conn-overflow" onClick={() => onNavigate('social')}>
+                    +{allConnections.length - 10}
+                  </button>
+                )}
+              </div>
             ) : (
-              scheduledFriends.length > 0 ? (
-                <div className="dash-friends-row" style={{flexDirection:'column',gap:'6px'}}>
-                  {scheduledFriends.map(f => (
-                    <div key={f.id} className="dash-friend-detail" style={{cursor:'pointer'}} onClick={() => setExpandedFriend(expandedFriend === f.id ? null : f.id)}>
-                      <Avatar src={f.avatar} username={f.username} size={28} />
-                      <div className="dash-friend-detail-info">
-                        <div className="dash-friend-detail-event" style={{fontSize:'0.72rem'}}>{f.username}</div>
-                        <div className="dash-friend-detail-stack">
-                          {expandedFriend === f.id
-                            ? f.upcomingEvents.map((t, i) => <div key={i}>{t.date.slice(5)} — {t.event_name}</div>)
-                            : `${f.upcomingEvents.length} upcoming event${f.upcomingEvents.length !== 1 ? 's' : ''}`
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="dash-empty" style={{padding:'6px 16px',display:'flex',alignItems:'center',gap:'8px'}}>
-                  <Icon.people />
-                  <div>No friends have upcoming events</div>
-                </div>
-              )
+              <div className="dash-empty" style={{padding:'6px 16px',display:'flex',alignItems:'center',gap:'8px'}}>
+                <Icon.people />
+                <div>No connections active today</div>
+              </div>
             )}
           </div>
           </div>
