@@ -12186,18 +12186,19 @@
             )}
 
             <div className="dash-event-header">
-              <div className="dash-event-name">{event.event_name}</div>
+              <div style={{flex:1}}>
+                <div className="dash-event-name">{event.event_name}</div>
+                {!isConditionalOnPlaying && (
+                  <div className="dash-event-meta" style={{marginTop:'2px'}}>
+                    <span><Icon.clock /> {event.time || 'TBD'}</span>
+                  </div>
+                )}
+              </div>
               <div className="dash-event-buyin">{formatBuyin(event.buyin)}</div>
               {onToggle && (
                 <button className="dash-undo-x muted" onClick={(e) => { e.stopPropagation(); if (confirm('Remove from schedule?')) onToggle(event.id); }} title="Remove from schedule">✕</button>
               )}
             </div>
-
-            {!isConditionalOnPlaying && (
-              <div className="dash-event-meta">
-                <span><Icon.clock /> {event.time || 'TBD'}</span>
-              </div>
-            )}
 
             {isExpanded && blindInfo && (
               <div className="dash-event-stats">
