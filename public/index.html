@@ -12384,12 +12384,7 @@
                 if (showBustMenu) {
                   return (
                     <div className="dash-status-row">
-                      <button className="dash-update-btn" onClick={() => {
-                        window.dispatchEvent(new CustomEvent('openLiveUpdate', {
-                          detail: { tab: 'update', tournamentId: event.id }
-                        }));
-                        setBustMenuEventId(null);
-                      }}>Update</button>
+                      <button className="dash-update-btn" onClick={() => setBustMenuEventId(null)}>Cancel</button>
                       {canRebuy && (
                         <button className="dash-rebuy-btn" onClick={() => {
                           if (onPost) {
