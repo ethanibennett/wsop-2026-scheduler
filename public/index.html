@@ -2277,13 +2277,6 @@
 
     .dash-event-card.conditional {
       opacity: 0.7;
-      border-top: none;
-      border-top-left-radius: 0;
-      border-top-right-radius: 0;
-    }
-    .dash-event-card.conditional .dash-venue-strip {
-      border-radius: var(--radius) var(--radius) 0 0;
-      top: -1px; left: -2px; right: -2px;
     }
 
     .dash-event-card.done {
@@ -12219,7 +12212,7 @@
         ].filter(Boolean).join(' ');
 
         const cardStyle = isConditionalOnPlaying
-          ? { borderColor: 'var(--text-muted)', borderStyle: 'dashed', borderTop: 'none' }
+          ? { borderLeft: '1.5px dashed var(--border)', borderRight: '1.5px dashed var(--border)', borderBottom: '1.5px dashed var(--border)', borderTop: `2px solid ${venueColor}` }
           : isBustedDone
             ? { borderColor: 'var(--border)' }
             : { borderColor: venueColor };
