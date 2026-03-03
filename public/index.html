@@ -9089,15 +9089,28 @@
       function scrollBelowSticky(el) {
         const container = el.closest('.content-area');
         if (!container) return;
-        const caTop = container.getBoundingClientRect().top;
-        // Find the lowest sticky element above the content
-        let lowestBottom = 0;
-        container.querySelectorAll('.sticky-filters, .schedule-date-break, .schedule-sticky-header').forEach(s => {
-          const b = s.getBoundingClientRect().bottom - caTop;
-          if (b > lowestBottom) lowestBottom = b;
+        const caRect = container.getBoundingClientRect();
+
+        // 1. Measure primary sticky header (filters bar or schedule header)
+        let stickyBottom = 0;
+        const primarySticky = container.querySelector('.sticky-filters') || container.querySelector('.schedule-sticky-header');
+        if (primarySticky) {
+          stickyBottom = primarySticky.getBoundingClientRect().bottom - caRect.top;
+        }
+
+        // 2. Check if a date break is stuck just below the primary sticky
+        //    A stuck date break's top will be at or above the primary sticky's bottom
+        container.querySelectorAll('.schedule-date-break').forEach(db => {
+          const dbRect = db.getBoundingClientRect();
+          const dbTop = dbRect.top - caRect.top;
+          if (dbTop < stickyBottom + 5) {
+            const dbBottom = dbRect.bottom - caRect.top;
+            if (dbBottom > stickyBottom) stickyBottom = dbBottom;
+          }
         });
-        const rowTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-        container.scrollTo({ top: rowTop - lowestBottom - 4, behavior: 'smooth' });
+
+        const rowTop = el.getBoundingClientRect().top - caRect.top + container.scrollTop;
+        container.scrollTo({ top: rowTop - stickyBottom - 4, behavior: 'smooth' });
       }
 
       // Auto-expand and scroll when this event is the focus target
