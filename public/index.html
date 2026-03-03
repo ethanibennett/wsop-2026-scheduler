@@ -12212,7 +12212,7 @@
         ].filter(Boolean).join(' ');
 
         const cardStyle = isConditionalOnPlaying
-          ? { borderLeft: '1.5px dashed var(--border)', borderRight: '1.5px dashed var(--border)', borderBottom: '1.5px dashed var(--border)', borderTop: `2px solid ${venueColor}` }
+          ? { borderLeft: `1.5px dashed ${venueColor}`, borderRight: `1.5px dashed ${venueColor}`, borderBottom: `1.5px dashed ${venueColor}`, borderTop: `2px solid ${venueColor}` }
           : isBustedDone
             ? { borderColor: 'var(--border)' }
             : { borderColor: venueColor };
