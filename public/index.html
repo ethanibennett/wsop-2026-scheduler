@@ -875,6 +875,52 @@
       to { opacity: 0; transform: translateY(8px) scale(0.95); }
     }
 
+    /* ── Skeleton loading ── */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+      border-radius: var(--radius-sm);
+    }
+    .skeleton-text {
+      height: 0.8rem;
+      margin-bottom: 6px;
+      border-radius: 4px;
+    }
+    .skeleton-text.sm { width: 40%; }
+    .skeleton-text.md { width: 65%; }
+    .skeleton-text.lg { width: 90%; }
+    .skeleton-card {
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .skeleton-strip {
+      height: 6px;
+      border-radius: 3px;
+    }
+    .skeleton-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .skeleton-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .skeleton-btn {
+      height: 36px;
+      border-radius: var(--radius-sm);
+    }
+
     /* ── Settings ── */
     .settings-view { padding: 0 4px; }
     .settings-section {
@@ -8662,6 +8708,60 @@
       ctx.textAlign = 'left';
     }
 
+    // ── Skeleton loading components ──
+    function SkeletonDashboard() {
+      return (
+        <div className="dashboard-view" style={{gap: 16}}>
+          <div className="dashboard-section">
+            <div className="dashboard-section-header">
+              <div className="skeleton skeleton-text" style={{width: 80, height: 14}} />
+            </div>
+            <div className="skeleton skeleton-card" style={{height: 180}}>
+              <div className="skeleton-strip skeleton" style={{width: '100%'}} />
+              <div className="skeleton-row">
+                <div className="skeleton skeleton-text lg" />
+              </div>
+              <div className="skeleton-row" style={{gap: 6}}>
+                <div className="skeleton skeleton-text sm" />
+                <div className="skeleton skeleton-text sm" />
+              </div>
+              <div className="skeleton skeleton-btn" style={{width: '100%', background: 'transparent'}} />
+            </div>
+          </div>
+          <div className="dashboard-section">
+            <div className="dashboard-section-header">
+              <div className="skeleton skeleton-text" style={{width: 70, height: 14}} />
+            </div>
+            <div className="skeleton" style={{height: 60, borderRadius: 'var(--radius-sm)'}} />
+          </div>
+          <div className="dashboard-section">
+            <div className="dashboard-section-header">
+              <div className="skeleton skeleton-text" style={{width: 100, height: 14}} />
+            </div>
+            <div className="skeleton" style={{height: 60, borderRadius: 'var(--radius-sm)'}} />
+          </div>
+        </div>
+      );
+    }
+
+    function SkeletonSchedule() {
+      return (
+        <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
+          {[0,1,2].map(g => (
+            <div key={g}>
+              <div style={{display: 'flex', alignItems: 'baseline', gap: 4, padding: '12px 12px 8px 2px'}}>
+                <div className="skeleton" style={{width: 30, height: 24, borderRadius: 4}} />
+                <div className="skeleton skeleton-text" style={{width: 28, height: 12}} />
+              </div>
+              {[0,1,2].map(i => (
+                <div key={i} className="skeleton" style={{height: 52, marginBottom: 4, borderRadius: 'var(--radius-sm)'}} />
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     // Pull-to-refresh hook
     function usePullToRefresh(scrollRef, onRefresh) {
       const ptrStart = useRef(null);
@@ -16272,6 +16372,7 @@
       }, []);
       const [tournaments, setTournaments] = useState([]);
       const [mySchedule, setMySchedule] = useState([]);
+      const [dataLoaded, setDataLoaded] = useState(false);
       const [gameVariants, setGameVariants] = useState([]);
       const [venues, setVenues] = useState([]);
       const toast = useToast();
@@ -16348,16 +16449,11 @@
 
       useEffect(() => {
         if (token) {
-          fetchTournaments();
-          fetchMySchedule();
-          fetchGameVariants();
-          fetchVenues();
-          fetchShareToken();
-          fetchShareBuddies();
-          fetchMyGroups();
-          fetchNotifications();
-          fetchTracking();
-          fetchMyLiveUpdate();
+          Promise.all([
+            fetchTournaments(), fetchMySchedule(), fetchGameVariants(),
+            fetchVenues(), fetchShareToken(), fetchShareBuddies(),
+            fetchMyGroups(), fetchNotifications(), fetchTracking(), fetchMyLiveUpdate()
+          ]).finally(() => setDataLoaded(true));
         }
       }, [token]);
 
@@ -17017,7 +17113,7 @@
               <div className={'ptr-spinner' + (refreshing ? ' spinning' : '')} />
             </div>
             <div className="view-fade" key={viewKey}>
-            {currentView === 'dashboard' && (
+            {currentView === 'dashboard' && (!dataLoaded ? <SkeletonDashboard /> :
               <DashboardView
                 key={debugTimeKey}
                 mySchedule={mySchedule}
@@ -17049,7 +17145,7 @@
               />
             )}
 
-            {currentView === 'tournaments' && (
+            {currentView === 'tournaments' && (!dataLoaded ? <SkeletonSchedule /> :
               <TournamentsView
                 key={debugTimeKey}
                 tournaments={tournaments}
@@ -17066,7 +17162,7 @@
               />
             )}
 
-            {currentView === 'schedule' && (
+            {currentView === 'schedule' && (!dataLoaded ? <SkeletonSchedule /> :
               <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} />
             )}
 
