@@ -11974,6 +11974,21 @@
       const [now, setNow] = useState(getNow());
       const [bustMenuEventId, setBustMenuEventId] = useState(null);
 
+      // Swipe handling for carousel
+      const swipeRef = useRef(null);
+      const swipeStart = useRef(null);
+      const onTouchStart = useCallback((e) => { swipeStart.current = e.touches[0].clientX; }, []);
+      const onTouchEnd = useCallback((e) => {
+        if (swipeStart.current === null) return;
+        const dx = e.changedTouches[0].clientX - swipeStart.current;
+        swipeStart.current = null;
+        if (Math.abs(dx) < 40) return; // threshold
+        setSelectedUpNextIdx(i => {
+          const len = swipeRef.current || 1;
+          return dx < 0 ? (i + 1) % len : (i - 1 + len) % len;
+        });
+      }, []);
+
       useEffect(() => {
         const id = setInterval(() => setNow(getNow()), 30000);
         return () => clearInterval(id);
@@ -12094,6 +12109,23 @@
         );
         return nextUp?.id || null;
       }, [whatsNextEvents, hasActivePlaying, bustedEventMap]);
+
+      // ── Auto-advance carousel when current event finishes ──
+      const prevBustedRef = useRef(new Set());
+      useEffect(() => {
+        const curBusted = new Set(Object.keys(bustedEventMap).map(Number));
+        const prev = prevBustedRef.current;
+        if (whatsNextEvents.length > 1) {
+          const safeIdx = Math.min(selectedUpNextIdx, whatsNextEvents.length - 1);
+          const current = whatsNextEvents[safeIdx];
+          if (current && curBusted.has(current.id) && !prev.has(current.id)) {
+            // Current event just got busted — advance to next non-busted event
+            const nextIdx = whatsNextEvents.findIndex((e, i) => i !== safeIdx && !curBusted.has(e.id));
+            if (nextIdx >= 0) setSelectedUpNextIdx(nextIdx);
+          }
+        }
+        prevBustedRef.current = curBusted;
+      }, [bustedEventMap, whatsNextEvents, selectedUpNextIdx]);
 
       // ── Render a single event card ──
       function renderEventCard(event) {
@@ -12253,7 +12285,7 @@
               );
             })()}
 
-            {event._type !== 'bagged' && !isConditionalOnPlaying && (() => {
+            {event._type !== 'bagged' && (() => {
               const isActive = !!activeEventMap[event.id];
               const isBusted = !!bustedEventMap[event.id];
 
@@ -12522,8 +12554,9 @@
             {whatsNextEvents.length > 0 ? (() => {
               const safeIdx = Math.min(selectedUpNextIdx, whatsNextEvents.length - 1);
               const currentEvent = whatsNextEvents[safeIdx];
+              swipeRef.current = whatsNextEvents.length;
               return (
-                <React.Fragment>
+                <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{touchAction:'pan-y'}}>
                   {whatsNextEvents.length > 1 && (
                     <div className="dash-upnext-selector">
                       <button onClick={() => setSelectedUpNextIdx(i => (i - 1 + whatsNextEvents.length) % whatsNextEvents.length)} title="Previous">‹</button>
@@ -12539,7 +12572,7 @@
                       ))}
                     </div>
                   )}
-                </React.Fragment>
+                </div>
               );
             })() : (
               <div className="dash-empty">
