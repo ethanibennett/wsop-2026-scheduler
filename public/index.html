@@ -10309,7 +10309,7 @@
                   const isToday = group.date === todayISO;
                   const past = group.date < todayISO;
                   const dateObj = new Date(group.date + 'T12:00:00');
-                  const dayLetter = DOW[dateObj.getDay()].charAt(0);
+                  const dayLetter = ['S','M','T','W','Th','F','S'][dateObj.getDay()];
                   const dayNum = String(dateObj.getDate()).padStart(2, '0');
                   // Assign scroll ref to first group that is today or future
                   const needsRef = !scrollRefAssigned && group.date >= todayISO;
@@ -10325,8 +10325,8 @@
                         borderBottom: 'none',
                         display: 'flex', alignItems: 'baseline', gap: '4px'
                       }}>
-                        <span style={{fontSize: '1.7rem', lineHeight: 1}}>{dayLetter}</span>
-                        <span style={{fontSize: '3.4rem', lineHeight: 1}}>{dayNum}</span>
+                        <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayLetter}</span>
+                        <span style={{fontSize: '3.4rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
                         {isToday && <span style={{
                           background: 'var(--accent)', color: '#fff',
                           fontSize: '0.7rem', fontWeight: 700,
@@ -10619,7 +10619,7 @@
               return groups.map((group, gi) => {
                 const isGroupToday = group.date === todayISO;
                 const dateObj = new Date(group.date + 'T12:00:00');
-                const dayLetter = DOW[dateObj.getDay()].charAt(0);
+                const dayLetter = ['S','M','T','W','Th','F','S'][dateObj.getDay()];
                 const dayNum = String(dateObj.getDate()).padStart(2, '0');
                 const past = group.date < todayISO;
                 return (
@@ -10634,8 +10634,8 @@
                       borderBottom: 'none',
                       display: 'flex', alignItems: 'baseline', gap: '4px'
                     }}>
-                      <span style={{fontSize: '1.7rem', lineHeight: 1}}>{dayLetter}</span>
-                      <span style={{fontSize: '3.4rem', lineHeight: 1}}>{dayNum}</span>
+                      <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayLetter}</span>
+                      <span style={{fontSize: '3.4rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
                       {isGroupToday && <span style={{
                         background: 'var(--accent)', color: '#fff',
                         fontSize: '0.7rem', fontWeight: 700,
