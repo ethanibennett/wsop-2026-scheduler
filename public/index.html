@@ -10150,10 +10150,20 @@
             if (!el) return;
             const container = el.closest('.content-area') || document.querySelector('.content-area');
             if (!container) return;
+            const caTop = container.getBoundingClientRect().top;
             const sticky = container.querySelector('.sticky-filters');
-            const stickyH = sticky ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
-            const elTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-            container.scrollTo({ top: Math.max(0, elTop - stickyH) });
+            const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
+            const dateBreak = el.querySelector('.schedule-date-break');
+            const dbH = dateBreak ? dateBreak.offsetHeight : 0;
+            // Position the first event card right below both sticky elements
+            const firstCard = el.querySelector('.cal-event-row');
+            if (firstCard) {
+              const cardTop = firstCard.getBoundingClientRect().top - caTop + container.scrollTop;
+              container.scrollTo({ top: Math.max(0, cardTop - stickyH - dbH - 2) });
+            } else {
+              const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+              container.scrollTo({ top: Math.max(0, elTop - stickyH) });
+            }
           }));
         }
       }, [filtered]);
@@ -16703,10 +16713,19 @@
                 const todayEl = document.querySelector('[data-today-scroll]');
                 const container = document.querySelector('.content-area');
                 if (todayEl && container) {
+                  const caTop = container.getBoundingClientRect().top;
                   const sticky = container.querySelector('.sticky-filters');
-                  const stickyH = sticky ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
-                  const elTop = todayEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-                  container.scrollTo({ top: Math.max(0, elTop - stickyH), behavior: 'smooth' });
+                  const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
+                  const dateBreak = todayEl.querySelector('.schedule-date-break');
+                  const dbH = dateBreak ? dateBreak.offsetHeight : 0;
+                  const firstCard = todayEl.querySelector('.cal-event-row');
+                  if (firstCard) {
+                    const cardTop = firstCard.getBoundingClientRect().top - caTop + container.scrollTop;
+                    container.scrollTo({ top: Math.max(0, cardTop - stickyH - dbH - 2), behavior: 'smooth' });
+                  } else {
+                    const elTop = todayEl.getBoundingClientRect().top - caTop + container.scrollTop;
+                    container.scrollTo({ top: Math.max(0, elTop - stickyH), behavior: 'smooth' });
+                  }
                 }
                 return;
               }
