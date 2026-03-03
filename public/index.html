@@ -5712,10 +5712,12 @@
           {open && !cameraOpen && !registrationOpen && ReactDOM.createPortal(
             <div ref={panelRef} className="live-update-panel" style={(() => {
               const r = toggleRef.current?.getBoundingClientRect();
-              if (!r) return { top: 68, right: 8 };
+              if (!r) return { top: 68, left: '50%', transform: 'translateX(-50%)' };
               const vw = window.innerWidth || document.documentElement.clientWidth || 375;
               const vh = window.innerHeight || document.documentElement.clientHeight || 700;
-              return { top: r.bottom + 8, right: Math.max(8, vw - r.right), maxWidth: vw - 16, maxHeight: vh - r.bottom - 16 };
+              const panelW = 300;
+              const left = Math.max(8, Math.min((vw - panelW) / 2, vw - panelW - 8));
+              return { top: r.bottom + 8, left, maxWidth: vw - 16, maxHeight: vh - r.bottom - 16 };
             })()}>
               {allOptions.length === 0 ? (
                 <div className="live-update-empty">No tournaments on your schedule today</div>
