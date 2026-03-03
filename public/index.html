@@ -10310,7 +10310,7 @@
                   const past = group.date < todayISO;
                   const dateObj = new Date(group.date + 'T12:00:00');
                   const monthAbbr = MONTHS[dateObj.getMonth()];
-                  const dayOfWeek = ['S','M','T','W','Th','F','S'][dateObj.getDay()];
+                  const dayOfWeek = ['Su','M','Tu','W','Th','F','Sa'][dateObj.getDay()];
                   const dayNum = String(dateObj.getDate()).padStart(2, '0');
                   // Assign scroll ref to first group that is today or future
                   const needsRef = !scrollRefAssigned && group.date >= todayISO;
@@ -10622,7 +10622,7 @@
                 const isGroupToday = group.date === todayISO;
                 const dateObj = new Date(group.date + 'T12:00:00');
                 const monthAbbr = MONTHS[dateObj.getMonth()];
-                const dayOfWeek = ['S','M','T','W','Th','F','S'][dateObj.getDay()];
+                const dayOfWeek = ['Su','M','Tu','W','Th','F','Sa'][dateObj.getDay()];
                 const dayNum = String(dateObj.getDate()).padStart(2, '0');
                 const past = group.date < todayISO;
                 return (
