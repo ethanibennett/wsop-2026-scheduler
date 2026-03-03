@@ -12032,7 +12032,7 @@
       }, []);
 
       useEffect(() => {
-        const id = setInterval(() => setNow(getNow()), 30000);
+        const id = setInterval(() => setNow(getNow()), 1000);
         return () => clearInterval(id);
       }, []);
 
