@@ -2278,6 +2278,15 @@
     .dash-event-card.conditional {
       opacity: 0.7;
     }
+    .dash-event-card.conditional::after {
+      content: '';
+      position: absolute;
+      top: -2px; left: -2px; right: -2px; bottom: -2px;
+      border: 2px dashed var(--conditional-venue);
+      border-top: 2px solid var(--conditional-venue);
+      border-radius: var(--radius);
+      pointer-events: none;
+    }
 
     .dash-event-card.done {
       opacity: 0.45;
@@ -12212,7 +12221,7 @@
         ].filter(Boolean).join(' ');
 
         const cardStyle = isConditionalOnPlaying
-          ? { borderLeft: `1.5px dashed ${venueColor}`, borderRight: `1.5px dashed ${venueColor}`, borderBottom: `1.5px dashed ${venueColor}`, borderTop: `2px solid ${venueColor}` }
+          ? { borderTop: `2px solid ${venueColor}`, borderLeft: 'none', borderRight: 'none', borderBottom: 'none', '--conditional-venue': venueColor }
           : isBustedDone
             ? { borderColor: 'var(--border)' }
             : { borderColor: venueColor };
