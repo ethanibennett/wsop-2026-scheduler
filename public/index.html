@@ -10131,9 +10131,9 @@
             const container = el.closest('.content-area') || document.querySelector('.content-area');
             if (!container) return;
             const sticky = container.querySelector('.sticky-filters');
-            const stickyH = sticky ? sticky.offsetHeight : 0;
+            const stickyH = sticky ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
             const elTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-            container.scrollTo({ top: Math.max(0, elTop - stickyH - 8), behavior: 'smooth' });
+            container.scrollTo({ top: Math.max(0, elTop - stickyH), behavior: 'smooth' });
           });
         }
       }, [filtered]);
