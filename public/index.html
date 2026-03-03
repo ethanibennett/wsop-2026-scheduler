@@ -12560,11 +12560,13 @@
                 })()}
               </>
             ) : (
-              <div className="dash-empty">
+              <div className="dash-empty" style={{padding:'6px 16px',display:'flex',alignItems:'center',gap:'8px'}}>
                 <Icon.people />
-                <div>No friends are playing right now</div>
-                <div style={{fontSize:'0.72rem',marginTop:'4px'}}>
-                  Connect with friends in <button onClick={() => onNavigate('settings')} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline',padding:0}}>settings</button>
+                <div>
+                  <div>No friends are playing right now</div>
+                  <div style={{fontSize:'0.72rem',marginTop:'2px'}}>
+                    Connect with friends in <button onClick={() => onNavigate('settings')} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline',padding:0}}>settings</button>
+                  </div>
                 </div>
               </div>
             )}
