@@ -12230,7 +12230,7 @@
           isBustedDone ? 'done' : '',
           event._type === 'bagged' ? 'bagged' : '',
           event._type === 'anchor' && !isConditionalOnPlaying ? 'anchor' : '',
-          (event._type === 'conditional' || isConditionalOnPlaying) ? 'conditional' : '',
+          isConditionalOnPlaying ? 'conditional' : '',
           isCurrentlyPlaying ? 'playing' : 'next-up',
           regClosed && event._type !== 'bagged' ? 'reg-closed' : '',
         ].filter(Boolean).join(' ');
