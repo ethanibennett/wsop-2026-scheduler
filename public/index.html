@@ -10126,7 +10126,8 @@
       useEffect(() => {
         if (!hasScrolled.current && todayScrollRef.current) {
           hasScrolled.current = true;
-          requestAnimationFrame(() => {
+          // Use double-rAF to ensure layout is fully settled after mount
+          requestAnimationFrame(() => requestAnimationFrame(() => {
             const el = todayScrollRef.current;
             if (!el) return;
             const container = el.closest('.content-area') || document.querySelector('.content-area');
@@ -10134,8 +10135,8 @@
             const sticky = container.querySelector('.sticky-filters');
             const stickyH = sticky ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
             const elTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-            container.scrollTo({ top: Math.max(0, elTop - stickyH), behavior: 'smooth' });
-          });
+            container.scrollTo({ top: Math.max(0, elTop - stickyH) });
+          }));
         }
       }, [filtered]);
 
@@ -16685,9 +16686,9 @@
                 const container = document.querySelector('.content-area');
                 if (todayEl && container) {
                   const sticky = container.querySelector('.sticky-filters');
-                  const stickyH = sticky ? sticky.offsetHeight : 0;
+                  const stickyH = sticky ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
                   const elTop = todayEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-                  container.scrollTo({ top: Math.max(0, elTop - stickyH - 8), behavior: 'smooth' });
+                  container.scrollTo({ top: Math.max(0, elTop - stickyH), behavior: 'smooth' });
                 }
                 return;
               }
