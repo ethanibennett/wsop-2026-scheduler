@@ -96,11 +96,11 @@ if (process.env.SMTP_HOST) {
 async function sendResetEmail(toEmail, resetToken) {
   const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
   const resetLink = `${appUrl}/#reset?token=${resetToken}`;
-  const subject = 'Password Reset - shonabish';
+  const subject = 'Password Reset - futuregame';
   const html = `
     <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
       <h2>Password Reset</h2>
-      <p>You requested a password reset for your shonabish account.</p>
+      <p>You requested a password reset for your futuregame account.</p>
       <p><a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#555;color:#fff;text-decoration:none;border-radius:6px;">Reset Password</a></p>
       <p style="color:#888;font-size:0.85em;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
     </div>

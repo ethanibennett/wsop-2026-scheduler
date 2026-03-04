@@ -112,7 +112,7 @@ No explicit GUESS comments, but notable design decisions:
 ### Guesses (Social Overlays)
 No explicit GUESS comments, but notable design decisions:
 - All images rendered at 1080px width (Instagram standard) — may want 1080x1350 for feed posts
-- "shonabish" hardcoded as watermark text
+- "futuregame" hardcoded as watermark text
 - Hendon Mob import is a placeholder (button exists, no implementation)
 - Milestone detection runs on every tracking save — could be expensive with large datasets
 - Wrapped slides assume data from single series — multi-series users may need filtering

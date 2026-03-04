@@ -21,8 +21,8 @@ Server runs on port 3001 (or `PORT` env var). `JWT_SECRET` env var is **required
 | `SMTP_PORT` | SMTP port (default 587) | `587` |
 | `SMTP_USER` | SMTP username | `noreply@yourdomain.com` |
 | `SMTP_PASS` | SMTP password/app password | `xxxx-xxxx-xxxx-xxxx` |
-| `SMTP_FROM` | From address | `"Shonabish <noreply@yourdomain.com>"` |
-| `APP_URL` | Public base URL for reset links | `https://shonabish.com` |
+| `SMTP_FROM` | From address | `"Futuregame <noreply@yourdomain.com>"` |
+| `APP_URL` | Public base URL for reset links | `https://futuregame.com` |
 
 If SMTP is not configured, reset links are logged to the server console.
 
