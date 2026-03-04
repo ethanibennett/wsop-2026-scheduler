@@ -6805,21 +6805,53 @@
       return VENUE_CANVAS_COLORS[info.abbr] || '#808080';
     }
 
-    // Generate schedule PDF — matches schedule tab design language
-    function generateSchedulePDF(events) {
+    // ── PDF Font Loader (fetches TTF from CDN, caches for session) ──
+    let _pdfFontCache = null;
+    async function loadPDFFonts() {
+      if (_pdfFontCache) return _pdfFontCache;
+      async function fetchFont(url) {
+        const res = await fetch(url);
+        const buf = await res.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        return btoa(bin);
+      }
+      const base = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/';
+      const [lbReg, lbBold, osReg, osBold] = await Promise.all([
+        fetchFont(base + 'librebaskerville/LibreBaskerville-Regular.ttf'),
+        fetchFont(base + 'librebaskerville/LibreBaskerville-Bold.ttf'),
+        fetchFont(base + 'oswald/static/Oswald-Regular.ttf'),
+        fetchFont(base + 'oswald/static/Oswald-Bold.ttf'),
+      ]);
+      _pdfFontCache = { lbReg, lbBold, osReg, osBold };
+      return _pdfFontCache;
+    }
+
+    // Generate schedule PDF — table layout
+    async function generateSchedulePDF(events) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      // Load and register custom fonts
+      const fonts = await loadPDFFonts();
+      doc.addFileToVFS('LibreBaskerville-Regular.ttf', fonts.lbReg);
+      doc.addFont('LibreBaskerville-Regular.ttf', 'LibreBaskerville', 'normal');
+      doc.addFileToVFS('LibreBaskerville-Bold.ttf', fonts.lbBold);
+      doc.addFont('LibreBaskerville-Bold.ttf', 'LibreBaskerville', 'bold');
+      doc.addFileToVFS('Oswald-Regular.ttf', fonts.osReg);
+      doc.addFont('Oswald-Regular.ttf', 'Oswald', 'normal');
+      doc.addFileToVFS('Oswald-Bold.ttf', fonts.osBold);
+      doc.addFont('Oswald-Bold.ttf', 'Oswald', 'bold');
       const pw = doc.internal.pageSize.width;
       const ph = doc.internal.pageSize.height;
 
-      // Hex → RGB for jsPDF
       function hexRGB(hex) {
         hex = hex.replace('#', '');
         if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
         return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
       }
 
-      // Venue brand colors (dark theme CSS values)
       const PDF_VENUE_COLORS = {
         'WSOP': '#e8e8e8', 'PRS': '#e8e8e8', 'IPO': '#1a6b3c', 'PERSONAL': '#4a9eff',
         'WYNN': '#8a3030', 'ARIA': '#5a3a9a', 'GOLDEN NUGGET': '#7a6520',
@@ -6827,12 +6859,10 @@
         'MGM GRAND': '#2a6a3e', 'MGM NH': '#8a7020', 'Turning Stone': '#8a6508',
         'TCH': '#a0522d', 'VEN': '#7a6520'
       };
-
       const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      const DAYS = ['Su','M','Tu','W','Th','F','Sa'];
 
-      // Sort by date+time
-      const sorted = [...events].sort((a, b) => {
+      // Sort by date+time, filter out restarts
+      const sorted = [...events].filter(e => !e.is_restart).sort((a, b) => {
         const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
         const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
         return da - db;
@@ -6844,190 +6874,188 @@
         return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       };
 
-      // ── Layout constants ──
-      const mg = 12;                // page margin
-      const stripW = 5;             // venue color strip (matches 22px app strip scaled up)
-      const rowH = 12;              // two-line event row height
-      const rowGap = 1.5;           // gap between event rows
-      const dateBreakH = 9;         // date break row height
-      const textPad = 2.5;          // text padding inside row after strip
-      const contentX = mg + stripW + textPad;
+      // ── Layout ──
+      const mg = 10;
+      const rowH = 7;
       const rightEdge = pw - mg;
+      const tableW = rightEdge - mg;
 
-      // ── Theme colors (dark) ──
-      const BG    = hexRGB('#111111');   // --bg
-      const SURF  = hexRGB('#1a1a1a');   // --surface (row bg)
-      const BDR   = hexRGB('#333333');   // --border
-      const TXT   = hexRGB('#e8e8e8');   // --text
-      const MUTED = hexRGB('#808080');   // --text-muted
-      const ACCENT= hexRGB('#a0a0a0');   // --accent (buyin color)
+      // 6 columns: Date | Time | Venue | Event (flexible) | Buy-in | Entries
+      const COL = {
+        date:    { x: 0,   w: 20 },
+        time:    { x: 20,  w: 22 },
+        venue:   { x: 42,  w: 38 },
+        event:   { x: 80,  w: tableW - 80 - 22 - 22 },  // flexible fill
+        buyin:   { x: tableW - 44, w: 22 },
+        entries: { x: tableW - 22, w: 22 },
+      };
+
+      // Theme
+      const BG    = hexRGB('#111111');
+      const SURF  = hexRGB('#1a1a1a');
+      const BDR   = hexRGB('#333333');
+      const TXT   = hexRGB('#e8e8e8');
+      const MUTED = hexRGB('#808080');
+      const ACCENT= hexRGB('#a0a0a0');
 
       let y = 0;
       let pageNum = 1;
+      let rowIndex = 0;
 
       function fillBg() {
         doc.setFillColor(...BG);
         doc.rect(0, 0, pw, ph, 'F');
       }
 
+      // Helper: center text within a column
+      function centerText(str, col, textY) {
+        const w = doc.getTextWidth(str);
+        doc.text(str, mg + col.x + (col.w - w) / 2, textY);
+      }
+
       function drawPageHeader() {
         y = 12;
-        // "MY SCHEDULE" title
-        doc.setFont('helvetica', 'bold');
+        doc.setFont('Oswald', 'bold');
         doc.setFontSize(14);
         doc.setTextColor(...TXT);
         doc.text('MY SCHEDULE', mg, y);
-
-        // Subtitle: date range + count
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('Oswald', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(...MUTED);
-        const evCount = sorted.filter(t => !t.is_restart).length;
-        const sub = fmtRange(allDates[0]) + ' \u2013 ' + fmtRange(allDates[allDates.length - 1]) + '  \u00B7  ' + evCount + ' events';
-        doc.text(sub, mg, y + 5);
+        doc.text(fmtRange(allDates[0]) + ' \u2013 ' + fmtRange(allDates[allDates.length - 1]) + '  \u00B7  ' + sorted.length + ' events', mg, y + 5);
         y += 12;
       }
 
+      function drawTableHeader() {
+        const textY = y + 4.5;
+        doc.setFont('Oswald', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...MUTED);
+        doc.text('DATE',    mg + COL.date.x + 1,  textY);
+        centerText('TIME',  COL.time,  textY);
+        centerText('VENUE', COL.venue, textY);
+        doc.text('EVENT',   mg + COL.event.x + 1, textY);
+        const buyW = doc.getTextWidth('BUY-IN');
+        doc.text('BUY-IN',  mg + COL.buyin.x + COL.buyin.w - buyW - 1, textY);
+        const entW = doc.getTextWidth('ENTRIES');
+        doc.text('ENTRIES',  mg + COL.entries.x + COL.entries.w - entW - 1, textY);
+
+        y += 7;
+        doc.setDrawColor(...MUTED);
+        doc.setLineWidth(0.3);
+        doc.line(mg, y, rightEdge, y);
+        y += 1;
+      }
+
       function drawFooter() {
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('Oswald', 'normal');
         doc.setFontSize(6.5);
         doc.setTextColor(...MUTED);
         doc.text('Generated by shonabish', mg, ph - 5);
         doc.text('Page ' + pageNum, rightEdge - 12, ph - 5);
       }
 
-      function needPage(needed) {
+      function ensureSpace(needed) {
         if (y + needed > ph - 10) {
           drawFooter();
           doc.addPage();
           pageNum++;
           fillBg();
           drawPageHeader();
+          drawTableHeader();
         }
       }
 
       // ── First page ──
       fillBg();
       drawPageHeader();
+      drawTableHeader();
 
       let lastDate = '';
       for (const ev of sorted) {
         const d = ev.date || '';
-        const venue = getVenueInfo(ev.venue);
-        const stripColor = hexRGB(PDF_VENUE_COLORS[venue.abbr] || '#808080');
+        const isNewDate = d !== lastDate;
 
-        // ── Date break ──
-        if (d !== lastDate) {
-          needPage(dateBreakH + rowH + rowGap + 2);
-          if (lastDate) y += 3;
+        // Date group separator line
+        if (isNewDate && lastDate) {
+          ensureSpace(rowH + 3);
+          y += 1;
+          doc.setDrawColor(...BDR);
+          doc.setLineWidth(0.2);
+          doc.line(mg, y, rightEdge, y);
+          y += 2;
+        }
 
+        ensureSpace(rowH);
+        const rowTop = y;
+        const textY = rowTop + 4.8;
+
+        // Alternating row shading
+        if (rowIndex % 2 === 0) {
+          doc.setFillColor(...SURF);
+          doc.rect(mg, rowTop, tableW, rowH, 'F');
+        }
+
+        // ── Date (Libre Baskerville, only first event of each date) ──
+        if (isNewDate) {
           const dateObj = new Date(d);
           const dayNum = String(dateObj.getDate()).padStart(2, '0');
           const monthAbbr = MONTHS[dateObj.getMonth()];
-          const dayOfWeek = DAYS[dateObj.getDay()];
-
-          // Large date number (serif-like bold)
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(14);
+          doc.setFont('LibreBaskerville', 'bold');
+          doc.setFontSize(7.5);
           doc.setTextColor(...TXT);
-          doc.text(dayNum, mg, y + 5);
-
-          // Month (smaller, next to number)
-          const numW = doc.getTextWidth(dayNum);
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8);
-          doc.setTextColor(...MUTED);
-          doc.text(monthAbbr, mg + numW + 1.5, y + 5);
-
-          // Day of week (right-aligned)
-          const dowW = doc.getTextWidth(dayOfWeek);
-          doc.text(dayOfWeek, rightEdge - dowW, y + 5);
-
-          y += dateBreakH;
+          doc.text(dayNum + ' ' + monthAbbr, mg + COL.date.x + 1, textY);
           lastDate = d;
         }
 
-        // ── Event row (two lines, matching app card layout) ──
-        needPage(rowH + rowGap);
-
-        const rowTop = y;
-
-        // Row background (surface color)
-        doc.setFillColor(...SURF);
-        doc.roundedRect(mg, rowTop, rightEdge - mg, rowH, 1.2, 1.2, 'F');
-
-        // Row border
-        doc.setDrawColor(...BDR);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(mg, rowTop, rightEdge - mg, rowH, 1.2, 1.2, 'S');
-
-        // Venue color strip (left edge of card, no left border — strip IS the left edge)
-        doc.setFillColor(...stripColor);
-        doc.rect(mg, rowTop, stripW, rowH, 'F');
-        // Round top-left and bottom-left by overlapping with a filled rect
-        doc.setFillColor(...stripColor);
-        doc.roundedRect(mg, rowTop, stripW + 1, rowH, 1.2, 1.2, 'F');
-        doc.setFillColor(...SURF);
-        doc.rect(mg + stripW, rowTop, 1, rowH, 'F'); // clean edge between strip and content
-
-        // ── Line 1: Time (muted, bold) ─── Buy-in (accent, bold, right of time) ──
-        const line1Y = rowTop + 4.5;
-        doc.setFont('helvetica', 'bold');
+        // ── Time (Oswald, center-aligned) ──
+        doc.setFont('Oswald', 'normal');
         doc.setFontSize(7.5);
-        doc.setTextColor(...MUTED);
-        doc.text(ev.time || 'TBD', contentX, line1Y);
-
-        const timeStr = ev.time || 'TBD';
-        const timeW = doc.getTextWidth(timeStr);
-
-        // Buy-in to right of time with gap
-        const buyinStr = ev.buyin ? formatBuyin(ev.buyin) : '';
-        if (buyinStr) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7.5);
-          doc.setTextColor(...ACCENT);
-          doc.text(buyinStr, contentX + timeW + 3, line1Y);
-        }
-
-        // ── Line 2: Event name (serif-like, regular) ──
-        const line2Y = rowTop + 9;
-        let name = ev.event_name || '';
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
         doc.setTextColor(...TXT);
+        centerText(ev.time || 'TBD', COL.time, textY);
 
-        // Truncate if needed (leave room for venue abbr on right)
-        const venueAbbrStr = venue.abbr;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6);
-        const abbrW = doc.getTextWidth(venueAbbrStr);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        const maxNameW = (rightEdge - 2) - contentX - abbrW - 4;
+        // ── Venue (Oswald, center-aligned, colored) ──
+        const venue = getVenueInfo(ev.venue);
+        const venueColor = hexRGB(PDF_VENUE_COLORS[venue.abbr] || '#808080');
+        doc.setFont('Oswald', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...venueColor);
+        let venueName = venue.longName || venue.abbr;
+        while (doc.getTextWidth(venueName) > COL.venue.w - 2 && venueName.length > 3) {
+          venueName = venueName.slice(0, -4) + '\u2026';
+        }
+        centerText(venueName, COL.venue, textY);
+
+        // ── Event name (Oswald, flexible, truncate if needed) ──
+        doc.setFont('Oswald', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...TXT);
+        let name = ev.event_name || '';
+        const maxNameW = COL.event.w - 2;
         while (doc.getTextWidth(name) > maxNameW && name.length > 3) {
           name = name.slice(0, -4) + '\u2026';
         }
-        doc.text(name, contentX, line2Y);
+        doc.text(name, mg + COL.event.x + 1, textY);
 
-        // Game variant (after event name if room, muted)
-        if (ev.game_variant) {
-          const nameW = doc.getTextWidth(name);
-          const variantX = contentX + nameW + 3;
-          if (variantX + 20 < rightEdge - abbrW - 6) {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
-            doc.setTextColor(...MUTED);
-            doc.text(ev.game_variant, variantX, line2Y);
-          }
-        }
+        // ── Buy-in (Oswald bold, right-aligned) ──
+        const buyinStr = ev.buyin ? formatBuyin(ev.buyin) : '\u2014';
+        doc.setFont('Oswald', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...ACCENT);
+        const buyinW = doc.getTextWidth(buyinStr);
+        doc.text(buyinStr, mg + COL.buyin.x + COL.buyin.w - buyinW - 1, textY);
 
-        // Venue abbreviation (right side, vertically centered, muted small caps)
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6);
+        // ── Entries (Oswald, right-aligned) ──
+        const planned = ev.planned_entries || 1;
+        const entriesStr = planned + (planned === 1 ? ' Entry' : ' Entries');
+        doc.setFont('Oswald', 'normal');
+        doc.setFontSize(7);
         doc.setTextColor(...MUTED);
-        doc.text(venueAbbrStr, rightEdge - abbrW - 2, rowTop + 6.5);
+        const eW = doc.getTextWidth(entriesStr);
+        doc.text(entriesStr, mg + COL.entries.x + COL.entries.w - eW - 1, textY);
 
-        y = rowTop + rowH + rowGap;
+        y = rowTop + rowH;
+        rowIndex++;
       }
 
       drawFooter();
@@ -11946,8 +11974,8 @@
       const [generating, setGenerating] = useState(false);
       const previewRef = useRef(null);
 
-      const handlePDF = () => {
-        generateSchedulePDF(events);
+      const handlePDF = async () => {
+        await generateSchedulePDF(events);
         onClose();
       };
 
