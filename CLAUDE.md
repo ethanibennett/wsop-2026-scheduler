@@ -1,5 +1,11 @@
 # WSOP 2026 Poker Tournament Scheduler
 
+## Recent Changes
+<!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
+<!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-03-04**: Added forgot password feature — token-based reset flow with Nodemailer SMTP support. New endpoints: `/api/forgot-password`, `/api/reset-password`. New `password_resets` table. Frontend: ForgotPasswordForm, ResetPasswordForm components. Reset links use URL hash (`/#reset?token=<hex>`).
+- **2026-02-26**: Cloned repo to new machine, set up dev environment (Xcode CLI tools, Homebrew, Node.js). No code changes yet.
+
 ## Quick Start
 ```bash
 npm install
@@ -7,6 +13,18 @@ npm run init-db        # Creates poker-tournaments.db with schema + sample data
 JWT_SECRET="dev-secret-not-for-production" node server.js
 ```
 Server runs on port 3001 (or `PORT` env var). `JWT_SECRET` env var is **required** — server exits without it.
+
+### Optional env vars for password reset emails
+| Variable | Purpose | Example |
+|---|---|---|
+| `SMTP_HOST` | SMTP server hostname | `smtp.gmail.com` |
+| `SMTP_PORT` | SMTP port (default 587) | `587` |
+| `SMTP_USER` | SMTP username | `noreply@yourdomain.com` |
+| `SMTP_PASS` | SMTP password/app password | `xxxx-xxxx-xxxx-xxxx` |
+| `SMTP_FROM` | From address | `"Shonabish <noreply@yourdomain.com>"` |
+| `APP_URL` | Public base URL for reset links | `https://shonabish.com` |
+
+If SMTP is not configured, reset links are logged to the server console.
 
 ## Architecture
 - **Frontend**: Single-file React app at `public/index.html` (React 18 + Babel standalone, no build step)
@@ -36,6 +54,7 @@ Server runs on port 3001 (or `PORT` env var). `JWT_SECRET` env var is **required
 
 ## API
 - Auth: POST `/api/register`, POST `/api/login` (JWT-based)
+- Password Reset: POST `/api/forgot-password`, POST `/api/reset-password`
 - Tournaments: GET `/api/tournaments`, GET `/api/tournaments/:id`
 - Schedule: GET/POST/DELETE `/api/schedule` (per-user saved tournaments)
 - Tracking: GET/POST/PUT/DELETE `/api/tracking` (buy-ins, results, P&L)
@@ -62,6 +81,6 @@ The `.claude/` directory is gitignored. For Claude Code preview tools, create `.
 ```
 
 ## Database
-- Schema created by `init-db.js` — tables: users, tournaments, user_schedules, tracking, live_updates, shared_schedules, satellites
+- Schema created by `init-db.js` — tables: users, tournaments, user_schedules, tracking, live_updates, shared_schedules, satellites, password_resets
 - `npm run seed` populates with sample WSOP tournament data
 - sql.js loads entire DB into memory on startup, persists to disk on writes

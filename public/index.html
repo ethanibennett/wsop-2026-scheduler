@@ -4080,6 +4080,10 @@
     const SHARED_MATCH = window.location.pathname.match(/^\/shared\/([a-f0-9]+)$/);
     const SHARED_TOKEN = SHARED_MATCH ? SHARED_MATCH[1] : null;
 
+    // Detect password reset URL: /#reset?token=<hex>
+    const RESET_MATCH = window.location.hash.match(/^#reset\?token=([a-f0-9]{64})$/);
+    const RESET_TOKEN = RESET_MATCH ? RESET_MATCH[1] : null;
+
     // Debug: override "today" for testing via Settings page
     // Stored in localStorage('debugNow') — mutable at runtime
     // ── Haptic feedback ──
@@ -11668,7 +11672,7 @@
 
     // ── Auth Screen ────────────────────────────────────────────
 
-    function AuthScreen({ onSubmit, error, success, theme, toggleTheme }) {
+    function AuthScreen({ onSubmit, error, success, theme, toggleTheme, onForgotPassword }) {
       const [isRegister, setIsRegister] = useState(false);
 
       return (
@@ -11707,6 +11711,15 @@
               </button>
             </form>
 
+            {!isRegister && (
+              <p style={{textAlign:'center',marginTop:'12px',marginBottom:'-8px'}}>
+                <button onClick={onForgotPassword}
+                  style={{color:'var(--text-muted)',background:'none',border:'none',cursor:'pointer',fontSize:'0.82rem'}}>
+                  Forgot password?
+                </button>
+              </p>
+            )}
+
             <p style={{textAlign:'center',marginTop:'20px',fontSize:'0.85rem',color:'var(--text-muted)'}}>
               {isRegister ? 'Already have an account? ' : "Don't have an account? "}
               <button onClick={() => setIsRegister(r => !r)}
@@ -11714,6 +11727,149 @@
                 {isRegister ? 'Sign in' : 'Register'}
               </button>
             </p>
+          </div>
+        </div>
+      );
+    }
+
+    function ForgotPasswordForm({ onBack, theme, toggleTheme }) {
+      const [email, setEmail] = useState('');
+      const [error, setError] = useState('');
+      const [success, setSuccess] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError(''); setSuccess(''); setLoading(true);
+        try {
+          const res = await fetch(`${API_URL}/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json();
+          if (!res.ok) { setError(data.error || 'Request failed'); }
+          else { setSuccess(data.message); }
+        } catch {
+          setError('Network error. Please try again.');
+        } finally { setLoading(false); }
+      };
+
+      return (
+        <div className="auth-wrap">
+          <div className="auth-card">
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px'}}>
+              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
+              </button>
+            </div>
+            <div className="auth-logo">
+              <h1>shonabish.</h1>
+              <p>reset password</p>
+            </div>
+
+            {error && <div className="alert alert-error">{error}</div>}
+            {success && <div className="alert alert-success">{success}</div>}
+
+            {!success && (
+              <form onSubmit={handleSubmit}>
+                <div className="form-field">
+                  <label>Email</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com" required autoComplete="email" />
+                </div>
+                <button type="submit" className="btn btn-primary btn-full"
+                  style={{marginTop:'8px'}} disabled={loading}>
+                  {loading ? 'Sending...' : 'Send Reset Link'}
+                </button>
+              </form>
+            )}
+
+            <p style={{textAlign:'center',marginTop:'20px',fontSize:'0.85rem',color:'var(--text-muted)'}}>
+              <button onClick={onBack}
+                style={{color:'var(--accent)',background:'none',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'0.85rem'}}>
+                Back to Sign In
+              </button>
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    function ResetPasswordForm({ resetToken, theme, toggleTheme }) {
+      const [password, setPassword] = useState('');
+      const [confirmPassword, setConfirmPassword] = useState('');
+      const [error, setError] = useState('');
+      const [success, setSuccess] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError(''); setSuccess('');
+        if (password !== confirmPassword) {
+          setError('Passwords do not match'); return;
+        }
+        if (password.length < 8) {
+          setError('Password must be at least 8 characters'); return;
+        }
+        setLoading(true);
+        try {
+          const res = await fetch(`${API_URL}/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: resetToken, password }),
+          });
+          const data = await res.json();
+          if (!res.ok) { setError(data.error || 'Reset failed'); }
+          else { setSuccess(data.message); }
+        } catch {
+          setError('Network error. Please try again.');
+        } finally { setLoading(false); }
+      };
+
+      const goToLogin = () => {
+        window.location.hash = '';
+        window.location.reload();
+      };
+
+      return (
+        <div className="auth-wrap">
+          <div className="auth-card">
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px'}}>
+              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
+              </button>
+            </div>
+            <div className="auth-logo">
+              <h1>shonabish.</h1>
+              <p>set new password</p>
+            </div>
+
+            {error && <div className="alert alert-error">{error}</div>}
+            {success && <div className="alert alert-success">{success}</div>}
+
+            {!success ? (
+              <form onSubmit={handleSubmit}>
+                <div className="form-field">
+                  <label>New Password</label>
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="Min. 8 characters" required minLength="8" autoComplete="new-password" />
+                </div>
+                <div className="form-field">
+                  <label>Confirm Password</label>
+                  <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat your password" required minLength="8" autoComplete="new-password" />
+                </div>
+                <button type="submit" className="btn btn-primary btn-full"
+                  style={{marginTop:'8px'}} disabled={loading}>
+                  {loading ? 'Updating...' : 'Set New Password'}
+                </button>
+              </form>
+            ) : (
+              <button onClick={goToLogin} className="btn btn-primary btn-full" style={{marginTop:'8px'}}>
+                Go to Sign In
+              </button>
+            )}
           </div>
         </div>
       );
@@ -16649,6 +16805,7 @@
     function App() {
       const [token, setToken] = useState(localStorage.getItem('token'));
       const [username, setUsername] = useState(localStorage.getItem('username'));
+      const [authView, setAuthView] = useState('login');
       const [currentView, _setCurrentView] = useState('dashboard');
       const [viewKey, setViewKey] = useState(0);
       const [showExportFromMore, setShowExportFromMore] = useState(false);
@@ -17347,7 +17504,21 @@
       };
 
       if (!token) {
-        return <AuthScreen onSubmit={handleLogin} error={error} success={success} theme={theme} toggleTheme={toggleTheme} />;
+        if (authView === 'forgot') {
+          return <ForgotPasswordForm
+            onBack={() => setAuthView('login')}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />;
+        }
+        return <AuthScreen
+          onSubmit={handleLogin}
+          error={error}
+          success={success}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          onForgotPassword={() => { setError(''); setSuccess(''); setAuthView('forgot'); }}
+        />;
       }
 
       return (
@@ -17586,6 +17757,17 @@
 
     if (SHARED_TOKEN) {
       ReactDOM.render(<SharedScheduleView shareToken={SHARED_TOKEN} />, document.getElementById('root'));
+    } else if (RESET_TOKEN) {
+      function ResetPage() {
+        const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+        useEffect(() => {
+          document.documentElement.dataset.theme = theme;
+          localStorage.setItem('theme', theme);
+        }, [theme]);
+        const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+        return <ResetPasswordForm resetToken={RESET_TOKEN} theme={theme} toggleTheme={toggleTheme} />;
+      }
+      ReactDOM.render(<ResetPage />, document.getElementById('root'));
     } else {
       ReactDOM.render(<ToastProvider><App /></ToastProvider>, document.getElementById('root'));
     }

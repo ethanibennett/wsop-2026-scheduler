@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
@@ -12,6 +13,7 @@ const { PDFParse } = require('pdf-parse');
 const initSqlJs = require('sql.js');
 const { parseWSOP2025Schedule, getWSOPRake } = require('./parsers/wsop-parser');
 const { parseGenericSchedule, detectFormat } = require('./parsers/generic-parser');
+const nodemailer = require('nodemailer');
 const sampleTournaments = require('./sample-data');
 
 const app = express();
@@ -73,6 +75,48 @@ const adminLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many attempts.' },
 });
+
+// ── Email transporter (password resets) ──────────────────────
+let mailTransporter = null;
+if (process.env.SMTP_HOST) {
+  mailTransporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: parseInt(process.env.SMTP_PORT || '587', 10) === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+  console.log('Mail transporter configured');
+} else {
+  console.warn('SMTP not configured — password reset emails will be logged to console');
+}
+
+async function sendResetEmail(toEmail, resetToken) {
+  const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+  const resetLink = `${appUrl}/#reset?token=${resetToken}`;
+  const subject = 'Password Reset - shonabish';
+  const html = `
+    <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2>Password Reset</h2>
+      <p>You requested a password reset for your shonabish account.</p>
+      <p><a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#555;color:#fff;text-decoration:none;border-radius:6px;">Reset Password</a></p>
+      <p style="color:#888;font-size:0.85em;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+    </div>
+  `;
+
+  if (mailTransporter) {
+    await mailTransporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: toEmail,
+      subject,
+      html,
+    });
+  } else {
+    console.log(`[DEV] Password reset link for ${toEmail}: ${resetLink}`);
+  }
+}
 
 app.use(express.json());
 
@@ -353,6 +397,18 @@ async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER UNIQUE NOT NULL,
       token TEXT UNIQUE NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expires_at DATETIME NOT NULL,
+      used INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -1617,6 +1673,92 @@ app.post('/api/login', authLimiter, async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed. Please try again.' });
+  }
+});
+
+// Forgot password — request reset link
+app.post('/api/forgot-password', authLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const successMsg = { message: 'If an account with that email exists, a reset link has been sent.' };
+
+    const stmt = db.prepare('SELECT id, email FROM users WHERE email = ?');
+    stmt.bind([email.trim().toLowerCase()]);
+    let user = null;
+    if (stmt.step()) { user = stmt.getAsObject(); }
+    stmt.free();
+
+    if (!user) {
+      return res.json(successMsg);
+    }
+
+    // Invalidate any existing unused tokens for this user
+    db.run('UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0', [user.id]);
+
+    // Generate new token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    db.run(
+      'INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)',
+      [user.id, resetToken, expiresAt]
+    );
+    await saveDatabase();
+
+    sendResetEmail(user.email, resetToken).catch(err => {
+      console.error('Failed to send reset email:', err);
+    });
+
+    res.json(successMsg);
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Reset password — validate token and update password
+app.post('/api/reset-password', authLimiter, async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    const stmt = db.prepare(
+      'SELECT id, user_id, expires_at, used FROM password_resets WHERE token = ?'
+    );
+    stmt.bind([token]);
+    let resetRecord = null;
+    if (stmt.step()) { resetRecord = stmt.getAsObject(); }
+    stmt.free();
+
+    if (!resetRecord) {
+      return res.status(400).json({ error: 'Invalid or expired reset link' });
+    }
+    if (resetRecord.used) {
+      return res.status(400).json({ error: 'This reset link has already been used' });
+    }
+    if (new Date(resetRecord.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'This reset link has expired' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, resetRecord.user_id]);
+    db.run('UPDATE password_resets SET used = 1 WHERE id = ?', [resetRecord.id]);
+    await saveDatabase();
+
+    res.json({ message: 'Password updated successfully. You can now sign in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 

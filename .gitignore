@@ -2,6 +2,7 @@ node_modules/
 uploads/
 pdf-images/
 nul
+.env
 
 # Database
 poker-tournaments.db
