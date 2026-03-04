@@ -51,15 +51,6 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting — global
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
-}));
-
 // Rate limiters for sensitive endpoints (applied per-route below)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
