@@ -10125,16 +10125,14 @@
             <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />
           </div>
 
-          {onToggle && (
-            <div className="t-card-footer">
-              <button
-                className={`t-action-btn ${isInSchedule ? 'remove' : ''}`}
-                onClick={() => onToggle(tournament.id)}
-              >
-                {isInSchedule ? '✕ Remove from My Schedule' : '+ Add to My Schedule'}
-              </button>
-            </div>
-          )}
+          <div className="t-card-footer">
+            <button
+              className={`t-action-btn ${isInSchedule ? 'remove' : ''}`}
+              onClick={() => onToggle(tournament.id)}
+            >
+              {isInSchedule ? '✕ Remove from My Schedule' : '+ Add to My Schedule'}
+            </button>
+          </div>
         </div>
       );
     }
@@ -17593,7 +17591,7 @@
 
           {isGuest && (
             <div style={{background:'var(--accent)',color:'#000',padding:'8px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:'0.8rem',fontFamily:'Oswald, sans-serif'}}>
-              <span>Browsing as guest — sign up to save your schedule</span>
+              <span>Guest mode — your schedule won't be saved. Sign up to keep it!</span>
               <button onClick={() => { handleLogout(); setAuthView('login'); }}
                 style={{background:'rgba(0,0,0,0.2)',color:'#000',border:'none',borderRadius:'4px',padding:'4px 12px',cursor:'pointer',fontSize:'0.75rem',fontWeight:600,fontFamily:'Oswald, sans-serif'}}>
                 Sign Up
@@ -17630,7 +17628,7 @@
                 onDeleteUpdate={deleteLiveUpdate}
                 onAddTracking={addTracking}
                 tournaments={tournaments}
-                onToggle={isGuest ? null : toggleTournament}
+                onToggle={toggleTournament}
                 onNavigate={(v) => {
                   // Handle special navigation targets from dashboard quick actions
                   if (v === '_liveUpdate') {
@@ -17654,7 +17652,7 @@
                 key={debugTimeKey}
                 tournaments={tournaments}
                 mySchedule={mySchedule}
-                onToggle={isGuest ? null : toggleTournament}
+                onToggle={toggleTournament}
                 gameVariants={gameVariants}
                 venues={venues}
                 onSetCondition={setCondition}
@@ -17667,11 +17665,11 @@
             )}
 
             {currentView === 'schedule' && (!dataLoaded ? <SkeletonSchedule /> :
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={isGuest ? null : toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} />
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} />
             )}
 
             {currentView === 'calendar' && (
-              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={isGuest ? null : toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} />
+              <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} />
             )}
 
             {currentView === 'tracking' && (

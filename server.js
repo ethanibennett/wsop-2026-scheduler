@@ -1896,7 +1896,7 @@ app.get('/api/tournaments', authenticateToken, (req, res) => {
 });
 
 // Add tournament to user's schedule
-app.post('/api/schedule', authenticateToken, requireRegistered, async (req, res) => {
+app.post('/api/schedule', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.body;
     
@@ -1918,7 +1918,7 @@ app.post('/api/schedule', authenticateToken, requireRegistered, async (req, res)
 });
 
 // Remove tournament from user's schedule
-app.delete('/api/schedule/:tournamentId', authenticateToken, requireRegistered, async (req, res) => {
+app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.params;
 
@@ -1944,7 +1944,7 @@ app.delete('/api/schedule/:tournamentId', authenticateToken, requireRegistered, 
 });
 
 // Set or update a condition on a scheduled event
-app.put('/api/schedule/:tournamentId/condition', authenticateToken, requireRegistered, async (req, res) => {
+app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.params;
     const { conditions, isPublic, dependsOnTournamentId, conditionType, profitThreshold } = req.body;
@@ -1989,7 +1989,7 @@ app.put('/api/schedule/:tournamentId/condition', authenticateToken, requireRegis
 });
 
 // Toggle anchor/must-play status on a scheduled event
-app.put('/api/schedule/:tournamentId/anchor', authenticateToken, requireRegistered, async (req, res) => {
+app.put('/api/schedule/:tournamentId/anchor', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.params;
     const { isAnchor } = req.body;
@@ -2006,7 +2006,7 @@ app.put('/api/schedule/:tournamentId/anchor', authenticateToken, requireRegister
 });
 
 // Update planned entries for a scheduled event
-app.put('/api/schedule/:tournamentId/entries', authenticateToken, requireRegistered, async (req, res) => {
+app.put('/api/schedule/:tournamentId/entries', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.params;
     const { plannedEntries } = req.body;
@@ -2024,7 +2024,7 @@ app.put('/api/schedule/:tournamentId/entries', authenticateToken, requireRegiste
 });
 
 // Remove condition from a scheduled event (make it firm)
-app.delete('/api/schedule/:tournamentId/condition', authenticateToken, requireRegistered, async (req, res) => {
+app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
   try {
     const { tournamentId } = req.params;
     db.run('DELETE FROM schedule_conditions WHERE user_id = ? AND tournament_id = ?', [req.user.id, tournamentId]);
