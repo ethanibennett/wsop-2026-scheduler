@@ -1496,6 +1496,13 @@ function authenticateToken(req, res, next) {
   });
 }
 
+function requireRegistered(req, res, next) {
+  if (req.user && req.user.isGuest) {
+    return res.status(403).json({ error: 'Sign up to use this feature' });
+  }
+  next();
+}
+
 // ── SSE: real-time buddy updates ─────────────────────────────
 // Map<userId: number, Set<http.ServerResponse>>
 const sseClients = new Map();
@@ -1676,6 +1683,14 @@ app.post('/api/login', authLimiter, async (req, res) => {
   }
 });
 
+// Guest login — browse-only access, no account required
+app.post('/api/guest-login', (req, res) => {
+  const token = jwt.sign({ id: 0, username: 'Guest', isGuest: true }, JWT_SECRET, {
+    expiresIn: '4h'
+  });
+  res.json({ token, username: 'Guest', userId: 0, avatar: null, isGuest: true });
+});
+
 // Forgot password — request reset link
 app.post('/api/forgot-password', authLimiter, async (req, res) => {
   try {
@@ -1763,7 +1778,7 @@ app.post('/api/reset-password', authLimiter, async (req, res) => {
 });
 
 // Upload and parse PDF
-app.post('/api/upload-schedule', authenticateToken, upload.single('pdf'), async (req, res) => {
+app.post('/api/upload-schedule', authenticateToken, requireRegistered, upload.single('pdf'), async (req, res) => {
   try {
     const dataBuffer = await fs.readFile(req.file.path);
     const uint8Array = new Uint8Array(dataBuffer);
@@ -1881,7 +1896,7 @@ app.get('/api/tournaments', authenticateToken, (req, res) => {
 });
 
 // Add tournament to user's schedule
-app.post('/api/schedule', authenticateToken, async (req, res) => {
+app.post('/api/schedule', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { tournamentId } = req.body;
     
@@ -1903,7 +1918,7 @@ app.post('/api/schedule', authenticateToken, async (req, res) => {
 });
 
 // Remove tournament from user's schedule
-app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) => {
+app.delete('/api/schedule/:tournamentId', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { tournamentId } = req.params;
 
@@ -1929,7 +1944,7 @@ app.delete('/api/schedule/:tournamentId', authenticateToken, async (req, res) =>
 });
 
 // Set or update a condition on a scheduled event
-app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
+app.put('/api/schedule/:tournamentId/condition', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { tournamentId } = req.params;
     const { conditions, isPublic, dependsOnTournamentId, conditionType, profitThreshold } = req.body;
@@ -1974,7 +1989,7 @@ app.put('/api/schedule/:tournamentId/condition', authenticateToken, async (req, 
 });
 
 // Toggle anchor/must-play status on a scheduled event
-app.put('/api/schedule/:tournamentId/anchor', authenticateToken, async (req, res) => {
+app.put('/api/schedule/:tournamentId/anchor', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { tournamentId } = req.params;
     const { isAnchor } = req.body;
@@ -1991,7 +2006,7 @@ app.put('/api/schedule/:tournamentId/anchor', authenticateToken, async (req, res
 });
 
 // Update planned entries for a scheduled event
-app.put('/api/schedule/:tournamentId/entries', authenticateToken, async (req, res) => {
+app.put('/api/schedule/:tournamentId/entries', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { tournamentId } = req.params;
     const { plannedEntries } = req.body;
@@ -2009,7 +2024,7 @@ app.put('/api/schedule/:tournamentId/entries', authenticateToken, async (req, re
 });
 
 // Remove condition from a scheduled event (make it firm)
-app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (req, res) => {
+app.delete('/api/schedule/:tournamentId/condition', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { tournamentId } = req.params;
     db.run('DELETE FROM schedule_conditions WHERE user_id = ? AND tournament_id = ?', [req.user.id, tournamentId]);
@@ -2022,7 +2037,7 @@ app.delete('/api/schedule/:tournamentId/condition', authenticateToken, async (re
 });
 
 // Create a personal event (Travel Day / Day Off)
-app.post('/api/personal-event', authenticateToken, async (req, res) => {
+app.post('/api/personal-event', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { date, type, notes } = req.body;
     if (!['Travel Day', 'Day Off'].includes(type)) {
@@ -2076,7 +2091,7 @@ app.post('/api/personal-event', authenticateToken, async (req, res) => {
 });
 
 // Update a personal event (e.g. travel time notes)
-app.put('/api/personal-event/:id', authenticateToken, async (req, res) => {
+app.put('/api/personal-event/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
@@ -2105,7 +2120,7 @@ app.put('/api/personal-event/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete a personal event (removes tournament row + schedule link)
-app.delete('/api/personal-event/:id', authenticateToken, async (req, res) => {
+app.delete('/api/personal-event/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -2176,7 +2191,7 @@ const avatarUpload = multer({
   }
 });
 
-app.put('/api/avatar', authenticateToken, avatarUpload.single('avatar'), async (req, res) => {
+app.put('/api/avatar', authenticateToken, requireRegistered, avatarUpload.single('avatar'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No image provided' });
     const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
@@ -2189,7 +2204,7 @@ app.put('/api/avatar', authenticateToken, avatarUpload.single('avatar'), async (
   }
 });
 
-app.delete('/api/avatar', authenticateToken, async (req, res) => {
+app.delete('/api/avatar', authenticateToken, requireRegistered, async (req, res) => {
   try {
     db.run('UPDATE users SET avatar = NULL WHERE id = ?', [req.user.id]);
     await saveDatabase();
@@ -2217,7 +2232,7 @@ app.get('/api/avatar/:userId', (req, res) => {
 // ── Share Request Endpoints ───────────────────────────────────
 
 // Send a share request to another user
-app.post('/api/share-request', authenticateToken, async (req, res) => {
+app.post('/api/share-request', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { username } = req.body;
     const stmt = db.prepare('SELECT id FROM users WHERE username = ?');
@@ -2376,7 +2391,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
 });
 
 // Accept a share request
-app.put('/api/share-request/:id/accept', authenticateToken, async (req, res) => {
+app.put('/api/share-request/:id/accept', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const sr = db.prepare('SELECT * FROM share_requests WHERE id = ? AND to_user_id = ? AND status = ?');
     sr.bind([req.params.id, req.user.id, 'pending']);
@@ -2403,7 +2418,7 @@ app.put('/api/share-request/:id/accept', authenticateToken, async (req, res) => 
 });
 
 // Reject a share request (deletes so sender can retry)
-app.put('/api/share-request/:id/reject', authenticateToken, async (req, res) => {
+app.put('/api/share-request/:id/reject', authenticateToken, requireRegistered, async (req, res) => {
   try {
     db.run('DELETE FROM share_requests WHERE id = ? AND to_user_id = ? AND status = ?',
       [req.params.id, req.user.id, 'pending']);
@@ -2416,7 +2431,7 @@ app.put('/api/share-request/:id/reject', authenticateToken, async (req, res) => 
 });
 
 // Cancel an outgoing share request
-app.delete('/api/share-request/:id', authenticateToken, async (req, res) => {
+app.delete('/api/share-request/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     db.run('DELETE FROM share_requests WHERE id = ? AND from_user_id = ? AND status = ?',
       [req.params.id, req.user.id, 'pending']);
@@ -2429,7 +2444,7 @@ app.delete('/api/share-request/:id', authenticateToken, async (req, res) => {
 });
 
 // Remove a share buddy (both directions)
-app.delete('/api/share-buddy/:userId', authenticateToken, async (req, res) => {
+app.delete('/api/share-buddy/:userId', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const other = req.params.userId;
     db.run(
@@ -2447,7 +2462,7 @@ app.delete('/api/share-buddy/:userId', authenticateToken, async (req, res) => {
 // ── Groups ─────────────────────────────────────────────────────
 
 // Create a group
-app.post('/api/groups', authenticateToken, async (req, res) => {
+app.post('/api/groups', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { name } = req.body;
     if (!name || name.trim().length < 1 || name.trim().length > 40) {
@@ -2498,7 +2513,7 @@ app.get('/api/groups', authenticateToken, (req, res) => {
 });
 
 // Delete a group (owner only)
-app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
+app.delete('/api/groups/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const groupId = Number(req.params.id);
 
@@ -2535,7 +2550,7 @@ app.delete('/api/groups/:id', authenticateToken, async (req, res) => {
 });
 
 // Invite buddy to group (sends invite instead of direct-add)
-app.post('/api/groups/:id/members', authenticateToken, async (req, res) => {
+app.post('/api/groups/:id/members', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const groupId = Number(req.params.id);
     const { username } = req.body;
@@ -2610,7 +2625,7 @@ app.post('/api/groups/:id/members', authenticateToken, async (req, res) => {
 });
 
 // Remove member from group (owner removes, or self-leave)
-app.delete('/api/groups/:id/members/:userId', authenticateToken, async (req, res) => {
+app.delete('/api/groups/:id/members/:userId', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const groupId = Number(req.params.id);
     const targetUserId = Number(req.params.userId);
@@ -2703,7 +2718,7 @@ app.get('/api/groups/:id/feed', authenticateToken, (req, res) => {
 });
 
 // Post a message to group
-app.post('/api/groups/:id/messages', authenticateToken, async (req, res) => {
+app.post('/api/groups/:id/messages', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const groupId = Number(req.params.id);
     const { message } = req.body;
@@ -2869,7 +2884,7 @@ app.get('/api/groups/:id/leaderboard', authenticateToken, (req, res) => {
 });
 
 // Toggle leaderboard on/off (owner only)
-app.put('/api/groups/:id/leaderboard', authenticateToken, async (req, res) => {
+app.put('/api/groups/:id/leaderboard', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const groupId = Number(req.params.id);
     const { enabled } = req.body;
@@ -2938,7 +2953,7 @@ app.get('/api/groups/:id/invites', authenticateToken, (req, res) => {
 });
 
 // Accept a group invite
-app.put('/api/group-invites/:id/accept', authenticateToken, async (req, res) => {
+app.put('/api/group-invites/:id/accept', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const inviteId = Number(req.params.id);
     const stmt = db.prepare('SELECT * FROM group_invites WHERE id = ? AND invited_user_id = ? AND status = ?');
@@ -2978,7 +2993,7 @@ app.put('/api/group-invites/:id/accept', authenticateToken, async (req, res) => 
 });
 
 // Decline a group invite (deletes so they can be re-invited)
-app.put('/api/group-invites/:id/decline', authenticateToken, async (req, res) => {
+app.put('/api/group-invites/:id/decline', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const inviteId = Number(req.params.id);
     const stmt = db.prepare('SELECT * FROM group_invites WHERE id = ? AND invited_user_id = ? AND status = ?');
@@ -3089,7 +3104,7 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
 });
 
 // Mark notifications as seen
-app.put('/api/seen-notifications', authenticateToken, async (req, res) => {
+app.put('/api/seen-notifications', authenticateToken, requireRegistered, async (req, res) => {
   try {
     db.run('UPDATE users SET last_seen_notifications = CURRENT_TIMESTAMP WHERE id = ?', [req.user.id]);
     await saveDatabase();
@@ -3101,7 +3116,7 @@ app.put('/api/seen-notifications', authenticateToken, async (req, res) => {
 });
 
 // Mark all shared schedules as seen
-app.put('/api/seen-shares', authenticateToken, async (req, res) => {
+app.put('/api/seen-shares', authenticateToken, requireRegistered, async (req, res) => {
   try {
     db.run('UPDATE users SET last_seen_shares = CURRENT_TIMESTAMP WHERE id = ?', [req.user.id]);
     await saveDatabase();
@@ -3215,7 +3230,7 @@ app.get('/api/share-token', authenticateToken, (req, res) => {
 });
 
 // Generate share token
-app.post('/api/share-token', authenticateToken, async (req, res) => {
+app.post('/api/share-token', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const stmt = db.prepare('SELECT token FROM share_tokens WHERE user_id = ?');
     stmt.bind([req.user.id]);
@@ -3236,7 +3251,7 @@ app.post('/api/share-token', authenticateToken, async (req, res) => {
 });
 
 // Revoke share token
-app.delete('/api/share-token', authenticateToken, async (req, res) => {
+app.delete('/api/share-token', authenticateToken, requireRegistered, async (req, res) => {
   try {
     db.run('DELETE FROM share_tokens WHERE user_id = ?', [req.user.id]);
     await saveDatabase();
@@ -3287,7 +3302,7 @@ app.get('/api/venues', authenticateToken, (req, res) => {
 
 // ── Tournament field size (for POY calculation) ─────────────
 
-app.put('/api/tournaments/:id/total-entries', authenticateToken, async (req, res) => {
+app.put('/api/tournaments/:id/total-entries', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     const { totalEntries } = req.body;
@@ -3333,7 +3348,7 @@ app.get('/api/tracking', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/tracking', authenticateToken, async (req, res) => {
+app.post('/api/tracking', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { tournamentId, numEntries, cashed, finishPlace, cashAmount, notes } = req.body;
     const checkStmt = db.prepare('SELECT id FROM tournaments WHERE id = ?');
@@ -3371,7 +3386,7 @@ app.post('/api/tracking', authenticateToken, async (req, res) => {
   }
 });
 
-app.put('/api/tracking/:entryId', authenticateToken, async (req, res) => {
+app.put('/api/tracking/:entryId', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { entryId } = req.params;
     const { numEntries, cashed, finishPlace, cashAmount, notes } = req.body;
@@ -3393,7 +3408,7 @@ app.put('/api/tracking/:entryId', authenticateToken, async (req, res) => {
   }
 });
 
-app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
+app.delete('/api/tracking/:entryId', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { entryId } = req.params;
     db.run('DELETE FROM tracking_entries WHERE id = ? AND user_id = ?', [entryId, req.user.id]);
@@ -3407,7 +3422,7 @@ app.delete('/api/tracking/:entryId', authenticateToken, async (req, res) => {
 
 // ── Live Updates ──────────────────────────────────────────
 
-app.post('/api/live-update', authenticateToken, async (req, res) => {
+app.post('/api/live-update', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { tournamentId, stack, sb, bb, bbAnte, isRegClosed, bubble, isItm, lockedAmount, isFinalTable, placesLeft, firstPlacePrize, isDeal, dealPlace, dealPayout, isBusted, totalEntries, isBagged, bagDay, playStartedAt } = req.body;
     if (!tournamentId) return res.status(400).json({ error: 'Tournament is required' });
@@ -3562,7 +3577,7 @@ app.get('/api/live-updates/active', authenticateToken, (req, res) => {
   }
 });
 
-app.delete('/api/live-update/:id', authenticateToken, async (req, res) => {
+app.delete('/api/live-update/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     db.run('DELETE FROM live_updates WHERE id = ? AND user_id = ?', [id, req.user.id]);
@@ -3767,7 +3782,7 @@ app.get('/api/staking/series', authenticateToken, (req, res) => {
 });
 
 // Create staking series
-app.post('/api/staking/series', authenticateToken, stakingLimiter, async (req, res) => {
+app.post('/api/staking/series', authenticateToken, requireRegistered, stakingLimiter, async (req, res) => {
   try {
     const { name, venue, startDate, endDate, currency, currencyConversionMethod } = req.body;
     if (!name || !name.trim()) {
@@ -3806,7 +3821,7 @@ app.post('/api/staking/series', authenticateToken, stakingLimiter, async (req, r
 });
 
 // Update staking series
-app.put('/api/staking/series/:id', authenticateToken, async (req, res) => {
+app.put('/api/staking/series/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, venue, startDate, endDate, currency, currencyConversionMethod, status } = req.body;
@@ -3841,7 +3856,7 @@ app.put('/api/staking/series/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete staking series (cascades: agreements, overrides, event status, settlements, tokens)
-app.delete('/api/staking/series/:id', authenticateToken, async (req, res) => {
+app.delete('/api/staking/series/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -3901,7 +3916,7 @@ app.get('/api/staking/backers', authenticateToken, (req, res) => {
 });
 
 // Create backer profile
-app.post('/api/staking/backers', authenticateToken, stakingLimiter, async (req, res) => {
+app.post('/api/staking/backers', authenticateToken, requireRegistered, stakingLimiter, async (req, res) => {
   try {
     const { name, email, phone, notes, appUsername } = req.body;
     if (!name || !name.trim()) {
@@ -3939,7 +3954,7 @@ app.post('/api/staking/backers', authenticateToken, stakingLimiter, async (req, 
 });
 
 // Update backer profile
-app.put('/api/staking/backers/:id', authenticateToken, async (req, res) => {
+app.put('/api/staking/backers/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, phone, notes, appUsername } = req.body;
@@ -3983,7 +3998,7 @@ app.put('/api/staking/backers/:id', authenticateToken, async (req, res) => {
 
 // Delete backer profile
 // GUESS: Prevent deletion if backer has active agreements (require user to remove agreements first)
-app.delete('/api/staking/backers/:id', authenticateToken, async (req, res) => {
+app.delete('/api/staking/backers/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -4053,7 +4068,7 @@ app.get('/api/staking/series/:seriesId/agreements', authenticateToken, (req, res
 });
 
 // Create agreement (with validation)
-app.post('/api/staking/series/:seriesId/agreements', authenticateToken, stakingLimiter, async (req, res) => {
+app.post('/api/staking/series/:seriesId/agreements', authenticateToken, requireRegistered, stakingLimiter, async (req, res) => {
   try {
     const { seriesId } = req.params;
     const {
@@ -4191,7 +4206,7 @@ app.post('/api/staking/series/:seriesId/agreements', authenticateToken, stakingL
 });
 
 // Update agreement
-app.put('/api/staking/agreements/:id', authenticateToken, async (req, res) => {
+app.put('/api/staking/agreements/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -4258,7 +4273,7 @@ app.put('/api/staking/agreements/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete agreement (cascades overrides, event status, tokens)
-app.delete('/api/staking/agreements/:id', authenticateToken, async (req, res) => {
+app.delete('/api/staking/agreements/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -4376,7 +4391,7 @@ app.get('/api/staking/series/:seriesId/events', authenticateToken, (req, res) =>
 });
 
 // Update event status for a specific agreement + tournament
-app.post('/api/staking/events/:agreementId/:tournamentId/status', authenticateToken, async (req, res) => {
+app.post('/api/staking/events/:agreementId/:tournamentId/status', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { agreementId, tournamentId } = req.params;
     const { bulletsUsed, buyinAmount, cashAmount, status, tipAmount, currencyRate } = req.body;
@@ -4449,7 +4464,7 @@ app.post('/api/staking/events/:agreementId/:tournamentId/status', authenticateTo
 });
 
 // Upload proof image for event status
-app.post('/api/staking/events/:agreementId/:tournamentId/proof', authenticateToken, proofUpload.single('proof'), async (req, res) => {
+app.post('/api/staking/events/:agreementId/:tournamentId/proof', authenticateToken, requireRegistered, proofUpload.single('proof'), async (req, res) => {
   try {
     const { agreementId, tournamentId } = req.params;
 
@@ -4697,7 +4712,7 @@ app.get('/api/staking/series/:seriesId/settlement', authenticateToken, (req, res
 });
 
 // Finalize settlement — create settlement records and update makeup balances
-app.post('/api/staking/series/:seriesId/settle', authenticateToken, async (req, res) => {
+app.post('/api/staking/series/:seriesId/settle', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { seriesId } = req.params;
     const { settlements } = req.body; // Array of { backerId, amountOwed, notes }
@@ -4781,7 +4796,7 @@ app.post('/api/staking/series/:seriesId/settle', authenticateToken, async (req, 
 });
 
 // Mark settlement as paid
-app.put('/api/staking/settlements/:id/paid', authenticateToken, async (req, res) => {
+app.put('/api/staking/settlements/:id/paid', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     const { isPaid } = req.body;
@@ -4813,7 +4828,7 @@ app.put('/api/staking/settlements/:id/paid', authenticateToken, async (req, res)
 // ── Backer Tokens (private shareable links) ──────────────────
 
 // Generate private backer link
-app.post('/api/staking/agreements/:id/token', authenticateToken, async (req, res) => {
+app.post('/api/staking/agreements/:id/token', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -5003,7 +5018,7 @@ app.get('/api/staking/series/:seriesId/action-check/:tournamentId', authenticate
 // GUESS: Expose CRUD for event overrides so players can adjust or opt-out backers from specific events
 
 // Set/update event override
-app.post('/api/staking/agreements/:agreementId/overrides/:tournamentId', authenticateToken, async (req, res) => {
+app.post('/api/staking/agreements/:agreementId/overrides/:tournamentId', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { agreementId, tournamentId } = req.params;
     const { overridePercentage, overrideMarkup, optOut, notes } = req.body;
@@ -5057,7 +5072,7 @@ app.post('/api/staking/agreements/:agreementId/overrides/:tournamentId', authent
 });
 
 // Delete event override
-app.delete('/api/staking/agreements/:agreementId/overrides/:tournamentId', authenticateToken, async (req, res) => {
+app.delete('/api/staking/agreements/:agreementId/overrides/:tournamentId', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { agreementId, tournamentId } = req.params;
 
@@ -5100,7 +5115,7 @@ app.get('/api/staking/sell-params', authenticateToken, (req, res) => {
   }
 });
 
-app.put('/api/staking/sell-params', authenticateToken, async (req, res) => {
+app.put('/api/staking/sell-params', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { params } = req.body; // Array of { param_type, param_key, sell_pct }
     if (!Array.isArray(params)) return res.status(400).json({ error: 'params must be an array' });
@@ -5137,7 +5152,7 @@ app.get('/api/staking/markup-settings', authenticateToken, (req, res) => {
   }
 });
 
-app.put('/api/staking/markup-settings', authenticateToken, async (req, res) => {
+app.put('/api/staking/markup-settings', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { settings } = req.body; // Array of { setting_type, setting_key, markup }
     if (!Array.isArray(settings)) return res.status(400).json({ error: 'settings must be an array' });
@@ -5179,7 +5194,7 @@ app.get('/api/hands', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/hands', authenticateToken, async (req, res) => {
+app.post('/api/hands', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { handData, gameType, title, notes, isPublic } = req.body;
     if (!handData || !gameType) return res.status(400).json({ error: 'Hand data and game type are required' });
@@ -5245,7 +5260,7 @@ app.get('/api/hands/:id', authenticateToken, (req, res) => {
   }
 });
 
-app.put('/api/hands/:id', authenticateToken, async (req, res) => {
+app.put('/api/hands/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     const { handData, gameType, title, notes, isPublic } = req.body;
@@ -5267,7 +5282,7 @@ app.put('/api/hands/:id', authenticateToken, async (req, res) => {
   }
 });
 
-app.delete('/api/hands/:id', authenticateToken, async (req, res) => {
+app.delete('/api/hands/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     db.run('DELETE FROM saved_hands WHERE id = ? AND user_id = ?', [id, req.user.id]);
@@ -5303,7 +5318,7 @@ app.get('/api/hands', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/hands', authenticateToken, async (req, res) => {
+app.post('/api/hands', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { handData, gameType, title, notes, isPublic } = req.body;
     if (!handData || !gameType) return res.status(400).json({ error: 'Hand data and game type are required' });
@@ -5368,7 +5383,7 @@ app.get('/api/hands/:id', authenticateToken, (req, res) => {
   }
 });
 
-app.put('/api/hands/:id', authenticateToken, async (req, res) => {
+app.put('/api/hands/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     const { handData, gameType, title, notes, isPublic } = req.body;
@@ -5390,7 +5405,7 @@ app.put('/api/hands/:id', authenticateToken, async (req, res) => {
   }
 });
 
-app.delete('/api/hands/:id', authenticateToken, async (req, res) => {
+app.delete('/api/hands/:id', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { id } = req.params;
     db.run('DELETE FROM saved_hands WHERE id = ? AND user_id = ?', [id, req.user.id]);

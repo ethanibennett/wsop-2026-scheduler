@@ -3,6 +3,7 @@
 ## Recent Changes
 <!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
 <!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-03-04**: Added guest login — browse-only access without registration. `POST /api/guest-login` issues a 4h JWT with `isGuest: true`. `requireRegistered` middleware blocks all write endpoints for guests. Frontend: "Continue as Guest" button on AuthScreen, guest banner with sign-up prompt, hidden schedule action buttons.
 - **2026-03-04**: Added forgot password feature — token-based reset flow with Nodemailer SMTP support. New endpoints: `/api/forgot-password`, `/api/reset-password`. New `password_resets` table. Frontend: ForgotPasswordForm, ResetPasswordForm components. Reset links use URL hash (`/#reset?token=<hex>`).
 - **2026-02-26**: Cloned repo to new machine, set up dev environment (Xcode CLI tools, Homebrew, Node.js). No code changes yet.
 
@@ -53,7 +54,7 @@ If SMTP is not configured, reset links are logged to the server console.
 - Filter panel and live-update panel both portal backdrop + panel to `document.body`
 
 ## API
-- Auth: POST `/api/register`, POST `/api/login` (JWT-based)
+- Auth: POST `/api/register`, POST `/api/login`, POST `/api/guest-login` (JWT-based)
 - Password Reset: POST `/api/forgot-password`, POST `/api/reset-password`
 - Tournaments: GET `/api/tournaments`, GET `/api/tournaments/:id`
 - Schedule: GET/POST/DELETE `/api/schedule` (per-user saved tournaments)
