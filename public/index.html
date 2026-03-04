@@ -185,7 +185,11 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      cursor: pointer;
+      transition: color 0.15s;
+      font-family: inherit;
     }
+    .username-chip:hover { color: var(--text); }
 
     /* ── Live Update dropdown ── */
     .live-update-btn { padding: 6px 8px !important; min-width: 0; }
@@ -1455,13 +1459,11 @@
 
     .schedule-sticky-header {
       position: sticky;
-      top: 0;
+      top: -12px;
       z-index: 6;
       background: var(--bg);
-      padding: 0 0 10px;
-      margin: 0 -12px;
-      padding-left: 12px;
-      padding-right: 12px;
+      padding: 24px 12px 10px;
+      margin: -12px -12px 0;
     }
 
     /* ── Calendar event rows (collapsible) ── */
@@ -2187,6 +2189,7 @@
     @media (min-width: 640px) {
       .content-area { padding: 16px 20px 80px; }
       .sticky-filters { margin: -16px -20px 0; padding: 32px 20px 4px; top: -16px; }
+      .schedule-sticky-header { margin: -16px -20px 0; padding: 28px 20px 10px; top: -16px; }
 
       .tournament-list {
         display: grid;
@@ -2204,6 +2207,7 @@
     @media (min-width: 1024px) {
       .content-area { padding: 20px 32px 80px; }
       .sticky-filters { margin: -20px -32px 0; padding: 40px 32px 4px; top: -20px; }
+      .schedule-sticky-header { margin: -20px -32px 0; padding: 32px 32px 10px; top: -20px; }
 
       .tournament-list {
         grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
@@ -2964,6 +2968,61 @@
       flex-shrink: 0;
     }
     .dash-conn-overflow:hover { color: var(--text); }
+
+    /* Friends playing carousel */
+    .dash-friends-scroll {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 2px 0;
+    }
+    .dash-friends-scroll::-webkit-scrollbar { display: none; }
+    .dash-friend-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      padding: 8px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-width: 0;
+      max-width: 260px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .dash-friend-chip:hover { border-color: var(--accent); }
+    .dash-friend-chip .friend-info {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+    .dash-friend-chip .friend-name {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dash-friend-chip .friend-event {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dash-friend-chip .friend-stack {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.65rem;
+      color: #22c55e;
+      white-space: nowrap;
+    }
 
     /* Connection dropdown popup */
     .dash-conn-dropdown {
@@ -6746,127 +6805,229 @@
       return VENUE_CANVAS_COLORS[info.abbr] || '#808080';
     }
 
-    // Generate schedule PDF using plain jsPDF (no autotable dependency)
+    // Generate schedule PDF — matches schedule tab design language
     function generateSchedulePDF(events) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       const pw = doc.internal.pageSize.width;
       const ph = doc.internal.pageSize.height;
 
-      // Sort and group by date
+      // Hex → RGB for jsPDF
+      function hexRGB(hex) {
+        hex = hex.replace('#', '');
+        if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+        return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+      }
+
+      // Venue brand colors (dark theme CSS values)
+      const PDF_VENUE_COLORS = {
+        'WSOP': '#e8e8e8', 'PRS': '#e8e8e8', 'IPO': '#1a6b3c', 'PERSONAL': '#4a9eff',
+        'WYNN': '#8a3030', 'ARIA': '#5a3a9a', 'GOLDEN NUGGET': '#7a6520',
+        'RESORTS WORLD': '#2a7a72', 'SOUTH POINT': '#5e4430', 'ORLEANS': '#944828',
+        'MGM GRAND': '#2a6a3e', 'MGM NH': '#8a7020', 'Turning Stone': '#8a6508',
+        'TCH': '#a0522d', 'VEN': '#7a6520'
+      };
+
+      const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const DAYS = ['Su','M','Tu','W','Th','F','Sa'];
+
+      // Sort by date+time
       const sorted = [...events].sort((a, b) => {
         const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
         const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
         return da - db;
       });
-
-      const dates = sorted.map(e => e.date).filter(Boolean);
+      const allDates = sorted.map(e => e.date).filter(Boolean);
       const fmtRange = (d) => {
         if (!d) return '';
-        const dt = new Date(d + 'T12:00:00');
+        const dt = new Date(d);
         return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       };
 
-      const margin = 14;
-      const colWidths = [22, 0, 24, 28, 28]; // Event col is auto (remaining)
-      colWidths[1] = pw - margin * 2 - colWidths[0] - colWidths[2] - colWidths[3] - colWidths[4];
-      const colX = [margin];
-      for (let i = 1; i < 5; i++) colX[i] = colX[i - 1] + colWidths[i - 1];
+      // ── Layout constants ──
+      const mg = 12;                // page margin
+      const stripW = 5;             // venue color strip (matches 22px app strip scaled up)
+      const rowH = 12;              // two-line event row height
+      const rowGap = 1.5;           // gap between event rows
+      const dateBreakH = 9;         // date break row height
+      const textPad = 2.5;          // text padding inside row after strip
+      const contentX = mg + stripW + textPad;
+      const rightEdge = pw - mg;
+
+      // ── Theme colors (dark) ──
+      const BG    = hexRGB('#111111');   // --bg
+      const SURF  = hexRGB('#1a1a1a');   // --surface (row bg)
+      const BDR   = hexRGB('#333333');   // --border
+      const TXT   = hexRGB('#e8e8e8');   // --text
+      const MUTED = hexRGB('#808080');   // --text-muted
+      const ACCENT= hexRGB('#a0a0a0');   // --accent (buyin color)
 
       let y = 0;
       let pageNum = 1;
 
-      function drawHeader() {
-        y = 16;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.setTextColor(30);
-        doc.text('MY SCHEDULE', margin, y);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(120);
-        doc.text(fmtRange(dates[0]) + ' \u2013 ' + fmtRange(dates[dates.length - 1]) + '  \u00B7  ' + sorted.filter(t => !t.is_restart).length + ' events', margin, y + 5);
+      function fillBg() {
+        doc.setFillColor(...BG);
+        doc.rect(0, 0, pw, ph, 'F');
+      }
 
-        // Table header
-        y += 12;
-        doc.setFillColor(30, 30, 30);
-        doc.rect(margin, y - 4, pw - margin * 2, 7, 'F');
+      function drawPageHeader() {
+        y = 12;
+        // "MY SCHEDULE" title
         doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(...TXT);
+        doc.text('MY SCHEDULE', mg, y);
+
+        // Subtitle: date range + count
+        doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(255);
-        const headers = ['Time', 'Event', 'Buy-in', 'Venue', 'Game'];
-        headers.forEach((h, i) => doc.text(h, colX[i] + 1, y));
-        doc.setTextColor(0);
-        y += 6;
+        doc.setTextColor(...MUTED);
+        const evCount = sorted.filter(t => !t.is_restart).length;
+        const sub = fmtRange(allDates[0]) + ' \u2013 ' + fmtRange(allDates[allDates.length - 1]) + '  \u00B7  ' + evCount + ' events';
+        doc.text(sub, mg, y + 5);
+        y += 12;
       }
 
       function drawFooter() {
-        doc.setFontSize(7);
-        doc.setTextColor(160);
-        doc.text('Generated by shonabish', margin, ph - 6);
-        doc.text('Page ' + pageNum, pw - 25, ph - 6);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...MUTED);
+        doc.text('Generated by shonabish', mg, ph - 5);
+        doc.text('Page ' + pageNum, rightEdge - 12, ph - 5);
       }
 
-      function checkPage(needed) {
-        if (y + needed > ph - 12) {
+      function needPage(needed) {
+        if (y + needed > ph - 10) {
           drawFooter();
           doc.addPage();
           pageNum++;
-          drawHeader();
+          fillBg();
+          drawPageHeader();
         }
       }
 
-      drawHeader();
+      // ── First page ──
+      fillBg();
+      drawPageHeader();
 
       let lastDate = '';
       for (const ev of sorted) {
         const d = ev.date || '';
+        const venue = getVenueInfo(ev.venue);
+        const stripColor = hexRGB(PDF_VENUE_COLORS[venue.abbr] || '#808080');
 
-        // Date group header
+        // ── Date break ──
         if (d !== lastDate) {
-          checkPage(12);
-          const dateObj = new Date(d + 'T12:00:00');
-          const label = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-          doc.setFillColor(235, 235, 235);
-          doc.rect(margin, y - 3.5, pw - margin * 2, 6, 'F');
+          needPage(dateBreakH + rowH + rowGap + 2);
+          if (lastDate) y += 3;
+
+          const dateObj = new Date(d);
+          const dayNum = String(dateObj.getDate()).padStart(2, '0');
+          const monthAbbr = MONTHS[dateObj.getMonth()];
+          const dayOfWeek = DAYS[dateObj.getDay()];
+
+          // Large date number (serif-like bold)
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(8);
-          doc.setTextColor(50);
-          doc.text(label, margin + 1, y);
+          doc.setFontSize(14);
+          doc.setTextColor(...TXT);
+          doc.text(dayNum, mg, y + 5);
+
+          // Month (smaller, next to number)
+          const numW = doc.getTextWidth(dayNum);
           doc.setFont('helvetica', 'normal');
-          doc.setTextColor(0);
-          y += 5;
+          doc.setFontSize(8);
+          doc.setTextColor(...MUTED);
+          doc.text(monthAbbr, mg + numW + 1.5, y + 5);
+
+          // Day of week (right-aligned)
+          const dowW = doc.getTextWidth(dayOfWeek);
+          doc.text(dayOfWeek, rightEdge - dowW, y + 5);
+
+          y += dateBreakH;
           lastDate = d;
         }
 
-        checkPage(7);
+        // ── Event row (two lines, matching app card layout) ──
+        needPage(rowH + rowGap);
 
-        // Draw row with light border
-        doc.setDrawColor(220);
-        doc.line(margin, y + 2.5, pw - margin, y + 2.5);
+        const rowTop = y;
 
-        doc.setFontSize(8);
-        doc.setTextColor(30);
-        doc.text(ev.time || 'TBD', colX[0] + 1, y);
+        // Row background (surface color)
+        doc.setFillColor(...SURF);
+        doc.roundedRect(mg, rowTop, rightEdge - mg, rowH, 1.2, 1.2, 'F');
 
-        // Event name — truncate if too long
-        const maxNameW = colWidths[1] - 2;
+        // Row border
+        doc.setDrawColor(...BDR);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(mg, rowTop, rightEdge - mg, rowH, 1.2, 1.2, 'S');
+
+        // Venue color strip (left edge of card, no left border — strip IS the left edge)
+        doc.setFillColor(...stripColor);
+        doc.rect(mg, rowTop, stripW, rowH, 'F');
+        // Round top-left and bottom-left by overlapping with a filled rect
+        doc.setFillColor(...stripColor);
+        doc.roundedRect(mg, rowTop, stripW + 1, rowH, 1.2, 1.2, 'F');
+        doc.setFillColor(...SURF);
+        doc.rect(mg + stripW, rowTop, 1, rowH, 'F'); // clean edge between strip and content
+
+        // ── Line 1: Time (muted, bold) ─── Buy-in (accent, bold, right of time) ──
+        const line1Y = rowTop + 4.5;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...MUTED);
+        doc.text(ev.time || 'TBD', contentX, line1Y);
+
+        const timeStr = ev.time || 'TBD';
+        const timeW = doc.getTextWidth(timeStr);
+
+        // Buy-in to right of time with gap
+        const buyinStr = ev.buyin ? formatBuyin(ev.buyin) : '';
+        if (buyinStr) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.setTextColor(...ACCENT);
+          doc.text(buyinStr, contentX + timeW + 3, line1Y);
+        }
+
+        // ── Line 2: Event name (serif-like, regular) ──
+        const line2Y = rowTop + 9;
         let name = ev.event_name || '';
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...TXT);
+
+        // Truncate if needed (leave room for venue abbr on right)
+        const venueAbbrStr = venue.abbr;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6);
+        const abbrW = doc.getTextWidth(venueAbbrStr);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        const maxNameW = (rightEdge - 2) - contentX - abbrW - 4;
         while (doc.getTextWidth(name) > maxNameW && name.length > 3) {
           name = name.slice(0, -4) + '\u2026';
         }
-        doc.text(name, colX[1] + 1, y);
+        doc.text(name, contentX, line2Y);
 
-        doc.text(ev.buyin ? formatBuyin(ev.buyin) : '\u2014', colX[2] + 1, y);
+        // Game variant (after event name if room, muted)
+        if (ev.game_variant) {
+          const nameW = doc.getTextWidth(name);
+          const variantX = contentX + nameW + 3;
+          if (variantX + 20 < rightEdge - abbrW - 6) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...MUTED);
+            doc.text(ev.game_variant, variantX, line2Y);
+          }
+        }
 
-        const venue = getVenueInfo(ev.venue);
-        doc.text(venue.abbr, colX[3] + 1, y);
+        // Venue abbreviation (right side, vertically centered, muted small caps)
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6);
+        doc.setTextColor(...MUTED);
+        doc.text(venueAbbrStr, rightEdge - abbrW - 2, rowTop + 6.5);
 
-        doc.setTextColor(100);
-        doc.text(ev.game_variant || '', colX[4] + 1, y);
-        doc.setTextColor(0);
-
-        y += 5.5;
+        y = rowTop + rowH + rowGap;
       }
 
       drawFooter();
@@ -9516,9 +9677,29 @@
       function scrollBelowSticky(el) {
         const container = el.closest('.content-area');
         if (!container) return;
+        const savedScroll = container.scrollTop;
+
+        // Phase 1: jump to approximate target
         const stickyBottom = measureStickyStack(container);
-        const rowTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-        container.scrollTo({ top: rowTop - stickyBottom - 4, behavior: 'smooth' });
+        const elAbsTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+        container.scrollTop = elAbsTop - stickyBottom - 2;
+
+        // Phase 2: iteratively correct for sticky state changes at the target position
+        // Each correction may cause different date breaks to stick/unstick, so iterate
+        // until the position converges (typically 2-3 iterations for cross-day jumps)
+        for (let i = 0; i < 4; i++) {
+          const sb = measureStickyStack(container);
+          const visualTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top;
+          const correction = visualTop - sb - 2;
+          if (Math.abs(correction) < 0.5) break;
+          container.scrollTop += correction;
+        }
+
+        // Phase 3: restore and smooth scroll to the converged-correct position
+        // At this exact scrollTop the layout is verified correct — smooth scroll lands here
+        const target = container.scrollTop;
+        container.scrollTop = savedScroll;
+        container.scrollTo({ top: target, behavior: 'smooth' });
       }
 
       // Auto-expand and scroll when this event is the focus target
@@ -9527,14 +9708,15 @@
           setOpen(true);
           setTimeout(() => {
             if (rowRef.current) scrollBelowSticky(rowRef.current);
-          }, 100);
+          }, 420);
         }
       }, [focusEventId]);
 
       // Scroll expanded event to just below sticky header
       useEffect(() => {
         if (open && rowRef.current) {
-          setTimeout(() => scrollBelowSticky(rowRef.current), 50);
+          // Wait for expansion animation (400ms) to complete before scrolling
+          setTimeout(() => scrollBelowSticky(rowRef.current), 420);
         }
       }, [open]);
 
@@ -10606,7 +10788,7 @@
               <p>Try adjusting your search or filters</p>
             </div>
           ) : (
-            <div style={{minHeight:'100vh'}}>
+            <div style={{minHeight:'100vh', paddingBottom:'60vh'}}>
               {(() => {
                 const todayISO = getToday();
                 const groups = [];
@@ -10641,15 +10823,24 @@
                         borderBottom: 'none',
                         display: 'flex', alignItems: 'baseline', gap: '4px'
                       }}>
-                        <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
-                        <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
-                        {isToday && <span style={{
-                          background: 'var(--accent)', color: '#fff',
-                          fontSize: '0.7rem', fontWeight: 700,
-                          padding: '2px 8px', borderRadius: '999px',
-                          lineHeight: 1.4
-                        }}>Today</span>}
-                        <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", }}>{dayOfWeek}</span>
+                        {isToday ? (
+                          <>
+                            <span style={{
+                              background: 'var(--accent)', display: 'inline-flex', alignItems: 'baseline', gap: '4px',
+                              padding: '4px 12px', borderRadius: '999px'
+                            }}>
+                              <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: 'var(--bg)'}}>{dayNum}</span>
+                              <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
+                            </span>
+                            <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
+                            <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
+                            <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
+                          </>
+                        )}
                       </div>
                       {group.events.map(t => (
                         <CalendarEventRow
@@ -10789,6 +10980,7 @@
     function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates }) {
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
+      const hasScrolled = React.useRef(false);
       const dayOffDateRef = React.useRef(null);
       const schedHeaderRef = React.useRef(null);
       const [focusEventId, setFocusEventId] = useState(null);
@@ -10798,7 +10990,12 @@
 
       useEffect(() => {
         const measure = () => {
-          if (schedHeaderRef.current) setSchedDateTop(schedHeaderRef.current.offsetHeight);
+          if (schedHeaderRef.current) {
+            const h = schedHeaderRef.current.offsetHeight;
+            const style = getComputedStyle(schedHeaderRef.current);
+            const mt = parseFloat(style.marginTop) || 0;
+            setSchedDateTop(h + mt);
+          }
         };
         measure();
         window.addEventListener('resize', measure);
@@ -10814,20 +11011,34 @@
           return da - db;
         }), [mySchedule]);
 
-      // Find the index of the first event that is today or in the future
-      const firstCurrentIdx = useMemo(() => {
-        return sorted.findIndex(t => normaliseDate(t.date) >= todayISO);
-      }, [sorted, todayISO]);
-
       // Auto-scroll to first event of today (or first upcoming event)
       useEffect(() => {
-        const timer = setTimeout(() => {
-          if (todayRef.current) {
-            todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 50);
-        return () => clearTimeout(timer);
-      }, []);
+        if (!hasScrolled.current && todayRef.current) {
+          hasScrolled.current = true;
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const el = todayRef.current;
+            if (!el) return;
+            const container = el.closest('.content-area') || document.querySelector('.content-area');
+            if (!container) return;
+            // Phase 1: rough scroll to get today's group near the top
+            const caTop = container.getBoundingClientRect().top;
+            const sticky = container.querySelector('.schedule-sticky-header');
+            const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
+            const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+            container.scrollTo({ top: Math.max(0, elTop - stickyH) });
+            // Phase 2: post-scroll correction using actual sticky positions
+            requestAnimationFrame(() => {
+              const firstCard = el.querySelector('.cal-event-row');
+              if (!firstCard) return;
+              const stickyBottom = measureStickyStack(container);
+              const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
+              if (cardVisualTop < stickyBottom + 2) {
+                container.scrollTop -= (stickyBottom + 2 - cardVisualTop);
+              }
+            });
+          }));
+        }
+      }, [sorted]);
 
       // Find best flight: closest on or after satellite date within my schedule
       function findBestFlightSchedule(eventNum, sat) {
@@ -10918,7 +11129,7 @@
               <Icon.warn /> {conflicts.size} event{conflicts.size !== 1 ? 's have' : ' has'} a time conflict
             </div>
           )}
-          <div style={{minHeight:'100vh'}}>
+          <div style={{minHeight:'100vh', paddingBottom:'60vh'}}>
             {(() => {
               // Group sorted events by date so each group is its own sticky container
               const groups = [];
@@ -10933,6 +11144,7 @@
                 currentGroup.events.push({ t, globalIdx });
                 globalIdx++;
               }
+              let scrollRefAssigned = false;
               return groups.map((group, gi) => {
                 const isGroupToday = group.date === todayISO;
                 const dateObj = new Date(group.date + 'T12:00:00');
@@ -10940,10 +11152,11 @@
                 const dayOfWeek = ['Su','M','Tu','W','Th','F','Sa'][dateObj.getDay()];
                 const dayNum = String(dateObj.getDate()).padStart(2, '0');
                 const past = group.date < todayISO;
+                const needsRef = !scrollRefAssigned && group.date >= todayISO;
+                if (needsRef) scrollRefAssigned = true;
                 return (
-                  <div key={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
-                    <div ref={group.events[0].globalIdx === firstCurrentIdx ? todayRef : null}
-                      className="schedule-date-break" style={{
+                  <div key={group.date} ref={needsRef ? todayRef : null} style={{marginTop: gi === 0 ? 0 : '8px'}}>
+                    <div className="schedule-date-break" style={{
                       position: 'sticky', top: schedDateTop + 'px', zIndex: 5,
                       padding: '12px 12px 8px 2px',
                       background: 'var(--bg)',
@@ -10952,18 +11165,27 @@
                       borderBottom: 'none',
                       display: 'flex', alignItems: 'baseline', gap: '4px'
                     }}>
-                      <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
-                      <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
-                      {isGroupToday && <span style={{
-                        background: 'var(--accent)', color: '#fff',
-                        fontSize: '0.7rem', fontWeight: 700,
-                        padding: '2px 8px', borderRadius: '999px',
-                        lineHeight: 1.4
-                      }}>Today</span>}
-                      <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", }}>{dayOfWeek}</span>
+                      {isGroupToday ? (
+                        <>
+                          <span style={{
+                            background: 'var(--accent)', display: 'inline-flex', alignItems: 'baseline', gap: '4px',
+                            padding: '4px 12px', borderRadius: '999px'
+                          }}>
+                            <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: 'var(--bg)'}}>{dayNum}</span>
+                            <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
+                          </span>
+                          <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
+                          <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
+                          <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", }}>{dayOfWeek}</span>
+                        </>
+                      )}
                     </div>
                     {group.events.map(({ t, globalIdx: gIdx }) => (
-                      <div key={t.id} ref={gIdx === firstCurrentIdx && gIdx !== group.events[0].globalIdx ? todayRef : null}>
+                      <div key={t.id}>
                         <CalendarEventRow
                           tournament={t}
                           isInSchedule={true}
@@ -12971,6 +13193,37 @@
               </div>
             )}
           </div>
+
+          {/* ── Friends Playing ── */}
+          {activeFriends.length > 0 && (
+            <div className="dashboard-section" style={{flexShrink: 0}}>
+              <div className="dashboard-section-header">
+                <div className="dashboard-section-title">Friends Playing</div>
+                <span className="dashboard-section-badge">{activeFriends.length} live</span>
+              </div>
+              <div className="dash-friends-scroll">
+                {activeFriends.map(f => {
+                  const lu = f.liveUpdate;
+                  const stack = lu?.stack ? Number(lu.stack).toLocaleString() : null;
+                  const blinds = lu?.bb ? `${lu.sb ? Number(lu.sb).toLocaleString() : '?'}/${Number(lu.bb).toLocaleString()}${(lu.bbAnte || lu.bb_ante) ? '/' + Number(lu.bbAnte || lu.bb_ante).toLocaleString() : ''}` : null;
+                  return (
+                    <div key={f.id} className="dash-friend-chip" onClick={() => onNavigate('social')}>
+                      <Avatar src={f.avatar} username={f.username} size={28} />
+                      <div className="friend-info">
+                        <div className="friend-name">{f.username}</div>
+                        <div className="friend-event">{lu?.eventName || 'Playing'}</div>
+                        {stack && (
+                          <div className="friend-stack">
+                            {stack}{blinds ? ` @ ${blinds}` : ''}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="dash-bottom-stack">
           {/* ── Results ── */}
@@ -15084,7 +15337,7 @@
     }
 
     // ── More View (settings, tracking, etc.) ─────────────────────
-    function MoreView({ onNavigate }) {
+    function MoreView({ onNavigate, onExport, hasSchedule }) {
       return (
         <div className="more-menu">
           <button className="more-menu-item" onClick={() => onNavigate('schedule')}>
@@ -15113,6 +15366,16 @@
             <div>
               Hand Replayer
               <div className="menu-item-desc">Record and replay poker hands</div>
+            </div>
+          </button>
+          <button className="more-menu-item" onClick={onExport} disabled={!hasSchedule} style={!hasSchedule ? {opacity:0.4, cursor:'default'} : undefined}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <div>
+              Export Schedule
+              <div className="menu-item-desc">{hasSchedule ? 'Download PDF or share images of your schedule' : 'Save events to your schedule first'}</div>
             </div>
           </button>
           <button className="more-menu-item" onClick={() => onNavigate('settings')}>
@@ -16375,6 +16638,7 @@
       const [username, setUsername] = useState(localStorage.getItem('username'));
       const [currentView, _setCurrentView] = useState('dashboard');
       const [viewKey, setViewKey] = useState(0);
+      const [showExportFromMore, setShowExportFromMore] = useState(false);
       const setCurrentView = useCallback((v) => {
         _setCurrentView(prev => {
           if (v !== prev) setViewKey(k => k + 1);
@@ -17103,10 +17367,10 @@
               <button className="btn btn-ghost btn-icon" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
                 {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
               </button>
-              <span className="username-chip" style={{display:'flex',alignItems:'center',gap:'6px',marginLeft:'2px'}}>
+              <button className="username-chip" onClick={() => setCurrentView('schedule')} style={{display:'flex',alignItems:'center',gap:'6px',marginLeft:'2px',background:'none',border:'none',padding:0,cursor:'pointer'}}>
                 <Avatar src={avatar} username={username} size={22} />
                 {username}
-              </span>
+              </button>
             </div>
           </header>
 
@@ -17251,7 +17515,14 @@
               <MoreView onNavigate={(v) => {
                 setCurrentView(v);
                 const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
-              }} />
+              }}
+              onExport={() => setShowExportFromMore(true)}
+              hasSchedule={mySchedule && mySchedule.length > 0}
+              />
+            )}
+
+            {showExportFromMore && (
+              <ScheduleExportModal events={mySchedule} onClose={() => setShowExportFromMore(false)} />
             )}
             </div>
           </main>
