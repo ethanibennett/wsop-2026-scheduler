@@ -14801,6 +14801,28 @@
     }) {
       const [expandedId, setExpandedId] = useState(null);
       const [showCreateGroup, setShowCreateGroup] = useState(false);
+      const [buddySchedules, setBuddySchedules] = useState({});
+      const [loadingSchedule, setLoadingSchedule] = useState(null);
+
+      const toggleBuddy = (buddyId) => {
+        if (expandedId === buddyId) { setExpandedId(null); return; }
+        setExpandedId(buddyId);
+        if (!buddySchedules[buddyId]) {
+          setLoadingSchedule(buddyId);
+          fetch(`${API_URL}/schedule/${buddyId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+            .then(r => r.json())
+            .then(data => {
+              setBuddySchedules(prev => ({ ...prev, [buddyId]: Array.isArray(data) ? data : [] }));
+              setLoadingSchedule(null);
+            })
+            .catch(() => {
+              setBuddySchedules(prev => ({ ...prev, [buddyId]: [] }));
+              setLoadingSchedule(null);
+            });
+        }
+      };
 
       // If a group is active, show GroupDetailView
       if (activeGroupId) {
@@ -14904,12 +14926,11 @@
                 const isLive = lu && !lu.isBusted;
                 const isExpanded = expandedId === buddy.id;
                 return (
-                  <button
+                  <div
                     key={buddy.id}
                     className={`social-buddy-card${isLive ? ' live' : ''}`}
-                    onClick={() => setExpandedId(isExpanded ? null : buddy.id)}
                   >
-                    <div className="social-buddy-row">
+                    <div className="social-buddy-row" onClick={() => toggleBuddy(buddy.id)} style={{cursor:'pointer'}}>
                       <Avatar src={buddy.avatar} username={buddy.username} size={36} />
                       <div className="social-buddy-info">
                         <div className="social-buddy-name">{buddy.username}</div>
@@ -14921,9 +14942,12 @@
                         ) : lu?.isBusted ? (
                           <div className="social-buddy-status busted">Busted</div>
                         ) : (
-                          <div className="social-buddy-status idle">Offline</div>
+                          <div className="social-buddy-status idle">
+                            {buddySchedules[buddy.id] ? `${buddySchedules[buddy.id].length} event${buddySchedules[buddy.id].length !== 1 ? 's' : ''} scheduled` : 'View schedule'}
+                          </div>
                         )}
                       </div>
+                      <span style={{marginLeft:'auto',color:'var(--text-muted)',fontSize:'0.7rem',transition:'transform 0.15s',transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
                     </div>
                     {isExpanded && isLive && (
                       <div className="social-buddy-detail">
@@ -14966,7 +14990,64 @@
                         </div>
                       </div>
                     )}
-                  </button>
+                    {isExpanded && (() => {
+                      const sched = buddySchedules[buddy.id];
+                      const todayISO = getToday();
+                      if (loadingSchedule === buddy.id) {
+                        return <div style={{padding:'12px',fontSize:'0.8rem',color:'var(--text-muted)'}}>Loading schedule...</div>;
+                      }
+                      if (!sched || sched.length === 0) {
+                        return <div style={{padding:'12px',fontSize:'0.8rem',color:'var(--text-muted)'}}>No events scheduled</div>;
+                      }
+                      const upcoming = sched.filter(t => normaliseDate(t.date) >= todayISO).sort((a, b) => {
+                        const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
+                        const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+                        return da - db;
+                      });
+                      if (upcoming.length === 0) {
+                        return <div style={{padding:'12px',fontSize:'0.8rem',color:'var(--text-muted)'}}>No upcoming events</div>;
+                      }
+                      // Group by date
+                      const groups = [];
+                      let cur = null;
+                      for (const t of upcoming) {
+                        const d = normaliseDate(t.date);
+                        if (!cur || cur.date !== d) { cur = { date: d, events: [] }; groups.push(cur); }
+                        cur.events.push(t);
+                      }
+                      return (
+                        <div style={{borderTop:'1px solid var(--border)',marginTop:'4px',paddingTop:'4px'}}>
+                          <div style={{padding:'6px 12px 4px',fontSize:'0.72rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',fontFamily:'Oswald, sans-serif'}}>
+                            Upcoming Schedule ({upcoming.length} event{upcoming.length !== 1 ? 's' : ''})
+                          </div>
+                          {groups.map(group => {
+                            const dateObj = new Date(group.date + 'T12:00:00');
+                            const dayLabel = group.date === todayISO ? 'Today' :
+                              ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dateObj.getDay()] + ' ' +
+                              ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dateObj.getMonth()] + ' ' + dateObj.getDate();
+                            return (
+                              <div key={group.date}>
+                                <div style={{padding:'6px 12px 2px',fontSize:'0.75rem',fontWeight:700,color:'var(--text)',fontFamily:"'Libre Baskerville', Georgia, serif"}}>
+                                  {dayLabel}
+                                </div>
+                                {group.events.map(t => {
+                                  const v = getVenueInfo(t.venue);
+                                  return (
+                                    <div key={t.id} style={{display:'flex',alignItems:'center',gap:'8px',padding:'4px 12px',fontSize:'0.8rem'}}>
+                                      <span style={{color: getVenueBrandColor(v.abbr),fontWeight:600,fontSize:'0.7rem',minWidth:'36px'}}>{v.abbr}</span>
+                                      <span style={{color:'var(--text-muted)',fontSize:'0.75rem',minWidth:'52px'}}>{t.time || 'TBD'}</span>
+                                      <span style={{color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.event_name}</span>
+                                      <span style={{color:'var(--text-muted)',fontSize:'0.75rem',fontWeight:600}}>{formatBuyin(t.buyin)}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 );
               })}
             </React.Fragment>
