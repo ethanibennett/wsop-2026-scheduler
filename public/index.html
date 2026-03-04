@@ -14803,6 +14803,30 @@
       const [showCreateGroup, setShowCreateGroup] = useState(false);
       const [buddySchedules, setBuddySchedules] = useState({});
       const [loadingSchedule, setLoadingSchedule] = useState(null);
+      const [addToGroupBuddyId, setAddToGroupBuddyId] = useState(null);
+      const [inviteStatus, setInviteStatus] = useState({}); // { buddyId: { groupId: 'sent' | 'error' | 'member' } }
+
+      const handleInviteToGroup = async (buddyId, groupId, username) => {
+        try {
+          const res = await fetch(`${API_URL}/groups/${groupId}/members`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+          });
+          if (res.ok) {
+            setInviteStatus(prev => ({ ...prev, [buddyId]: { ...prev[buddyId], [groupId]: 'sent' } }));
+          } else {
+            const data = await res.json();
+            if (data.error && /already/i.test(data.error)) {
+              setInviteStatus(prev => ({ ...prev, [buddyId]: { ...prev[buddyId], [groupId]: 'member' } }));
+            } else {
+              setInviteStatus(prev => ({ ...prev, [buddyId]: { ...prev[buddyId], [groupId]: 'error' } }));
+            }
+          }
+        } catch {
+          setInviteStatus(prev => ({ ...prev, [buddyId]: { ...prev[buddyId], [groupId]: 'error' } }));
+        }
+      };
 
       const toggleBuddy = (buddyId) => {
         if (expandedId === buddyId) { setExpandedId(null); return; }
@@ -15047,6 +15071,47 @@
                         </div>
                       );
                     })()}
+                    {isExpanded && myGroups && myGroups.length > 0 && (
+                      <div style={{borderTop:'1px solid var(--border)',marginTop:'4px',padding:'8px 12px'}}>
+                        {addToGroupBuddyId === buddy.id ? (
+                          <div>
+                            <div style={{fontSize:'0.72rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',fontFamily:'Oswald, sans-serif',marginBottom:'6px'}}>
+                              Add to Group
+                            </div>
+                            {myGroups.map(g => {
+                              const status = inviteStatus[buddy.id]?.[g.id];
+                              return (
+                                <button
+                                  key={g.id}
+                                  disabled={!!status}
+                                  onClick={(e) => { e.stopPropagation(); handleInviteToGroup(buddy.id, g.id, buddy.username); }}
+                                  style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',
+                                    padding:'6px 8px',background:'none',border:'1px solid var(--border)',borderRadius:'6px',
+                                    color:'var(--text)',cursor: status ? 'default' : 'pointer',fontSize:'0.8rem',marginBottom:'4px',
+                                    opacity: status ? 0.6 : 1}}
+                                >
+                                  <span>{g.name}</span>
+                                  <span style={{fontSize:'0.72rem',color: status === 'sent' ? '#22c55e' : status === 'member' ? 'var(--text-muted)' : status === 'error' ? '#ef4444' : 'var(--accent)'}}>
+                                    {status === 'sent' ? 'Invited' : status === 'member' ? 'Already in group' : status === 'error' ? 'Failed' : 'Invite'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setAddToGroupBuddyId(null); }}
+                              style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'0.75rem',marginTop:'4px',padding:0}}
+                            >Cancel</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setAddToGroupBuddyId(buddy.id); }}
+                            style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',
+                              color:'var(--text)',cursor:'pointer',fontSize:'0.8rem',padding:'6px 12px',width:'100%',
+                              fontFamily:'Oswald, sans-serif'}}
+                          >+ Add to Group</button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -15217,25 +15282,11 @@
       }, [segment, groupId]);
 
       const fetchMembers = async () => {
-        // Members come from group schedule endpoint or we can parse from feed
-        // For now, get them from a dedicated members query
         try {
-          const res = await fetch(`${API_URL}/groups/${groupId}/schedule`, {
+          const res = await fetch(`${API_URL}/groups/${groupId}/members`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          if (res.ok) {
-            const data = await res.json();
-            // Extract unique members from schedule data
-            const seen = new Set();
-            const mems = [];
-            for (const t of data) {
-              for (const m of (t.members || [])) {
-                if (!seen.has(m.id)) { seen.add(m.id); mems.push(m); }
-              }
-            }
-            // If no schedule data, just set empty — members section will show group info
-            setMembers(mems);
-          }
+          if (res.ok) setMembers(await res.json());
         } catch {}
       };
 
@@ -15515,7 +15566,7 @@
                 {showAddMember && (
                   <div className="create-group-buddies" style={{marginBottom:12}}>
                     {shareBuddies
-                      .filter(b => !pendingInvites.some(p => p.invited_user_id === b.id))
+                      .filter(b => !members.some(m => m.id === b.id) && !pendingInvites.some(p => p.invited_user_id === b.id))
                       .map(b => (
                       <button
                         key={b.id}
@@ -15531,9 +15582,21 @@
                 )}
               </div>
 
-              <div style={{fontSize:12,color:'var(--text-secondary)',marginBottom:8}}>
-                {group.member_count} member{group.member_count !== 1 ? 's' : ''}
+              <div style={{fontSize:11,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontFamily:'Oswald, sans-serif',marginBottom:6}}>
+                Members ({members.length || group.member_count})
               </div>
+              {members.map(m => (
+                <div key={m.id} className="group-member-card">
+                  <Avatar src={m.avatar} username={m.username} size={28} />
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:500}}>{m.username}</div>
+                    {m.role === 'owner' && <div style={{fontSize:11,color:'var(--accent)'}}>Owner</div>}
+                  </div>
+                  {isOwner && m.role !== 'owner' && (
+                    <button onClick={() => handleRemoveMember(m.id)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:11}}>Remove</button>
+                  )}
+                </div>
+              ))}
 
               {/* Pending invites */}
               {pendingInvites.length > 0 && (
@@ -17672,8 +17735,8 @@
                 </button>
                 {showUserMenu && ReactDOM.createPortal(
                   <>
-                    <div style={{position:'fixed',inset:0,zIndex:999}} onClick={() => setShowUserMenu(false)} />
-                    <div style={{position:'fixed',top:'52px',right:'12px',zIndex:1000,background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px 0',minWidth:'160px',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',fontFamily:'Oswald, sans-serif'}}>
+                    <div style={{position:'fixed',inset:0,zIndex:9998}} onClick={() => setShowUserMenu(false)} />
+                    <div style={{position:'fixed',top:'52px',right:'12px',zIndex:9999,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px 0',minWidth:'160px',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',fontFamily:'Oswald, sans-serif'}}>
                       <button onClick={() => { setShowUserMenu(false); setCurrentView('schedule'); }}
                         style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'0.85rem'}}>
                         My Schedule

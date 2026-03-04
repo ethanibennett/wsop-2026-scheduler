@@ -2615,6 +2615,34 @@ app.post('/api/groups/:id/members', authenticateToken, requireRegistered, async 
   }
 });
 
+// List group members
+app.get('/api/groups/:id/members', authenticateToken, (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+    const memChk = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+    memChk.bind([groupId, req.user.id]);
+    const isMember = memChk.step();
+    memChk.free();
+    if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
+
+    const stmt = db.prepare(`
+      SELECT u.id, u.username, u.avatar, gm.role
+      FROM group_members gm
+      JOIN users u ON gm.user_id = u.id
+      WHERE gm.group_id = ?
+      ORDER BY gm.role DESC, u.username
+    `);
+    stmt.bind([groupId]);
+    const members = [];
+    while (stmt.step()) members.push(stmt.getAsObject());
+    stmt.free();
+    res.json(members);
+  } catch (error) {
+    console.error('List group members error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
 // Remove member from group (owner removes, or self-leave)
 app.delete('/api/groups/:id/members/:userId', authenticateToken, requireRegistered, async (req, res) => {
   try {
