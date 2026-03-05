@@ -11093,6 +11093,14 @@
         <div>
           <div className="sticky-filters" ref={stickyFiltersRef}>
             <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              <button
+                ref={filterToggleRef}
+                className={`filter-chip ${filterPanelOpen ? 'active' : ''}`}
+                onClick={() => setFilterPanelOpen(o => !o)}
+                style={{flexShrink:0,height:'44px'}}
+              >
+                <Icon.filter />
+              </button>
               <div className="search-bar" style={{flex:1}}>
                 <Icon.search />
                 <input
@@ -11106,14 +11114,6 @@
                     style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
                 )}
               </div>
-              <button
-                ref={filterToggleRef}
-                className={`filter-chip ${filterPanelOpen ? 'active' : ''}`}
-                onClick={() => setFilterPanelOpen(o => !o)}
-                style={{flexShrink:0,height:'44px'}}
-              >
-                <Icon.filter />
-              </button>
             </div>
 
             <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} />
