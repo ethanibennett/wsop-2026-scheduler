@@ -10668,6 +10668,28 @@
               const vh = window.innerHeight || document.documentElement.clientHeight || 700;
               return { top: r.bottom + 4, left: 8, right: 8, maxHeight: vh - r.bottom - 16 };
             })()}>
+              {(() => {
+                const quickFilters = [
+                  { label: 'NLH', isActive: filters.selectedGames.length === 1 && filters.selectedGames[0] === 'NLH',
+                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.length === 1 && f.selectedGames[0] === 'NLH' ? [] : ['NLH'] })) },
+                  { label: 'PLO', isActive: filters.selectedGames.length === 1 && filters.selectedGames[0] === 'PLO',
+                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.length === 1 && f.selectedGames[0] === 'PLO' ? [] : ['PLO'] })) },
+                  { label: 'Ladies', isActive: !filters.hideWomens,
+                    toggle: () => setFilters(f => ({ ...f, hideWomens: !f.hideWomens })) },
+                  { label: 'Seniors', isActive: !filters.hideSeniors,
+                    toggle: () => setFilters(f => ({ ...f, hideSeniors: !f.hideSeniors })) },
+                ];
+                return (
+                  <div style={{display:'flex',gap:'8px',marginBottom:'10px'}}>
+                    {quickFilters.map(qf => (
+                      <button key={qf.label} className={`filter-chip ${qf.isActive ? 'active' : ''}`}
+                        style={{flex:'1 1 0',justifyContent:'center',textAlign:'center'}}
+                        onClick={qf.toggle}
+                      >{qf.label}</button>
+                    ))}
+                  </div>
+                );
+              })()}
               {dateBounds.totalDays > 0 && (() => {
                 const { minDate, maxDate, totalDays } = dateBounds;
                 const fromIdx = filters.dateFrom ? Math.max(0, daysBetween(minDate, filters.dateFrom)) : 0;
