@@ -15525,13 +15525,11 @@
                               ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dateObj.getMonth()] + ' ' + dateObj.getDate();
                             return (
                               <div key={group.date}>
-                                <div style={{padding:'6px 12px 2px',fontSize:'0.75rem',fontWeight:700,color:'var(--text)',fontFamily:"'Libre Baskerville', Georgia, serif"}}>
-                                  {dayLabel}
-                                </div>
-                                {group.events.map(t => {
+                                {group.events.map((t, i) => {
                                   const v = getVenueInfo(t.venue);
                                   return (
                                     <div key={t.id} style={{display:'flex',alignItems:'center',gap:'8px',padding:'4px 12px',fontSize:'0.8rem'}}>
+                                      <span style={{fontSize:'0.72rem',fontWeight:700,color: i === 0 ? 'var(--text)' : 'transparent',fontFamily:"'Libre Baskerville', Georgia, serif",minWidth:'68px',flexShrink:0}}>{dayLabel}</span>
                                       <span style={{color: getVenueBrandColor(v.abbr),fontWeight:600,fontSize:'0.7rem',minWidth:'36px'}}>{v.abbr}</span>
                                       <span style={{color:'var(--text-muted)',fontSize:'0.75rem',minWidth:'52px'}}>{t.time || 'TBD'}</span>
                                       <span style={{color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.event_name}</span>
