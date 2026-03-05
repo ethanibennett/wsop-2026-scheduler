@@ -6837,7 +6837,7 @@
     // Generate schedule PDF — table layout via jspdf-autotable
     async function generateSchedulePDF(events) {
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
       // Load custom fonts — fall back to built-in fonts if CDN fails
       let FONT_DATE = 'times';
@@ -6990,12 +6990,12 @@
         },
 
         columnStyles: {
-          0: { cellWidth: 20 },
-          1: { cellWidth: 22 },
-          2: { cellWidth: 40, fontSize: 7 },
+          0: { cellWidth: 18 },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 34, fontSize: 7 },
           3: { cellWidth: 'auto' },
-          4: { cellWidth: 22 },
-          5: { cellWidth: 22, fontSize: 7 },
+          4: { cellWidth: 20 },
+          5: { cellWidth: 20, fontSize: 7 },
         },
 
         didParseCell: function(data) {
