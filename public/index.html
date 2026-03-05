@@ -20,7 +20,8 @@
       document.documentElement.setAttribute('data-theme', t);
       document.documentElement.setAttribute('data-contrast', c);
       var meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute('content', t === 'light' ? '#f5f5f5' : '#111111');
+      var mc = {dark:'#111111',dusk:'#0d1525',light:'#f5f5f5',cloudy:'#cbcbcb'};
+      if (meta) meta.setAttribute('content', mc[t] || '#111111');
     })();
   </script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -63,6 +64,8 @@
       --venue-mgm-nh:        #8a7020;
       --venue-ts:            #8a6508;
       --venue-tch:           #a0522d;
+      --venue-caesars:       #b8962e;
+      --venue-hardrock:      #1a9e9e;
     }
 
     [data-theme="light"] {
@@ -95,6 +98,78 @@
       --venue-mgm-nh:        #b8860b;
       --venue-ts:            #7a5a06;
       --venue-tch:           #b5603a;
+      --venue-caesars:       #9a7a20;
+      --venue-hardrock:      #0d8a8a;
+    }
+
+    /* Dusk theme — deep navy/blue dark variant */
+    [data-theme="dusk"] {
+      --bg:        #0d1525;
+      --surface:   #141e33;
+      --surface2:  #1c2840;
+      --border:    #2a3a58;
+      --accent:    #8898b8;
+      --accent2:   #6878a0;
+      --text:      #d8dce8;
+      --text-muted:#6878a0;
+      --bg-contrast: #0d1525;
+      --venue-hs-bg:   #121a2a;
+      --venue-wynn-bg: #121a2a;
+      --venue-aria-bg: #121a2a;
+      --venue-gn-bg:   #121a2a;
+      --hover-overlay: rgba(100,150,255,0.06);
+      /* Venue brand colors — same as dark mode */
+      --venue-wsop:          #e8e8e8;
+      --venue-wsop-cond:     #999;
+      --venue-ipo:           #1a6b3c;
+      --venue-personal:      #4a9eff;
+      --venue-wynn:          #8a3030;
+      --venue-aria:          #5a3a9a;
+      --venue-golden-nugget: #7a6520;
+      --venue-resorts-world: #2a7a72;
+      --venue-south-point:   #5e4430;
+      --venue-orleans:       #944828;
+      --venue-mgm-grand:     #2a6a3e;
+      --venue-mgm-nh:        #8a7020;
+      --venue-ts:            #8a6508;
+      --venue-tch:           #a0522d;
+      --venue-caesars:       #b8962e;
+      --venue-hardrock:      #1a9e9e;
+    }
+
+    /* Cloudy theme — muted grey light variant */
+    [data-theme="cloudy"] {
+      --bg:        #cbcbcb;
+      --surface:   #c0c0c0;
+      --surface2:  #b4b4b4;
+      --border:    #a0a0a0;
+      --accent:    #505050;
+      --accent2:   #686868;
+      --text:      #1a1a1a;
+      --text-muted:#606060;
+      --bg-contrast: #c8c8c8;
+      --venue-hs-bg:   #c4c4c4;
+      --venue-wynn-bg: #c4c4c4;
+      --venue-aria-bg: #c4c4c4;
+      --venue-gn-bg:   #c4c4c4;
+      --hover-overlay: rgba(0,0,0,0.06);
+      /* Venue brand colors — full saturation for light variant */
+      --venue-wsop:          #111111;
+      --venue-wsop-cond:     #444;
+      --venue-ipo:           #0d8a3e;
+      --venue-personal:      #2563eb;
+      --venue-wynn:          #b91c1c;
+      --venue-aria:          #6d28d9;
+      --venue-golden-nugget: #92700a;
+      --venue-resorts-world: #0d9488;
+      --venue-south-point:   #6b4226;
+      --venue-orleans:       #c2410c;
+      --venue-mgm-grand:     #15803d;
+      --venue-mgm-nh:        #b8860b;
+      --venue-ts:            #7a5a06;
+      --venue-tch:           #b5603a;
+      --venue-caesars:       #9a7a20;
+      --venue-hardrock:      #0d8a8a;
     }
 
     /* High contrast — dark */
@@ -119,6 +194,28 @@
       --hover-overlay: rgba(0,0,0,0.08);
     }
 
+    /* High contrast — dusk */
+    [data-theme="dusk"][data-contrast="high"] {
+      --bg:        #060c18;
+      --surface:   #0c1528;
+      --surface2:  #142038;
+      --border:    #4060a0;
+      --text:      #f0f2fa;
+      --text-muted:#90a0c0;
+      --hover-overlay: rgba(100,150,255,0.10);
+    }
+
+    /* High contrast — cloudy */
+    [data-theme="cloudy"][data-contrast="high"] {
+      --bg:        #d8d8d8;
+      --surface:   #d0d0d0;
+      --surface2:  #c0c0c0;
+      --border:    #666666;
+      --text:      #000000;
+      --text-muted:#404040;
+      --hover-overlay: rgba(0,0,0,0.10);
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     html, body {
@@ -133,6 +230,8 @@
       font-size: 16px;
       line-height: 1.5;
     }
+
+    button, input, select, textarea { font-family: inherit; }
 
     /* ── Layout shell ── */
     #root { display: flex; flex-direction: column; height: 100vh; }
@@ -171,7 +270,7 @@
       color: var(--text-muted);
     }
 
-    .top-bar-actions { display: flex; align-items: center; gap: 6px; }
+    .top-bar-actions { display: flex; align-items: center; gap: 6px; overflow: hidden; }
     .top-bar-actions .btn-icon {
       width: 32px; height: 32px; min-width: 32px;
       padding: 0; display: flex; align-items: center; justify-content: center;
@@ -390,16 +489,16 @@
     .card-row img { height:28px; border-radius:2px; }
     .card-row .card-unknown { width:20px; height:28px; background:var(--border); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:var(--text-muted); font-family:'Oswald',sans-serif; }
     .card-row .card-placeholder { width:20px; height:28px; background:rgba(120,120,120,0.45); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:rgba(255,255,255,0.8); font-family:'Oswald',sans-serif; }
-    [data-theme="light"] .card-row .card-placeholder { background:rgba(160,160,160,0.35); color:rgba(0,0,0,0.45); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .card-row .card-placeholder { background:rgba(160,160,160,0.35); color:rgba(0,0,0,0.45); }
 
     /* ── Hand result (winner display) ── */
     .hand-result { font-size:0.68rem; font-family:'Oswald',sans-serif; padding:6px 8px; border-radius:4px; text-align:center; margin-top:2px; letter-spacing:0.3px; line-height:1.4; }
     .hand-result-hero { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
     .hand-result-opponent { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
     .hand-result-split { background:rgba(250,204,21,0.12); color:#facc15; border:1px solid rgba(250,204,21,0.25); }
-    [data-theme="light"] .hand-result-hero { background:rgba(22,163,74,0.08); color:#16a34a; border-color:rgba(22,163,74,0.2); }
-    [data-theme="light"] .hand-result-opponent { background:rgba(220,38,38,0.08); color:#dc2626; border-color:rgba(220,38,38,0.2); }
-    [data-theme="light"] .hand-result-split { background:rgba(202,138,4,0.08); color:#ca8a04; border-color:rgba(202,138,4,0.2); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .hand-result-hero { background:rgba(22,163,74,0.08); color:#16a34a; border-color:rgba(22,163,74,0.2); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .hand-result-opponent { background:rgba(220,38,38,0.08); color:#dc2626; border-color:rgba(220,38,38,0.2); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .hand-result-split { background:rgba(202,138,4,0.08); color:#ca8a04; border-color:rgba(202,138,4,0.2); }
 
     /* ── Bust/Hand tab styles ── */
     .live-update-next-event {
@@ -514,7 +613,7 @@
       background: linear-gradient(135deg, rgba(22,101,52,0.08), rgba(22,101,52,0.03));
       border-radius: var(--radius-sm); padding: 12px; position: relative;
     }
-    [data-theme="light"] .replayer-table-felt {
+    :is([data-theme="light"],[data-theme="cloudy"]) .replayer-table-felt {
       background: linear-gradient(135deg, rgba(22,101,52,0.06), rgba(22,101,52,0.02));
     }
 
@@ -598,9 +697,9 @@
     .replayer-result-hero { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
     .replayer-result-opponent { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
     .replayer-result-split { background:rgba(250,204,21,0.12); color:#facc15; border:1px solid rgba(250,204,21,0.25); }
-    [data-theme="light"] .replayer-result-hero { background:rgba(22,163,74,0.08); color:#16a34a; border-color:rgba(22,163,74,0.2); }
-    [data-theme="light"] .replayer-result-opponent { background:rgba(220,38,38,0.08); color:#dc2626; border-color:rgba(220,38,38,0.2); }
-    [data-theme="light"] .replayer-result-split { background:rgba(202,138,4,0.08); color:#ca8a04; border-color:rgba(202,138,4,0.2); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .replayer-result-hero { background:rgba(22,163,74,0.08); color:#16a34a; border-color:rgba(22,163,74,0.2); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .replayer-result-opponent { background:rgba(220,38,38,0.08); color:#dc2626; border-color:rgba(220,38,38,0.2); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .replayer-result-split { background:rgba(202,138,4,0.08); color:#ca8a04; border-color:rgba(202,138,4,0.2); }
 
     /* Hi-lo split animation */
     .replayer-hilo-high {
@@ -774,6 +873,7 @@
       padding: 13px 20px;
       border: none;
       border-radius: var(--radius-sm);
+      font-family: 'Oswald', sans-serif;
       font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
@@ -1137,6 +1237,41 @@
     }
 
     .filter-span2 { grid-column: span 2; }
+
+    .date-slider-wrap { position: relative; width: 100%; height: 36px; padding: 0 2px; }
+    .date-slider-track {
+      position: absolute; top: 16px; left: 2px; right: 2px; height: 4px;
+      background: var(--border); border-radius: 2px;
+    }
+    .date-slider-fill {
+      position: absolute; top: 16px; height: 4px; border-radius: 2px;
+      background: var(--accent);
+    }
+    .date-slider-input {
+      position: absolute; top: 4px; left: 0; width: 100%; height: 28px;
+      -webkit-appearance: none; appearance: none;
+      background: transparent; pointer-events: none; margin: 0;
+    }
+    .date-slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--accent); border: 2px solid var(--surface);
+      cursor: pointer; pointer-events: auto;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .date-slider-input::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--accent); border: 2px solid var(--surface);
+      cursor: pointer; pointer-events: auto;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .date-slider-labels {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;
+      font-family: 'Oswald', sans-serif; font-weight: 400;
+    }
+    .date-slider-labels span { min-width: 50px; }
+    .date-slider-labels span:last-child { text-align: right; }
 
     .month-row {
       transition: all 0.25s ease;
@@ -1520,7 +1655,7 @@
     .cal-event-row.bracelet.saved {
       border-color: #c0c0c0;
     }
-    [data-theme="light"] .cal-event-row.bracelet.saved {
+    :is([data-theme="light"],[data-theme="cloudy"]) .cal-event-row.bracelet.saved {
       border-color: #000000;
     }
 
@@ -1549,7 +1684,7 @@
       color: #60a5fa;
       border: 1px solid rgba(59,130,246,0.3);
     }
-    [data-theme="light"] .badge-anchor {
+    :is([data-theme="light"],[data-theme="cloudy"]) .badge-anchor {
       color: #2563eb;
     }
     /* anchor icon color handled via .cal-action-icon in new layout */
@@ -1590,17 +1725,17 @@
       color: #f87171;
       border: 1px solid rgba(239,68,68,0.25);
     }
-    [data-theme="light"] .badge-rake.rake-low {
+    :is([data-theme="light"],[data-theme="cloudy"]) .badge-rake.rake-low {
       color: #15803d;
       background: rgba(34,197,94,0.1);
       border-color: rgba(34,197,94,0.3);
     }
-    [data-theme="light"] .badge-rake.rake-mid {
+    :is([data-theme="light"],[data-theme="cloudy"]) .badge-rake.rake-mid {
       color: #a16207;
       background: rgba(234,179,8,0.1);
       border-color: rgba(234,179,8,0.3);
     }
-    [data-theme="light"] .badge-rake.rake-high {
+    :is([data-theme="light"],[data-theme="cloudy"]) .badge-rake.rake-high {
       color: #dc2626;
       background: rgba(239,68,68,0.1);
       border-color: rgba(239,68,68,0.3);
@@ -1814,7 +1949,7 @@
       color: #111111 !important;
       background: #e8e8e8 !important;
     }
-    [data-theme="light"] .venue-wsop.cal-venue-chip {
+    :is([data-theme="light"],[data-theme="cloudy"]) .venue-wsop.cal-venue-chip {
       color: #ffffff !important;
       background: #111111 !important;
     }
@@ -1847,7 +1982,7 @@
       background: var(--venue-mgm-grand) !important;
     }
     /* Venue strip — WSOP light mode inversion */
-    [data-theme="light"] .venue-strip-wsop {
+    :is([data-theme="light"],[data-theme="cloudy"]) .venue-strip-wsop {
       background: #111111 !important;
       color: #ffffff !important;
     }
@@ -1865,8 +2000,8 @@
     }
     .tracking-profit-pos { color: #4ade80; }
     .tracking-profit-neg { color: #f87171; }
-    [data-theme="light"] .tracking-profit-pos { color: #16a34a; }
-    [data-theme="light"] .tracking-profit-neg { color: #dc2626; }
+    :is([data-theme="light"],[data-theme="cloudy"]) .tracking-profit-pos { color: #16a34a; }
+    :is([data-theme="light"],[data-theme="cloudy"]) .tracking-profit-neg { color: #dc2626; }
     .tracking-card {
       background: var(--surface);
       border: 1.5px solid var(--border);
@@ -1881,7 +2016,7 @@
       margin-bottom: 12px;
     }
     .tracking-poy { color: #fbbf24; }
-    [data-theme="light"] .tracking-poy { color: #d97706; }
+    :is([data-theme="light"],[data-theme="cloudy"]) .tracking-poy { color: #d97706; }
 
     @keyframes lfg-pop {
       0%   { opacity: 0; transform: scale(0.3) rotate(-30deg); }
@@ -1899,7 +2034,7 @@
       left: 15px;
       top: -40px;
     }
-    [data-theme="light"] .lfg-burst { color: #16a34a; }
+    :is([data-theme="light"],[data-theme="cloudy"]) .lfg-burst { color: #16a34a; }
 
     .cal-event-chevron {
       display: flex;
@@ -2022,7 +2157,7 @@
     .cal-action-btn:active { background: rgba(160,160,160,0.1); }
     .cal-action-btn.remove .cal-action-icon { color: #ef4444; }
     .cal-action-btn.anchor-btn.locked .cal-action-icon { color: #60a5fa; }
-    [data-theme="light"] .cal-action-btn.anchor-btn.locked .cal-action-icon { color: #2563eb; }
+    :is([data-theme="light"],[data-theme="cloudy"]) .cal-action-btn.anchor-btn.locked .cal-action-icon { color: #2563eb; }
 
     /* ── Entries stepper ── */
     .cal-entries-stepper {
@@ -2559,7 +2694,7 @@
       color: var(--text);
     }
 
-    [data-theme="light"] .dash-event-tag.anchor {
+    :is([data-theme="light"],[data-theme="cloudy"]) .dash-event-tag.anchor {
       background: rgba(0, 0, 0, 0.06);
     }
 
@@ -2568,7 +2703,7 @@
       color: var(--text-muted);
     }
 
-    [data-theme="light"] .dash-event-tag.conditional {
+    :is([data-theme="light"],[data-theme="cloudy"]) .dash-event-tag.conditional {
       background: rgba(0, 0, 0, 0.04);
     }
 
@@ -4120,17 +4255,34 @@
       'Mixed':              '#7f7f7f',
       '9-Game Mix':         '#8b8b8b',
       '8-Game Mix':         '#868686',
+      '8-Game Mix (Chainsaw)': '#868686',
       'Mixed Triple Draw':  '#7c7c7c',
+      'Mixed Triple Draw (x5)': '#7c7c7c',
+      'OE':                 '#858585',
+      'TOE':                '#808080',
+      '5-Card PLO':         '#999999',
+      "Big Bet Dealer's Choice": '#a0a0a0',
+      'PLO/NLH Mix':        '#8a8a8a',
+      'Mixed PLO':          '#909090',
+      '10-Game Mix':        '#8b8b8b',
     };
     function getVariantColor(v) { return VARIANT_COLORS[v] ?? '#808080'; }
 
     // ── Multi-game variant expansion ─────────────────────────
     const MULTI_GAME_MAP = {
       'HORSE':            ['LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8'],
+      'OE':               ['O8', 'Stud8'],
+      'TOE':              ['2-7 TD', 'O8', 'Stud8'],
       'TORSE':            ['2-7 TD', 'O8', 'Razz', 'Stud Hi', 'Stud8'],
       '8-Game Mix':       ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8'],
+      '8-Game Mix (Chainsaw)': ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'PLO8', 'Big O'],
       '9-Game Mix':       ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NL 2-7 SD'],
       'Mixed Triple Draw': ['2-7 TD', 'A-5 TD', 'Badugi'],
+      'Mixed Triple Draw (x5)': ['2-7 TD', 'A-5 TD', 'Badugi', 'Badeucy', 'Badacy'],
+      '10-Game Mix':      ['LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NLH', 'PLO', '2-7 TD', 'Badugi', 'NL 2-7 SD'],
+      'Mixed PLO':        ['PLO', 'PLO8', 'Big O'],
+      'PLO/NLH Mix':      ['PLO', 'NLH'],
+      "Big Bet Dealer's Choice": ['NLH', 'PLO', 'PLO8', 'Big O', 'PL 2-7 TD', 'NL 2-7 SD', 'NL 5CD'],
       "Dealer's Choice":  [
         'NLH', 'LHE', 'Razz', 'Stud Hi', 'Stud8', 'Stud Hi-Lo',
         'PLH', 'PLO', 'PLO8', 'PL 2-7 TD', 'Big O', 'LO Hi',
@@ -4217,6 +4369,8 @@
       'Personal':                    { abbr: 'PERSONAL',  color: '#4a9eff', longName: 'Personal' },
       'Turning Stone Casino':        { abbr: 'Turning Stone', color: '#8b0000', longName: 'WSOPC Turning Stone' },
       'Texas Card House':            { abbr: 'TCH', color: '#a0522d', longName: 'WSOPC Texas Card House' },
+      'Caesars Palace':              { abbr: 'CAESARS', color: '#b8962e', longName: 'Caesars Palace' },
+      'Seminole Hard Rock':          { abbr: 'HARD ROCK', color: '#1a9e9e', longName: 'Seminole Hard Rock' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -4237,6 +4391,8 @@
       'MGM NH':        '--venue-mgm-nh',
       'Turning Stone': '--venue-ts',
       'TCH':           '--venue-tch',
+      'CAESARS':        '--venue-caesars',
+      'HARD ROCK':      '--venue-hardrock',
     };
     function getVenueBrandColor(abbr) {
       const cssVar = VENUE_BRAND_VAR[abbr];
@@ -4288,6 +4444,10 @@
       if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
       return new Date(d).toISOString().slice(0, 10);
     }
+
+    function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+    function addDays(dateStr, n) { const d = new Date(dateStr); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+    function fmtShortDate(d) { const dt = new Date(d + 'T12:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
 
     // Parse a tournament's date + time into a ms timestamp for comparison
     function parseTournamentTime(t) {
@@ -4539,6 +4699,23 @@
           <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
         </svg>
       ),
+      sunset: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'18px',height:'18px'}}>
+          <path d="M18 14a6 6 0 00-12 0"/>
+          <line x1="12" y1="2" x2="12" y2="5"/>
+          <line x1="4.93" y1="5.93" x2="6.34" y2="7.34"/>
+          <line x1="19.07" y1="5.93" x2="17.66" y2="7.34"/>
+          <line x1="1" y1="14" x2="4" y2="14"/>
+          <line x1="20" y1="14" x2="23" y2="14"/>
+          <line x1="2" y1="18" x2="22" y2="18"/>
+          <line x1="4" y1="22" x2="20" y2="22"/>
+        </svg>
+      ),
+      cloud: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'18px',height:'18px'}}>
+          <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/>
+        </svg>
+      ),
       signal: () => (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:'16px',height:'16px'}}>
           <path d="M5.636 18.364a9 9 0 010-12.728"/>
@@ -4684,6 +4861,13 @@
         </svg>
       ),
     };
+
+    // ── Theme constants ──
+    const THEME_ORDER = ['dark', 'dusk', 'light', 'cloudy'];
+    const isDarkTheme = (t) => t === 'dark' || t === 'dusk';
+    const THEME_ICON = { dark: 'moon', dusk: 'sunset', light: 'sun', cloudy: 'cloud' };
+    const THEME_LABEL = { dark: 'Dark', dusk: 'Dusk', light: 'Light', cloudy: 'Cloudy' };
+    const THEME_META = { dark: '#111111', dusk: '#0d1525', light: '#f5f5f5', cloudy: '#cbcbcb' };
 
     // ── Blind Level Estimator ────────────────────────────────────
     // GUESS: Standard WSOP blind structure approximation.
@@ -6807,7 +6991,8 @@
       'WYNN': '#8a3030', 'ARIA': '#5a3a9a', 'GOLDEN NUGGET': '#7a6520',
       'RESORTS WORLD': '#2a7a72', 'SOUTH POINT': '#5e4430',
       'ORLEANS': '#944828', 'MGM GRAND': '#2a6a3e', 'MGM NH': '#8a7020',
-      'Turning Stone': '#8a6508', 'TCH': '#a0522d', 'PRS': '#909090', 'VEN': '#858585'
+      'Turning Stone': '#8a6508', 'TCH': '#a0522d', 'PRS': '#909090', 'VEN': '#858585',
+      'CAESARS': '#b8962e', 'HARD ROCK': '#1a9e9e'
     };
     function getVenueCanvasColor(venueName) {
       const info = getVenueInfo(venueName);
@@ -6880,7 +7065,7 @@
         'WYNN': '#8a3030', 'ARIA': '#5a3a9a', 'GOLDEN NUGGET': '#7a6520',
         'RESORTS WORLD': '#2a7a72', 'SOUTH POINT': '#5e4430', 'ORLEANS': '#944828',
         'MGM GRAND': '#2a6a3e', 'MGM NH': '#8a7020', 'Turning Stone': '#8a6508',
-        'TCH': '#a0522d', 'VEN': '#7a6520'
+        'TCH': '#a0522d', 'VEN': '#7a6520', 'CAESARS': '#b8962e', 'HARD ROCK': '#1a9e9e'
       };
       const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -7082,126 +7267,178 @@
       doc.save('my-schedule.pdf');
     }
 
-    // Draw a single schedule page on canvas (1080x1920 story format)
-    function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages) {
-      drawShareBackground(ctx, w, h);
+    // Draw a single schedule page on canvas (1080x1920 story format) — table layout matching PDF
+    function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages, title) {
+      const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-      const pad = Math.round(w * 0.06);
+      // Solid dark background (matching PDF)
+      ctx.fillStyle = '#111111';
+      ctx.fillRect(0, 0, w, h);
+
+      const pad = 60;
       const contentW = w - pad * 2;
 
-      // Title
-      const titleY = Math.round(h * 0.05);
-      ctx.font = '700 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
-      ctx.fillStyle = '#22c55e';
-      ctx.letterSpacing = '4px';
+      // ── Title area ──
       ctx.textAlign = 'left';
-      ctx.fillText('MY SCHEDULE', pad, titleY);
-      ctx.letterSpacing = '0px';
+      ctx.font = '700 42px Oswald, sans-serif';
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillText(title || 'MY SCHEDULE', pad, 80);
 
-      // Subtitle: date range for this page
-      const pageDates = [...new Set(pageEvents.map(e => e.date))].sort();
+      // Subtitle: date range + event count
+      const allDates = [...new Set(pageEvents.map(e => e.date))].sort();
       const fmtD = (d) => {
-        const dt = new Date(d + 'T12:00:00');
-        return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const dt = new Date(d);
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       };
-      const subtitle = pageDates.length === 1 ? fmtD(pageDates[0]) : fmtD(pageDates[0]) + ' \u2013 ' + fmtD(pageDates[pageDates.length - 1]);
-      ctx.font = '400 ' + Math.round(h * 0.013) + 'px Oswald, sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.fillText(subtitle, pad, titleY + Math.round(h * 0.025));
+      const rangeStr = fmtD(allDates[0]) + ' \u2013 ' + fmtD(allDates[allDates.length - 1]);
+      ctx.font = '400 24px Oswald, sans-serif';
+      ctx.fillStyle = '#808080';
+      ctx.fillText(rangeStr, pad, 112);
 
-      // Draw events
-      let y = titleY + Math.round(h * 0.05);
-      const rowH = Math.round(h * 0.058);
-      const gap = Math.round(h * 0.008);
+      // ── Column definitions ──
+      // DATE(100) TIME(110) VENUE(170) EVENT(flex) BUYIN(110) ENTRIES(100)
+      const colDate = pad;
+      const colTime = pad + 100;
+      const colVenue = pad + 210;
+      const colEvent = pad + 380;
+      const colBuyin = pad + contentW - 210;
+      const colEntries = pad + contentW - 100;
+      const tableRight = pad + contentW;
+
+      // ── Column header row ──
+      const headerY = 155;
+      ctx.font = '700 20px Oswald, sans-serif';
+      ctx.fillStyle = '#808080';
+      ctx.textAlign = 'left';
+      ctx.fillText('DATE', colDate, headerY);
+      ctx.textAlign = 'center';
+      ctx.fillText('TIME', colTime + 55, headerY);
+      ctx.fillText('VENUE', colVenue + 85, headerY);
+      ctx.textAlign = 'left';
+      ctx.fillText('EVENT', colEvent, headerY);
+      ctx.textAlign = 'right';
+      ctx.fillText('BUY-IN', colBuyin + 100, headerY);
+      ctx.textAlign = 'center';
+      ctx.fillText('ENTRIES', colEntries + 50, headerY);
+
+      // Header underline
+      ctx.strokeStyle = '#808080';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(pad, headerY + 10);
+      ctx.lineTo(tableRight, headerY + 10);
+      ctx.stroke();
+
+      // ── Table body ──
+      const rowH = 52;
+      let y = headerY + 28;
       let lastDate = '';
 
-      for (const ev of pageEvents) {
-        // Date separator
-        if (ev.date !== lastDate) {
-          if (lastDate !== '') y += Math.round(gap * 0.5);
-          const dateObj = new Date(ev.date + 'T12:00:00');
-          const dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-          ctx.font = '600 ' + Math.round(h * 0.012) + 'px Oswald, sans-serif';
-          ctx.fillStyle = '#22c55e';
-          ctx.fillText(dateLabel.toUpperCase(), pad, y + Math.round(h * 0.01));
-          y += Math.round(h * 0.022);
+      for (let i = 0; i < pageEvents.length; i++) {
+        const ev = pageEvents[i];
+        const isNewDate = ev.date !== lastDate;
+
+        // Date group separator line
+        if (isNewDate && lastDate !== '') {
+          ctx.strokeStyle = '#333333';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(pad, y - 4);
+          ctx.lineTo(tableRight, y - 4);
+          ctx.stroke();
+        }
+
+        // Alternating row background
+        ctx.fillStyle = i % 2 === 0 ? '#111111' : '#1a1a1a';
+        ctx.fillRect(pad, y - 2, contentW, rowH);
+
+        const textY = y + rowH * 0.62;
+
+        // DATE column — only on first event of each date
+        if (isNewDate) {
+          const dateObj = new Date(ev.date);
+          const dateStr = String(dateObj.getDate()).padStart(2, '0') + ' ' + MONTHS[dateObj.getMonth()];
+          ctx.font = '700 24px "Georgia", "Times New Roman", serif';
+          ctx.fillStyle = '#e8e8e8';
+          ctx.textAlign = 'left';
+          ctx.fillText(dateStr, colDate, textY);
           lastDate = ev.date;
         }
 
-        // Event card background
-        const cardR = 10;
-        roundedRect(ctx, pad, y, contentW, rowH, cardR);
-        ctx.fillStyle = 'rgba(255,255,255,0.06)';
-        ctx.fill();
-
-        // Venue color stripe
-        const stripeW = 5;
-        const venueColor = getVenueCanvasColor(ev.venue);
-        ctx.save();
-        roundedRect(ctx, pad, y, stripeW + cardR, rowH, cardR);
-        ctx.clip();
-        ctx.fillStyle = venueColor;
-        ctx.fillRect(pad, y, stripeW + cardR, rowH);
-        ctx.restore();
-
-        // Time
-        const textY = y + rowH * 0.42;
-        const textY2 = y + rowH * 0.72;
-        const timeX = pad + 18;
-        ctx.font = '600 ' + Math.round(h * 0.013) + 'px Oswald, sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(ev.time || 'TBD', timeX, textY);
-
-        // Buy-in badge
-        const buyinText = ev.buyin ? formatBuyin(ev.buyin) : '\u2014';
-        const buyinX = pad + Math.round(contentW * 0.22);
-        ctx.font = '700 ' + Math.round(h * 0.012) + 'px Oswald, sans-serif';
-        ctx.fillStyle = '#22c55e';
-        ctx.fillText(buyinText, buyinX, textY);
-
-        // Event name (truncate if needed)
-        const nameX = pad + Math.round(contentW * 0.36);
-        const maxNameW = contentW - (nameX - pad) - 10;
-        ctx.font = '400 ' + Math.round(h * 0.012) + 'px Oswald, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.9)';
-        let name = ev.event_name || '';
-        while (ctx.measureText(name).width > maxNameW && name.length > 3) {
-          name = name.slice(0, -4) + '\u2026';
-        }
-        ctx.fillText(name, nameX, textY);
-
-        // Venue + game variant (second line)
-        const venue = getVenueInfo(ev.venue);
-        ctx.font = '400 ' + Math.round(h * 0.009) + 'px Oswald, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        const detail = [venue.abbr, ev.game_variant].filter(Boolean).join(' \u00B7 ');
-        ctx.fillText(detail, timeX, textY2);
-
-        y += rowH + gap;
-      }
-
-      // Page indicator
-      if (totalPages > 1) {
-        ctx.font = '400 ' + Math.round(h * 0.012) + 'px Oswald, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        // TIME column
+        ctx.font = '400 22px Oswald, sans-serif';
+        ctx.fillStyle = '#e8e8e8';
         ctx.textAlign = 'center';
-        ctx.fillText(pageNum + ' / ' + totalPages, w / 2, Math.round(h * 0.94));
+        ctx.fillText(ev.time || 'TBD', colTime + 55, textY);
+
+        // VENUE column — brand color
+        const venue = getVenueInfo(ev.venue);
+        const venueColor = getVenueCanvasColor(ev.venue);
+        ctx.font = '400 20px Oswald, sans-serif';
+        ctx.fillStyle = venueColor;
+        ctx.textAlign = 'center';
+        const venueName = venue.longName || venue.abbr;
+        // Truncate venue if too wide
+        let venueDisplay = venueName;
+        const maxVenueW = 160;
+        while (ctx.measureText(venueDisplay).width > maxVenueW && venueDisplay.length > 3) {
+          venueDisplay = venueDisplay.slice(0, -4) + '\u2026';
+        }
+        ctx.fillText(venueDisplay, colVenue + 85, textY);
+
+        // EVENT column — white, truncate with ellipsis
+        ctx.font = '400 22px Oswald, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
         ctx.textAlign = 'left';
+        let eventName = ev.event_name || '';
+        const maxEventW = colBuyin - colEvent - 15;
+        while (ctx.measureText(eventName).width > maxEventW && eventName.length > 3) {
+          eventName = eventName.slice(0, -4) + '\u2026';
+        }
+        ctx.fillText(eventName, colEvent, textY);
+
+        // BUY-IN column — right-aligned, muted
+        const buyinText = ev.buyin ? formatBuyin(ev.buyin) : '\u2014';
+        ctx.font = '700 22px Oswald, sans-serif';
+        ctx.fillStyle = '#a0a0a0';
+        ctx.textAlign = 'right';
+        ctx.fillText(buyinText, colBuyin + 100, textY);
+
+        // ENTRIES column — centered, muted
+        const planned = ev.planned_entries || 1;
+        const entriesStr = planned + (planned === 1 ? ' Entry' : ' Entries');
+        ctx.font = '400 20px Oswald, sans-serif';
+        ctx.fillStyle = '#808080';
+        ctx.textAlign = 'center';
+        ctx.fillText(entriesStr, colEntries + 50, textY);
+
+        y += rowH;
       }
+
+      // ── Footer ──
+      ctx.font = '400 20px Oswald, sans-serif';
+      ctx.fillStyle = '#808080';
+      ctx.textAlign = 'left';
+      ctx.fillText('Generated by futuregame', pad, h - 50);
+      if (totalPages > 1) {
+        ctx.textAlign = 'right';
+        ctx.fillText('Page ' + pageNum, tableRight, h - 50);
+      }
+      ctx.textAlign = 'left';
 
       drawWatermark(ctx, w, h, 'bottom-center');
     }
 
     // Generate array of schedule image canvases
-    function generateScheduleImages(events) {
-      const sorted = [...events].sort((a, b) => {
+    function generateScheduleImages(events, title) {
+      const sorted = [...events].filter(e => !e.is_restart).sort((a, b) => {
         const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
         const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
         return da - db;
       });
 
-      // Paginate: ~13 events per 1080x1920 page
-      const perPage = 13;
+      // Paginate: ~28 events per 1080x1920 page (compact table rows)
+      const perPage = 28;
       const pages = [];
       for (let i = 0; i < sorted.length; i += perPage) {
         pages.push(sorted.slice(i, i + perPage));
@@ -7212,7 +7449,7 @@
         const canvas = document.createElement('canvas');
         canvas.width = 1080; canvas.height = 1920;
         const ctx = canvas.getContext('2d');
-        drawSchedulePage(ctx, 1080, 1920, pages[i], i + 1, pages.length);
+        drawSchedulePage(ctx, 1080, 1920, pages[i], i + 1, pages.length, title);
         canvases.push(canvas);
       }
       return canvases;
@@ -9755,17 +9992,15 @@
       useEffect(() => {
         if (focusEventId && tournament.id === focusEventId) {
           setOpen(true);
-          setTimeout(() => {
-            if (rowRef.current) scrollBelowSticky(rowRef.current);
-          }, 420);
+          // Scroll is handled by the [open] useEffect
         }
       }, [focusEventId]);
 
       // Scroll expanded event to just below sticky header
       useEffect(() => {
         if (open && rowRef.current) {
-          // Wait for expansion animation (400ms) to complete before scrolling
-          setTimeout(() => scrollBelowSticky(rowRef.current), 420);
+          const tid = setTimeout(() => scrollBelowSticky(rowRef.current), 180);
+          return () => clearTimeout(tid);
         }
       }, [open]);
 
@@ -10282,6 +10517,21 @@
       const [howMuchOpen, setHowMuchOpen] = useState(false);
       const [whichOpen, setWhichOpen] = useState(false);
 
+      const dateBounds = useMemo(() => {
+        const today = getToday();
+        let earliest = null, latestDay1 = null;
+        for (const t of (tournaments || [])) {
+          const d = normaliseDate(t.date);
+          if (!d) continue;
+          if (!earliest || d < earliest) earliest = d;
+          if (!t.is_restart && (!latestDay1 || d > latestDay1)) latestDay1 = d;
+        }
+        const minDate = (!earliest || earliest < today) ? today : earliest;
+        const maxDate = latestDay1 || today;
+        const totalDays = daysBetween(minDate, maxDate);
+        return { minDate, maxDate, totalDays };
+      }, [tournaments]);
+
       const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       const months = useMemo(() => {
@@ -10434,7 +10684,7 @@
             )}
             {(filters.dateFrom || filters.dateTo) && (
               <span className="filter-chip active">
-                {filters.dateFrom && filters.dateTo ? `${filters.dateFrom} — ${filters.dateTo}` : filters.dateFrom ? `From ${filters.dateFrom}` : `Until ${filters.dateTo}`}
+                {filters.dateFrom && filters.dateTo ? `${fmtShortDate(filters.dateFrom)} — ${fmtShortDate(filters.dateTo)}` : filters.dateFrom ? `From ${fmtShortDate(filters.dateFrom)}` : `Until ${fmtShortDate(filters.dateTo)}`}
                 <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, dateFrom:'', dateTo:''}))}>✕</span>
               </span>
             )}
@@ -10488,25 +10738,42 @@
                       </label>
                     );
                   })}
-                  <div style={{borderTop:'1px solid var(--border)',margin:'8px 0 2px',paddingTop:'8px'}}>
-                    <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Date Range</label>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',paddingLeft:'21px'}}>
-                      <div>
-                        <label style={{fontSize:'0.7rem',color:'var(--text-muted)',marginBottom:'2px',display:'block'}}>From</label>
-                        <input type="date" value={filters.dateFrom}
-                          onChange={e => setFilters(f => ({...f, dateFrom: e.target.value}))}
-                          style={{width:'100%',fontSize:'0.8rem'}}
-                        />
+                  {dateBounds.totalDays > 0 && (() => {
+                    const { minDate, maxDate, totalDays } = dateBounds;
+                    const fromIdx = filters.dateFrom ? Math.max(0, daysBetween(minDate, filters.dateFrom)) : 0;
+                    const toIdx = filters.dateTo ? Math.min(totalDays, daysBetween(minDate, filters.dateTo)) : totalDays;
+                    const fromDate = addDays(minDate, fromIdx);
+                    const toDate = addDays(minDate, toIdx);
+                    const pctL = (fromIdx / totalDays) * 100;
+                    const pctR = (toIdx / totalDays) * 100;
+                    return (
+                      <div style={{borderTop:'1px solid var(--border)',margin:'8px 0 2px',paddingTop:'8px'}}>
+                        <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Date Range</label>
+                        <div style={{padding:'0 6px'}}>
+                          <div className="date-slider-wrap">
+                            <div className="date-slider-track" />
+                            <div className="date-slider-fill" style={{left: pctL + '%', right: (100 - pctR) + '%'}} />
+                            <input type="range" className="date-slider-input" min={0} max={totalDays} value={fromIdx}
+                              onChange={e => {
+                                const v = Math.min(Number(e.target.value), toIdx);
+                                setFilters(f => ({...f, dateFrom: v <= 0 ? '' : addDays(minDate, v)}));
+                              }}
+                            />
+                            <input type="range" className="date-slider-input" min={0} max={totalDays} value={toIdx}
+                              onChange={e => {
+                                const v = Math.max(Number(e.target.value), fromIdx);
+                                setFilters(f => ({...f, dateTo: v >= totalDays ? '' : addDays(minDate, v)}));
+                              }}
+                            />
+                          </div>
+                          <div className="date-slider-labels">
+                            <span>{fmtShortDate(fromDate)}</span>
+                            <span>{fmtShortDate(toDate)}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <label style={{fontSize:'0.7rem',color:'var(--text-muted)',marginBottom:'2px',display:'block'}}>To</label>
-                        <input type="date" value={filters.dateTo}
-                          onChange={e => setFilters(f => ({...f, dateTo: e.target.value}))}
-                          style={{width:'100%',fontSize:'0.8rem'}}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>)}
               </div>
               <div className="filter-group filter-span2">
@@ -10757,8 +11024,8 @@
               const m = new Date(t.date).getMonth();
               if (filters.hiddenMonths.includes(m)) return false;
             }
-            if (filters.dateFrom && t.date < filters.dateFrom) return false;
-            if (filters.dateTo && t.date > filters.dateTo) return false;
+            if (filters.dateFrom && normaliseDate(t.date) < filters.dateFrom) return false;
+            if (filters.dateTo && normaliseDate(t.date) > filters.dateTo) return false;
             return true;
           })
           .sort((a, b) => {
@@ -11269,21 +11536,6 @@
           </>
           )}
 
-          <div style={{marginTop:'24px'}}>
-            <div className="section-header">
-              <h2>Shared Schedules</h2>
-            </div>
-            {shareBuddies && shareBuddies.length > 0 ? (
-              shareBuddies.map(user => (
-                <SharedUserSchedule key={user.id} user={user} token={token} isNew={!lastSeenShares || user.since > lastSeenShares} />
-              ))
-            ) : (
-              <p style={{fontSize:'0.82rem',color:'var(--text-muted)',padding:'12px 0'}}>
-                No shared schedules yet. Send a request in Settings.
-              </p>
-            )}
-          </div>
-
           {showExportModal && <ScheduleExportModal events={sorted} onClose={() => setShowExportModal(false)} />}
         </div>
       );
@@ -11479,7 +11731,7 @@
               })}
             </div>
 
-            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} buyinOptions={buyinOptions} />
+            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} buyinOptions={buyinOptions} tournaments={allTournaments} />
 
             {/* Summary row */}
             <p className="cal-event-count">
@@ -11602,8 +11854,8 @@
               <span style={{display:'flex',alignItems:'center',gap:'6px'}}>
                 <Avatar src={data.avatar} username={data.username} size={22} />
               </span>
-              <button className="btn btn-ghost btn-sm" onClick={() => setTheme(t => { const n = t === 'dark' ? 'light' : 'dark'; localStorage.setItem('theme', n); return n; })}>
-                {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
+              <button className="btn btn-ghost btn-sm" onClick={() => setTheme(t => { const n = THEME_ORDER[(THEME_ORDER.indexOf(t)+1)%THEME_ORDER.length]; localStorage.setItem('theme', n); return n; })} title={`Switch to ${THEME_LABEL[THEME_ORDER[(THEME_ORDER.indexOf(theme)+1)%THEME_ORDER.length]]} mode`}>
+                {React.createElement(Icon[THEME_ICON[theme]] || Icon.moon)}
               </button>
             </div>
           </header>
@@ -11758,8 +12010,8 @@
         <div className="auth-wrap">
           <div className="auth-card">
             <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px'}}>
-              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-                {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
+              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={`Switch to ${nextThemeLabel} mode`}>
+                {React.createElement(Icon[THEME_ICON[theme]] || Icon.moon)}
               </button>
             </div>
             <div className="auth-logo">
@@ -11854,8 +12106,8 @@
         <div className="auth-wrap">
           <div className="auth-card">
             <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px'}}>
-              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-                {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
+              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={`Switch to ${nextThemeLabel} mode`}>
+                {React.createElement(Icon[THEME_ICON[theme]] || Icon.moon)}
               </button>
             </div>
             <div className="auth-logo">
@@ -11931,8 +12183,8 @@
         <div className="auth-wrap">
           <div className="auth-card">
             <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px'}}>
-              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-                {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
+              <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={`Switch to ${nextThemeLabel} mode`}>
+                {React.createElement(Icon[THEME_ICON[theme]] || Icon.moon)}
               </button>
             </div>
             <div className="auth-logo">
@@ -12254,7 +12506,7 @@
         if (!filteredEvents.length) return;
         setGenerating(true);
         setTimeout(() => {
-          const imgs = generateScheduleImages(filteredEvents);
+          const imgs = generateScheduleImages(filteredEvents, docTitle);
           setCanvases(imgs);
           setMode('preview');
           setGenerating(false);
@@ -15839,7 +16091,7 @@
             <Icon.user />
             <div>
               My Schedule
-              <div className="menu-item-desc">View your saved events and buddy schedules</div>
+              <div className="menu-item-desc">View your saved events</div>
             </div>
           </button>
           <button className="more-menu-item" onClick={() => onNavigate('tracking')}>
@@ -16061,11 +16313,15 @@
             <div className="settings-section-label">Appearance</div>
             <div className="settings-card">
               <div className="settings-row">
-                <span className="settings-row-label">Dark mode</span>
+                <span className="settings-row-label">Theme</span>
                 <button
-                  className={`settings-toggle ${theme === 'dark' ? 'on' : ''}`}
+                  className="btn btn-ghost btn-sm"
                   onClick={toggleTheme}
-                />
+                  style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'13px',padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)'}}
+                >
+                  {React.createElement(Icon[THEME_ICON[theme]] || Icon.moon, {key: theme})}
+                  {THEME_LABEL[theme]}
+                </button>
               </div>
               <div className="settings-row">
                 <span className="settings-row-label">High contrast</span>
@@ -17230,7 +17486,7 @@
         document.documentElement.dataset.theme = theme;
         localStorage.setItem('theme', theme);
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f5f5' : '#111111');
+        if (meta) meta.setAttribute('content', THEME_META[theme] || '#111111');
       }, [theme]);
 
       useEffect(() => {
@@ -17238,7 +17494,11 @@
         localStorage.setItem('contrast', contrast);
       }, [contrast]);
 
-      const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+      const toggleTheme = () => setTheme(t => {
+        const i = THEME_ORDER.indexOf(t);
+        return THEME_ORDER[(i + 1) % THEME_ORDER.length];
+      });
+      const nextThemeLabel = THEME_LABEL[THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]];
       const toggleContrast = () => setContrast(c => c === 'normal' ? 'high' : 'normal');
 
       // ── Pull-to-refresh ──
@@ -17938,13 +18198,13 @@
                 onPost={postLiveUpdate}
                 onAddTracking={addTracking}
               />
-              <button className="btn btn-ghost btn-icon" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-                {theme === 'dark' ? <Icon.sun /> : <Icon.moon />}
+              <button className="btn btn-ghost btn-icon" onClick={toggleTheme} title={`Switch to ${nextThemeLabel} mode`}>
+                {React.createElement(Icon[THEME_ICON[theme]] || Icon.moon)}
               </button>
-              <div style={{position:'relative'}}>
-                <button className="username-chip" onClick={() => setShowUserMenu(m => !m)} style={{display:'flex',alignItems:'center',gap:'6px',marginLeft:'2px',background:'none',border:'none',padding:0,cursor:'pointer'}}>
-                  <Avatar src={avatar} username={username} size={22} />
-                  {realName || username}
+              <div style={{position:'relative',minWidth:0,flexShrink:1}}>
+                <button className="username-chip" onClick={() => setShowUserMenu(m => !m)} style={{display:'flex',alignItems:'center',gap:'6px',marginLeft:'2px',background:'none',border:'none',padding:0,cursor:'pointer',maxWidth:'100%',overflow:'hidden'}}>
+                  <Avatar src={avatar} username={username} size={22} style={{flexShrink:0}} />
+                  <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{nameMode === 'username' ? username : (realName || username)}</span>
                 </button>
                 {showUserMenu && ReactDOM.createPortal(
                   <>
@@ -18192,11 +18452,17 @@
     } else if (RESET_TOKEN) {
       function ResetPage() {
         const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+        const nextThemeLabel = THEME_LABEL[THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]];
         useEffect(() => {
           document.documentElement.dataset.theme = theme;
           localStorage.setItem('theme', theme);
+          const meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', THEME_META[theme] || '#111111');
         }, [theme]);
-        const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+        const toggleTheme = () => setTheme(t => {
+          const i = THEME_ORDER.indexOf(t);
+          return THEME_ORDER[(i + 1) % THEME_ORDER.length];
+        });
         return <ResetPasswordForm resetToken={RESET_TOKEN} theme={theme} toggleTheme={toggleTheme} />;
       }
       ReactDOM.render(<ResetPage />, document.getElementById('root'));
