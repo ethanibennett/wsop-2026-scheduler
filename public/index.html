@@ -6835,7 +6835,7 @@
     }
 
     // Generate schedule PDF — table layout via jspdf-autotable
-    async function generateSchedulePDF(events) {
+    async function generateSchedulePDF(events, title) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -6940,7 +6940,7 @@
         doc.setFont(FONT_BODY, 'bold');
         doc.setFontSize(14);
         doc.setTextColor(232, 232, 232);
-        doc.text('MY SCHEDULE', mg, 12);
+        doc.text(title || 'MY SCHEDULE', mg, 12);
         doc.setFont(FONT_BODY, 'normal');
         doc.setFontSize(8);
         doc.setTextColor(128, 128, 128);
@@ -12152,15 +12152,51 @@
       const [generating, setGenerating] = useState(false);
       const previewRef = useRef(null);
 
+      // ── Export customization state ──
+      const [docTitle, setDocTitle] = useState('MY SCHEDULE');
+
+      // Derive unique venues present in the schedule
+      const venueList = useMemo(() => {
+        const seen = new Map();
+        events.forEach(e => {
+          const v = getVenueInfo(e.venue);
+          if (!seen.has(v.abbr)) seen.set(v.abbr, { longName: v.longName || v.abbr, color: v.color || '#808080' });
+        });
+        return [...seen.entries()]; // [[abbr, {longName, color}], ...]
+      }, [events]);
+
+      const [selectedVenues, setSelectedVenues] = useState(() => new Set(venueList.map(([a]) => a)));
+
+      const allSelected = selectedVenues.size === venueList.length;
+      const toggleAll = () => {
+        if (allSelected) setSelectedVenues(new Set());
+        else setSelectedVenues(new Set(venueList.map(([a]) => a)));
+      };
+      const toggleVenue = (abbr) => {
+        setSelectedVenues(prev => {
+          const next = new Set(prev);
+          if (next.has(abbr)) next.delete(abbr); else next.add(abbr);
+          return next;
+        });
+      };
+
+      // Filtered events based on selected venues
+      const filteredEvents = useMemo(() =>
+        events.filter(e => selectedVenues.has(getVenueInfo(e.venue).abbr)),
+        [events, selectedVenues]
+      );
+
       const handlePDF = async () => {
-        await generateSchedulePDF(events);
+        if (!filteredEvents.length) return;
+        await generateSchedulePDF(filteredEvents, docTitle);
         onClose();
       };
 
       const handleImages = () => {
+        if (!filteredEvents.length) return;
         setGenerating(true);
         setTimeout(() => {
-          const imgs = generateScheduleImages(events);
+          const imgs = generateScheduleImages(filteredEvents);
           setCanvases(imgs);
           setMode('preview');
           setGenerating(false);
@@ -12195,8 +12231,56 @@
           React.createElement('div', { className: 'share-menu-panel', style: { maxHeight: '85vh' } },
             mode === 'menu' ? React.createElement(React.Fragment, null,
               React.createElement('h3', null, 'Export Schedule'),
+
+              // ── Document title input ──
+              React.createElement('div', { className: 'filter-group', style: { marginBottom: '12px' } },
+                React.createElement('label', null, 'Document Title'),
+                React.createElement('input', {
+                  type: 'text',
+                  value: docTitle,
+                  onChange: e => setDocTitle(e.target.value),
+                  placeholder: 'MY SCHEDULE',
+                  style: { padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Oswald', sans-serif", fontSize: '0.9rem', width: '100%', boxSizing: 'border-box' }
+                })
+              ),
+
+              // ── Series filter checkboxes ──
+              React.createElement('div', { style: { marginBottom: '12px' } },
+                React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' } },
+                  React.createElement('label', { style: { fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Include Series'),
+                  React.createElement('button', {
+                    onClick: toggleAll,
+                    style: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", padding: 0 }
+                  }, allSelected ? 'None' : 'All')
+                ),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '140px', overflowY: 'auto' } },
+                  venueList.map(([abbr, info]) =>
+                    React.createElement('label', {
+                      key: abbr,
+                      style: { fontSize: '0.82rem', fontFamily: "'Oswald', sans-serif", fontWeight: 500, color: info.color, cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: '8px' }
+                    },
+                      React.createElement('input', {
+                        type: 'checkbox',
+                        checked: selectedVenues.has(abbr),
+                        onChange: () => toggleVenue(abbr),
+                        style: { width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }
+                      }),
+                      info.longName
+                    )
+                  )
+                ),
+                filteredEvents.length < events.length && React.createElement('div', {
+                  style: { fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }
+                }, filteredEvents.length + ' of ' + events.length + ' events selected')
+              ),
+
+              // ── Export buttons ──
               React.createElement('div', { className: 'export-options' },
-                React.createElement('button', { className: 'export-option-btn', onClick: handlePDF },
+                React.createElement('button', {
+                  className: 'export-option-btn',
+                  onClick: handlePDF,
+                  disabled: !filteredEvents.length
+                },
                   React.createElement('span', { className: 'export-option-icon' }, '\uD83D\uDCC4'),
                   React.createElement('div', null,
                     React.createElement('div', { className: 'export-option-label' }, 'Download PDF'),
@@ -12206,7 +12290,7 @@
                 React.createElement('button', {
                   className: 'export-option-btn',
                   onClick: handleImages,
-                  disabled: generating
+                  disabled: generating || !filteredEvents.length
                 },
                   React.createElement('span', { className: 'export-option-icon' }, generating ? '\u23F3' : '\uD83D\uDDBC\uFE0F'),
                   React.createElement('div', null,
