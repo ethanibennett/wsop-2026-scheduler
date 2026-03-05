@@ -6823,12 +6823,12 @@
         for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
         return btoa(bin);
       }
-      const base = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/';
+      const base = 'https://cdn.jsdelivr.net/fontsource/fonts/';
       const [lbReg, lbBold, osReg, osBold] = await Promise.all([
-        fetchFont(base + 'librebaskerville/LibreBaskerville-Regular.ttf'),
-        fetchFont(base + 'librebaskerville/LibreBaskerville-Bold.ttf'),
-        fetchFont(base + 'oswald/static/Oswald-Regular.ttf'),
-        fetchFont(base + 'oswald/static/Oswald-Bold.ttf'),
+        fetchFont(base + 'libre-baskerville@latest/latin-400-normal.ttf'),
+        fetchFont(base + 'libre-baskerville@latest/latin-700-normal.ttf'),
+        fetchFont(base + 'oswald@latest/latin-400-normal.ttf'),
+        fetchFont(base + 'oswald@latest/latin-700-normal.ttf'),
       ]);
       _pdfFontCache = { lbReg, lbBold, osReg, osBold };
       return _pdfFontCache;
@@ -7001,13 +7001,13 @@
         didParseCell: function(data) {
           const col = data.column.index;
           if (data.section === 'head') {
-            // Header alignment: center all except Event (left) and Buy-in (right)
-            if (col === 3) data.cell.styles.halign = 'left';
+            // Header alignment: Date left, Event left, Buy-in right, rest centered
+            if (col === 0 || col === 3) data.cell.styles.halign = 'left';
             else if (col === 4) data.cell.styles.halign = 'right';
             else data.cell.styles.halign = 'center';
           }
           if (data.section === 'body') {
-            // Date column: Libre Baskerville bold
+            // Date column: Libre Baskerville bold, left-aligned
             if (col === 0) {
               data.cell.styles.font = FONT_DATE;
               data.cell.styles.fontStyle = 'bold';
@@ -7026,9 +7026,9 @@
               data.cell.styles.fontStyle = 'bold';
               data.cell.styles.textColor = [160, 160, 160];
             }
-            // Entries: right, muted
+            // Entries: centered, muted
             if (col === 5) {
-              data.cell.styles.halign = 'right';
+              data.cell.styles.halign = 'center';
               data.cell.styles.textColor = [128, 128, 128];
             }
           }
