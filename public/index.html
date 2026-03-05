@@ -10521,10 +10521,8 @@
 
     // ── Filters ────────────────────────────────────────────────
 
-    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments }) {
-      const [open, setOpen] = useState(false);
+    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef }) {
       const panelRef = useRef(null);
-      const toggleRef = useRef(null);
       const [whereOpen, setWhereOpen] = useState(false);
       const [howMuchOpen, setHowMuchOpen] = useState(false);
       const [whichOpen, setWhichOpen] = useState(false);
@@ -10573,28 +10571,21 @@
         filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.hideWomens || filters.hideSeniors || filters.dateFrom || filters.dateTo;
 
       return (
-        <div>
-          <div className="filter-row">
-            <button
-              ref={toggleRef}
-              className={`filter-chip ${hasActive ? 'active' : ''}`}
-              onClick={() => setOpen(o => !o)}
-            >
-              <Icon.filter />{hasActive ? ' •' : ''}
-            </button>
-            <label className={`filter-chip ${!filters.hideSatellites ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
+        <>
+          <div className="filter-row" style={{gap:'8px',marginBottom:'0',width:'100%'}}>
+            <label className={`filter-chip ${!filters.hideSatellites ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',flex:'1 1 0',justifyContent:'center'}}>
               <input type="checkbox" checked={!filters.hideSatellites}
                 onChange={e => setFilters(f => ({...f, hideSatellites:!e.target.checked}))}
                 style={{margin:0}}
               /> Satellites
             </label>
-            <label className={`filter-chip ${!filters.hideRestarts ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
+            <label className={`filter-chip ${!filters.hideRestarts ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',flex:'1 1 0',justifyContent:'center'}}>
               <input type="checkbox" checked={!filters.hideRestarts}
                 onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
                 style={{margin:0}}
               /> Restarts
             </label>
-            <label className={`filter-chip ${!filters.hideSideEvents ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px'}}>
+            <label className={`filter-chip ${!filters.hideSideEvents ? 'active' : ''}`} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',flex:'1 1 0',justifyContent:'center'}}>
               <input type="checkbox" checked={!filters.hideSideEvents}
                 onChange={e => setFilters(f => ({...f, hideSideEvents:!e.target.checked}))}
                 style={{margin:0}}
@@ -10923,7 +10914,7 @@
             </div>,
             document.body
           )}
-        </div>
+        </>
       );
     }
 
@@ -10934,6 +10925,8 @@
       const [filters, setFilters] = useState({
         minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], hideWomens: false, hideSeniors: false, dateFrom: '', dateTo: ''
       });
+      const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+      const filterToggleRef = useRef(null);
       const [focusEventId, setFocusEventId] = useState(null);
       const todayScrollRef = useRef(null);
       const hasScrolled = useRef(false);
@@ -11075,21 +11068,31 @@
       return (
         <div>
           <div className="sticky-filters" ref={stickyFiltersRef}>
-            <div className="search-bar">
-              <Icon.search />
-              <input
-                type="text"
-                placeholder="Search events, games…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-              {search && (
-                <button onClick={() => setSearch('')}
-                  style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
-              )}
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              <div className="search-bar" style={{flex:1}}>
+                <Icon.search />
+                <input
+                  type="text"
+                  placeholder="Search events, games…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+                {search && (
+                  <button onClick={() => setSearch('')}
+                    style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
+                )}
+              </div>
+              <button
+                ref={filterToggleRef}
+                className={`filter-chip ${filterPanelOpen ? 'active' : ''}`}
+                onClick={() => setFilterPanelOpen(o => !o)}
+                style={{flexShrink:0,height:'44px'}}
+              >
+                <Icon.filter />
+              </button>
             </div>
 
-            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} />
+            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} />
 
             <p className="results-count">{filtered.filter(t => !t.is_restart).length} event{filtered.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</p>
           </div>
