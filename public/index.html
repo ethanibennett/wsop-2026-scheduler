@@ -10512,7 +10512,6 @@
       const [open, setOpen] = useState(false);
       const panelRef = useRef(null);
       const toggleRef = useRef(null);
-      const [whenOpen, setWhenOpen] = useState(false);
       const [whereOpen, setWhereOpen] = useState(false);
       const [howMuchOpen, setHowMuchOpen] = useState(false);
       const [whichOpen, setWhichOpen] = useState(false);
@@ -10530,25 +10529,6 @@
         const maxDate = latestDay1 || today;
         const totalDays = daysBetween(minDate, maxDate);
         return { minDate, maxDate, totalDays };
-      }, [tournaments]);
-
-      const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const months = useMemo(() => {
-        const map = {};
-        const yearMap = {};
-        (tournaments || []).forEach(t => {
-          const d = new Date(t.date);
-          const m = d.getMonth();
-          if (!map[m]) map[m] = new Set();
-          if (!yearMap[m]) yearMap[m] = d.getFullYear();
-          if (!t.is_satellite && !t.is_restart && !t.is_deepstack) {
-            map[m].add(VENUE_TO_SERIES[t.venue] || t.venue);
-          }
-        });
-        return Object.keys(map).map(Number).sort((a, b) => a - b).map(m => ({
-          month: m, label: MONTH_NAMES[m], fullLabel: MONTH_FULL[m] + ' ' + yearMap[m], series: [...map[m]].sort()
-        }));
       }, [tournaments]);
 
       const availableVenues = useMemo(() => {
@@ -10576,7 +10556,7 @@
       }, [open]);
 
       const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRange || filters.maxRake ||
-        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || (filters.hiddenMonths && filters.hiddenMonths.length > 0) || filters.hideWomens || filters.hideSeniors || filters.dateFrom || filters.dateTo;
+        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.hideWomens || filters.hideSeniors || filters.dateFrom || filters.dateTo;
 
       return (
         <div>
@@ -10649,15 +10629,6 @@
                 <span
                   style={{marginLeft:'4px',cursor:'pointer'}}
                   onClick={() => setFilters(f => ({...f, bountyOnly:false}))}
-                >✕</span>
-              </span>
-            )}
-            {filters.hiddenMonths && filters.hiddenMonths.length > 0 && (
-              <span className="filter-chip active">
-                {months.length - filters.hiddenMonths.length} of {months.length} months
-                <span
-                  style={{marginLeft:'4px',cursor:'pointer'}}
-                  onClick={() => setFilters(f => ({...f, hiddenMonths:[]}))}
                 >✕</span>
               </span>
             )}
@@ -10738,44 +10709,6 @@
                   </div>
                 );
               })()}
-              <div className="filter-group filter-span2">
-                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setWhenOpen(w => !w)}>
-                  When?
-                  <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: whenOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
-                </label>
-                {whenOpen && (<div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
-                  <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:600,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
-                    <input type="checkbox"
-                      checked={!filters.hiddenMonths || filters.hiddenMonths.length === 0}
-                      ref={el => { if (el) el.indeterminate = filters.hiddenMonths && filters.hiddenMonths.length > 0 && filters.hiddenMonths.length < months.length; }}
-                      onChange={e => setFilters(f => ({...f, hiddenMonths: e.target.checked ? [] : months.map(m => m.month)}))}
-                      style={{marginTop:'1px'}}
-                    /> All
-                  </label>
-                  {months.map(({ month, label, fullLabel, series }) => {
-                    const hidden = (filters.hiddenMonths || []).includes(month);
-                    return (
-                      <label key={month} className="month-row" style={{display:'flex',alignItems:'baseline',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color: hidden ? 'var(--text-muted)' : 'var(--text)',paddingLeft:'21px'}}>
-                        <input type="checkbox" checked={!hidden}
-                          onChange={e => setFilters(f => {
-                            const hm = f.hiddenMonths || [];
-                            return {...f, hiddenMonths: e.target.checked ? hm.filter(m => m !== month) : [...hm, month]};
-                          })}
-                          style={{marginTop:'1px'}}
-                        />
-                        <span style={{fontWeight:600,minWidth:'28px',flexShrink:0}}>{hidden ? fullLabel : label}</span>
-                        <div className={'month-series-wrap' + (hidden ? '' : ' open')}>
-                          <span style={{display:'flex',flexDirection:'column',gap:'1px'}}>
-                            {series.map(s => (
-                              <span key={s} style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.3}}>{s}</span>
-                            ))}
-                          </span>
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>)}
-              </div>
               <div className="filter-group filter-span2">
                 <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setWhereOpen(w => !w)}>
                   Where?
