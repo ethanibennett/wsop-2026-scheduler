@@ -10555,7 +10555,7 @@
         return () => document.removeEventListener('mousedown', handler);
       }, [open]);
 
-      const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRange || filters.maxRake ||
+      const hasActive = filters.minBuyin || filters.maxBuyin || (filters.buyinRanges && filters.buyinRanges.length > 0) || (filters.rakeRanges && filters.rakeRanges.length > 0) ||
         filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.hideWomens || filters.hideSeniors || filters.dateFrom || filters.dateTo;
 
       return (
@@ -10595,31 +10595,21 @@
                 >✕</span>
               </span>
             )}
-            {filters.buyinRange && (
+            {filters.buyinRanges && filters.buyinRanges.length > 0 && (
               <span className="filter-chip active">
-                {filters.buyinRange === '10000+' ? '$10K+' : `≤ $${({'0-500':'500','0-1000':'1K','0-3000':'3K','0-10000':'10K'})[filters.buyinRange]}`}
+                {filters.buyinRanges.length === 1 ? ({'0-500':'< $500','500-1500':'$500–$1.5K','1500-5000':'$1.5K–$5K','5000-10000':'$5K–$10K','10000+':'$10K+'})[filters.buyinRanges[0]] : `${filters.buyinRanges.length} buy-ins`}
                 <span
                   style={{marginLeft:'4px',cursor:'pointer'}}
-                  onClick={() => setFilters(f => ({...f, buyinRange:''}))}
+                  onClick={() => setFilters(f => ({...f, buyinRanges:[]}))}
                 >✕</span>
               </span>
             )}
-            {!filters.buyinRange && (filters.minBuyin || filters.maxBuyin) && (
+            {filters.rakeRanges && filters.rakeRanges.length > 0 && (
               <span className="filter-chip active">
-                Buy-in{filters.minBuyin ? ` ≥ $${Number(filters.minBuyin).toLocaleString()}` : ''}
-                {filters.maxBuyin ? ` ≤ $${Number(filters.maxBuyin).toLocaleString()}` : ''}
+                {filters.rakeRanges.length === 1 ? ({'0-5':'< 5%','5-8':'5–8%','8-10':'8–10%','10-13':'10–13%','13+':'13%+'})[filters.rakeRanges[0]] : `${filters.rakeRanges.length} rake ranges`}
                 <span
                   style={{marginLeft:'4px',cursor:'pointer'}}
-                  onClick={() => setFilters(f => ({...f, minBuyin:'', maxBuyin:''}))}
-                >✕</span>
-              </span>
-            )}
-            {filters.maxRake && (
-              <span className="filter-chip active">
-                Rake ≤ {filters.maxRake}%
-                <span
-                  style={{marginLeft:'4px',cursor:'pointer'}}
-                  onClick={() => setFilters(f => ({...f, maxRake:''}))}
+                  onClick={() => setFilters(f => ({...f, rakeRanges:[]}))}
                 >✕</span>
               </span>
             )}
@@ -10747,46 +10737,49 @@
                   How Much?
                   <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: howMuchOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
                 </label>
-                {howMuchOpen && (<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
-                  <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                    <label style={{fontSize:'0.75rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'2px'}}>Buy-in</label>
-                    {[
-                      { key: '', label: 'Any' },
-                      { key: '0-500', label: '≤ $500' },
-                      { key: '0-1000', label: '≤ $1K' },
-                      { key: '0-3000', label: '≤ $3K' },
-                      { key: '0-10000', label: '≤ $10K' },
-                      { key: '10000+', label: '$10K+' },
-                    ].map(opt => (
-                      <label key={opt.key} style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
-                        <input type="checkbox" checked={filters.buyinRange === opt.key}
-                          onChange={() => setFilters(f => ({...f, buyinRange: f.buyinRange === opt.key ? '' : opt.key, minBuyin: '', maxBuyin: ''}))}
-                          style={{marginTop:'1px',flexShrink:0}}
-                        />
-                        <span>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                    <label style={{fontSize:'0.75rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'2px'}}>Max Rake</label>
-                    {[
-                      { key: '', label: 'Any' },
-                      { key: '5', label: '≤ 5%' },
-                      { key: '8', label: '≤ 8%' },
-                      { key: '10', label: '≤ 10%' },
-                      { key: '13', label: '≤ 13%' },
-                      { key: '15', label: '≤ 15%' },
-                    ].map(opt => (
-                      <label key={opt.key} style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
-                        <input type="checkbox" checked={filters.maxRake === opt.key}
-                          onChange={() => setFilters(f => ({...f, maxRake: f.maxRake === opt.key ? '' : opt.key}))}
-                          style={{marginTop:'1px',flexShrink:0}}
-                        />
-                        <span>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>)}
+                {howMuchOpen && (() => {
+                  const buyinOpts = [
+                    { key: '0-500', label: 'Under $500' },
+                    { key: '500-1500', label: '$500 – $1.5K' },
+                    { key: '1500-5000', label: '$1.5K – $5K' },
+                    { key: '5000-10000', label: '$5K – $10K' },
+                    { key: '10000+', label: '$10K+' },
+                  ];
+                  const rakeOpts = [
+                    { key: '0-5', label: 'Under 5%' },
+                    { key: '5-8', label: '5% – 8%' },
+                    { key: '8-10', label: '8% – 10%' },
+                    { key: '10-13', label: '10% – 13%' },
+                    { key: '13+', label: '13%+' },
+                  ];
+                  const toggleArr = (arr, key) => arr.includes(key) ? arr.filter(k => k !== key) : [...arr, key];
+                  return (<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                      <label style={{fontSize:'0.75rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'2px'}}>Buy-in</label>
+                      {buyinOpts.map(opt => (
+                        <label key={opt.key} style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                          <input type="checkbox" checked={(filters.buyinRanges || []).includes(opt.key)}
+                            onChange={() => setFilters(f => ({...f, buyinRanges: toggleArr(f.buyinRanges || [], opt.key), minBuyin: '', maxBuyin: ''}))}
+                            style={{marginTop:'1px',flexShrink:0}}
+                          />
+                          <span>{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                      <label style={{fontSize:'0.75rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'2px'}}>Rake</label>
+                      {rakeOpts.map(opt => (
+                        <label key={opt.key} style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                          <input type="checkbox" checked={(filters.rakeRanges || []).includes(opt.key)}
+                            onChange={() => setFilters(f => ({...f, rakeRanges: toggleArr(f.rakeRanges || [], opt.key)}))}
+                            style={{marginTop:'1px',flexShrink:0}}
+                          />
+                          <span>{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>);
+                })()}
               </div>
               <div className="filter-group filter-span2">
                 <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setWhichOpen(w => !w)}>
@@ -10878,7 +10871,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',buyinRange:'',maxRake:'',selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],hideWomens:false,hideSeniors:false,dateFrom:'',dateTo:''})
+                    setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],hideWomens:false,hideSeniors:false,dateFrom:'',dateTo:''})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -10894,7 +10887,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', buyinRange: '', maxRake: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], hideWomens: false, hideSeniors: false, dateFrom: '', dateTo: ''
+        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], hideWomens: false, hideSeniors: false, dateFrom: '', dateTo: ''
       });
       const [focusEventId, setFocusEventId] = useState(null);
       const todayScrollRef = useRef(null);
@@ -10946,18 +10939,30 @@
                   !String(t.event_number).includes(q) &&
                   !t.game_variant?.toLowerCase().includes(q)) return false;
             }
-            if (filters.buyinRange) {
+            if (filters.buyinRanges && filters.buyinRanges.length > 0) {
               const b = Number(t.buyin) || 0;
-              if (filters.buyinRange === '0-500' && b > 500) return false;
-              if (filters.buyinRange === '0-1000' && b > 1000) return false;
-              if (filters.buyinRange === '0-3000' && b > 3000) return false;
-              if (filters.buyinRange === '0-10000' && b > 10000) return false;
-              if (filters.buyinRange === '10000+' && b <= 10000) return false;
-            } else {
-              if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
-              if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
+              const matchesBuyin = filters.buyinRanges.some(r => {
+                if (r === '0-500') return b < 500;
+                if (r === '500-1500') return b >= 500 && b < 1500;
+                if (r === '1500-5000') return b >= 1500 && b < 5000;
+                if (r === '5000-10000') return b >= 5000 && b <= 10000;
+                if (r === '10000+') return b > 10000;
+                return true;
+              });
+              if (!matchesBuyin) return false;
             }
-            if (filters.maxRake && t.rake_pct != null && t.rake_pct > Number(filters.maxRake)) return false;
+            if (filters.rakeRanges && filters.rakeRanges.length > 0 && t.rake_pct != null) {
+              const r = Number(t.rake_pct);
+              const matchesRake = filters.rakeRanges.some(rng => {
+                if (rng === '0-5') return r < 5;
+                if (rng === '5-8') return r >= 5 && r < 8;
+                if (rng === '8-10') return r >= 8 && r < 10;
+                if (rng === '10-13') return r >= 10 && r < 13;
+                if (rng === '13+') return r >= 13;
+                return true;
+              });
+              if (!matchesRake) return false;
+            }
             if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
             if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
