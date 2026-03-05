@@ -10535,14 +10535,15 @@
         const countMap = {};
         (tournaments || []).forEach(t => {
           if (t.is_satellite || t.is_restart || t.is_deepstack) return;
-          const m = new Date(t.date).getMonth();
-          if (filters.hiddenMonths && filters.hiddenMonths.includes(m)) return;
+          const d = normaliseDate(t.date);
+          if (filters.dateFrom && d < filters.dateFrom) return;
+          if (filters.dateTo && d > filters.dateTo) return;
           countMap[t.venue] = (countMap[t.venue] || 0) + 1;
         });
         return Object.keys(countMap)
           .sort((a, b) => countMap[b] - countMap[a])
           .map(v => ({ venue: v, series: VENUE_TO_SERIES[v] || v, count: countMap[v] }));
-      }, [tournaments, filters.hiddenMonths]);
+      }, [tournaments, filters.dateFrom, filters.dateTo]);
 
       useEffect(() => {
         if (!open) return;
@@ -10711,10 +10712,10 @@
               })()}
               <div className="filter-group filter-span2">
                 <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setWhereOpen(w => !w)}>
-                  Where?
+                  Series
                   <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: whereOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
                 </label>
-                {whereOpen && (<div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                {whereOpen && (<div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
                   <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:600,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
                     <input type="checkbox"
                       checked={!filters.hiddenVenues || filters.hiddenVenues.length === 0}
@@ -10723,21 +10724,23 @@
                       style={{marginTop:'1px'}}
                     /> All
                   </label>
-                  {availableVenues.map(({ venue, series, count }) => {
-                    const hidden = (filters.hiddenVenues || []).includes(venue);
-                    return (
-                      <label key={venue} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)',paddingLeft:'21px'}}>
-                        <input type="checkbox" checked={!hidden}
-                          onChange={e => setFilters(f => {
-                            const hv = f.hiddenVenues || [];
-                            return {...f, hiddenVenues: e.target.checked ? hv.filter(v => v !== venue) : [...hv, venue]};
-                          })}
-                          style={{marginTop:'1px'}}
-                        />
-                        <span>{series} <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>({count})</span></span>
-                      </label>
-                    );
-                  })}
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px'}}>
+                    {availableVenues.map(({ venue, series, count }) => {
+                      const hidden = (filters.hiddenVenues || []).includes(venue);
+                      return (
+                        <label key={venue} style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
+                          <input type="checkbox" checked={!hidden}
+                            onChange={e => setFilters(f => {
+                              const hv = f.hiddenVenues || [];
+                              return {...f, hiddenVenues: e.target.checked ? hv.filter(v => v !== venue) : [...hv, venue]};
+                            })}
+                            style={{marginTop:'1px',flexShrink:0}}
+                          />
+                          <span style={{lineHeight:1.3}}>{series}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>)}
               </div>
               <div className="filter-group filter-span2">
