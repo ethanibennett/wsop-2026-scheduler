@@ -24,9 +24,22 @@
       if (meta) meta.setAttribute('content', mc[t] || '#111111');
     })();
   </script>
+  <script>
+    // Global error handler — surfaces runtime errors visibly during debugging
+    window.onerror = function(msg, url, line, col, err) {
+      var el = document.getElementById('startup-error');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'startup-error';
+        el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b00;color:#fff;padding:12px 16px;font:13px/1.5 monospace;white-space:pre-wrap;max-height:40vh;overflow:auto';
+        document.body.prepend(el);
+      }
+      el.textContent += msg + ' (line ' + line + ')\n';
+    };
+  </script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.9/babel.min.js"></script>
   <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <style>
@@ -11536,7 +11549,7 @@
         }
       }, [selectedDate]);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', maxRake: '', selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true
+        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hideWomens: false, hideSeniors: false
       });
 
       const buyinOptions = useMemo(() =>
@@ -11580,7 +11593,31 @@
           .filter(t => {
             if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
             if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
-            if (filters.maxRake && t.rake_pct != null && t.rake_pct > Number(filters.maxRake)) return false;
+            if (filters.buyinRanges && filters.buyinRanges.length > 0) {
+              const b = Number(t.buyin) || 0;
+              const matchesBuyin = filters.buyinRanges.some(r => {
+                if (r === '0-500') return b < 500;
+                if (r === '500-1500') return b >= 500 && b < 1500;
+                if (r === '1500-5000') return b >= 1500 && b < 5000;
+                if (r === '5000-10000') return b >= 5000 && b <= 10000;
+                if (r === '10000+') return b > 10000;
+                return true;
+              });
+              if (!matchesBuyin) return false;
+            }
+            if (filters.rakeRanges && filters.rakeRanges.length > 0) {
+              if (t.rake_pct == null) return false;
+              const r = Number(t.rake_pct);
+              const matchesRake = filters.rakeRanges.some(rng => {
+                if (rng === '0-5') return r < 5;
+                if (rng === '5-8') return r >= 5 && r < 8;
+                if (rng === '8-10') return r >= 8 && r < 10;
+                if (rng === '10-13') return r >= 10 && r < 13;
+                if (rng === '13+') return r >= 13;
+                return true;
+              });
+              if (!matchesRake) return false;
+            }
             if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
             if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
