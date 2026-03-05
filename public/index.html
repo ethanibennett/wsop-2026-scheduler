@@ -4024,6 +4024,10 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo, useCallback, useRef, createContext, useContext } = React;
 
+    // ── Display name context ──
+    const DisplayNameContext = createContext(u => u.username);
+    function useDisplayName() { return useContext(DisplayNameContext); }
+
     // ── Toast notification system ──
     const ToastContext = createContext(null);
     function useToast() { return useContext(ToastContext); }
@@ -9652,6 +9656,7 @@
     }
 
     function BuddyAvatarRow({ buddies, liveUpdates }) {
+      const dn = useDisplayName();
       const [expanded, setExpanded] = useState(false);
       return (
         <div
@@ -9674,7 +9679,7 @@
               {expanded && (
                 <div style={{display:'flex',flexDirection:'column'}}>
                   <span style={{fontSize:'0.72rem',color: b.isAnchor ? 'var(--text)' : 'var(--text-muted)', fontWeight: b.isAnchor ? 600 : 400}}>
-                    {b.username}
+                    {dn(b)}
                   </span>
                   {liveUpdates && liveUpdates[b.id] && (
                     <span style={{fontSize:'0.62rem',color:'#22c55e',fontFamily:'Oswald, sans-serif'}}>
@@ -11022,6 +11027,7 @@
     // ── My Schedule View ───────────────────────────────────────
 
     function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates }) {
+      const displayName = useDisplayName();
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const todayRef = React.useRef(null);
       const hasScrolled = React.useRef(false);
@@ -11105,7 +11111,7 @@
                   fontSize:'0.85rem',color:'var(--text)'}}>
                   <span style={{display:'flex',alignItems:'center',gap:'8px'}}>
                     <Avatar src={req.avatar} username={req.username} size={26} />
-                    <strong>{req.username}</strong>
+                    <strong>{displayName(req)}</strong>
                     <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>wants to share schedules</span>
                   </span>
                   <span style={{display:'flex',gap:'6px'}}>
@@ -11590,7 +11596,7 @@
           <header className="top-bar">
             <div className="top-bar-title">
               <h1>futuregame.</h1>
-              <small>{data.username}'s schedule</small>
+              <small>{(data.real_name || data.username)}'s schedule</small>
             </div>
             <div className="top-bar-actions">
               <span style={{display:'flex',alignItems:'center',gap:'6px'}}>
@@ -11605,7 +11611,7 @@
             <div className="section-header">
               <h2 style={{display:'flex',alignItems:'center',gap:'8px'}}>
                 <Avatar src={data.avatar} username={data.username} size={26} />
-                {data.username}'s Schedule
+                {(data.real_name || data.username)}'s Schedule
               </h2>
               <span className="event-count-badge">{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
             </div>
@@ -11636,6 +11642,7 @@
     // ── Shared User Schedule (collapsible in Me tab) ──────────
 
     function SharedUserSchedule({ user, token, isNew }) {
+      const displayName = useDisplayName();
       const [open, setOpen] = useState(false);
       const [schedule, setSchedule] = useState([]);
       const [loaded, setLoaded] = useState(false);
@@ -11663,7 +11670,7 @@
           >
             <span style={{display:'flex',alignItems:'center',gap:'8px'}}>
               <Avatar src={user.avatar} username={user.username} size={24} />
-              {user.username}'s schedule
+              {displayName(user)}'s schedule
               {isNew && (
                 <span style={{
                   background:'#ef4444', color:'#fff', fontSize:'0.6rem', fontWeight:700,
@@ -11699,6 +11706,51 @@
 
     // ── Auth Screen ────────────────────────────────────────────
 
+    function RealNamePrompt({ onSave, onDismiss }) {
+      const [name, setName] = useState('');
+      const [saving, setSaving] = useState(false);
+      const [err, setErr] = useState('');
+
+      const handleSave = async () => {
+        if (!name.trim()) return;
+        setSaving(true); setErr('');
+        try {
+          const res = await fetch(`${API_URL}/profile`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+            body: JSON.stringify({ realName: name.trim() })
+          });
+          const data = await res.json();
+          if (!res.ok) { setErr(data.error || 'Failed to save'); setSaving(false); return; }
+          onSave(data.realName);
+        } catch { setErr('Network error'); setSaving(false); }
+      };
+
+      return ReactDOM.createPortal(
+        React.createElement('div', { className: 'modal-backdrop', onClick: onDismiss },
+          React.createElement('div', { className: 'modal-content', onClick: e => e.stopPropagation(), style: { maxWidth: '380px' } },
+            React.createElement('h3', { style: { marginBottom: '4px' } }, 'What\'s your name?'),
+            React.createElement('p', { style: { color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '16px' } },
+              'Your connections and group members will see this.'
+            ),
+            err && React.createElement('div', { className: 'alert alert-error', style: { marginBottom: '12px' } }, err),
+            React.createElement('input', {
+              type: 'text', value: name, onChange: e => setName(e.target.value),
+              placeholder: 'Your real name', maxLength: 40, autoFocus: true,
+              style: { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: '0.95rem', boxSizing: 'border-box' },
+              onKeyDown: e => { if (e.key === 'Enter' && name.trim()) handleSave(); }
+            }),
+            React.createElement('div', { style: { display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' } },
+              React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: onDismiss }, 'Later'),
+              React.createElement('button', { className: 'btn btn-primary btn-sm', onClick: handleSave, disabled: saving || !name.trim() },
+                saving ? 'Saving...' : 'Save'
+              )
+            )
+          )
+        ), document.body
+      );
+    }
+
     function AuthScreen({ onSubmit, error, success, theme, toggleTheme, onForgotPassword, onGuestLogin, initialRegister }) {
       const [isRegister, setIsRegister] = useState(!!initialRegister);
 
@@ -11719,6 +11771,12 @@
             {success && <div className="alert alert-success">{success}</div>}
 
             <form onSubmit={e => onSubmit(e, isRegister)}>
+              {isRegister && (
+                <div className="form-field">
+                  <label>Full Name</label>
+                  <input type="text" name="realName" placeholder="Your real name" required maxLength="40" autoComplete="name" />
+                </div>
+              )}
               {isRegister && (
                 <div className="form-field">
                   <label>Username</label>
@@ -12824,7 +12882,7 @@
 
     // ── Dashboard View ──────────────────────────────────────────
 
-    function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, buddyEvents, onPost, onDeleteUpdate, onAddTracking, onNavigate, tournaments, onToggle, onRefresh }) {
+    function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies, buddyLiveUpdates, buddyEvents, displayName, onPost, onDeleteUpdate, onAddTracking, onNavigate, tournaments, onToggle, onRefresh }) {
       const [selectedUpNextIdx, setSelectedUpNextIdx] = useState(0);
       const [connDropdownId, setConnDropdownId] = useState(null);
       const [now, setNow] = useState(getNow());
@@ -13500,7 +13558,7 @@
                     <div key={f.id} className="dash-friend-chip" onClick={() => onNavigate('social')}>
                       <Avatar src={f.avatar} username={f.username} size={28} />
                       <div className="friend-info">
-                        <div className="friend-name">{f.username}</div>
+                        <div className="friend-name">{displayName(f)}</div>
                         <div className="friend-event">{lu?.eventName || 'Playing'}</div>
                         {stack && (
                           <div className="friend-stack">
@@ -13604,13 +13662,13 @@
                   >
                     <Avatar src={f.avatar} username={f.username} size={32} />
                     {f.isPlaying && <span className="playing-dot" />}
-                    <span className="conn-name">{f.username}</span>
+                    <span className="conn-name">{displayName(f)}</span>
                     {connDropdownId === f.id && (() => {
                       const rect = connDropdownRef.current?.getBoundingClientRect();
                       const openAbove = rect && rect.top > window.innerHeight / 2;
                       return (
                         <div className={'dash-conn-dropdown ' + (openAbove ? 'above' : 'below')} onClick={e => e.stopPropagation()}>
-                          <div className="dash-conn-dropdown-name">{f.username}</div>
+                          <div className="dash-conn-dropdown-name">{displayName(f)}</div>
                           {f.isPlaying && f.liveUpdate && (
                             <>
                               <div className="dash-conn-dropdown-label">Now Playing</div>
@@ -14742,6 +14800,7 @@
 
     // ── Notifications Panel ─────────────────────────────────────
     function NotificationsPanel({ notifications, token, onClose, fetchNotifications, fetchShareBuddies, fetchMyGroups }) {
+      const displayName = useDisplayName();
       const { groupInvites, buddyRequests, acceptedBuddies } = notifications;
       const isEmpty = groupInvites.length === 0 && buddyRequests.length === 0 && acceptedBuddies.length === 0;
 
@@ -14834,7 +14893,7 @@
                       React.createElement('div', { key: `gi-${inv.id}`, className: 'notif-item' },
                         React.createElement('div', { className: 'notif-item-content' },
                           React.createElement('div', { className: 'notif-item-text' },
-                            React.createElement('strong', null, inv.invited_by_username),
+                            React.createElement('strong', null, inv.invited_by_real_name || inv.invited_by_username),
                             ' invited you to ',
                             React.createElement('strong', null, inv.group_name)
                           ),
@@ -14861,7 +14920,7 @@
                           React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
                             React.createElement(Avatar, { src: req.avatar, username: req.username, size: 24 }),
                             React.createElement('div', { className: 'notif-item-text' },
-                              React.createElement('strong', null, req.username),
+                              React.createElement('strong', null, displayName(req)),
                               ' wants to connect'
                             )
                           ),
@@ -14888,7 +14947,7 @@
                           React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
                             React.createElement(Avatar, { src: ab.avatar, username: ab.username, size: 24 }),
                             React.createElement('div', { className: 'notif-item-text' },
-                              React.createElement('strong', null, ab.username),
+                              React.createElement('strong', null, displayName(ab)),
                               ' accepted your request'
                             )
                           ),
@@ -14906,7 +14965,7 @@
 
     // ── Placeholder: Social View ─────────────────────────────────
     function SocialView({
-      shareBuddies, buddyLiveUpdates, myGroups, activeGroupId, setActiveGroupId,
+      shareBuddies, buddyLiveUpdates, displayName, myGroups, activeGroupId, setActiveGroupId,
       groupFeed, groupSchedule, fetchGroupFeed, fetchGroupSchedule, fetchMyGroups,
       token, onNavigate
     }) {
@@ -14972,6 +15031,7 @@
             fetchMyGroups={fetchMyGroups}
             shareBuddies={shareBuddies}
             buddyLiveUpdates={buddyLiveUpdates}
+            displayName={displayName}
             token={token}
             onBack={() => { setActiveGroupId(null); setExpandedId(null); }}
           />
@@ -15068,7 +15128,7 @@
                     <div className="social-buddy-row" onClick={() => toggleBuddy(buddy.id)} style={{cursor:'pointer'}}>
                       <Avatar src={buddy.avatar} username={buddy.username} size={36} />
                       <div className="social-buddy-info">
-                        <div className="social-buddy-name">{buddy.username}</div>
+                        <div className="social-buddy-name">{displayName(buddy)}</div>
                         {isLive ? (
                           <div className="social-buddy-status live">
                             <span className="social-live-dot" />
@@ -15233,6 +15293,7 @@
           {showCreateGroup && ReactDOM.createPortal(
             <CreateGroupModal
               shareBuddies={shareBuddies}
+              displayName={displayName}
               token={token}
               onClose={() => setShowCreateGroup(false)}
               onCreated={() => { setShowCreateGroup(false); fetchMyGroups(); }}
@@ -15244,7 +15305,7 @@
     }
 
     // ── Create Group Modal ──────────────────────────────────────
-    function CreateGroupModal({ shareBuddies, token, onClose, onCreated }) {
+    function CreateGroupModal({ shareBuddies, displayName, token, onClose, onCreated }) {
       const [name, setName] = useState('');
       const [selected, setSelected] = useState(new Set());
       const [loading, setLoading] = useState(false);
@@ -15325,7 +15386,7 @@
                       onClick={() => toggleBuddy(b.id)}
                     >
                       <Avatar src={b.avatar} username={b.username} size={24} />
-                      <span>{b.username}</span>
+                      <span>{displayName(b)}</span>
                       {selected.has(b.id) && <span style={{marginLeft:'auto',color:'var(--accent)'}}>✓</span>}
                     </button>
                   ))}
@@ -15350,7 +15411,7 @@
     // ── Group Detail View ───────────────────────────────────────
     function GroupDetailView({
       group, groupFeed, groupSchedule, fetchGroupFeed, fetchGroupSchedule,
-      fetchMyGroups, shareBuddies, buddyLiveUpdates, token, onBack
+      fetchMyGroups, shareBuddies, buddyLiveUpdates, displayName, token, onBack
     }) {
       const [segment, setSegment] = useState('feed');
       const [members, setMembers] = useState([]);
@@ -15561,7 +15622,7 @@
                     <Avatar src={item.avatar} username={item.username || '?'} size={28} />
                     <div className="group-feed-item-body">
                       <div className="group-feed-item-header">
-                        <span className="group-feed-item-name">{item.username}</span>
+                        <span className="group-feed-item-name">{displayName(item)}</span>
                         <span className="group-feed-item-time">{timeAgo(item.created_at)}</span>
                       </div>
                       {item.type === 'message' ? (
@@ -15609,7 +15670,7 @@
                   </div>
                   <div className="group-schedule-members">
                     {t.members.map(m => (
-                      <div key={m.id} className="group-schedule-member" title={m.username}>
+                      <div key={m.id} className="group-schedule-member" title={displayName(m)}>
                         <Avatar src={m.avatar} username={m.username} size={22} />
                       </div>
                     ))}
@@ -15639,7 +15700,7 @@
                       </div>
                       <Avatar src={m.avatar} username={m.username} size={32} />
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontWeight:600,fontSize:14}}>{m.username}</div>
+                        <div style={{fontWeight:600,fontSize:14}}>{displayName(m)}</div>
                         <div className="leaderboard-stats">
                           <span className={m.net_pl >= 0 ? 'leaderboard-net-pos' : 'leaderboard-net-neg'}>
                             {m.net_pl >= 0 ? '+' : ''}{formatBuyin(m.net_pl)} net
@@ -15685,7 +15746,7 @@
                         onClick={() => handleAddMember(b)}
                       >
                         <Avatar src={b.avatar} username={b.username} size={24} />
-                        <span>{b.username}</span>
+                        <span>{displayName(b)}</span>
                         <span style={{marginLeft:'auto',fontSize:12,color:'var(--accent)'}}>Invite</span>
                       </button>
                     ))}
@@ -15700,7 +15761,7 @@
                 <div key={m.id} className="group-member-card">
                   <Avatar src={m.avatar} username={m.username} size={28} />
                   <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:500}}>{m.username}</div>
+                    <div style={{fontSize:13,fontWeight:500}}>{displayName(m)}</div>
                     {m.role === 'owner' && <div style={{fontSize:11,color:'var(--accent)'}}>Owner</div>}
                   </div>
                   {isOwner && m.role !== 'owner' && (
@@ -15719,8 +15780,8 @@
                     <div key={inv.id} className="group-member-card" style={{opacity:0.6}}>
                       <Avatar src={inv.avatar} username={inv.username} size={28} />
                       <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:500}}>{inv.username}</div>
-                        <div style={{fontSize:11,color:'var(--text-muted)'}}>Invited by {inv.invited_by_username}</div>
+                        <div style={{fontSize:13,fontWeight:500}}>{displayName(inv)}</div>
+                        <div style={{fontSize:11,color:'var(--text-muted)'}}>Invited by {inv.invited_by_real_name || inv.invited_by_username}</div>
                       </div>
                       <span style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic'}}>Pending</span>
                     </div>
@@ -15862,7 +15923,8 @@
 
     // ── Settings View ──────────────────────────────────────────
 
-    function SettingsView({ username, avatar, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess }) {
+    function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess }) {
+      const displayName = useDisplayName();
       const [debugInput, setDebugInput] = useState(_debugNow);
 
       const applyDebugTime = (val) => {
@@ -15881,8 +15943,8 @@
                 <div style={{display:'flex',alignItems:'center',gap:'12px',flex:1}}>
                   <Avatar src={avatar} username={username} size={44} />
                   <div>
-                    <div style={{fontSize:'0.85rem',fontWeight:600,color:'var(--text)'}}>{username}</div>
-                    <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginTop:'2px'}}>Signed in</div>
+                    <div style={{fontSize:'0.85rem',fontWeight:600,color:'var(--text)'}}>{realName || username}</div>
+                    <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginTop:'2px'}}>@{username}</div>
                   </div>
                 </div>
                 <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
@@ -15893,6 +15955,28 @@
                   {avatar && (
                     <button className="btn btn-ghost btn-sm" style={{color:'#b91c1c',fontSize:'0.75rem',padding:'4px 10px'}} onClick={onAvatarRemove}>Remove</button>
                   )}
+                </div>
+              </div>
+              <div className="settings-row" style={{justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <span className="settings-row-label">Display names</span>
+                  <p style={{fontSize:'0.72rem',color:'var(--text-muted)',margin:'2px 0 0'}}>
+                    Show {nameMode === 'real' ? 'real names' : 'usernames'} throughout the app
+                  </p>
+                </div>
+                <div style={{display:'flex',gap:'4px',background:'var(--bg)',borderRadius:'6px',padding:'2px'}}>
+                  <button onClick={() => onToggleNameMode('real')}
+                    style={{padding:'4px 10px',borderRadius:'5px',border:'none',cursor:'pointer',fontSize:'0.72rem',fontWeight:600,
+                      background: nameMode === 'real' ? 'var(--accent)' : 'transparent',
+                      color: nameMode === 'real' ? '#000' : 'var(--text-muted)'}}>
+                    Real
+                  </button>
+                  <button onClick={() => onToggleNameMode('username')}
+                    style={{padding:'4px 10px',borderRadius:'5px',border:'none',cursor:'pointer',fontSize:'0.72rem',fontWeight:600,
+                      background: nameMode === 'username' ? 'var(--accent)' : 'transparent',
+                      color: nameMode === 'username' ? '#000' : 'var(--text-muted)'}}>
+                    Username
+                  </button>
                 </div>
               </div>
               <button className="settings-row-btn danger" onClick={onLogout}>
@@ -15947,7 +16031,7 @@
                         padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:'0.82rem',color:'var(--text)'}}>
                         <span style={{display:'flex',alignItems:'center',gap:'8px',color:'var(--text-muted)'}}>
                           <Avatar src={r.avatar} username={r.username} size={22} />
-                          {r.username}
+                          {displayName(r)}
                         </span>
                         <button className="btn btn-ghost btn-sm" style={{color:'#b91c1c',padding:'4px 8px'}} onClick={() => onCancelRequest(r.id)}>Cancel</button>
                       </div>
@@ -15962,7 +16046,7 @@
                         padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:'0.82rem',color:'var(--text)'}}>
                         <span style={{display:'flex',alignItems:'center',gap:'8px'}}>
                           <Avatar src={b.avatar} username={b.username} size={22} />
-                          {b.username}
+                          {displayName(b)}
                         </span>
                         <button className="btn btn-ghost btn-sm" style={{color:'#b91c1c',padding:'4px 8px'}} onClick={() => onRemoveBuddy(b.id)}>Remove</button>
                       </div>
@@ -17097,6 +17181,15 @@
       // ── Avatar state ──
       const [avatar, setAvatar] = useState(localStorage.getItem('avatar') || null);
 
+      // ── Real name / display name state ──
+      const [realName, setRealName] = useState(localStorage.getItem('realName') || null);
+      const [showRealNamePrompt, setShowRealNamePrompt] = useState(false);
+      const [nameMode, setNameMode] = useState(localStorage.getItem('displayNameMode') || 'real');
+      const displayName = useCallback((user) => {
+        if (nameMode === 'username') return user.username;
+        return user.real_name || user.username;
+      }, [nameMode]);
+
       // ── Sharing state ──
       const [shareToken, setShareToken] = useState(null);
       const [shareBuddies, setShareBuddies] = useState([]);
@@ -17567,11 +17660,12 @@
         const email = fd.get('email');
         const password = fd.get('password');
         const usernameInput = fd.get('username');
+        const realNameInput = fd.get('realName');
 
         try {
           const endpoint = isRegister ? '/register' : '/login';
           const body = isRegister
-            ? { username: usernameInput, email, password }
+            ? { username: usernameInput, email, password, realName: realNameInput }
             : { email, password };
 
           const res = await fetch(`${API_URL}${endpoint}`, {
@@ -17590,9 +17684,13 @@
             localStorage.setItem('username', data.username);
             if (data.avatar) localStorage.setItem('avatar', data.avatar);
             else localStorage.removeItem('avatar');
+            if (data.realName) localStorage.setItem('realName', data.realName);
+            else localStorage.removeItem('realName');
             setToken(data.token);
             setUsername(data.username);
             setAvatar(data.avatar || null);
+            setRealName(data.realName || null);
+            if (!data.realName) setShowRealNamePrompt(true);
           }
         } catch { setError('Network error. Please try again.'); }
       };
@@ -17619,10 +17717,13 @@
         localStorage.removeItem('username');
         localStorage.removeItem('avatar');
         localStorage.removeItem('isGuest');
+        localStorage.removeItem('realName');
         setToken(null);
         setUsername(null);
         setIsGuest(false);
         setAvatar(null);
+        setRealName(null);
+        setShowRealNamePrompt(false);
         setCurrentView('dashboard');
         setTournaments([]);
         setMySchedule([]);
@@ -17810,6 +17911,7 @@
       }
 
       return (
+        <DisplayNameContext.Provider value={displayName}>
         <div className="app-shell">
           <header className="top-bar">
             <div className="top-bar-title">
@@ -17842,7 +17944,7 @@
               <div style={{position:'relative'}}>
                 <button className="username-chip" onClick={() => setShowUserMenu(m => !m)} style={{display:'flex',alignItems:'center',gap:'6px',marginLeft:'2px',background:'none',border:'none',padding:0,cursor:'pointer'}}>
                   <Avatar src={avatar} username={username} size={22} />
-                  {username}
+                  {realName || username}
                 </button>
                 {showUserMenu && ReactDOM.createPortal(
                   <>
@@ -17875,6 +17977,13 @@
             </div>
           )}
 
+          {showRealNamePrompt && (
+            <RealNamePrompt
+              onSave={(name) => { setRealName(name); localStorage.setItem('realName', name); setShowRealNamePrompt(false); }}
+              onDismiss={() => setShowRealNamePrompt(false)}
+            />
+          )}
+
           {showNotifications && (
             <NotificationsPanel
               notifications={notifications}
@@ -17899,6 +18008,7 @@
                 trackingData={trackingData}
                 shareBuddies={shareBuddies}
                 buddyLiveUpdates={buddyLiveUpdates}
+                displayName={displayName}
                 buddyEvents={buddyEvents}
                 onPost={postLiveUpdate}
                 onDeleteUpdate={deleteLiveUpdate}
@@ -17968,6 +18078,9 @@
               <SettingsView
                 username={username}
                 avatar={avatar}
+                realName={realName}
+                nameMode={nameMode}
+                onToggleNameMode={(mode) => { setNameMode(mode); localStorage.setItem('displayNameMode', mode); }}
                 onAvatarUpload={handleAvatarUpload}
                 onAvatarRemove={handleAvatarRemove}
                 theme={theme}
@@ -17999,6 +18112,7 @@
               <SocialView
                 shareBuddies={shareBuddies}
                 buddyLiveUpdates={buddyLiveUpdates}
+                displayName={displayName}
                 myGroups={myGroups}
                 activeGroupId={activeGroupId}
                 setActiveGroupId={setActiveGroupId}
@@ -18069,6 +18183,7 @@
             />
           )}
         </div>
+        </DisplayNameContext.Provider>
       );
     }
 

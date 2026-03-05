@@ -560,6 +560,13 @@ async function initDatabase() {
     // Column already exists — ignore
   }
 
+  // Migrate: add real_name to users
+  try {
+    db.run('ALTER TABLE users ADD COLUMN real_name TEXT');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
   // Migrate: move schedule_permissions into share_requests
   try {
     const migChk = db.prepare("SELECT COUNT(*) as cnt FROM share_requests");
@@ -1596,7 +1603,12 @@ app.get('/api/events', (req, res) => {
 // User registration
 app.post('/api/register', authLimiter, async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, realName } = req.body;
+
+    // Validate real name
+    if (!realName || realName.trim().length < 1 || realName.trim().length > 40) {
+      return res.status(400).json({ error: 'Full name is required (max 40 characters)' });
+    }
 
     // Validate username
     if (!username || username.length < 2 || username.length > 20) {
@@ -1624,8 +1636,8 @@ app.post('/api/register', authLimiter, async (req, res) => {
 
     // Insert user
     db.run(
-      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-      [username, email, hashedPassword]
+      'INSERT INTO users (username, email, password, real_name) VALUES (?, ?, ?, ?)',
+      [username, email, hashedPassword, realName.trim()]
     );
 
     await saveDatabase();
@@ -1667,7 +1679,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
       expiresIn: '24h'
     });
 
-    res.json({ token, username: user.username, userId: user.id, avatar: user.avatar || null });
+    res.json({ token, username: user.username, userId: user.id, avatar: user.avatar || null, realName: user.real_name || null });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed. Please try again.' });
@@ -1680,6 +1692,22 @@ app.post('/api/guest-login', (req, res) => {
     expiresIn: '4h'
   });
   res.json({ token, username: 'Guest', userId: 0, avatar: null, isGuest: true });
+});
+
+// Update user profile (real name)
+app.put('/api/profile', authenticateToken, requireRegistered, async (req, res) => {
+  try {
+    const { realName } = req.body;
+    if (!realName || realName.trim().length < 1 || realName.trim().length > 40) {
+      return res.status(400).json({ error: 'Full name is required (max 40 characters)' });
+    }
+    db.run('UPDATE users SET real_name = ? WHERE id = ?', [realName.trim(), req.user.id]);
+    await saveDatabase();
+    res.json({ realName: realName.trim() });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
 });
 
 // Forgot password — request reset link
@@ -2269,7 +2297,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
 
     // Accepted buddies (either direction)
     const buddyStmt = db.prepare(`
-      SELECT u.id, u.username, u.avatar, sr.responded_at AS since
+      SELECT u.id, u.username, u.avatar, u.real_name, sr.responded_at AS since
       FROM share_requests sr
       JOIN users u ON u.id = CASE WHEN sr.from_user_id = ? THEN sr.to_user_id ELSE sr.from_user_id END
       WHERE sr.status = 'accepted'
@@ -2282,7 +2310,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
 
     // Pending incoming
     const pendStmt = db.prepare(`
-      SELECT sr.id, u.id AS from_user_id, u.username, u.avatar, sr.created_at
+      SELECT sr.id, u.id AS from_user_id, u.username, u.avatar, u.real_name, sr.created_at
       FROM share_requests sr
       JOIN users u ON sr.from_user_id = u.id
       WHERE sr.to_user_id = ? AND sr.status = 'pending'
@@ -2294,7 +2322,7 @@ app.get('/api/share-buddies', authenticateToken, (req, res) => {
 
     // Pending outgoing
     const outStmt = db.prepare(`
-      SELECT sr.id, u.id AS to_user_id, u.username, u.avatar, sr.created_at
+      SELECT sr.id, u.id AS to_user_id, u.username, u.avatar, u.real_name, sr.created_at
       FROM share_requests sr
       JOIN users u ON sr.to_user_id = u.id
       WHERE sr.from_user_id = ? AND sr.status = 'pending'
@@ -2626,7 +2654,7 @@ app.get('/api/groups/:id/members', authenticateToken, (req, res) => {
     if (!isMember) return res.status(403).json({ error: 'Not a member of this group' });
 
     const stmt = db.prepare(`
-      SELECT u.id, u.username, u.avatar, gm.role
+      SELECT u.id, u.username, u.avatar, u.real_name, gm.role
       FROM group_members gm
       JOIN users u ON gm.user_id = u.id
       WHERE gm.group_id = ?
@@ -2705,7 +2733,7 @@ app.get('/api/groups/:id/feed', authenticateToken, (req, res) => {
 
     // Get messages
     let msgSql = `
-      SELECT gm.id, 'message' AS type, gm.user_id, u.username, u.avatar,
+      SELECT gm.id, 'message' AS type, gm.user_id, u.username, u.avatar, u.real_name,
              gm.message AS content, gm.created_at
       FROM group_messages gm
       JOIN users u ON gm.user_id = u.id
@@ -2795,7 +2823,7 @@ app.get('/api/groups/:id/schedule', authenticateToken, (req, res) => {
     const stmt = db.prepare(`
       SELECT t.id AS tournament_id, t.event_number, t.event_name, t.date, t.time,
              t.buyin, t.game_variant, t.venue, t.notes,
-             u.id AS user_id, u.username, u.avatar
+             u.id AS user_id, u.username, u.avatar, u.real_name
       FROM user_schedules us
       JOIN tournaments t ON us.tournament_id = t.id
       JOIN users u ON us.user_id = u.id
@@ -2861,7 +2889,7 @@ app.get('/api/groups/:id/leaderboard', authenticateToken, (req, res) => {
     if (!grp.leaderboard_enabled) return res.status(403).json({ error: 'Leaderboard is not enabled for this group' });
 
     const stmt = db.prepare(`
-      SELECT u.id, u.username, u.avatar,
+      SELECT u.id, u.username, u.avatar, u.real_name,
              COUNT(te.id) as events_played,
              SUM(CASE WHEN te.cashed = 1 THEN 1 ELSE 0 END) as cashes,
              SUM(COALESCE(t.buyin, 0) * COALESCE(te.num_entries, 1)) as total_buyins,
@@ -2873,7 +2901,7 @@ app.get('/api/groups/:id/leaderboard', authenticateToken, (req, res) => {
       LEFT JOIN tracking_entries te ON te.user_id = u.id
       LEFT JOIN tournaments t ON te.tournament_id = t.id
       WHERE gm.group_id = ?
-      GROUP BY u.id, u.username, u.avatar
+      GROUP BY u.id, u.username, u.avatar, u.real_name
     `);
     stmt.bind([groupId]);
     const rows = [];
@@ -2951,8 +2979,8 @@ app.get('/api/groups/:id/invites', authenticateToken, (req, res) => {
 
     const stmt = db.prepare(`
       SELECT gi.id, gi.invited_user_id, gi.invited_by, gi.created_at,
-             u.username, u.avatar,
-             inv.username AS invited_by_username
+             u.username, u.avatar, u.real_name,
+             inv.username AS invited_by_username, inv.real_name AS invited_by_real_name
       FROM group_invites gi
       JOIN users u ON gi.invited_user_id = u.id
       JOIN users inv ON gi.invited_by = inv.id
@@ -3056,7 +3084,7 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
     const giStmt = db.prepare(`
       SELECT gi.id, gi.group_id, gi.invited_by, gi.created_at,
              g.name AS group_name,
-             u.username AS invited_by_username, u.avatar AS invited_by_avatar
+             u.username AS invited_by_username, u.avatar AS invited_by_avatar, u.real_name AS invited_by_real_name
       FROM group_invites gi
       JOIN groups g ON gi.group_id = g.id
       JOIN users u ON gi.invited_by = u.id
@@ -3070,7 +3098,7 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
 
     // Pending incoming buddy requests
     const brStmt = db.prepare(`
-      SELECT sr.id, u.id AS from_user_id, u.username, u.avatar, sr.created_at
+      SELECT sr.id, u.id AS from_user_id, u.username, u.avatar, u.real_name, sr.created_at
       FROM share_requests sr
       JOIN users u ON sr.from_user_id = u.id
       WHERE sr.to_user_id = ? AND sr.status = 'pending'
@@ -3091,7 +3119,7 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
     let acceptedBuddies = [];
     if (lastSeen) {
       const abStmt = db.prepare(`
-        SELECT sr.id, u.id AS user_id, u.username, u.avatar, sr.responded_at
+        SELECT sr.id, u.id AS user_id, u.username, u.avatar, u.real_name, sr.responded_at
         FROM share_requests sr
         JOIN users u ON sr.to_user_id = u.id
         WHERE sr.from_user_id = ? AND sr.status = 'accepted' AND sr.responded_at > ?
@@ -3103,7 +3131,7 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
     } else {
       // If never seen, show all recently accepted (last 7 days)
       const abStmt = db.prepare(`
-        SELECT sr.id, u.id AS user_id, u.username, u.avatar, sr.responded_at
+        SELECT sr.id, u.id AS user_id, u.username, u.avatar, u.real_name, sr.responded_at
         FROM share_requests sr
         JOIN users u ON sr.to_user_id = u.id
         WHERE sr.from_user_id = ? AND sr.status = 'accepted'
@@ -3200,7 +3228,7 @@ app.get('/api/shared/:token', (req, res) => {
   try {
     const { token } = req.params;
     const tokenStmt = db.prepare(
-      'SELECT st.user_id, u.username, u.avatar FROM share_tokens st JOIN users u ON st.user_id = u.id WHERE st.token = ?'
+      'SELECT st.user_id, u.username, u.avatar, u.real_name FROM share_tokens st JOIN users u ON st.user_id = u.id WHERE st.token = ?'
     );
     tokenStmt.bind([token]);
     let tokenRow = null;
