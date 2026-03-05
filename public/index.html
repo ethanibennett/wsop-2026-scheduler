@@ -11994,6 +11994,7 @@
 
     function AuthScreen({ onSubmit, error, success, theme, toggleTheme, onForgotPassword, onGuestLogin, initialRegister }) {
       const [isRegister, setIsRegister] = useState(!!initialRegister);
+      const nextThemeLabel = THEME_LABEL[THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]];
 
       return (
         <div className="auth-wrap">
@@ -12069,6 +12070,7 @@
     }
 
     function ForgotPasswordForm({ onBack, theme, toggleTheme }) {
+      const nextThemeLabel = THEME_LABEL[THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]];
       const [email, setEmail] = useState('');
       const [error, setError] = useState('');
       const [success, setSuccess] = useState('');
@@ -12133,6 +12135,7 @@
     }
 
     function ResetPasswordForm({ resetToken, theme, toggleTheme }) {
+      const nextThemeLabel = THEME_LABEL[THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]];
       const [password, setPassword] = useState('');
       const [confirmPassword, setConfirmPassword] = useState('');
       const [error, setError] = useState('');
