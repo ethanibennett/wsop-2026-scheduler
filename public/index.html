@@ -10738,44 +10738,44 @@
                       </label>
                     );
                   })}
-                  {dateBounds.totalDays > 0 && (() => {
-                    const { minDate, maxDate, totalDays } = dateBounds;
-                    const fromIdx = filters.dateFrom ? Math.max(0, daysBetween(minDate, filters.dateFrom)) : 0;
-                    const toIdx = filters.dateTo ? Math.min(totalDays, daysBetween(minDate, filters.dateTo)) : totalDays;
-                    const fromDate = addDays(minDate, fromIdx);
-                    const toDate = addDays(minDate, toIdx);
-                    const pctL = (fromIdx / totalDays) * 100;
-                    const pctR = (toIdx / totalDays) * 100;
-                    return (
-                      <div style={{borderTop:'1px solid var(--border)',margin:'8px 0 2px',paddingTop:'8px'}}>
-                        <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Date Range</label>
-                        <div style={{padding:'0 6px'}}>
-                          <div className="date-slider-wrap">
-                            <div className="date-slider-track" />
-                            <div className="date-slider-fill" style={{left: pctL + '%', right: (100 - pctR) + '%'}} />
-                            <input type="range" className="date-slider-input" min={0} max={totalDays} value={fromIdx}
-                              onChange={e => {
-                                const v = Math.min(Number(e.target.value), toIdx);
-                                setFilters(f => ({...f, dateFrom: v <= 0 ? '' : addDays(minDate, v)}));
-                              }}
-                            />
-                            <input type="range" className="date-slider-input" min={0} max={totalDays} value={toIdx}
-                              onChange={e => {
-                                const v = Math.max(Number(e.target.value), fromIdx);
-                                setFilters(f => ({...f, dateTo: v >= totalDays ? '' : addDays(minDate, v)}));
-                              }}
-                            />
-                          </div>
-                          <div className="date-slider-labels">
-                            <span>{fmtShortDate(fromDate)}</span>
-                            <span>{fmtShortDate(toDate)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
                 </div>)}
               </div>
+              {dateBounds.totalDays > 0 && (() => {
+                const { minDate, maxDate, totalDays } = dateBounds;
+                const fromIdx = filters.dateFrom ? Math.max(0, daysBetween(minDate, filters.dateFrom)) : 0;
+                const toIdx = filters.dateTo ? Math.min(totalDays, daysBetween(minDate, filters.dateTo)) : totalDays;
+                const fromDate = addDays(minDate, fromIdx);
+                const toDate = addDays(minDate, toIdx);
+                const pctL = (fromIdx / totalDays) * 100;
+                const pctR = (toIdx / totalDays) * 100;
+                return (
+                  <div className="filter-group filter-span2">
+                    <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Date Range</label>
+                    <div style={{padding:'0 6px'}}>
+                      <div className="date-slider-wrap">
+                        <div className="date-slider-track" />
+                        <div className="date-slider-fill" style={{left: pctL + '%', right: (100 - pctR) + '%'}} />
+                        <input type="range" className="date-slider-input" min={0} max={totalDays} value={fromIdx}
+                          onChange={e => {
+                            const v = Math.min(Number(e.target.value), toIdx);
+                            setFilters(f => ({...f, dateFrom: v <= 0 ? '' : addDays(minDate, v)}));
+                          }}
+                        />
+                        <input type="range" className="date-slider-input" min={0} max={totalDays} value={toIdx}
+                          onChange={e => {
+                            const v = Math.max(Number(e.target.value), fromIdx);
+                            setFilters(f => ({...f, dateTo: v >= totalDays ? '' : addDays(minDate, v)}));
+                          }}
+                        />
+                      </div>
+                      <div className="date-slider-labels">
+                        <span>{fmtShortDate(fromDate)}</span>
+                        <span>{fmtShortDate(toDate)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="filter-group filter-span2">
                 <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setWhereOpen(w => !w)}>
                   Where?

@@ -3,6 +3,7 @@
 ## Recent Changes
 <!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
 <!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-03-05**: Moved date range slider outside When? dropdown — slider is now its own top-level filter group in the filter panel, always visible when panel is open (no need to expand When? first).
 - **2026-03-04**: Real name support — `real_name` column, `PUT /api/profile`, Full Name on registration, prompt for existing users on login, display name toggle (Real/Username) in Settings via `DisplayNameContext`, all name display locations updated.
 - **2026-03-04**: Add connections to groups from Social view — "Add to Group" button on expanded connection cards, new `GET /api/groups/:id/members` endpoint, fixed invite filter to exclude existing members, proper member list in group Members tab.
 - **2026-03-04**: Show connection schedules when offline — expanding a connection in Social view now fetches and displays their upcoming schedule (grouped by date), regardless of online status. Schedule data cached after first load.
