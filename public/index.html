@@ -10568,7 +10568,7 @@
       }, [open]);
 
       const hasActive = filters.minBuyin || filters.maxBuyin || (filters.buyinRanges && filters.buyinRanges.length > 0) || (filters.rakeRanges && filters.rakeRanges.length > 0) ||
-        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.hideWomens || filters.hideSeniors || filters.dateFrom || filters.dateTo;
+        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.hideWomens || filters.hideSeniors || filters.ladiesOnly || filters.seniorsOnly || filters.dateFrom || filters.dateTo;
 
       return (
         <>
@@ -10671,13 +10671,13 @@
               {(() => {
                 const quickFilters = [
                   { label: 'NLH', isActive: filters.selectedGames.length === 1 && filters.selectedGames[0] === 'NLH',
-                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.length === 1 && f.selectedGames[0] === 'NLH' ? [] : ['NLH'] })) },
+                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.length === 1 && f.selectedGames[0] === 'NLH' ? [] : ['NLH'], ladiesOnly: false, seniorsOnly: false })) },
                   { label: 'PLO', isActive: filters.selectedGames.length === 1 && filters.selectedGames[0] === 'PLO',
-                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.length === 1 && f.selectedGames[0] === 'PLO' ? [] : ['PLO'] })) },
-                  { label: 'Ladies', isActive: !filters.hideWomens,
-                    toggle: () => setFilters(f => ({ ...f, hideWomens: !f.hideWomens })) },
-                  { label: 'Seniors', isActive: !filters.hideSeniors,
-                    toggle: () => setFilters(f => ({ ...f, hideSeniors: !f.hideSeniors })) },
+                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.length === 1 && f.selectedGames[0] === 'PLO' ? [] : ['PLO'], ladiesOnly: false, seniorsOnly: false })) },
+                  { label: 'Ladies', isActive: !!filters.ladiesOnly,
+                    toggle: () => setFilters(f => ({ ...f, ladiesOnly: !f.ladiesOnly, seniorsOnly: false, selectedGames: [] })) },
+                  { label: 'Seniors', isActive: !!filters.seniorsOnly,
+                    toggle: () => setFilters(f => ({ ...f, seniorsOnly: !f.seniorsOnly, ladiesOnly: false, selectedGames: [] })) },
                 ];
                 return (
                   <div style={{display:'flex',gap:'8px',marginBottom:'10px'}}>
@@ -10929,7 +10929,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],hideWomens:false,hideSeniors:false,dateFrom:'',dateTo:''})
+                    setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],hideWomens:false,hideSeniors:false,ladiesOnly:false,seniorsOnly:false,dateFrom:'',dateTo:''})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -10945,7 +10945,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], hideWomens: false, hideSeniors: false, dateFrom: '', dateTo: ''
+        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], hideWomens: false, hideSeniors: false, ladiesOnly: false, seniorsOnly: false, dateFrom: '', dateTo: ''
       });
       const [filterPanelOpen, setFilterPanelOpen] = useState(false);
       const filterToggleRef = useRef(null);
@@ -11030,8 +11030,10 @@
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
             if (filters.hideSideEvents && t.is_deepstack) return false;
-            if (filters.hideWomens && /women|ladies/i.test(t.event_name)) return false;
-            if (filters.hideSeniors && /senior/i.test(t.event_name)) return false;
+            if (filters.ladiesOnly && !/women|ladies/i.test(t.event_name)) return false;
+            if (filters.seniorsOnly && !/senior/i.test(t.event_name)) return false;
+            if (!filters.ladiesOnly && filters.hideWomens && /women|ladies/i.test(t.event_name)) return false;
+            if (!filters.seniorsOnly && filters.hideSeniors && /senior/i.test(t.event_name)) return false;
             if (filters.hiddenMonths && filters.hiddenMonths.length > 0) {
               const m = new Date(t.date).getMonth();
               if (filters.hiddenMonths.includes(m)) return false;
