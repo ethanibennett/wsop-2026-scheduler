@@ -10534,7 +10534,6 @@
       const availableVenues = useMemo(() => {
         const countMap = {};
         (tournaments || []).forEach(t => {
-          if (t.is_satellite || t.is_restart || t.is_deepstack) return;
           const d = normaliseDate(t.date);
           if (filters.dateFrom && d < filters.dateFrom) return;
           if (filters.dateTo && d > filters.dateTo) return;
