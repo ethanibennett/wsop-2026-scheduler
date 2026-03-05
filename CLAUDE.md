@@ -3,6 +3,7 @@
 ## Recent Changes
 <!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
 <!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-03-04**: Real name support — `real_name` column, `PUT /api/profile`, Full Name on registration, prompt for existing users on login, display name toggle (Real/Username) in Settings via `DisplayNameContext`, all name display locations updated.
 - **2026-03-04**: Add connections to groups from Social view — "Add to Group" button on expanded connection cards, new `GET /api/groups/:id/members` endpoint, fixed invite filter to exclude existing members, proper member list in group Members tab.
 - **2026-03-04**: Show connection schedules when offline — expanding a connection in Social view now fetches and displays their upcoming schedule (grouped by date), regardless of online status. Schedule data cached after first load.
 - **2026-03-04**: User dropdown menu — username/avatar chip opens portal dropdown with "My Schedule" and "Sign Out". Uses z-index 9998/9999 to layer above all other UI. Background uses `var(--surface)` for opacity.
@@ -62,6 +63,7 @@ If SMTP is not configured, reset links are logged to the server console.
 ## API
 - Auth: POST `/api/register`, POST `/api/login`, POST `/api/guest-login` (JWT-based)
 - Password Reset: POST `/api/forgot-password`, POST `/api/reset-password`
+- Profile: PUT `/api/profile` (update real_name)
 - Tournaments: GET `/api/tournaments`, GET `/api/tournaments/:id`
 - Schedule: GET/POST/DELETE `/api/schedule` (per-user saved tournaments)
 - Tracking: GET/POST/PUT/DELETE `/api/tracking` (buy-ins, results, P&L)
