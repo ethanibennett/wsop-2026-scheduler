@@ -10951,7 +10951,8 @@
               });
               if (!matchesBuyin) return false;
             }
-            if (filters.rakeRanges && filters.rakeRanges.length > 0 && t.rake_pct != null) {
+            if (filters.rakeRanges && filters.rakeRanges.length > 0) {
+              if (t.rake_pct == null) return false;
               const r = Number(t.rake_pct);
               const matchesRake = filters.rakeRanges.some(rng => {
                 if (rng === '0-5') return r < 5;
