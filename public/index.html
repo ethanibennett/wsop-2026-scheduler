@@ -15518,28 +15518,30 @@
                           <div style={{padding:'6px 12px 4px',fontSize:'0.72rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',fontFamily:'Oswald, sans-serif'}}>
                             Upcoming Schedule ({upcoming.length} event{upcoming.length !== 1 ? 's' : ''})
                           </div>
+                          <div style={{display:'grid',gridTemplateColumns:'auto auto auto 1fr auto',gap:'0 6px',padding:'0 12px',fontSize:'0.8rem',alignItems:'center'}}>
                           {groups.map(group => {
                             const dateObj = new Date(group.date + 'T12:00:00');
                             const dayLabel = group.date === todayISO ? 'Today' :
                               ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dateObj.getDay()] + ' ' +
                               ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dateObj.getMonth()] + ' ' + dateObj.getDate();
                             return (
-                              <div key={group.date}>
+                              <React.Fragment key={group.date}>
                                 {group.events.map((t, i) => {
                                   const v = getVenueInfo(t.venue);
                                   return (
-                                    <div key={t.id} style={{display:'flex',alignItems:'center',gap:'6px',padding:'4px 12px',fontSize:'0.8rem'}}>
-                                      <span style={{fontSize:'0.72rem',fontWeight:700,color: i === 0 ? 'var(--text)' : 'transparent',fontFamily:"'Libre Baskerville', Georgia, serif",flexShrink:0,whiteSpace:'nowrap'}}>{dayLabel}</span>
-                                      <span style={{color: getVenueBrandColor(v.abbr),fontWeight:600,fontSize:'0.65rem',flexShrink:0,whiteSpace:'nowrap'}}>{v.abbr}</span>
-                                      <span style={{color:'var(--text-muted)',fontSize:'0.72rem',flexShrink:0,whiteSpace:'nowrap'}}>{t.time || 'TBD'}</span>
-                                      <span style={{color:'var(--text)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{t.event_name}</span>
-                                      <span style={{color:'var(--text-muted)',fontSize:'0.72rem',fontWeight:600,flexShrink:0,whiteSpace:'nowrap'}}>{formatBuyin(t.buyin)}</span>
-                                    </div>
+                                    <React.Fragment key={t.id}>
+                                      <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--text)',fontFamily:"'Libre Baskerville', Georgia, serif",whiteSpace:'nowrap',padding:'4px 0'}}>{i === 0 ? dayLabel : ''}</span>
+                                      <span style={{color: getVenueBrandColor(v.abbr),fontWeight:600,fontSize:'0.65rem',whiteSpace:'nowrap'}}>{v.abbr}</span>
+                                      <span style={{color:'var(--text-muted)',fontSize:'0.72rem',whiteSpace:'nowrap'}}>{t.time || 'TBD'}</span>
+                                      <span style={{color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{t.event_name}</span>
+                                      <span style={{color:'var(--text-muted)',fontSize:'0.72rem',fontWeight:600,whiteSpace:'nowrap',textAlign:'right'}}>{formatBuyin(t.buyin)}</span>
+                                    </React.Fragment>
                                   );
                                 })}
-                              </div>
+                              </React.Fragment>
                             );
                           })}
+                          </div>
                         </div>
                       );
                     })()}
