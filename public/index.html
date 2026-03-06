@@ -10568,7 +10568,7 @@
       }, [open]);
 
       const hasActive = filters.minBuyin || filters.maxBuyin || (filters.buyinRanges && filters.buyinRanges.length > 0) || (filters.rakeRanges && filters.rakeRanges.length > 0) ||
-        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.dateFrom || filters.dateTo;
+        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo;
 
       return (
         <>
@@ -10648,6 +10648,12 @@
                 <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, seniorsOnly:false}))}>✕</span>
               </span>
             )}
+            {filters.mixedOnly && (
+              <span className="filter-chip active">
+                Mixed
+                <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, mixedOnly:false}))}>✕</span>
+              </span>
+            )}
             {(filters.dateFrom || filters.dateTo) && (
               <span className="filter-chip active">
                 {filters.dateFrom && filters.dateTo ? `${fmtShortDate(filters.dateFrom)} — ${fmtShortDate(filters.dateTo)}` : filters.dateFrom ? `From ${fmtShortDate(filters.dateFrom)}` : `Until ${fmtShortDate(filters.dateTo)}`}
@@ -10674,6 +10680,8 @@
                     toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.includes('NLH') ? f.selectedGames.filter(g => g !== 'NLH') : [...f.selectedGames, 'NLH'] })) },
                   { label: 'PLO', isActive: filters.selectedGames.includes('PLO'),
                     toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.includes('PLO') ? f.selectedGames.filter(g => g !== 'PLO') : [...f.selectedGames, 'PLO'] })) },
+                  { label: 'Mixed', isActive: !!filters.mixedOnly,
+                    toggle: () => setFilters(f => ({ ...f, mixedOnly: !f.mixedOnly })) },
                   { label: 'Ladies', isActive: !!filters.ladiesOnly,
                     toggle: () => setFilters(f => ({ ...f, ladiesOnly: !f.ladiesOnly })) },
                   { label: 'Seniors', isActive: !!filters.seniorsOnly,
@@ -10929,7 +10937,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],ladiesOnly:false,seniorsOnly:false,dateFrom:'',dateTo:''})
+                    setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],ladiesOnly:false,seniorsOnly:false,mixedOnly:false,dateFrom:'',dateTo:''})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -10945,7 +10953,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, dateFrom: '', dateTo: ''
+        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: ''
       });
       const [filterPanelOpen, setFilterPanelOpen] = useState(false);
       const filterToggleRef = useRef(null);
@@ -11024,7 +11032,12 @@
               });
               if (!matchesRake) return false;
             }
-            if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
+            if (filters.selectedGames.length > 0 || filters.mixedOnly) {
+              const isMixed = t.game_variant !== 'NLH' && t.game_variant !== 'PLO';
+              const matchesGame = filters.selectedGames.length > 0 && filters.selectedGames.includes(t.game_variant);
+              const matchesMixed = filters.mixedOnly && isMixed;
+              if (!matchesGame && !matchesMixed) return false;
+            }
             if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
             if (filters.bountyOnly && !/bounty|mystery millions/i.test(t.event_name)) return false;
             if (filters.hideSatellites && t.is_satellite) return false;
