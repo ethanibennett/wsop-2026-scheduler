@@ -15270,13 +15270,14 @@
     function SocialView({
       shareBuddies, buddyLiveUpdates, displayName, myGroups, activeGroupId, setActiveGroupId,
       groupFeed, groupSchedule, fetchGroupFeed, fetchGroupSchedule, fetchMyGroups,
-      token, onNavigate
+      token, onRemoveBuddy, onNavigate
     }) {
       const [expandedId, setExpandedId] = useState(null);
       const [showCreateGroup, setShowCreateGroup] = useState(false);
       const [buddySchedules, setBuddySchedules] = useState({});
       const [loadingSchedule, setLoadingSchedule] = useState(null);
       const [addToGroupBuddyId, setAddToGroupBuddyId] = useState(null);
+      const [confirmRemoveId, setConfirmRemoveId] = useState(null);
       const [inviteStatus, setInviteStatus] = useState({}); // { buddyId: { groupId: 'sent' | 'error' | 'member' } }
 
       const handleInviteToGroup = async (buddyId, groupId, username) => {
@@ -15545,44 +15546,70 @@
                         </div>
                       );
                     })()}
-                    {isExpanded && myGroups && myGroups.length > 0 && (
-                      <div style={{borderTop:'1px solid var(--border)',marginTop:'4px',padding:'8px 12px'}}>
-                        {addToGroupBuddyId === buddy.id ? (
-                          <div>
-                            <div style={{fontSize:'0.72rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',fontFamily:'Oswald, sans-serif',marginBottom:'6px'}}>
-                              Add to Group
+                    {isExpanded && (
+                      <div style={{borderTop:'1px solid var(--border)',marginTop:'4px',padding:'8px 12px',display:'flex',flexDirection:'column',gap:'6px'}}>
+                        {myGroups && myGroups.length > 0 && (
+                          addToGroupBuddyId === buddy.id ? (
+                            <div>
+                              <div style={{fontSize:'0.72rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',fontFamily:'Oswald, sans-serif',marginBottom:'6px'}}>
+                                Add to Group
+                              </div>
+                              {myGroups.map(g => {
+                                const status = inviteStatus[buddy.id]?.[g.id];
+                                return (
+                                  <button
+                                    key={g.id}
+                                    disabled={!!status}
+                                    onClick={(e) => { e.stopPropagation(); handleInviteToGroup(buddy.id, g.id, buddy.username); }}
+                                    style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',
+                                      padding:'6px 8px',background:'none',border:'1px solid var(--border)',borderRadius:'6px',
+                                      color:'var(--text)',cursor: status ? 'default' : 'pointer',fontSize:'0.8rem',marginBottom:'4px',
+                                      opacity: status ? 0.6 : 1}}
+                                  >
+                                    <span>{g.name}</span>
+                                    <span style={{fontSize:'0.72rem',color: status === 'sent' ? '#22c55e' : status === 'member' ? 'var(--text-muted)' : status === 'error' ? '#ef4444' : 'var(--accent)'}}>
+                                      {status === 'sent' ? 'Invited' : status === 'member' ? 'Already in group' : status === 'error' ? 'Failed' : 'Invite'}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setAddToGroupBuddyId(null); }}
+                                style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'0.75rem',marginTop:'4px',padding:0}}
+                              >Cancel</button>
                             </div>
-                            {myGroups.map(g => {
-                              const status = inviteStatus[buddy.id]?.[g.id];
-                              return (
-                                <button
-                                  key={g.id}
-                                  disabled={!!status}
-                                  onClick={(e) => { e.stopPropagation(); handleInviteToGroup(buddy.id, g.id, buddy.username); }}
-                                  style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',
-                                    padding:'6px 8px',background:'none',border:'1px solid var(--border)',borderRadius:'6px',
-                                    color:'var(--text)',cursor: status ? 'default' : 'pointer',fontSize:'0.8rem',marginBottom:'4px',
-                                    opacity: status ? 0.6 : 1}}
-                                >
-                                  <span>{g.name}</span>
-                                  <span style={{fontSize:'0.72rem',color: status === 'sent' ? '#22c55e' : status === 'member' ? 'var(--text-muted)' : status === 'error' ? '#ef4444' : 'var(--accent)'}}>
-                                    {status === 'sent' ? 'Invited' : status === 'member' ? 'Already in group' : status === 'error' ? 'Failed' : 'Invite'}
-                                  </span>
-                                </button>
-                              );
-                            })}
+                          ) : (
                             <button
-                              onClick={(e) => { e.stopPropagation(); setAddToGroupBuddyId(null); }}
-                              style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'0.75rem',marginTop:'4px',padding:0}}
-                            >Cancel</button>
+                              onClick={(e) => { e.stopPropagation(); setAddToGroupBuddyId(buddy.id); }}
+                              style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',
+                                color:'var(--text)',cursor:'pointer',fontSize:'0.8rem',padding:'6px 12px',width:'100%',
+                                fontFamily:'Oswald, sans-serif'}}
+                            >+ Add to Group</button>
+                          )
+                        )}
+                        {confirmRemoveId === buddy.id ? (
+                          <div style={{display:'flex',alignItems:'center',gap:'8px',justifyContent:'space-between'}}>
+                            <span style={{fontSize:'0.75rem',color:'#ef4444'}}>Remove {displayName(buddy)}?</span>
+                            <div style={{display:'flex',gap:'6px'}}>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setConfirmRemoveId(null); }}
+                                style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',
+                                  color:'var(--text-muted)',cursor:'pointer',fontSize:'0.75rem',padding:'4px 10px'}}
+                              >Cancel</button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onRemoveBuddy(buddy.id); setConfirmRemoveId(null); setExpandedId(null); }}
+                                style={{background:'#b91c1c',border:'none',borderRadius:'6px',
+                                  color:'#fff',cursor:'pointer',fontSize:'0.75rem',padding:'4px 10px',fontWeight:600}}
+                              >Remove</button>
+                            </div>
                           </div>
                         ) : (
                           <button
-                            onClick={(e) => { e.stopPropagation(); setAddToGroupBuddyId(buddy.id); }}
+                            onClick={(e) => { e.stopPropagation(); setConfirmRemoveId(buddy.id); }}
                             style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',
-                              color:'var(--text)',cursor:'pointer',fontSize:'0.8rem',padding:'6px 12px',width:'100%',
+                              color:'#b91c1c',cursor:'pointer',fontSize:'0.8rem',padding:'6px 12px',width:'100%',
                               fontFamily:'Oswald, sans-serif'}}
-                          >+ Add to Group</button>
+                          >Remove Connection</button>
                         )}
                       </div>
                     )}
@@ -18433,6 +18460,7 @@
                 fetchGroupSchedule={fetchGroupSchedule}
                 fetchMyGroups={fetchMyGroups}
                 token={token}
+                onRemoveBuddy={handleRemoveBuddy}
                 onNavigate={(v) => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }}
               />
             )}
