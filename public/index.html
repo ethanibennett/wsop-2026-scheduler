@@ -10670,20 +10670,20 @@
             })()}>
               {(() => {
                 const quickFilters = [
-                  { label: 'NLH', isActive: filters.selectedGames.length === 1 && filters.selectedGames[0] === 'NLH',
-                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.length === 1 && f.selectedGames[0] === 'NLH' ? [] : ['NLH'], ladiesOnly: false, seniorsOnly: false })) },
-                  { label: 'PLO', isActive: filters.selectedGames.length === 1 && filters.selectedGames[0] === 'PLO',
-                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.length === 1 && f.selectedGames[0] === 'PLO' ? [] : ['PLO'], ladiesOnly: false, seniorsOnly: false })) },
+                  { label: 'NLH', isActive: filters.selectedGames.includes('NLH'),
+                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.includes('NLH') ? f.selectedGames.filter(g => g !== 'NLH') : [...f.selectedGames, 'NLH'] })) },
+                  { label: 'PLO', isActive: filters.selectedGames.includes('PLO'),
+                    toggle: () => setFilters(f => ({ ...f, selectedGames: f.selectedGames.includes('PLO') ? f.selectedGames.filter(g => g !== 'PLO') : [...f.selectedGames, 'PLO'] })) },
                   { label: 'Ladies', isActive: !!filters.ladiesOnly,
-                    toggle: () => setFilters(f => ({ ...f, ladiesOnly: !f.ladiesOnly, seniorsOnly: false, selectedGames: [] })) },
+                    toggle: () => setFilters(f => ({ ...f, ladiesOnly: !f.ladiesOnly })) },
                   { label: 'Seniors', isActive: !!filters.seniorsOnly,
-                    toggle: () => setFilters(f => ({ ...f, seniorsOnly: !f.seniorsOnly, ladiesOnly: false, selectedGames: [] })) },
+                    toggle: () => setFilters(f => ({ ...f, seniorsOnly: !f.seniorsOnly })) },
                 ];
                 return (
-                  <div style={{display:'flex',gap:'8px',marginBottom:'10px'}}>
+                  <div style={{display:'flex',gap:'6px',marginBottom:'10px'}}>
                     {quickFilters.map(qf => (
                       <button key={qf.label} className={`filter-chip ${qf.isActive ? 'active' : ''}`}
-                        style={{flex:'1 1 0',justifyContent:'center',textAlign:'center'}}
+                        style={{flex:'1 1 0',minWidth:0,justifyContent:'center',textAlign:'center'}}
                         onClick={qf.toggle}
                       >{qf.label}</button>
                     ))}
@@ -10901,13 +10901,13 @@
                   <div style={{display:'flex',flexDirection:'column',gap:'4px',marginTop:'4px'}}>
                     <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
                       <input type="checkbox" checked={!!filters.ladiesOnly}
-                        onChange={() => setFilters(f => ({...f, ladiesOnly:!f.ladiesOnly, seniorsOnly:false, selectedGames:[]}))}
+                        onChange={() => setFilters(f => ({...f, ladiesOnly:!f.ladiesOnly}))}
                         style={{marginTop:'1px'}}
                       /> Ladies
                     </label>
                     <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'0.82rem',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer',color:'var(--text)'}}>
                       <input type="checkbox" checked={!!filters.seniorsOnly}
-                        onChange={() => setFilters(f => ({...f, seniorsOnly:!f.seniorsOnly, ladiesOnly:false, selectedGames:[]}))}
+                        onChange={() => setFilters(f => ({...f, seniorsOnly:!f.seniorsOnly}))}
                         style={{marginTop:'1px'}}
                       /> Seniors
                     </label>
@@ -11030,8 +11030,13 @@
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
             if (filters.hideSideEvents && t.is_deepstack) return false;
-            if (filters.ladiesOnly && !/women|ladies/i.test(t.event_name)) return false;
-            if (filters.seniorsOnly && !/senior/i.test(t.event_name)) return false;
+            if (filters.ladiesOnly || filters.seniorsOnly) {
+              const isLadies = /women|ladies/i.test(t.event_name);
+              const isSeniors = /senior/i.test(t.event_name);
+              if (filters.ladiesOnly && filters.seniorsOnly) { if (!isLadies && !isSeniors) return false; }
+              else if (filters.ladiesOnly) { if (!isLadies) return false; }
+              else { if (!isSeniors) return false; }
+            }
             if (filters.hiddenMonths && filters.hiddenMonths.length > 0) {
               const m = new Date(t.date).getMonth();
               if (filters.hiddenMonths.includes(m)) return false;
