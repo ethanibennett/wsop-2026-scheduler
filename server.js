@@ -1353,6 +1353,16 @@ async function initDatabase() {
         console.log(`Backfill: flagged ${satCount} satellites, ${rstCount} restarts`);
       }
     },
+    {
+      name: 'tch-reentry-unlimited-2026-03',
+      fn: () => {
+        db.run(
+          `UPDATE tournaments SET reentry = 'Unlimited' WHERE venue = 'Texas Card House' AND (reentry IS NULL OR reentry = '')`
+        );
+        const updated = db.getRowsModified();
+        console.log(`TCH re-entry: set ${updated} events to Unlimited`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
