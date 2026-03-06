@@ -10680,7 +10680,7 @@
                     toggle: () => setFilters(f => ({ ...f, seniorsOnly: !f.seniorsOnly })) },
                 ];
                 return (
-                  <div style={{display:'flex',gap:'6px',marginBottom:'10px'}}>
+                  <div style={{display:'flex',gap:'6px',marginBottom:'10px',gridColumn:'1 / -1'}}>
                     {quickFilters.map(qf => (
                       <button key={qf.label} className={`filter-chip ${qf.isActive ? 'active' : ''}`}
                         style={{flex:'1 1 0',minWidth:0,justifyContent:'center',textAlign:'center'}}
