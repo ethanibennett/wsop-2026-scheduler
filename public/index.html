@@ -7277,6 +7277,36 @@
         },
       });
 
+      // ── Total max buy-ins footer ──
+      const totalMax = sorted.reduce((sum, ev) => {
+        const buyin = Number(ev.buyin) || 0;
+        const entries = ev.planned_entries || 1;
+        return sum + buyin * entries;
+      }, 0);
+      if (totalMax > 0) {
+        const finalY = doc.lastAutoTable.finalY || 24;
+        const footY = finalY + 6;
+        // Check if we need a new page
+        if (footY > ph - 20) {
+          doc.addPage();
+          currentPage++;
+          doc.setFillColor(17, 17, 17);
+          doc.rect(0, 0, pw, ph, 'F');
+          drawTitle();
+        }
+        const drawY = (footY > ph - 20) ? 30 : footY;
+        doc.setDrawColor(80, 80, 80);
+        doc.setLineWidth(0.3);
+        doc.line(mg, drawY, pw - mg, drawY);
+        doc.setFont(FONT_BODY, 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(160, 160, 160);
+        doc.text('TOTAL MAXIMUM BUY-INS', mg, drawY + 5);
+        doc.setFontSize(10);
+        doc.setTextColor(232, 232, 232);
+        doc.text('$' + totalMax.toLocaleString(), pw - mg, drawY + 5, { align: 'right' });
+      }
+
       doc.save('my-schedule.pdf');
     }
 
@@ -10521,7 +10551,7 @@
 
     // ── Filters ────────────────────────────────────────────────
 
-    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef }) {
+    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount }) {
       const panelRef = useRef(null);
       const [whereOpen, setWhereOpen] = useState(false);
       const [howMuchOpen, setHowMuchOpen] = useState(false);
@@ -10582,8 +10612,9 @@
 
       return (
         <>
-          <div className="filter-row" style={{gap:'8px',marginBottom:'0',width:'100%',alignItems:'center',justifyContent:'flex-end'}}>
-            <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>Show:</span>
+          <div className="filter-row" style={{gap:'8px',marginBottom:'0',width:'100%',alignItems:'center'}}>
+            {eventCount != null && <span style={{fontSize:'0.75rem',color:'var(--text-muted)',fontWeight:600,whiteSpace:'nowrap'}}>{eventCount} event{eventCount !== 1 ? 's' : ''}</span>}
+            <span style={{marginLeft:'auto',fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>Show:</span>
             <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
               <input type="checkbox" checked={!filters.hideSatellites}
                 onChange={e => setFilters(f => ({...f, hideSatellites:!e.target.checked}))}
@@ -11211,9 +11242,7 @@
               </div>
             </div>
 
-            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} />
-
-            <p className="results-count">{filtered.filter(t => !t.is_restart).length} event{filtered.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</p>
+            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} />
           </div>
 
           {filtered.length === 0 ? (
@@ -12635,6 +12664,7 @@
       }, [events]);
 
       const [selectedVenues, setSelectedVenues] = useState(() => new Set(venueList.map(([a]) => a)));
+      const [excludeSatellites, setExcludeSatellites] = useState(false);
 
       const allSelected = selectedVenues.size === venueList.length;
       const toggleAll = () => {
@@ -12649,10 +12679,10 @@
         });
       };
 
-      // Filtered events based on selected venues
+      // Filtered events based on selected venues + satellite exclusion
       const filteredEvents = useMemo(() =>
-        events.filter(e => selectedVenues.has(getVenueInfo(e.venue).abbr)),
-        [events, selectedVenues]
+        events.filter(e => selectedVenues.has(getVenueInfo(e.venue).abbr) && (!excludeSatellites || !e.is_satellite)),
+        [events, selectedVenues, excludeSatellites]
       );
 
       const handlePDF = async () => {
@@ -12738,10 +12768,41 @@
                     )
                   )
                 ),
-                filteredEvents.length < events.length && React.createElement('div', {
-                  style: { fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }
-                }, filteredEvents.length + ' of ' + events.length + ' events selected')
               ),
+
+              // ── Exclude satellites + event count row ──
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' } },
+                React.createElement('label', {
+                  style: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontFamily: "'Oswald', sans-serif", fontWeight: 500, color: 'var(--text)', cursor: 'pointer' }
+                },
+                  React.createElement('input', {
+                    type: 'checkbox',
+                    checked: excludeSatellites,
+                    onChange: e => setExcludeSatellites(e.target.checked),
+                    style: { width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }
+                  }),
+                  'Exclude Satellites'
+                ),
+                React.createElement('span', {
+                  style: { fontSize: '0.72rem', color: 'var(--text-muted)' }
+                }, filteredEvents.length + ' event' + (filteredEvents.length !== 1 ? 's' : ''))
+              ),
+
+              // ── Total max buyins ──
+              (() => {
+                const totalMax = filteredEvents.reduce((sum, e) => {
+                  if (e.is_restart) return sum;
+                  const buyin = Number(e.buyin) || 0;
+                  const entries = e.planned_entries || 1;
+                  return sum + buyin * entries;
+                }, 0);
+                return totalMax > 0 ? React.createElement('div', {
+                  style: { marginBottom: '12px', padding: '10px 12px', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }
+                },
+                  React.createElement('div', { style: { fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', fontFamily: "'Oswald', sans-serif" } }, 'Total Maximum Buy-ins'),
+                  React.createElement('div', { style: { fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)', fontFamily: "'Oswald', sans-serif" } }, '$' + totalMax.toLocaleString())
+                ) : null;
+              })(),
 
               // ── Export buttons ──
               React.createElement('div', { className: 'export-options' },
@@ -15506,7 +15567,7 @@
                 <div className="social-buddy-info">
                   <div className="social-buddy-name">{g.name}</div>
                   <div className="social-group-meta">
-                    {g.member_count} member{g.member_count !== 1 ? 's' : ''}
+                    {g.member_count} member{g.member_count !== 1 ? 's' : ''}{g.owner_name ? ` · Owner: ${g.owner_name}` : ''}
                     {g.last_message && (
                       <span> · {g.last_message_by}: "{g.last_message.length > 25 ? g.last_message.slice(0, 25) + '…' : g.last_message}" {timeAgo(g.last_message_at)}</span>
                     )}
@@ -16021,7 +16082,7 @@
             <button className="group-back-btn" onClick={onBack}>←</button>
             <div style={{flex:1}}>
               <div className="social-buddy-name" style={{fontSize:16}}>{group.name}</div>
-              <div style={{fontSize:12,color:'var(--text-secondary)'}}>{group.member_count} member{group.member_count !== 1 ? 's' : ''}</div>
+              <div style={{fontSize:12,color:'var(--text-secondary)'}}>{group.member_count} member{group.member_count !== 1 ? 's' : ''}{group.owner_name ? ` · Owner: ${group.owner_name}` : ''}</div>
             </div>
             {isOwner ? (
               <button onClick={handleDeleteGroup} style={{background:'none',border:'none',color:'var(--text-secondary)',fontSize:13,cursor:'pointer'}}>Delete</button>
@@ -18518,7 +18579,11 @@
             )}
 
             {currentView === 'hands' && (
-              <HandReplayerView token={token} />
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
+                <div style={{fontSize:'2.5rem',marginBottom:'12px'}}>🃏</div>
+                <h2 style={{fontFamily:"'Oswald', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Hand Replayer</h2>
+                <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
+              </div>
             )}
 
             {currentView === 'settings' && (
@@ -18554,7 +18619,13 @@
               />
             )}
 
-            {currentView === 'staking' && <StakingView token={token} tournaments={tournaments} mySchedule={mySchedule} />}
+            {currentView === 'staking' && (
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
+                <div style={{fontSize:'2.5rem',marginBottom:'12px'}}>💰</div>
+                <h2 style={{fontFamily:"'Oswald', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Staking</h2>
+                <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
+              </div>
+            )}
             {currentView === 'social' && (
               <SocialView
                 shareBuddies={shareBuddies}

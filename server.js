@@ -2517,11 +2517,12 @@ app.get('/api/groups', authenticateToken, (req, res) => {
   try {
     const stmt = db.prepare(`
       SELECT g.id, g.name, g.avatar, g.created_by, g.created_at, g.leaderboard_enabled,
-             (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS member_count,
+             (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) + CASE WHEN NOT EXISTS (SELECT 1 FROM group_members gm_chk WHERE gm_chk.group_id = g.id AND gm_chk.user_id = g.created_by) THEN 1 ELSE 0 END AS member_count,
              (SELECT gm3.role FROM group_members gm3 WHERE gm3.group_id = g.id AND gm3.user_id = ?) AS my_role,
              (SELECT m.message FROM group_messages m WHERE m.group_id = g.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,
              (SELECT u2.username FROM group_messages m2 JOIN users u2 ON m2.user_id = u2.id WHERE m2.group_id = g.id ORDER BY m2.created_at DESC LIMIT 1) AS last_message_by,
-             (SELECT m3.created_at FROM group_messages m3 WHERE m3.group_id = g.id ORDER BY m3.created_at DESC LIMIT 1) AS last_message_at
+             (SELECT m3.created_at FROM group_messages m3 WHERE m3.group_id = g.id ORDER BY m3.created_at DESC LIMIT 1) AS last_message_at,
+             (SELECT u_owner.username FROM users u_owner WHERE u_owner.id = g.created_by) AS owner_name
       FROM groups g
       JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = ?
       ORDER BY COALESCE(
