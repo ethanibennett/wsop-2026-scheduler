@@ -1427,16 +1427,13 @@ async function initDatabase() {
     )
   `);
 
-  // ── Saved Hands (Hand Replayer) ──
+  // ── Custom Game Definitions (Hand Replayer) ──
   db.run(`
-    CREATE TABLE IF NOT EXISTS saved_hands (
+    CREATE TABLE IF NOT EXISTS replayer_games (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      hand_data TEXT NOT NULL,
-      game_type TEXT NOT NULL,
-      title TEXT,
-      notes TEXT,
-      is_public INTEGER DEFAULT 0,
+      name TEXT NOT NULL,
+      definition TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -5472,6 +5469,137 @@ app.delete('/api/hands/:id', authenticateToken, requireRegistered, async (req, r
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+/// ── Hand Replayer API ──────────────────────────────────
+
+// Serve replayer page
+app.get('/replayer', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'replayer.html'));
+});
+
+// Replayer hands — reuse saved_hands table with replayer-specific endpoints
+app.get('/api/replayer/hands', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT id, hand_data, game_type, title, notes, created_at FROM saved_hands WHERE user_id = ? ORDER BY created_at DESC');
+    stmt.bind([req.user.id]);
+    const hands = [];
+    while (stmt.step()) {
+      const row = stmt.getAsObject();
+      try { row.hand_data = JSON.parse(row.hand_data); } catch(e) {}
+      hands.push(row);
+    }
+    stmt.free();
+    // Re-map to replayer format
+    res.json(hands.map(h => {
+      const data = typeof h.hand_data === 'object' ? h.hand_data : {};
+      return { id: h.id, title: h.title || data.title, notes: h.notes || data.notes, ...data, created_at: h.created_at };
+    }));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to load hands' });
+  }
+});
+
+app.post('/api/replayer/hands', authenticateToken, requireRegistered, async (req, res) => {
+  try {
+    const hand = req.body;
+    const handData = JSON.stringify(hand);
+    const gameType = hand.gameKey || hand.gameDefinition?.shortName || 'custom';
+    db.run(
+      'INSERT INTO saved_hands (user_id, hand_data, game_type, title, notes) VALUES (?, ?, ?, ?, ?)',
+      [req.user.id, handData, gameType, hand.title || null, hand.notes || null]
+    );
+    await saveDatabase();
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+    res.status(201).json({ id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to save hand' });
+  }
+});
+
+app.put('/api/replayer/hands/:id', authenticateToken, requireRegistered, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const checkStmt = db.prepare('SELECT id FROM saved_hands WHERE id = ? AND user_id = ?');
+    checkStmt.bind([id, req.user.id]);
+    if (!checkStmt.step()) { checkStmt.free(); return res.status(404).json({ error: 'Not found' }); }
+    checkStmt.free();
+    const hand = req.body;
+    const handData = JSON.stringify(hand);
+    const gameType = hand.gameKey || hand.gameDefinition?.shortName || 'custom';
+    db.run('UPDATE saved_hands SET hand_data = ?, game_type = ?, title = ?, notes = ? WHERE id = ? AND user_id = ?',
+      [handData, gameType, hand.title || null, hand.notes || null, id, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update hand' });
+  }
+});
+
+app.delete('/api/replayer/hands/:id', authenticateToken, requireRegistered, async (req, res) => {
+  try {
+    const { id } = req.params;
+    db.run('DELETE FROM saved_hands WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete hand' });
+  }
+});
+
+// Custom game definitions
+app.get('/api/replayer/games', authenticateToken, (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT id, name, definition, created_at FROM replayer_games WHERE user_id = ? ORDER BY created_at DESC');
+    stmt.bind([req.user.id]);
+    const games = [];
+    while (stmt.step()) {
+      const row = stmt.getAsObject();
+      try { row.definition = JSON.parse(row.definition); } catch(e) {}
+      games.push({ id: row.id, name: row.name, ...row.definition, created_at: row.created_at });
+    }
+    stmt.free();
+    res.json(games);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to load games' });
+  }
+});
+
+app.post('/api/replayer/games', authenticateToken, requireRegistered, async (req, res) => {
+  try {
+    const game = req.body;
+    db.run('INSERT INTO replayer_games (user_id, name, definition) VALUES (?, ?, ?)',
+      [req.user.id, game.name || 'Custom Game', JSON.stringify(game)]);
+    await saveDatabase();
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+    res.status(201).json({ id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to save game' });
+  }
+});
+
+app.delete('/api/replayer/games/:id', authenticateToken, requireRegistered, async (req, res) => {
+  try {
+    const { id } = req.params;
+    db.run('DELETE FROM replayer_games WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    await saveDatabase();
+    res.json({ message: 'Deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete game' });
   }
 });
 

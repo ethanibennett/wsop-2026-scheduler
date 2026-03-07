@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hand Replayer</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+/* === RESET & BASE === */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d0d0d; --surface: #1a1a1a; --surface2: #242424; --surface3: #2e2e2e;
+  --text: #e8e8e8; --text2: #999; --accent: #4a9eff; --accent2: #2d7ad6;
+  --felt: #1a5c2e; --felt2: #145024; --rail: #3d2b1f; --rail2: #2a1d15;
+  --red: #e74c3c; --green: #27ae60; --gold: #f39c12;
+  --card-w: 56; --card-h: 80;
+  --radius: 6px; --radius-lg: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px; color: var(--text); background: var(--bg);
+}
+body { min-height: 100vh; overflow-x: hidden; }
+#root { display: flex; flex-direction: column; min-height: 100vh; }
+button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, select, textarea { font: inherit; color: inherit; background: var(--surface2); border: 1px solid var(--surface3); border-radius: var(--radius); padding: 6px 10px; outline: none; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+/* === LAYOUT === */
+.app { display: flex; flex-direction: column; height: 100vh; }
+.header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--surface2); background: var(--surface); }
+.header h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+.header nav { display: flex; gap: 2px; margin-left: auto; }
+.header nav button { padding: 6px 14px; border-radius: var(--radius); font-size: 13px; color: var(--text2); transition: all 0.15s; }
+.header nav button:hover { color: var(--text); background: var(--surface2); }
+.header nav button.active { color: var(--text); background: var(--surface2); }
+.main { flex: 1; display: flex; overflow: hidden; }
+
+/* === TABLE VIEW === */
+.table-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.canvas-wrap { flex: 1; position: relative; overflow: hidden; }
+.canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+.controls { display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: var(--surface); border-top: 1px solid var(--surface2); }
+.controls .street-label { font-size: 12px; color: var(--text2); min-width: 80px; text-transform: uppercase; letter-spacing: 0.5px; }
+.controls .btn { padding: 6px 12px; border-radius: var(--radius); background: var(--surface2); font-size: 13px; transition: background 0.15s; }
+.controls .btn:hover { background: var(--surface3); }
+.controls .btn.primary { background: var(--accent); color: #fff; }
+.controls .btn.primary:hover { background: var(--accent2); }
+.controls .spacer { flex: 1; }
+.controls .speed { font-size: 12px; color: var(--text2); }
+
+/* === SIDEBAR === */
+.sidebar { width: 320px; border-left: 1px solid var(--surface2); display: flex; flex-direction: column; background: var(--surface); overflow-y: auto; }
+.sidebar-section { padding: 16px; border-bottom: 1px solid var(--surface2); }
+.sidebar-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); margin-bottom: 10px; }
+.action-log { flex: 1; overflow-y: auto; padding: 0; }
+.action-item { padding: 8px 16px; font-size: 13px; display: flex; gap: 8px; align-items: baseline; border-left: 2px solid transparent; }
+.action-item.current { background: var(--surface2); border-left-color: var(--accent); }
+.action-item .player-name { font-weight: 600; min-width: 60px; }
+.action-item .action-text { color: var(--text2); }
+.action-item .amount { color: var(--gold); margin-left: auto; }
+.action-item.fold .player-name { color: var(--text2); text-decoration: line-through; }
+.action-item.deal { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 16px; }
+
+/* === HAND LIST === */
+.hand-list { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.hand-card { padding: 12px; background: var(--surface2); border-radius: var(--radius); cursor: pointer; transition: background 0.15s; }
+.hand-card:hover { background: var(--surface3); }
+.hand-card .title { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.hand-card .meta { font-size: 11px; color: var(--text2); }
+.hand-card.active { outline: 1px solid var(--accent); }
+
+/* === EDITOR === */
+.editor { padding: 20px; overflow-y: auto; flex: 1; }
+.editor h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.field input, .field select, .field textarea { width: 100%; }
+.field textarea { min-height: 80px; resize: vertical; }
+.field-row { display: flex; gap: 10px; }
+.field-row .field { flex: 1; }
+.player-row { display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--surface2); border-radius: var(--radius); margin-bottom: 6px; }
+.player-row .seat { font-size: 11px; color: var(--text2); width: 30px; }
+.player-row input { flex: 1; background: var(--surface3); }
+.player-row .remove-btn { color: var(--red); font-size: 16px; padding: 2px 6px; }
+
+/* === CARD PICKER === */
+.card-picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.card-picker { background: var(--surface); border-radius: var(--radius-lg); padding: 20px; max-width: 440px; width: 90%; }
+.card-picker h3 { font-size: 14px; margin-bottom: 12px; }
+.card-grid { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; margin-bottom: 12px; }
+.card-btn { aspect-ratio: 0.7; border-radius: 3px; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; background: var(--surface2); transition: all 0.1s; border: 1px solid transparent; }
+.card-btn:hover { background: var(--surface3); }
+.card-btn.selected { background: var(--accent); color: #fff; }
+.card-btn.used { opacity: 0.2; pointer-events: none; }
+.card-btn.red { color: var(--red); }
+.card-btn.red.selected { color: #fff; }
+
+/* === GAME BUILDER === */
+.builder { padding: 20px; overflow-y: auto; flex: 1; }
+.builder h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+.street-editor { background: var(--surface2); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; }
+.street-editor .street-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.street-editor .street-header input { flex: 1; }
+.deal-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; }
+.deal-row select, .deal-row input { width: auto; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px; font-size: 11px; background: var(--surface3); }
+.chip.removable { cursor: pointer; }
+.chip.removable:hover { background: var(--red); color: #fff; }
+
+/* === GAME PRESET PICKER === */
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 12px; }
+.preset-card { padding: 14px 12px; background: var(--surface2); border-radius: var(--radius); cursor: pointer; text-align: center; transition: all 0.15s; border: 1px solid transparent; }
+.preset-card:hover { background: var(--surface3); border-color: var(--surface3); }
+.preset-card.active { border-color: var(--accent); }
+.preset-card .name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.preset-card .desc { font-size: 11px; color: var(--text2); }
+
+/* === EMPTY STATE === */
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; color: var(--text2); text-align: center; flex: 1; }
+.empty p { margin-bottom: 12px; font-size: 14px; }
+
+/* === SCROLLBAR === */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+const SUITS = ['s','h','d','c'];
+const RANKS = ['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+const SUIT_SYMBOLS = { s:'\u2660', h:'\u2665', d:'\u2666', c:'\u2663' };
+const SUIT_COLORS = { s:'#e8e8e8', h:'#e74c3c', d:'#4a9eff', c:'#27ae60' };
+const SUIT_NAMES = { s:'Spades', h:'Hearts', d:'Diamonds', c:'Clubs' };
+
+function buildDeck(type = 'standard52', customRanks, customSuits) {
+  const r = type === 'custom' && customRanks ? customRanks : RANKS;
+  const s = type === 'custom' && customSuits ? customSuits : SUITS;
+  const deck = [];
+  for (const rank of r) for (const suit of s) deck.push(rank + suit);
+  if (type === 'standard52+jokers') { deck.push('JK','JR'); }
+  if (type === 'short-deck') { return deck.filter(c => !['2','3','4','5'].includes(c[0])); }
+  return deck;
+}
+
+// ============================================================
+// GAME PRESETS
+// ============================================================
+const PRESETS = {
+  'nlhe': {
+    name: "No-Limit Hold'em", shortName: 'NLHE',
+    deck: { type: 'standard52' },
+    players: { min: 2, max: 10 },
+    forcedBets: [{ name:'SB', amount: 0.5 }, { name:'BB', amount: 1 }],
+    streets: [
+      { name:'Preflop', deals:[{ to:'player', count:2, faceDown:true }], betting:true },
+      { name:'Flop', deals:[{ to:'community', count:3, faceUp:true }], betting:true },
+      { name:'Turn', deals:[{ to:'community', count:1, faceUp:true }], betting:true },
+      { name:'River', deals:[{ to:'community', count:1, faceUp:true }], betting:true },
+    ],
+    showdown: { handSize:5, holeCardsUsed:{ min:0, max:2 }, rankings:'high' },
+  },
+  'plo': {
+    name: "Pot-Limit Omaha", shortName: 'PLO',
+    deck: { type: 'standard52' },
+    players: { min: 2, max: 10 },
+    forcedBets: [{ name:'SB', amount: 0.5 }, { name:'BB', amount: 1 }],
+    streets: [
+      { name:'Preflop', deals:[{ to:'player', count:4, faceDown:true }], betting:true },
+      { name:'Flop', deals:[{ to:'community', count:3, faceUp:true }], betting:true },
+      { name:'Turn', deals:[{ to:'community', count:1, faceUp:true }], betting:true },
+      { name:'River', deals:[{ to:'community', count:1, faceUp:true }], betting:true },
+    ],
+    showdown: { handSize:5, holeCardsUsed:{ min:2, max:2 }, rankings:'high' },
+  },
+  'stud7': {
+    name: "7-Card Stud", shortName: 'Stud',
+    deck: { type: 'standard52' },
+    players: { min: 2, max: 8 },
+    forcedBets: [{ name:'Ante', amount: 0.25 }, { name:'Bring-in', amount: 0.5 }],
+    streets: [
+      { name:'3rd Street', deals:[{ to:'player', count:2, faceDown:true },{ to:'player', count:1, faceUp:true }], betting:true },
+      { name:'4th Street', deals:[{ to:'player', count:1, faceUp:true }], betting:true },
+      { name:'5th Street', deals:[{ to:'player', count:1, faceUp:true }], betting:true },
+      { name:'6th Street', deals:[{ to:'player', count:1, faceUp:true }], betting:true },
+      { name:'7th Street', deals:[{ to:'player', count:1, faceDown:true }], betting:true },
+    ],
+    showdown: { handSize:5, holeCardsUsed:{ min:5, max:5 }, rankings:'high' },
+  },
+  'draw5': {
+    name: "5-Card Draw", shortName: 'Draw',
+    deck: { type: 'standard52' },
+    players: { min: 2, max: 6 },
+    forcedBets: [{ name:'SB', amount: 0.5 }, { name:'BB', amount: 1 }],
+    streets: [
+      { name:'Deal', deals:[{ to:'player', count:5, faceDown:true }], betting:true },
+      { name:'Draw', deals:[], discard:{ maxCount:5, drawNew:true }, betting:true },
+    ],
+    showdown: { handSize:5, holeCardsUsed:{ min:5, max:5 }, rankings:'high' },
+  },
+  'pineapple': {
+    name: "Crazy Pineapple", shortName: 'Pine',
+    deck: { type: 'standard52' },
+    players: { min: 2, max: 10 },
+    forcedBets: [{ name:'SB', amount: 0.5 }, { name:'BB', amount: 1 }],
+    streets: [
+      { name:'Preflop', deals:[{ to:'player', count:3, faceDown:true }], betting:true },
+      { name:'Flop', deals:[{ to:'community', count:3, faceUp:true }], betting:true, discard:{ maxCount:1, drawNew:false, required:true } },
+      { name:'Turn', deals:[{ to:'community', count:1, faceUp:true }], betting:true },
+      { name:'River', deals:[{ to:'community', count:1, faceUp:true }], betting:true },
+    ],
+    showdown: { handSize:5, holeCardsUsed:{ min:0, max:2 }, rankings:'high' },
+  },
+  'short': {
+    name: "Short Deck", shortName: 'SD',
+    deck: { type: 'short-deck' },
+    players: { min: 2, max: 9 },
+    forcedBets: [{ name:'Ante', amount: 1 }, { name:'BB', amount: 1 }],
+    streets: [
+      { name:'Preflop', deals:[{ to:'player', count:2, faceDown:true }], betting:true },
+      { name:'Flop', deals:[{ to:'community', count:3, faceUp:true }], betting:true },
+      { name:'Turn', deals:[{ to:'community', count:1, faceUp:true }], betting:true },
+      { name:'River', deals:[{ to:'community', count:1, faceUp:true }], betting:true },
+    ],
+    showdown: { handSize:5, holeCardsUsed:{ min:0, max:2 }, rankings:'high' },
+  },
+};
+
+// ============================================================
+// HAND / REPLAY STATE
+// ============================================================
+function createEmptyHand(gameKey = 'nlhe', customGame = null) {
+  const game = customGame || PRESETS[gameKey];
+  return {
+    id: null,
+    gameKey: customGame ? 'custom' : gameKey,
+    gameDefinition: { ...game },
+    title: '',
+    stakes: '1/2',
+    players: [
+      { seat: 0, name: 'Hero', stack: 200, holeCards: [] },
+      { seat: 1, name: 'Opp 1', stack: 200, holeCards: [] },
+    ],
+    communityCards: [],
+    actions: [],
+    notes: '',
+    result: null,
+  };
+}
+
+function getStreetActions(hand) {
+  const streets = hand.gameDefinition.streets;
+  const grouped = streets.map(s => ({ street: s.name, actions: [] }));
+  let si = 0;
+  for (const a of hand.actions) {
+    if (a.type === 'street') {
+      si = streets.findIndex(s => s.name === a.street);
+      if (si < 0) si = 0;
+    } else {
+      if (grouped[si]) grouped[si].actions.push(a);
+    }
+  }
+  return grouped;
+}
+
+// ============================================================
+// CANVAS TABLE RENDERER
+// ============================================================
+class TableRenderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.dpr = window.devicePixelRatio || 1;
+  }
+
+  resize() {
+    const rect = this.canvas.parentElement.getBoundingClientRect();
+    this.w = rect.width;
+    this.h = rect.height;
+    this.canvas.width = this.w * this.dpr;
+    this.canvas.height = this.h * this.dpr;
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.cx = this.w / 2;
+    this.cy = this.h / 2;
+    // table radii
+    this.rx = Math.min(this.w * 0.42, 400);
+    this.ry = Math.min(this.h * 0.38, 220);
+  }
+
+  render(state) {
+    const { ctx, w, h, cx, cy, rx, ry } = this;
+    ctx.clearRect(0, 0, w, h);
+
+    // Background
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(0, 0, w, h);
+
+    // Table rail
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx + 16, ry + 16, 0, 0, Math.PI * 2);
+    const railGrad = ctx.createRadialGradient(cx, cy - 30, 0, cx, cy, rx + 20);
+    railGrad.addColorStop(0, '#5a3d2b');
+    railGrad.addColorStop(1, '#2a1d15');
+    ctx.fillStyle = railGrad;
+    ctx.fill();
+
+    // Felt
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    const feltGrad = ctx.createRadialGradient(cx, cy - 20, 0, cx, cy, rx);
+    feltGrad.addColorStop(0, '#1f7a3a');
+    feltGrad.addColorStop(1, '#145024');
+    ctx.fillStyle = feltGrad;
+    ctx.fill();
+
+    // Felt edge
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    if (!state || !state.players) return;
+
+    // Pot
+    if (state.pot > 0) {
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.font = '600 13px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Pot: ' + state.pot, cx, cy - ry * 0.05 + 1);
+      ctx.fillStyle = '#f39c12';
+      ctx.fillText('Pot: ' + state.pot, cx, cy - ry * 0.05);
+    }
+
+    // Community cards
+    if (state.communityCards && state.communityCards.length > 0) {
+      const cw = 44, ch = 62, gap = 6;
+      const totalW = state.communityCards.length * (cw + gap) - gap;
+      const startX = cx - totalW / 2;
+      state.communityCards.forEach((card, i) => {
+        this.drawCard(startX + i * (cw + gap), cy - ch / 2 + 10, cw, ch, card);
+      });
+    }
+
+    // Players
+    const n = state.players.length;
+    state.players.forEach((p, i) => {
+      const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+      const px = cx + Math.cos(angle) * (rx + 2);
+      const py = cy + Math.sin(angle) * (ry + 2);
+      this.drawPlayer(px, py, p, state.currentPlayer === i, state.streetIndex, state.folded);
+    });
+  }
+
+  drawPlayer(x, y, player, isCurrent, streetIndex, folded) {
+    const { ctx } = this;
+    const isFolded = folded && folded.has(player.seat);
+
+    // Name + stack
+    ctx.textAlign = 'center';
+    ctx.font = '600 12px -apple-system, system-ui, sans-serif';
+    ctx.fillStyle = isFolded ? 'rgba(255,255,255,0.25)' : '#fff';
+    ctx.fillText(player.name, x, y - 46);
+    ctx.font = '11px -apple-system, system-ui, sans-serif';
+    ctx.fillStyle = isFolded ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)';
+    ctx.fillText(player.stack.toLocaleString(), x, y - 33);
+
+    // Current player indicator
+    if (isCurrent && !isFolded) {
+      ctx.beginPath();
+      ctx.arc(x, y - 14, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#4a9eff';
+      ctx.fill();
+    }
+
+    // Hole cards
+    if (player.holeCards && player.holeCards.length > 0) {
+      const cw = 36, ch = 52, gap = 4;
+      const totalW = player.holeCards.length * (cw + gap) - gap;
+      const startX = x - totalW / 2;
+      player.holeCards.forEach((card, i) => {
+        if (isFolded) {
+          this.drawCardBack(startX + i * (cw + gap), y - 22, cw, ch, 0.3);
+        } else {
+          this.drawCard(startX + i * (cw + gap), y - 22, cw, ch, card);
+        }
+      });
+    }
+
+    // Bet amount
+    if (player.bet && player.bet > 0) {
+      const betX = x;
+      const betY = y + 38;
+      ctx.font = '600 11px -apple-system, system-ui, sans-serif';
+      ctx.fillStyle = '#f39c12';
+      ctx.textAlign = 'center';
+      ctx.fillText(player.bet, betX, betY);
+    }
+  }
+
+  drawCard(x, y, w, h, card) {
+    const { ctx } = this;
+    if (!card || card === '??') { this.drawCardBack(x, y, w, h); return; }
+
+    // Card background
+    ctx.beginPath();
+    this.roundRect(x, y, w, h, 4);
+    ctx.fillStyle = '#f5f5f0';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 2;
+    ctx.beginPath();
+    this.roundRect(x, y, w, h, 4);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    const rank = card.slice(0, -1);
+    const suit = card.slice(-1);
+    const color = (suit === 'h' || suit === 'd') ? '#d32f2f' : '#1a1a1a';
+
+    // Rank
+    ctx.font = '700 ' + (w * 0.36) + 'px -apple-system, system-ui, sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.fillText(rank, x + w / 2, y + h * 0.38);
+
+    // Suit
+    ctx.font = (w * 0.3) + 'px serif';
+    ctx.fillText(SUIT_SYMBOLS[suit] || suit, x + w / 2, y + h * 0.65);
+  }
+
+  drawCardBack(x, y, w, h, alpha = 1) {
+    const { ctx } = this;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    this.roundRect(x, y, w, h, 4);
+    ctx.fillStyle = '#2563eb';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Pattern
+    ctx.beginPath();
+    this.roundRect(x + 3, y + 3, w - 6, h - 6, 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  roundRect(x, y, w, h, r) {
+    const ctx = this.ctx;
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+}
+
+// ============================================================
+// REACT COMPONENTS
+// ============================================================
+
+// --- Card Picker ---
+function CardPicker({ usedCards = [], selected = [], onSelect, onClose, maxCards = 52, title = 'Select Cards' }) {
+  const [picked, setPicked] = useState([...selected]);
+  const deck = buildDeck();
+  const toggleCard = (card) => {
+    setPicked(prev => {
+      if (prev.includes(card)) return prev.filter(c => c !== card);
+      if (prev.length >= maxCards) return prev;
+      return [...prev, card];
+    });
+  };
+  return (
+    <div className="card-picker-overlay" onClick={onClose}>
+      <div className="card-picker" onClick={e => e.stopPropagation()}>
+        <h3>{title}</h3>
+        {SUITS.map(suit => (
+          <div key={suit} className="card-grid" style={{ gridTemplateColumns: 'repeat(13,1fr)', marginBottom: 6 }}>
+            {RANKS.map(rank => {
+              const card = rank + suit;
+              const isUsed = usedCards.includes(card) && !selected.includes(card);
+              const isSel = picked.includes(card);
+              const color = (suit === 'h' || suit === 'd') ? 'red' : '';
+              return (
+                <button key={card} className={'card-btn ' + color + (isSel ? ' selected' : '') + (isUsed ? ' used' : '')}
+                  onClick={() => toggleCard(card)}>
+                  <span>{rank}</span><span>{SUIT_SYMBOLS[suit]}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+        <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:12 }}>
+          <button className="controls btn" onClick={onClose}>Cancel</button>
+          <button className="controls btn primary" onClick={() => { onSelect(picked); onClose(); }}>
+            Done{picked.length > 0 ? ` (${picked.length})` : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Table Canvas ---
+function TableCanvas({ state }) {
+  const canvasRef = useRef(null);
+  const rendererRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    rendererRef.current = new TableRenderer(canvasRef.current);
+    const onResize = () => { rendererRef.current.resize(); rendererRef.current.render(state); };
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    if (rendererRef.current) {
+      rendererRef.current.resize();
+      rendererRef.current.render(state);
+    }
+  }, [state]);
+
+  return <div className="canvas-wrap"><canvas ref={canvasRef} /></div>;
+}
+
+// --- Action Log ---
+function ActionLog({ actions, currentIndex }) {
+  const logRef = useRef(null);
+  useEffect(() => {
+    if (logRef.current) {
+      const el = logRef.current.querySelector('.action-item.current');
+      if (el) el.scrollIntoView({ block: 'nearest' });
+    }
+  }, [currentIndex]);
+
+  if (!actions || actions.length === 0) {
+    return <div className="action-log" style={{padding:16,color:'var(--text2)',fontSize:13}}>No actions recorded</div>;
+  }
+
+  return (
+    <div className="action-log" ref={logRef}>
+      {actions.map((a, i) => {
+        if (a.type === 'street') {
+          return <div key={i} className="action-item deal">{a.street}</div>;
+        }
+        const isCurrent = i === currentIndex;
+        const cls = 'action-item' + (isCurrent ? ' current' : '') + (a.action === 'fold' ? ' fold' : '');
+        return (
+          <div key={i} className={cls}>
+            <span className="player-name">{a.playerName || ''}</span>
+            <span className="action-text">{a.action}</span>
+            {a.amount > 0 && <span className="amount">{a.amount}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// --- Replay Controls ---
+function ReplayControls({ streetName, onPrev, onNext, onPrevStreet, onNextStreet, canPrev, canNext, actionIndex, totalActions }) {
+  return (
+    <div className="controls">
+      <span className="street-label">{streetName || 'Setup'}</span>
+      <button className="btn" onClick={onPrevStreet} title="Previous street">&#x23EE;</button>
+      <button className="btn" onClick={onPrev} disabled={!canPrev} title="Previous action">&#x25C0;</button>
+      <button className="btn" onClick={onNext} disabled={!canNext} title="Next action">&#x25B6;</button>
+      <button className="btn" onClick={onNextStreet} title="Next street">&#x23ED;</button>
+      <div className="spacer" />
+      <span className="speed">{actionIndex + 1} / {totalActions}</span>
+    </div>
+  );
+}
+
+// --- Player Setup ---
+function PlayerSetup({ players, onChange, gameDefinition }) {
+  const maxPlayers = gameDefinition?.players?.max || 10;
+  const addPlayer = () => {
+    if (players.length >= maxPlayers) return;
+    onChange([...players, { seat: players.length, name: 'Opp ' + players.length, stack: 200, holeCards: [] }]);
+  };
+  const removePlayer = (i) => {
+    if (players.length <= 2) return;
+    const next = players.filter((_, idx) => idx !== i).map((p, idx) => ({ ...p, seat: idx }));
+    onChange(next);
+  };
+  const updatePlayer = (i, field, value) => {
+    const next = [...players];
+    next[i] = { ...next[i], [field]: field === 'stack' ? parseFloat(value) || 0 : value };
+    onChange(next);
+  };
+
+  return (
+    <div>
+      {players.map((p, i) => (
+        <div key={i} className="player-row">
+          <span className="seat">#{i + 1}</span>
+          <input value={p.name} onChange={e => updatePlayer(i, 'name', e.target.value)} placeholder="Name" style={{maxWidth:100}} />
+          <input type="number" value={p.stack} onChange={e => updatePlayer(i, 'stack', e.target.value)} placeholder="Stack" style={{maxWidth:80}} />
+          {players.length > 2 && <button className="remove-btn" onClick={() => removePlayer(i)}>&times;</button>}
+        </div>
+      ))}
+      {players.length < maxPlayers && (
+        <button className="controls btn" onClick={addPlayer} style={{marginTop:6,width:'100%'}}>+ Add Player</button>
+      )}
+    </div>
+  );
+}
+
+// --- Hand Editor ---
+function HandEditor({ hand, onUpdate, onSave }) {
+  const [cardPicker, setCardPicker] = useState(null); // { target:'player'|'community', playerIndex?, ... }
+
+  const usedCards = useMemo(() => {
+    const used = [...(hand.communityCards || [])];
+    hand.players.forEach(p => used.push(...(p.holeCards || [])));
+    return used;
+  }, [hand]);
+
+  const updateField = (field, value) => onUpdate({ ...hand, [field]: value });
+  const setPlayers = (players) => onUpdate({ ...hand, players });
+
+  const setPlayerCards = (playerIndex, cards) => {
+    const next = [...hand.players];
+    next[playerIndex] = { ...next[playerIndex], holeCards: cards };
+    onUpdate({ ...hand, players: next });
+  };
+
+  const addAction = (action) => {
+    onUpdate({ ...hand, actions: [...hand.actions, action] });
+  };
+
+  const removeLastAction = () => {
+    onUpdate({ ...hand, actions: hand.actions.slice(0, -1) });
+  };
+
+  const [actionPlayer, setActionPlayer] = useState(0);
+  const [actionType, setActionType] = useState('check');
+  const [actionAmount, setActionAmount] = useState('');
+
+  const streets = hand.gameDefinition.streets || [];
+  const currentStreetActions = hand.actions.filter(a => a.type === 'street');
+  const currentStreetIndex = currentStreetActions.length > 0
+    ? streets.findIndex(s => s.name === currentStreetActions[currentStreetActions.length - 1].street)
+    : -1;
+
+  return (
+    <div className="editor">
+      <h2>{hand.id ? 'Edit Hand' : 'New Hand'}</h2>
+
+      <div className="field">
+        <label>Title</label>
+        <input value={hand.title} onChange={e => updateField('title', e.target.value)} placeholder="e.g. Hero flops top set" />
+      </div>
+
+      <div className="field-row">
+        <div className="field">
+          <label>Stakes</label>
+          <input value={hand.stakes} onChange={e => updateField('stakes', e.target.value)} placeholder="1/2" />
+        </div>
+        <div className="field">
+          <label>Game</label>
+          <select value={hand.gameKey} onChange={e => {
+            const gk = e.target.value;
+            if (gk !== 'custom' && PRESETS[gk]) {
+              onUpdate({ ...createEmptyHand(gk), title: hand.title, stakes: hand.stakes, players: hand.players.map(p => ({...p, holeCards:[]})) });
+            }
+          }}>
+            {Object.entries(PRESETS).map(([k, v]) => <option key={k} value={k}>{v.name}</option>)}
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="field">
+        <label>Players</label>
+        <PlayerSetup players={hand.players} onChange={setPlayers} gameDefinition={hand.gameDefinition} />
+      </div>
+
+      {/* Hole Cards */}
+      <div className="field">
+        <label>Hole Cards</label>
+        {hand.players.map((p, i) => (
+          <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+            <span style={{fontSize:12,color:'var(--text2)',minWidth:60}}>{p.name}</span>
+            <button className="controls btn" onClick={() => setCardPicker({ target:'player', playerIndex:i, selected: p.holeCards })}>
+              {p.holeCards.length > 0 ? p.holeCards.map(c => c).join(' ') : 'Select cards'}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Community Cards */}
+      {streets.some(s => s.deals?.some(d => d.to === 'community')) && (
+        <div className="field">
+          <label>Community Cards</label>
+          <button className="controls btn" onClick={() => setCardPicker({ target:'community', selected: hand.communityCards || [] })}>
+            {(hand.communityCards || []).length > 0 ? hand.communityCards.join(' ') : 'Select cards'}
+          </button>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="field">
+        <label>Actions</label>
+        {streets.map((st, si) => (
+          <div key={si} style={{marginBottom:4}}>
+            <button className="controls btn" style={{fontSize:11,marginBottom:2}}
+              onClick={() => addAction({ type:'street', street: st.name })}>
+              + {st.name}
+            </button>
+          </div>
+        ))}
+        <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+          <select value={actionPlayer} onChange={e => setActionPlayer(parseInt(e.target.value))} style={{width:90}}>
+            {hand.players.map((p, i) => <option key={i} value={i}>{p.name}</option>)}
+          </select>
+          <select value={actionType} onChange={e => setActionType(e.target.value)} style={{width:80}}>
+            {['check','bet','call','raise','fold','all-in'].map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          {['bet','call','raise','all-in'].includes(actionType) && (
+            <input type="number" value={actionAmount} onChange={e => setActionAmount(e.target.value)} placeholder="Amt" style={{width:70}} />
+          )}
+          <button className="controls btn primary" onClick={() => {
+            addAction({
+              type: 'action', playerName: hand.players[actionPlayer]?.name || '',
+              seat: actionPlayer, action: actionType,
+              amount: parseFloat(actionAmount) || 0,
+            });
+            setActionAmount('');
+          }}>Add</button>
+          {hand.actions.length > 0 && (
+            <button className="controls btn" onClick={removeLastAction}>Undo</button>
+          )}
+        </div>
+      </div>
+
+      <div className="field">
+        <label>Notes</label>
+        <textarea value={hand.notes} onChange={e => updateField('notes', e.target.value)} placeholder="Optional hand notes..." />
+      </div>
+
+      <div style={{display:'flex',gap:8,marginTop:16}}>
+        <button className="controls btn primary" onClick={onSave} style={{flex:1}}>Save Hand</button>
+      </div>
+
+      {cardPicker && (
+        <CardPicker
+          usedCards={usedCards}
+          selected={cardPicker.selected || []}
+          maxCards={cardPicker.target === 'community' ? 7 : (hand.gameDefinition.streets?.[0]?.deals?.[0]?.count || 5)}
+          title={cardPicker.target === 'community' ? 'Community Cards' : `${hand.players[cardPicker.playerIndex]?.name}'s Cards`}
+          onSelect={(cards) => {
+            if (cardPicker.target === 'community') {
+              updateField('communityCards', cards);
+            } else {
+              setPlayerCards(cardPicker.playerIndex, cards);
+            }
+          }}
+          onClose={() => setCardPicker(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// --- Game Builder ---
+function GameBuilder({ onSave, initialGame }) {
+  const [game, setGame] = useState(initialGame || {
+    name: '', shortName: '',
+    deck: { type: 'standard52' },
+    players: { min: 2, max: 10 },
+    forcedBets: [{ name: 'SB', amount: 0.5 }, { name: 'BB', amount: 1 }],
+    streets: [{ name: 'Preflop', deals: [{ to: 'player', count: 2, faceDown: true }], betting: true }],
+    showdown: { handSize: 5, holeCardsUsed: { min: 0, max: 2 }, rankings: 'high' },
+  });
+
+  const updateField = (path, value) => {
+    const next = JSON.parse(JSON.stringify(game));
+    const parts = path.split('.');
+    let obj = next;
+    for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+    obj[parts[parts.length - 1]] = value;
+    setGame(next);
+  };
+
+  const addStreet = () => {
+    setGame({
+      ...game,
+      streets: [...game.streets, { name: 'Street ' + (game.streets.length + 1), deals: [], betting: true }],
+    });
+  };
+
+  const removeStreet = (i) => {
+    setGame({ ...game, streets: game.streets.filter((_, idx) => idx !== i) });
+  };
+
+  const updateStreet = (i, field, value) => {
+    const streets = [...game.streets];
+    streets[i] = { ...streets[i], [field]: value };
+    setGame({ ...game, streets });
+  };
+
+  const addDeal = (si) => {
+    const streets = [...game.streets];
+    const deals = [...(streets[si].deals || []), { to: 'player', count: 1, faceDown: true }];
+    streets[si] = { ...streets[si], deals };
+    setGame({ ...game, streets });
+  };
+
+  const updateDeal = (si, di, field, value) => {
+    const streets = JSON.parse(JSON.stringify(game.streets));
+    streets[si].deals[di][field] = value;
+    setGame({ ...game, streets });
+  };
+
+  const removeDeal = (si, di) => {
+    const streets = JSON.parse(JSON.stringify(game.streets));
+    streets[si].deals.splice(di, 1);
+    setGame({ ...game, streets });
+  };
+
+  const addForcedBet = () => {
+    setGame({ ...game, forcedBets: [...game.forcedBets, { name: 'Ante', amount: 0.25 }] });
+  };
+
+  const removeForcedBet = (i) => {
+    setGame({ ...game, forcedBets: game.forcedBets.filter((_, idx) => idx !== i) });
+  };
+
+  const updateForcedBet = (i, field, value) => {
+    const bets = [...game.forcedBets];
+    bets[i] = { ...bets[i], [field]: field === 'amount' ? parseFloat(value) || 0 : value };
+    setGame({ ...game, forcedBets: bets });
+  };
+
+  return (
+    <div className="builder">
+      <h2>Game Builder</h2>
+
+      <div className="field-row">
+        <div className="field">
+          <label>Name</label>
+          <input value={game.name} onChange={e => setGame({...game, name: e.target.value})} placeholder="My Custom Game" />
+        </div>
+        <div className="field">
+          <label>Short Name</label>
+          <input value={game.shortName} onChange={e => setGame({...game, shortName: e.target.value})} placeholder="MCG" style={{maxWidth:80}} />
+        </div>
+      </div>
+
+      <div className="field-row">
+        <div className="field">
+          <label>Deck</label>
+          <select value={game.deck.type} onChange={e => updateField('deck.type', e.target.value)}>
+            <option value="standard52">Standard 52</option>
+            <option value="standard52+jokers">52 + Jokers</option>
+            <option value="short-deck">Short Deck (6+)</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Min Players</label>
+          <input type="number" value={game.players.min} onChange={e => updateField('players.min', parseInt(e.target.value)||2)} style={{maxWidth:60}} />
+        </div>
+        <div className="field">
+          <label>Max Players</label>
+          <input type="number" value={game.players.max} onChange={e => updateField('players.max', parseInt(e.target.value)||10)} style={{maxWidth:60}} />
+        </div>
+      </div>
+
+      {/* Forced Bets */}
+      <div className="field">
+        <label>Forced Bets</label>
+        {game.forcedBets.map((fb, i) => (
+          <div key={i} style={{display:'flex',gap:6,marginBottom:4,alignItems:'center'}}>
+            <input value={fb.name} onChange={e => updateForcedBet(i, 'name', e.target.value)} placeholder="Name" style={{maxWidth:80}} />
+            <input type="number" value={fb.amount} onChange={e => updateForcedBet(i, 'amount', e.target.value)} placeholder="Amt" style={{maxWidth:70}} />
+            <button className="remove-btn" onClick={() => removeForcedBet(i)} style={{color:'var(--red)'}}>&times;</button>
+          </div>
+        ))}
+        <button className="controls btn" onClick={addForcedBet} style={{fontSize:12}}>+ Forced Bet</button>
+      </div>
+
+      {/* Streets */}
+      <div className="field">
+        <label>Streets / Rounds</label>
+        {game.streets.map((st, si) => (
+          <div key={si} className="street-editor">
+            <div className="street-header">
+              <input value={st.name} onChange={e => updateStreet(si, 'name', e.target.value)} placeholder="Street name" />
+              <label style={{fontSize:11,display:'flex',alignItems:'center',gap:4,color:'var(--text2)'}}>
+                <input type="checkbox" checked={st.betting !== false} onChange={e => updateStreet(si, 'betting', e.target.checked)} /> Betting
+              </label>
+              {game.streets.length > 1 && (
+                <button className="remove-btn" onClick={() => removeStreet(si)} style={{color:'var(--red)'}}>&times;</button>
+              )}
+            </div>
+            {(st.deals || []).map((d, di) => (
+              <div key={di} className="deal-row">
+                <span style={{fontSize:11,color:'var(--text2)'}}>Deal</span>
+                <select value={d.to} onChange={e => updateDeal(si, di, 'to', e.target.value)} style={{width:100}}>
+                  <option value="player">To players</option>
+                  <option value="community">Community</option>
+                </select>
+                <input type="number" value={d.count} onChange={e => updateDeal(si, di, 'count', parseInt(e.target.value)||1)} style={{width:50}} />
+                <span style={{fontSize:11,color:'var(--text2)'}}>cards</span>
+                <label style={{fontSize:11,display:'flex',alignItems:'center',gap:3,color:'var(--text2)'}}>
+                  <input type="checkbox" checked={d.faceDown !== false} onChange={e => updateDeal(si, di, 'faceDown', e.target.checked)} /> Down
+                </label>
+                <button onClick={() => removeDeal(si, di)} style={{color:'var(--red)',fontSize:14}}>&times;</button>
+              </div>
+            ))}
+            <button className="controls btn" onClick={() => addDeal(si)} style={{fontSize:11,marginTop:4}}>+ Deal</button>
+            {/* Discard option */}
+            <div style={{marginTop:6}}>
+              <label style={{fontSize:11,display:'flex',alignItems:'center',gap:4,color:'var(--text2)'}}>
+                <input type="checkbox" checked={!!st.discard} onChange={e => {
+                  if (e.target.checked) updateStreet(si, 'discard', { maxCount: 1, drawNew: false });
+                  else { const s = {...st}; delete s.discard; const streets = [...game.streets]; streets[si] = s; setGame({...game, streets}); }
+                }} /> Discard round
+              </label>
+              {st.discard && (
+                <div className="deal-row" style={{marginLeft:16}}>
+                  <span style={{fontSize:11,color:'var(--text2)'}}>Max discard:</span>
+                  <input type="number" value={st.discard.maxCount} onChange={e => {
+                    const streets = JSON.parse(JSON.stringify(game.streets));
+                    streets[si].discard.maxCount = parseInt(e.target.value) || 1;
+                    setGame({...game, streets});
+                  }} style={{width:50}} />
+                  <label style={{fontSize:11,display:'flex',alignItems:'center',gap:3,color:'var(--text2)'}}>
+                    <input type="checkbox" checked={st.discard.drawNew !== false} onChange={e => {
+                      const streets = JSON.parse(JSON.stringify(game.streets));
+                      streets[si].discard.drawNew = e.target.checked;
+                      setGame({...game, streets});
+                    }} /> Draw new
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        <button className="controls btn" onClick={addStreet} style={{marginTop:6,width:'100%'}}>+ Add Street</button>
+      </div>
+
+      {/* Showdown */}
+      <div className="field">
+        <label>Showdown</label>
+        <div className="field-row">
+          <div className="field">
+            <label style={{fontSize:10}}>Hand Size</label>
+            <input type="number" value={game.showdown.handSize} onChange={e => updateField('showdown.handSize', parseInt(e.target.value)||5)} />
+          </div>
+          <div className="field">
+            <label style={{fontSize:10}}>Rankings</label>
+            <select value={game.showdown.rankings} onChange={e => updateField('showdown.rankings', e.target.value)}>
+              <option value="high">High</option>
+              <option value="low-ace-to-five">Low (A-5)</option>
+              <option value="low-deuce-to-seven">Low (2-7)</option>
+              <option value="high-low">Hi-Lo</option>
+              <option value="badugi">Badugi</option>
+            </select>
+          </div>
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label style={{fontSize:10}}>Min Hole Cards Used</label>
+            <input type="number" value={game.showdown.holeCardsUsed.min} onChange={e => updateField('showdown.holeCardsUsed.min', parseInt(e.target.value)||0)} />
+          </div>
+          <div className="field">
+            <label style={{fontSize:10}}>Max Hole Cards Used</label>
+            <input type="number" value={game.showdown.holeCardsUsed.max} onChange={e => updateField('showdown.holeCardsUsed.max', parseInt(e.target.value)||2)} />
+          </div>
+        </div>
+      </div>
+
+      <button className="controls btn primary" onClick={() => onSave(game)} style={{width:'100%',marginTop:8}}>
+        Save Game Definition
+      </button>
+    </div>
+  );
+}
+
+// ============================================================
+// REPLAY ENGINE
+// ============================================================
+function useReplayState(hand) {
+  const [actionIndex, setActionIndex] = useState(-1);
+
+  const snapshot = useMemo(() => {
+    if (!hand) return null;
+    const folded = new Set();
+    let pot = 0;
+    let currentStreet = '';
+    let streetIndex = -1;
+    const playerBets = {};
+    const streets = hand.gameDefinition.streets || [];
+    let revealedCommunity = [];
+
+    // Walk actions up to actionIndex
+    for (let i = 0; i <= actionIndex && i < hand.actions.length; i++) {
+      const a = hand.actions[i];
+      if (a.type === 'street') {
+        currentStreet = a.street;
+        streetIndex = streets.findIndex(s => s.name === a.street);
+        // Collect bets into pot
+        Object.values(playerBets).forEach(b => pot += b);
+        Object.keys(playerBets).forEach(k => playerBets[k] = 0);
+        // Reveal community cards for this street
+        const streetDef = streets[streetIndex];
+        if (streetDef) {
+          const communityDeals = (streetDef.deals || []).filter(d => d.to === 'community');
+          let totalPriorCommunity = 0;
+          for (let si = 0; si < streetIndex; si++) {
+            (streets[si].deals || []).filter(d => d.to === 'community').forEach(d => totalPriorCommunity += d.count);
+          }
+          let currentCommunity = 0;
+          communityDeals.forEach(d => currentCommunity += d.count);
+          revealedCommunity = (hand.communityCards || []).slice(0, totalPriorCommunity + currentCommunity);
+        }
+      } else if (a.type === 'action') {
+        if (a.action === 'fold') folded.add(a.seat);
+        if (a.amount > 0) {
+          playerBets[a.seat] = (playerBets[a.seat] || 0) + a.amount;
+        }
+      }
+    }
+    // Add remaining bets to pot display
+    const displayPot = pot + Object.values(playerBets).reduce((s, v) => s + v, 0);
+
+    // Determine current player (next to act)
+    let currentPlayer = -1;
+    if (actionIndex + 1 < hand.actions.length) {
+      const nextAction = hand.actions[actionIndex + 1];
+      if (nextAction.type === 'action') currentPlayer = nextAction.seat;
+    }
+
+    return {
+      players: hand.players.map(p => ({
+        ...p,
+        bet: playerBets[p.seat] || 0,
+        stack: p.stack - (playerBets[p.seat] || 0),
+      })),
+      communityCards: revealedCommunity,
+      pot: displayPot,
+      currentPlayer,
+      folded,
+      streetIndex,
+      streetName: currentStreet,
+    };
+  }, [hand, actionIndex]);
+
+  const totalActions = hand ? hand.actions.length : 0;
+  const canPrev = actionIndex >= 0;
+  const canNext = actionIndex < totalActions - 1;
+
+  const prev = useCallback(() => { if (canPrev) setActionIndex(i => i - 1); }, [canPrev]);
+  const next = useCallback(() => { if (canNext) setActionIndex(i => i + 1); }, [canNext]);
+
+  const prevStreet = useCallback(() => {
+    if (!hand) return;
+    for (let i = actionIndex - 1; i >= 0; i--) {
+      if (hand.actions[i].type === 'street') { setActionIndex(i); return; }
+    }
+    setActionIndex(-1);
+  }, [hand, actionIndex]);
+
+  const nextStreet = useCallback(() => {
+    if (!hand) return;
+    for (let i = actionIndex + 1; i < hand.actions.length; i++) {
+      if (hand.actions[i].type === 'street') { setActionIndex(i); return; }
+    }
+    setActionIndex(hand.actions.length - 1);
+  }, [hand, actionIndex]);
+
+  const reset = useCallback(() => setActionIndex(-1), []);
+
+  return { snapshot, actionIndex, totalActions, canPrev, canNext, prev, next, prevStreet, nextStreet, reset };
+}
+
+// ============================================================
+// API HELPERS
+// ============================================================
+const API = {
+  token: null,
+  async fetch(url, opts = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    if (this.token) headers['Authorization'] = 'Bearer ' + this.token;
+    const res = await fetch(url, { ...opts, headers });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  getHands: () => API.fetch('/api/replayer/hands'),
+  saveHand: (hand) => API.fetch('/api/replayer/hands', { method: 'POST', body: JSON.stringify(hand) }),
+  updateHand: (id, hand) => API.fetch('/api/replayer/hands/' + id, { method: 'PUT', body: JSON.stringify(hand) }),
+  deleteHand: (id) => API.fetch('/api/replayer/hands/' + id, { method: 'DELETE' }),
+  getGames: () => API.fetch('/api/replayer/games'),
+  saveGame: (game) => API.fetch('/api/replayer/games', { method: 'POST', body: JSON.stringify(game) }),
+  deleteGame: (id) => API.fetch('/api/replayer/games/' + id, { method: 'DELETE' }),
+};
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function App() {
+  const [view, setView] = useState('replay'); // replay | edit | builder
+  const [hands, setHands] = useState([]);
+  const [customGames, setCustomGames] = useState([]);
+  const [activeHandIndex, setActiveHandIndex] = useState(-1);
+  const [editHand, setEditHand] = useState(null);
+  const [builderGame, setBuilderGame] = useState(null);
+  const [savedMsg, setSavedMsg] = useState('');
+
+  const activeHand = activeHandIndex >= 0 ? hands[activeHandIndex] : null;
+  const { snapshot, actionIndex, totalActions, canPrev, canNext, prev, next, prevStreet, nextStreet, reset } = useReplayState(activeHand);
+
+  // Keyboard controls
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (e.key === 'ArrowLeft') prev();
+      if (e.key === 'ArrowRight') next();
+      if (e.key === 'ArrowUp') prevStreet();
+      if (e.key === 'ArrowDown') nextStreet();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [prev, next, prevStreet, nextStreet]);
+
+  // Load auth token from main app
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) API.token = token;
+    } catch(e) {}
+  }, []);
+
+  // Load saved hands
+  useEffect(() => {
+    API.getHands().then(setHands).catch(() => {});
+    API.getGames().then(setCustomGames).catch(() => {});
+  }, []);
+
+  const handleSaveHand = async () => {
+    try {
+      if (editHand.id) {
+        await API.updateHand(editHand.id, editHand);
+        setHands(h => h.map(x => x.id === editHand.id ? editHand : x));
+      } else {
+        const saved = await API.saveHand(editHand);
+        const withId = { ...editHand, id: saved.id };
+        setHands(h => [...h, withId]);
+        setEditHand(withId);
+      }
+      setSavedMsg('Saved');
+      setTimeout(() => setSavedMsg(''), 2000);
+    } catch (e) {
+      // If API not available, save locally
+      const localHand = { ...editHand, id: editHand.id || Date.now() };
+      if (editHand.id) {
+        setHands(h => h.map(x => x.id === editHand.id ? localHand : x));
+      } else {
+        setHands(h => [...h, localHand]);
+      }
+      setEditHand(localHand);
+      setSavedMsg('Saved locally');
+      setTimeout(() => setSavedMsg(''), 2000);
+    }
+  };
+
+  const handleSaveGame = async (game) => {
+    try {
+      const saved = await API.saveGame(game);
+      setCustomGames(g => [...g, { ...game, id: saved.id }]);
+    } catch (e) {
+      setCustomGames(g => [...g, { ...game, id: Date.now() }]);
+    }
+    setView('replay');
+  };
+
+  const handleDeleteHand = (i) => {
+    const h = hands[i];
+    if (h.id) API.deleteHand(h.id).catch(() => {});
+    setHands(prev => prev.filter((_, idx) => idx !== i));
+    if (activeHandIndex === i) { setActiveHandIndex(-1); reset(); }
+    else if (activeHandIndex > i) setActiveHandIndex(activeHandIndex - 1);
+  };
+
+  const newHand = (gameKey = 'nlhe') => {
+    const h = createEmptyHand(gameKey);
+    setEditHand(h);
+    setView('edit');
+  };
+
+  return (
+    <div className="app">
+      <div className="header">
+        <h1>Hand Replayer</h1>
+        {savedMsg && <span style={{fontSize:12,color:'var(--green)'}}>{savedMsg}</span>}
+        <nav>
+          <button className={view === 'replay' ? 'active' : ''} onClick={() => setView('replay')}>Replay</button>
+          <button className={view === 'edit' ? 'active' : ''} onClick={() => { if (!editHand) newHand(); setView('edit'); }}>Editor</button>
+          <button className={view === 'builder' ? 'active' : ''} onClick={() => { setBuilderGame(null); setView('builder'); }}>Games</button>
+        </nav>
+      </div>
+
+      <div className="main">
+        {/* Left: Table or Editor */}
+        <div className="table-area">
+          {view === 'replay' && (
+            <>
+              {activeHand ? (
+                <>
+                  <TableCanvas state={snapshot} />
+                  <ReplayControls
+                    streetName={snapshot?.streetName}
+                    onPrev={prev} onNext={next}
+                    onPrevStreet={prevStreet} onNextStreet={nextStreet}
+                    canPrev={canPrev} canNext={canNext}
+                    actionIndex={actionIndex + 1} totalActions={totalActions}
+                  />
+                </>
+              ) : (
+                <div className="empty">
+                  <p>Select a hand to replay, or create a new one.</p>
+                  <button className="controls btn primary" onClick={() => newHand()}>New Hand</button>
+                </div>
+              )}
+            </>
+          )}
+          {view === 'edit' && editHand && (
+            <HandEditor hand={editHand} onUpdate={setEditHand} onSave={handleSaveHand} />
+          )}
+          {view === 'builder' && (
+            <GameBuilder onSave={handleSaveGame} initialGame={builderGame} />
+          )}
+        </div>
+
+        {/* Right sidebar */}
+        <div className="sidebar">
+          {view === 'replay' && activeHand && (
+            <>
+              <div className="sidebar-section">
+                <h3>{activeHand.title || 'Untitled Hand'}</h3>
+                <div style={{fontSize:12,color:'var(--text2)',marginTop:4}}>
+                  {activeHand.gameDefinition.name} &middot; {activeHand.stakes}
+                </div>
+              </div>
+              <ActionLog actions={activeHand.actions} currentIndex={actionIndex} />
+              {activeHand.notes && (
+                <div className="sidebar-section">
+                  <h3>Notes</h3>
+                  <p style={{fontSize:13,color:'var(--text2)',whiteSpace:'pre-wrap'}}>{activeHand.notes}</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Hand list */}
+          <div className="sidebar-section" style={{borderBottom:'none'}}>
+            <h3 style={{display:'flex',alignItems:'center'}}>
+              Hands
+              <button className="controls btn" onClick={() => newHand()} style={{marginLeft:'auto',fontSize:11,padding:'3px 8px'}}>+ New</button>
+            </h3>
+          </div>
+          <div className="hand-list">
+            {hands.length === 0 && <div style={{fontSize:12,color:'var(--text2)',padding:'8px 0'}}>No saved hands yet</div>}
+            {hands.map((h, i) => (
+              <div key={h.id || i} className={'hand-card' + (activeHandIndex === i ? ' active' : '')} onClick={() => {
+                setActiveHandIndex(i);
+                reset();
+                setView('replay');
+              }}>
+                <div className="title">{h.title || 'Untitled'}</div>
+                <div className="meta">
+                  {h.gameDefinition?.name || 'Unknown'} &middot; {h.stakes} &middot; {h.players?.length || 0}p
+                  <button onClick={(e) => { e.stopPropagation(); setEditHand({...h}); setView('edit'); }}
+                    style={{marginLeft:8,fontSize:11,color:'var(--accent)'}}>Edit</button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteHand(i); }}
+                    style={{marginLeft:4,fontSize:11,color:'var(--red)'}}>Del</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Presets section in builder view */}
+          {view === 'builder' && (
+            <div className="sidebar-section">
+              <h3>Presets</h3>
+              <div style={{fontSize:12,color:'var(--text2)',marginBottom:8}}>Start from a template</div>
+              {Object.entries(PRESETS).map(([k, v]) => (
+                <div key={k} className="hand-card" style={{marginBottom:4}} onClick={() => setBuilderGame({...JSON.parse(JSON.stringify(v))})}>
+                  <div className="title">{v.name}</div>
+                </div>
+              ))}
+              {customGames.length > 0 && (
+                <>
+                  <h3 style={{marginTop:12}}>Custom Games</h3>
+                  {customGames.map((g, i) => (
+                    <div key={i} className="hand-card" style={{marginBottom:4}} onClick={() => setBuilderGame({...JSON.parse(JSON.stringify(g))})}>
+                      <div className="title">{g.name || 'Unnamed'}</div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

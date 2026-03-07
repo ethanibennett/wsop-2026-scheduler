@@ -3,6 +3,7 @@
 ## Recent Changes
 <!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
 <!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-03-07**: Hand Replayer companion tool — Canvas-based felt table, flexible game engine supporting any card game (including custom/made-up games), 6 presets (NLHE, PLO, Stud, Draw, Pineapple, Short Deck), game builder UI, hand editor with card picker, step-through replay controls with keyboard support (arrow keys), action log sidebar. New file: `public/replayer.html`. New API routes: `/api/replayer/hands`, `/api/replayer/games`. New DB table: `replayer_games`. Page served at `/replayer`.
 - **2026-03-05**: Spacing below search bar row — added 8px margin-bottom to search bar + filter button row for breathing room above the checkbox pills.
 - **2026-03-05**: Vertically center filter button and search bar — overrode `.search-bar` `margin-bottom:10px` with `marginBottom:0` when in flex row with filter button.
 - **2026-03-05**: Date range filters game variants — Variant dropdown now only shows game variants that have events within the selected date range (same behavior as venues/series). Uses `availableGameVariants` memo computed from tournaments filtered by `dateFrom`/`dateTo`.
@@ -60,6 +61,7 @@ If SMTP is not configured, reset links are logged to the server console.
 | `server.js` | Express API server, auth, CRUD, live updates, file uploads |
 | `init-db.js` | Database schema creation + optional seed data |
 | `sample-data.js` | Tournament seed data used by init-db |
+| `public/replayer.html` | Hand replayer — Canvas table, game engine, editor, game builder |
 | `parsers/` | Schedule PDF parsing utilities |
 
 ## Conventions
@@ -85,6 +87,7 @@ If SMTP is not configured, reset links are logged to the server console.
 - Share Buddies: GET `/api/share-buddies`, PUT `/api/share-request/:id/accept`, DELETE `/api/share-buddy/:userId`
 - Groups: GET/POST `/api/groups`, DELETE `/api/groups/:id`, GET `/api/groups/:id/members`, POST `/api/groups/:id/members`, GET `/api/groups/:id/feed`, POST `/api/groups/:id/messages`, GET `/api/groups/:id/schedule`, GET/PUT `/api/groups/:id/leaderboard`
 - Group Invites: GET `/api/groups/:id/invites`, PUT `/api/group-invites/:id/accept`, PUT `/api/group-invites/:id/decline`
+- Hand Replayer: GET/POST `/api/replayer/hands`, PUT/DELETE `/api/replayer/hands/:id`, GET/POST/DELETE `/api/replayer/games`
 
 ## Dev Server Config
 The `.claude/` directory is gitignored. For Claude Code preview tools, create `.claude/launch.json`:

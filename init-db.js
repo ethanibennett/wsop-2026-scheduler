@@ -103,6 +103,18 @@ async function initializeDatabase() {
   console.log('✓ Saved hands table ready');
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS replayer_games (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      definition TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+  console.log('✓ Replayer games table ready');
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS password_resets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
