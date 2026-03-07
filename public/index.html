@@ -7304,7 +7304,9 @@
         doc.text('TOTAL MAXIMUM BUY-INS', mg, drawY + 5);
         doc.setFontSize(10);
         doc.setTextColor(232, 232, 232);
-        doc.text('$' + totalMax.toLocaleString(), pw - mg, drawY + 5, { align: 'right' });
+        // Right-align with buy-in column (entries col is 20mm + 1mm padding from right margin)
+        const buyinColRight = pw - mg - 20 - 1;
+        doc.text('$' + totalMax.toLocaleString(), buyinColRight, drawY + 5, { align: 'right' });
       }
 
       doc.save('my-schedule.pdf');
