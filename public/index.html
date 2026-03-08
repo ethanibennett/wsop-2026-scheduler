@@ -7304,8 +7304,13 @@
       }, 0);
       if (totalMax > 0) {
         const finalY = doc.lastAutoTable.finalY || 24;
-        const buyinCol = doc.lastAutoTable.columns[4];
-        const buyinRight = buyinCol.x + buyinCol.width - 1;
+        const cols = doc.lastAutoTable.columns || [];
+        let buyinRight = pw - mg;
+        if (cols.length > 4) {
+          let colX = mg;
+          for (let i = 0; i < 4; i++) colX += (cols[i].width || 0);
+          buyinRight = colX + (cols[4].width || 0) - 1;
+        }
         const footY = finalY + 6;
         // Check if we need a new page
         if (footY > ph - 20) {
@@ -12735,8 +12740,13 @@
 
       const handlePDF = async () => {
         if (!filteredEvents.length) return;
-        await generateSchedulePDF(filteredEvents, docTitle, { light: lightMode });
-        onClose();
+        try {
+          await generateSchedulePDF(filteredEvents, docTitle, { light: lightMode });
+          onClose();
+        } catch (err) {
+          console.error('PDF generation failed:', err);
+          alert('PDF generation failed: ' + (err.message || 'Unknown error'));
+        }
       };
 
       const handleImages = () => {
