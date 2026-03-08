@@ -3,6 +3,7 @@
 ## Recent Changes
 <!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
 <!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-03-07**: PDF total buy-ins right-aligned with buy-in column — used `doc.lastAutoTable.columns[4]` to get the exact buy-in column position and align the total amount with `{ align: 'right' }`. Merged with existing page-overflow logic.
 - **2026-03-05**: Spacing below search bar row — added 8px margin-bottom to search bar + filter button row for breathing room above the checkbox pills.
 - **2026-03-05**: Vertically center filter button and search bar — overrode `.search-bar` `margin-bottom:10px` with `marginBottom:0` when in flex row with filter button.
 - **2026-03-05**: Date range filters game variants — Variant dropdown now only shows game variants that have events within the selected date range (same behavior as venues/series). Uses `availableGameVariants` memo computed from tournaments filtered by `dateFrom`/`dateTo`.
