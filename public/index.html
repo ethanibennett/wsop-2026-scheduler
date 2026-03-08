@@ -7277,7 +7277,7 @@
         },
       });
 
-      // ── Total max buy-ins footer ──
+      // ── Total max buy-ins footer, right-aligned with Buy-in column ──
       const totalMax = sorted.reduce((sum, ev) => {
         const buyin = Number(ev.buyin) || 0;
         const entries = ev.planned_entries || 1;
@@ -7285,6 +7285,8 @@
       }, 0);
       if (totalMax > 0) {
         const finalY = doc.lastAutoTable.finalY || 24;
+        const buyinCol = doc.lastAutoTable.columns[4];
+        const buyinRight = buyinCol.x + buyinCol.width - 1;
         const footY = finalY + 6;
         // Check if we need a new page
         if (footY > ph - 20) {
@@ -7302,9 +7304,10 @@
         doc.setFontSize(8);
         doc.setTextColor(160, 160, 160);
         doc.text('TOTAL MAXIMUM BUY-INS', mg, drawY + 5);
-        doc.setFontSize(10);
+        const totalStr = formatBuyin(totalMax);
+        doc.setFontSize(8);
         doc.setTextColor(232, 232, 232);
-        doc.text('$' + totalMax.toLocaleString(), pw - mg, drawY + 5, { align: 'right' });
+        doc.text(totalStr, buyinRight, drawY + 5, { align: 'right' });
       }
 
       doc.save('my-schedule.pdf');
