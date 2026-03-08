@@ -3,6 +3,7 @@
 ## Recent Changes
 <!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
 <!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-03-07**: Light mode export option — added "Export in Light Mode" checkbox to schedule export modal. Both PDF and image exports support `opts.light`. PDF uses theme constants (BG, BG_ALT, TEXT_PRI, TEXT_MUT, TEXT_ACC, LINE_CLR, LINE_HEAD, LINE_FOOT) and light venue colors. Image export (`drawSchedulePage`) uses equivalent canvas color variables. `generateScheduleImages` passes opts through.
 - **2026-03-07**: PDF total buy-ins right-aligned with buy-in column — used `doc.lastAutoTable.columns[4]` to get the exact buy-in column position and align the total amount with `{ align: 'right' }`. Merged with existing page-overflow logic.
 - **2026-03-05**: Spacing below search bar row — added 8px margin-bottom to search bar + filter button row for breathing room above the checkbox pills.
 - **2026-03-05**: Vertically center filter button and search bar — overrode `.search-bar` `margin-bottom:10px` with `marginBottom:0` when in flex row with filter button.
