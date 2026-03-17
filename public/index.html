@@ -7037,7 +7037,8 @@
     }
 
     // Generate schedule PDF — table layout via jspdf-autotable
-    async function generateSchedulePDF(events, title) {
+    async function generateSchedulePDF(events, title, opts = {}) {
+      const isLight = !!opts.light;
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -7067,19 +7068,37 @@
       const ph = doc.internal.pageSize.height;
       const mg = 10;
 
+      // Theme colors
+      const BG       = isLight ? [255, 255, 255] : [17, 17, 17];
+      const BG_ALT   = isLight ? [245, 245, 245] : [26, 26, 26];
+      const TEXT_PRI  = isLight ? [30, 30, 30]    : [232, 232, 232];
+      const TEXT_MUT  = isLight ? [100, 100, 100] : [128, 128, 128];
+      const TEXT_ACC  = isLight ? [80, 80, 80]    : [160, 160, 160];
+      const LINE_CLR  = isLight ? [200, 200, 200] : [51, 51, 51];
+      const LINE_HEAD = isLight ? [160, 160, 160] : [128, 128, 128];
+      const LINE_FOOT = isLight ? [140, 140, 140] : [80, 80, 80];
+
       function hexRGB(hex) {
         hex = hex.replace('#', '');
         if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
         return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
       }
 
-      const PDF_VENUE_COLORS = {
+      const PDF_VENUE_COLORS_DARK = {
         'WSOP': '#e8e8e8', 'PRS': '#e8e8e8', 'IPO': '#1a6b3c', 'PERSONAL': '#4a9eff',
         'WYNN': '#8a3030', 'ARIA': '#5a3a9a', 'GOLDEN NUGGET': '#7a6520',
         'RESORTS WORLD': '#2a7a72', 'SOUTH POINT': '#5e4430', 'ORLEANS': '#944828',
         'MGM GRAND': '#2a6a3e', 'MGM NH': '#8a7020', 'Turning Stone': '#8a6508',
         'TCH': '#a0522d', 'VEN': '#7a6520', 'CAESARS': '#b8962e', 'HARD ROCK': '#1a9e9e'
       };
+      const PDF_VENUE_COLORS_LIGHT = {
+        'WSOP': '#555555', 'PRS': '#555555', 'IPO': '#14552f', 'PERSONAL': '#2a6ec0',
+        'WYNN': '#7a2020', 'ARIA': '#4a2a8a', 'GOLDEN NUGGET': '#6a5510',
+        'RESORTS WORLD': '#1a6a62', 'SOUTH POINT': '#4e3420', 'ORLEANS': '#843818',
+        'MGM GRAND': '#1a5a2e', 'MGM NH': '#7a6010', 'Turning Stone': '#7a5508',
+        'TCH': '#90421d', 'VEN': '#6a5510', 'CAESARS': '#a8861e', 'HARD ROCK': '#0a8e8e'
+      };
+      const PDF_VENUE_COLORS = isLight ? PDF_VENUE_COLORS_LIGHT : PDF_VENUE_COLORS_DARK;
       const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
       // Sort by date+time, filter out restarts
@@ -7141,16 +7160,16 @@
       function drawTitle() {
         doc.setFont(FONT_BODY, 'bold');
         doc.setFontSize(14);
-        doc.setTextColor(232, 232, 232);
+        doc.setTextColor(...TEXT_PRI);
         doc.text(title || 'MY SCHEDULE', mg, 12);
         doc.setFont(FONT_BODY, 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(128, 128, 128);
+        doc.setTextColor(...TEXT_MUT);
         doc.text(rangeStr, mg, 17);
       }
 
-      // ── Dark bg fill + title on page 1 ──
-      doc.setFillColor(17, 17, 17);
+      // ── Background fill + title on page 1 ──
+      doc.setFillColor(...BG);
       doc.rect(0, 0, pw, ph, 'F');
       drawTitle();
 
@@ -7167,8 +7186,8 @@
         tableWidth: 'auto',
 
         styles: {
-          fillColor: [17, 17, 17],
-          textColor: [232, 232, 232],
+          fillColor: BG,
+          textColor: TEXT_PRI,
           font: FONT_BODY,
           fontStyle: 'normal',
           fontSize: 7.5,
@@ -7179,8 +7198,8 @@
         },
 
         headStyles: {
-          fillColor: [17, 17, 17],
-          textColor: [128, 128, 128],
+          fillColor: BG,
+          textColor: TEXT_MUT,
           font: FONT_BODY,
           fontStyle: 'bold',
           fontSize: 6.5,
@@ -7188,7 +7207,7 @@
         },
 
         alternateRowStyles: {
-          fillColor: [26, 26, 26],
+          fillColor: BG_ALT,
         },
 
         columnStyles: {
@@ -7226,30 +7245,30 @@
             if (col === 4) {
               data.cell.styles.halign = 'right';
               data.cell.styles.fontStyle = 'bold';
-              data.cell.styles.textColor = [160, 160, 160];
+              data.cell.styles.textColor = TEXT_ACC;
             }
             // Entries: centered, muted
             if (col === 5) {
               data.cell.styles.halign = 'center';
-              data.cell.styles.textColor = [128, 128, 128];
+              data.cell.styles.textColor = TEXT_MUT;
             }
           }
         },
 
         willDrawCell: function(data) {
-          // Fill dark bg on new pages (fires before first cell is drawn on that page)
+          // Fill bg on new pages (fires before first cell is drawn on that page)
           const pageNum = doc.internal.getCurrentPageInfo().pageNumber;
           if (pageNum > currentPage) {
             currentPage = pageNum;
-            doc.setFillColor(17, 17, 17);
+            doc.setFillColor(...BG);
             doc.rect(0, 0, pw, ph, 'F');
             drawTitle();
           }
 
-          // Date group separator line (thin #333 line above first row of each new date group)
+          // Date group separator line above first row of each new date group
           if (data.section === 'body' && data.column.index === 0
               && newDateRowIndices.has(data.row.index) && data.row.index > 0) {
-            doc.setDrawColor(51, 51, 51);
+            doc.setDrawColor(...LINE_CLR);
             doc.setLineWidth(0.3);
             doc.line(mg, data.cell.y, pw - mg, data.cell.y);
           }
@@ -7258,7 +7277,7 @@
         didDrawCell: function(data) {
           // Draw subtle line under header row
           if (data.section === 'head' && data.column.index === 5) {
-            doc.setDrawColor(128, 128, 128);
+            doc.setDrawColor(...LINE_HEAD);
             doc.setLineWidth(0.2);
             const bottomY = data.cell.y + data.cell.height;
             doc.line(mg, bottomY, pw - mg, bottomY);
@@ -7269,7 +7288,7 @@
           // Footer on every page
           doc.setFont(FONT_BODY, 'normal');
           doc.setFontSize(6.5);
-          doc.setTextColor(128, 128, 128);
+          doc.setTextColor(...TEXT_MUT);
           doc.text('Generated by futuregame', mg, ph - 5);
           const pageStr = 'Page ' + currentPage;
           const pageStrW = doc.getTextWidth(pageStr);
@@ -7277,7 +7296,7 @@
         },
       });
 
-      // ── Total max buy-ins footer ──
+      // ── Total max buy-ins footer, right-aligned with Buy-in column ──
       const totalMax = sorted.reduce((sum, ev) => {
         const buyin = Number(ev.buyin) || 0;
         const entries = ev.planned_entries || 1;
@@ -7285,37 +7304,70 @@
       }, 0);
       if (totalMax > 0) {
         const finalY = doc.lastAutoTable.finalY || 24;
+        const cols = doc.lastAutoTable.columns || [];
+        let buyinRight = pw - mg;
+        if (cols.length > 4) {
+          let colX = mg;
+          for (let i = 0; i < 4; i++) colX += (cols[i].width || 0);
+          buyinRight = colX + (cols[4].width || 0) - 1;
+        }
         const footY = finalY + 6;
         // Check if we need a new page
         if (footY > ph - 20) {
           doc.addPage();
           currentPage++;
-          doc.setFillColor(17, 17, 17);
+          doc.setFillColor(...BG);
           doc.rect(0, 0, pw, ph, 'F');
           drawTitle();
         }
         const drawY = (footY > ph - 20) ? 30 : footY;
-        doc.setDrawColor(80, 80, 80);
+        doc.setDrawColor(...LINE_FOOT);
         doc.setLineWidth(0.3);
         doc.line(mg, drawY, pw - mg, drawY);
         doc.setFont(FONT_BODY, 'bold');
         doc.setFontSize(8);
-        doc.setTextColor(160, 160, 160);
+        doc.setTextColor(...TEXT_ACC);
         doc.text('TOTAL MAXIMUM BUY-INS', mg, drawY + 5);
-        doc.setFontSize(10);
-        doc.setTextColor(232, 232, 232);
-        doc.text('$' + totalMax.toLocaleString(), pw - mg, drawY + 5, { align: 'right' });
+        const totalStr = formatBuyin(totalMax);
+        doc.setFontSize(8);
+        doc.setTextColor(...TEXT_PRI);
+        doc.text(totalStr, buyinRight, drawY + 5, { align: 'right' });
       }
 
       doc.save('my-schedule.pdf');
     }
 
     // Draw a single schedule page on canvas (1080x1920 story format) — table layout matching PDF
-    function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages, title) {
+    function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages, title, opts) {
       const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const isLight = !!(opts && opts.light);
 
-      // Solid dark background (matching PDF)
-      ctx.fillStyle = '#111111';
+      // Theme colors for canvas
+      const cBG       = isLight ? '#ffffff' : '#111111';
+      const cBG_ALT   = isLight ? '#f5f5f5' : '#1a1a1a';
+      const cTEXT     = isLight ? '#1e1e1e' : '#e8e8e8';
+      const cTEXT_MUT = isLight ? '#646464' : '#808080';
+      const cTEXT_ACC = isLight ? '#505050' : '#a0a0a0';
+      const cEVENT    = isLight ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.9)';
+      const cLINE     = isLight ? '#c8c8c8' : '#333333';
+      const cLINE_HEAD= isLight ? '#a0a0a0' : '#808080';
+
+      // Light-mode venue colors (darker for white bg)
+      const CANVAS_VENUE_LIGHT = {
+        'WSOP': '#555555', 'PRS': '#555555', 'IPO': '#14552f', 'PERSONAL': '#2a6ec0',
+        'WYNN': '#7a2020', 'ARIA': '#4a2a8a', 'GOLDEN NUGGET': '#6a5510',
+        'RESORTS WORLD': '#1a6a62', 'SOUTH POINT': '#4e3420', 'ORLEANS': '#843818',
+        'MGM GRAND': '#1a5a2e', 'MGM NH': '#7a6010', 'Turning Stone': '#7a5508',
+        'TCH': '#90421d', 'VEN': '#6a5510', 'CAESARS': '#a8861e', 'HARD ROCK': '#0a8e8e'
+      };
+      function getCanvasVenueColor(venueName) {
+        const info = getVenueInfo(venueName);
+        if (isLight) return CANVAS_VENUE_LIGHT[info.abbr] || '#646464';
+        return VENUE_CANVAS_COLORS[info.abbr] || '#808080';
+      }
+
+      // Solid background (matching PDF)
+      ctx.fillStyle = cBG;
       ctx.fillRect(0, 0, w, h);
 
       const pad = 60;
@@ -7324,7 +7376,7 @@
       // ── Title area ──
       ctx.textAlign = 'left';
       ctx.font = '700 42px Oswald, sans-serif';
-      ctx.fillStyle = '#e8e8e8';
+      ctx.fillStyle = cTEXT;
       ctx.fillText(title || 'MY SCHEDULE', pad, 80);
 
       // Subtitle: date range + event count
@@ -7335,7 +7387,7 @@
       };
       const rangeStr = fmtD(allDates[0]) + ' \u2013 ' + fmtD(allDates[allDates.length - 1]);
       ctx.font = '400 24px Oswald, sans-serif';
-      ctx.fillStyle = '#808080';
+      ctx.fillStyle = cTEXT_MUT;
       ctx.fillText(rangeStr, pad, 112);
 
       // ── Column definitions ──
@@ -7351,7 +7403,7 @@
       // ── Column header row ──
       const headerY = 155;
       ctx.font = '700 20px Oswald, sans-serif';
-      ctx.fillStyle = '#808080';
+      ctx.fillStyle = cTEXT_MUT;
       ctx.textAlign = 'left';
       ctx.fillText('DATE', colDate, headerY);
       ctx.textAlign = 'center';
@@ -7365,7 +7417,7 @@
       ctx.fillText('ENTRIES', colEntries + 50, headerY);
 
       // Header underline
-      ctx.strokeStyle = '#808080';
+      ctx.strokeStyle = cLINE_HEAD;
       ctx.lineWidth = 0.5;
       ctx.beginPath();
       ctx.moveTo(pad, headerY + 10);
@@ -7383,7 +7435,7 @@
 
         // Date group separator line
         if (isNewDate && lastDate !== '') {
-          ctx.strokeStyle = '#333333';
+          ctx.strokeStyle = cLINE;
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.moveTo(pad, y - 4);
@@ -7392,7 +7444,7 @@
         }
 
         // Alternating row background
-        ctx.fillStyle = i % 2 === 0 ? '#111111' : '#1a1a1a';
+        ctx.fillStyle = i % 2 === 0 ? cBG : cBG_ALT;
         ctx.fillRect(pad, y - 2, contentW, rowH);
 
         const textY = y + rowH * 0.62;
@@ -7402,7 +7454,7 @@
           const dateObj = new Date(ev.date);
           const dateStr = String(dateObj.getDate()).padStart(2, '0') + ' ' + MONTHS[dateObj.getMonth()];
           ctx.font = '700 24px "Georgia", "Times New Roman", serif';
-          ctx.fillStyle = '#e8e8e8';
+          ctx.fillStyle = cTEXT;
           ctx.textAlign = 'left';
           ctx.fillText(dateStr, colDate, textY);
           lastDate = ev.date;
@@ -7410,13 +7462,13 @@
 
         // TIME column
         ctx.font = '400 22px Oswald, sans-serif';
-        ctx.fillStyle = '#e8e8e8';
+        ctx.fillStyle = cTEXT;
         ctx.textAlign = 'center';
         ctx.fillText(ev.time || 'TBD', colTime + 55, textY);
 
         // VENUE column — brand color
         const venue = getVenueInfo(ev.venue);
-        const venueColor = getVenueCanvasColor(ev.venue);
+        const venueColor = getCanvasVenueColor(ev.venue);
         ctx.font = '400 20px Oswald, sans-serif';
         ctx.fillStyle = venueColor;
         ctx.textAlign = 'center';
@@ -7429,9 +7481,9 @@
         }
         ctx.fillText(venueDisplay, colVenue + 85, textY);
 
-        // EVENT column — white, truncate with ellipsis
+        // EVENT column — primary text, truncate with ellipsis
         ctx.font = '400 22px Oswald, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillStyle = cEVENT;
         ctx.textAlign = 'left';
         let eventName = ev.event_name || '';
         const maxEventW = colBuyin - colEvent - 15;
@@ -7440,10 +7492,10 @@
         }
         ctx.fillText(eventName, colEvent, textY);
 
-        // BUY-IN column — right-aligned, muted
+        // BUY-IN column — right-aligned, accent
         const buyinText = ev.buyin ? formatBuyin(ev.buyin) : '\u2014';
         ctx.font = '700 22px Oswald, sans-serif';
-        ctx.fillStyle = '#a0a0a0';
+        ctx.fillStyle = cTEXT_ACC;
         ctx.textAlign = 'right';
         ctx.fillText(buyinText, colBuyin + 100, textY);
 
@@ -7451,7 +7503,7 @@
         const planned = ev.planned_entries || 1;
         const entriesStr = planned + (planned === 1 ? ' Entry' : ' Entries');
         ctx.font = '400 20px Oswald, sans-serif';
-        ctx.fillStyle = '#808080';
+        ctx.fillStyle = cTEXT_MUT;
         ctx.textAlign = 'center';
         ctx.fillText(entriesStr, colEntries + 50, textY);
 
@@ -7460,7 +7512,7 @@
 
       // ── Footer ──
       ctx.font = '400 20px Oswald, sans-serif';
-      ctx.fillStyle = '#808080';
+      ctx.fillStyle = cTEXT_MUT;
       ctx.textAlign = 'left';
       ctx.fillText('Generated by futuregame', pad, h - 50);
       if (totalPages > 1) {
@@ -7473,7 +7525,7 @@
     }
 
     // Generate array of schedule image canvases
-    function generateScheduleImages(events, title) {
+    function generateScheduleImages(events, title, opts) {
       const sorted = [...events].filter(e => !e.is_restart).sort((a, b) => {
         const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
         const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
@@ -7492,7 +7544,7 @@
         const canvas = document.createElement('canvas');
         canvas.width = 1080; canvas.height = 1920;
         const ctx = canvas.getContext('2d');
-        drawSchedulePage(ctx, 1080, 1920, pages[i], i + 1, pages.length, title);
+        drawSchedulePage(ctx, 1080, 1920, pages[i], i + 1, pages.length, title, opts);
         canvases.push(canvas);
       }
       return canvases;
@@ -12665,6 +12717,7 @@
 
       const [selectedVenues, setSelectedVenues] = useState(() => new Set(venueList.map(([a]) => a)));
       const [excludeSatellites, setExcludeSatellites] = useState(false);
+      const [lightMode, setLightMode] = useState(false);
 
       const allSelected = selectedVenues.size === venueList.length;
       const toggleAll = () => {
@@ -12687,15 +12740,20 @@
 
       const handlePDF = async () => {
         if (!filteredEvents.length) return;
-        await generateSchedulePDF(filteredEvents, docTitle);
-        onClose();
+        try {
+          await generateSchedulePDF(filteredEvents, docTitle, { light: lightMode });
+          onClose();
+        } catch (err) {
+          console.error('PDF generation failed:', err);
+          alert('PDF generation failed: ' + (err.message || 'Unknown error'));
+        }
       };
 
       const handleImages = () => {
         if (!filteredEvents.length) return;
         setGenerating(true);
         setTimeout(() => {
-          const imgs = generateScheduleImages(filteredEvents, docTitle);
+          const imgs = generateScheduleImages(filteredEvents, docTitle, { light: lightMode });
           setCanvases(imgs);
           setMode('preview');
           setGenerating(false);
@@ -12786,6 +12844,19 @@
                 React.createElement('span', {
                   style: { fontSize: '0.72rem', color: 'var(--text-muted)' }
                 }, filteredEvents.length + ' event' + (filteredEvents.length !== 1 ? 's' : ''))
+              ),
+
+              // ── Light mode toggle ──
+              React.createElement('label', {
+                style: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontFamily: "'Oswald', sans-serif", fontWeight: 500, color: 'var(--text)', cursor: 'pointer', marginBottom: '12px' }
+              },
+                React.createElement('input', {
+                  type: 'checkbox',
+                  checked: lightMode,
+                  onChange: e => setLightMode(e.target.checked),
+                  style: { width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }
+                }),
+                'Export in Light Mode'
               ),
 
               // ── Total max buyins ──
