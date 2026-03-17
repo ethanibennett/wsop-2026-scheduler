@@ -11157,8 +11157,14 @@
 
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
       const [search, setSearch] = useState('');
-      const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: ''
+      // Pre-WSOP series hidden by default for new users
+      const PRE_WSOP_VENUES = ['Turning Stone Casino', 'Texas Card House', 'Irish Poker Open', 'MGM National Harbor'];
+      const [filters, setFilters] = useState(() => {
+        const saved = localStorage.getItem('venueFilterCustomized');
+        const defaultHidden = saved ? [] : PRE_WSOP_VENUES;
+        return {
+          minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: defaultHidden, bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: ''
+        };
       });
       const [filterPanelOpen, setFilterPanelOpen] = useState(false);
       const filterToggleRef = useRef(null);
@@ -11167,6 +11173,11 @@
       const hasScrolled = useRef(false);
       const stickyFiltersRef = useRef(null);
       const [dateBreakTop, setDateBreakTop] = useState(0);
+      const venueFilterInit = useRef(true);
+      useEffect(() => {
+        if (venueFilterInit.current) { venueFilterInit.current = false; return; }
+        localStorage.setItem('venueFilterCustomized', '1');
+      }, [filters.hiddenVenues]);
 
       useEffect(() => {
         const measure = () => {
