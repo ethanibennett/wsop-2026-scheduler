@@ -4384,6 +4384,7 @@
       'Texas Card House':            { abbr: 'TCH', color: '#a0522d', longName: 'WSOPC Texas Card House' },
       'Caesars Palace':              { abbr: 'CAESARS', color: '#b8962e', longName: 'Caesars Palace' },
       'Seminole Hard Rock':          { abbr: 'HARD ROCK', color: '#1a9e9e', longName: 'Seminole Hard Rock' },
+      'WSOP Europe':                 { abbr: 'WSOPE',     color: '#c0a040', longName: 'WSOP Europe' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -5327,7 +5328,8 @@
       'South Point': 'South Point Summer Poker',
       'Texas Card House': 'WSOPC Austin',
       'Turning Stone Casino': 'WSOPC Turning Stone',
-      'Wynn Las Vegas': 'Wynn Summer Classic'
+      'Wynn Las Vegas': 'Wynn Summer Classic',
+      'WSOP Europe': 'WSOP Europe'
     };
 
     function formatChips(n) {
@@ -7085,14 +7087,14 @@
       }
 
       const PDF_VENUE_COLORS_DARK = {
-        'WSOP': '#e8e8e8', 'PRS': '#e8e8e8', 'IPO': '#1a6b3c', 'PERSONAL': '#4a9eff',
+        'WSOP': '#e8e8e8', 'PRS': '#e8e8e8', 'WSOPE': '#c0a040', 'IPO': '#1a6b3c', 'PERSONAL': '#4a9eff',
         'WYNN': '#8a3030', 'ARIA': '#5a3a9a', 'GOLDEN NUGGET': '#7a6520',
         'RESORTS WORLD': '#2a7a72', 'SOUTH POINT': '#5e4430', 'ORLEANS': '#944828',
         'MGM GRAND': '#2a6a3e', 'MGM NH': '#8a7020', 'Turning Stone': '#8a6508',
         'TCH': '#a0522d', 'VEN': '#7a6520', 'CAESARS': '#b8962e', 'HARD ROCK': '#1a9e9e'
       };
       const PDF_VENUE_COLORS_LIGHT = {
-        'WSOP': '#555555', 'PRS': '#555555', 'IPO': '#14552f', 'PERSONAL': '#2a6ec0',
+        'WSOP': '#555555', 'PRS': '#555555', 'WSOPE': '#9a7a20', 'IPO': '#14552f', 'PERSONAL': '#2a6ec0',
         'WYNN': '#7a2020', 'ARIA': '#4a2a8a', 'GOLDEN NUGGET': '#6a5510',
         'RESORTS WORLD': '#1a6a62', 'SOUTH POINT': '#4e3420', 'ORLEANS': '#843818',
         'MGM GRAND': '#1a5a2e', 'MGM NH': '#7a6010', 'Turning Stone': '#7a5508',
@@ -7402,7 +7404,7 @@
 
       // Light-mode venue colors (darker for white bg)
       const CANVAS_VENUE_LIGHT = {
-        'WSOP': '#555555', 'PRS': '#555555', 'IPO': '#14552f', 'PERSONAL': '#2a6ec0',
+        'WSOP': '#555555', 'PRS': '#555555', 'WSOPE': '#9a7a20', 'IPO': '#14552f', 'PERSONAL': '#2a6ec0',
         'WYNN': '#7a2020', 'ARIA': '#4a2a8a', 'GOLDEN NUGGET': '#6a5510',
         'RESORTS WORLD': '#1a6a62', 'SOUTH POINT': '#4e3420', 'ORLEANS': '#843818',
         'MGM GRAND': '#1a5a2e', 'MGM NH': '#7a6010', 'Turning Stone': '#7a5508',
@@ -11158,7 +11160,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
       const [search, setSearch] = useState('');
       // Pre-WSOP series hidden by default for new users
-      const PRE_WSOP_VENUES = ['Turning Stone Casino', 'Texas Card House', 'Irish Poker Open', 'MGM National Harbor'];
+      const PRE_WSOP_VENUES = ['Turning Stone Casino', 'Texas Card House', 'Irish Poker Open', 'MGM National Harbor', 'WSOP Europe'];
       const [filters, setFilters] = useState(() => {
         const saved = localStorage.getItem('venueFilterCustomized');
         const defaultHidden = saved ? [] : PRE_WSOP_VENUES;
