@@ -21439,12 +21439,13 @@
         const password = fd.get('password');
         const usernameInput = fd.get('username');
         const realNameInput = fd.get('realName');
+        const rememberMe = fd.get('rememberMe') === 'on';
 
         try {
           const endpoint = isRegister ? '/register' : '/login';
           const body = isRegister
             ? { username: usernameInput, email, password, realName: realNameInput }
-            : { email, password };
+            : { email, password, rememberMe };
 
           const res = await fetch(`${API_URL}${endpoint}`, {
             method: 'POST',
