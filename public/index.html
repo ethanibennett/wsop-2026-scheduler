@@ -7224,7 +7224,7 @@
           if (data.section === 'head') {
             // Header alignment: Date left, Event left, Buy-in right, rest centered
             if (col === 0 || col === 3) data.cell.styles.halign = 'left';
-            else if (col === 4) data.cell.styles.halign = 'right';
+            else if (col === 1 || col === 4) data.cell.styles.halign = 'right';
             else data.cell.styles.halign = 'center';
           }
           if (data.section === 'body') {
@@ -7233,8 +7233,8 @@
               data.cell.styles.font = FONT_DATE;
               data.cell.styles.fontStyle = 'bold';
             }
-            // Time: center
-            if (col === 1) data.cell.styles.halign = 'center';
+            // Time: right-aligned
+            if (col === 1) data.cell.styles.halign = 'right';
             // Venue: center + brand color
             if (col === 2) {
               data.cell.styles.halign = 'center';
@@ -7406,8 +7406,9 @@
       ctx.fillStyle = cTEXT_MUT;
       ctx.textAlign = 'left';
       ctx.fillText('DATE', colDate, headerY);
+      ctx.textAlign = 'right';
+      ctx.fillText('TIME', colTime + 110, headerY);
       ctx.textAlign = 'center';
-      ctx.fillText('TIME', colTime + 55, headerY);
       ctx.fillText('VENUE', colVenue + 85, headerY);
       ctx.textAlign = 'left';
       ctx.fillText('EVENT', colEvent, headerY);
@@ -7463,8 +7464,8 @@
         // TIME column
         ctx.font = '400 22px Oswald, sans-serif';
         ctx.fillStyle = cTEXT;
-        ctx.textAlign = 'center';
-        ctx.fillText(ev.time || 'TBD', colTime + 55, textY);
+        ctx.textAlign = 'right';
+        ctx.fillText(ev.time || 'TBD', colTime + 110, textY);
 
         // VENUE column — brand color
         const venue = getVenueInfo(ev.venue);
