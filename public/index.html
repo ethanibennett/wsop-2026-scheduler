@@ -12330,6 +12330,12 @@
                 <label>Password</label>
                 <input type="password" name="password" placeholder={isRegister ? 'Min. 6 characters' : 'Your password'} required minLength="6" autoComplete={isRegister ? 'new-password' : 'current-password'} />
               </div>
+              {!isRegister && (
+                <label style={{display:'flex',alignItems:'center',gap:'8px',marginTop:'10px',fontSize:'0.82rem',color:'var(--text-muted)',cursor:'pointer',userSelect:'none'}}>
+                  <input type="checkbox" name="rememberMe" style={{width:'16px',height:'16px',accentColor:'var(--accent)',cursor:'pointer'}} />
+                  Remember me
+                </label>
+              )}
               <button type="submit" className="btn btn-primary btn-full" style={{marginTop:'8px'}}>
                 {isRegister ? 'Create Account' : 'Sign In'}
               </button>
@@ -18372,12 +18378,13 @@
         const password = fd.get('password');
         const usernameInput = fd.get('username');
         const realNameInput = fd.get('realName');
+        const rememberMe = fd.get('rememberMe') === 'on';
 
         try {
           const endpoint = isRegister ? '/register' : '/login';
           const body = isRegister
             ? { username: usernameInput, email, password, realName: realNameInput }
-            : { email, password };
+            : { email, password, rememberMe };
 
           const res = await fetch(`${API_URL}${endpoint}`, {
             method: 'POST',

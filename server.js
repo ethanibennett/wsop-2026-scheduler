@@ -1682,8 +1682,9 @@ app.post('/api/login', authLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    const rememberMe = req.body.rememberMe === true;
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
-      expiresIn: '24h'
+      expiresIn: rememberMe ? '30d' : '24h'
     });
 
     res.json({ token, username: user.username, userId: user.id, avatar: user.avatar || null, realName: user.real_name || null });
