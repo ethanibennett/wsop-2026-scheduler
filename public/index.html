@@ -7119,42 +7119,47 @@
       const lastDateStr = sorted[sorted.length - 1].date;
       const rangeStr = fmtRange(firstDate) + ' \u2013 ' + fmtRange(lastDateStr) + '  \u00B7  ' + sorted.length + ' events';
 
-      // ── Build rows + metadata ──
-      const rows = [];
-      const newDateRowIndices = new Set();
-      const venueColors = [];
-      let prevDate = '';
+      // ── Buy-in range grouping — use provided ranges or defaults ──
+      const BUYIN_RANGES = opts.buyinRanges || [
+        { label: 'Up to $1,500', min: 0, max: 1500 },
+        { label: 'Up to $3,000', min: 1501, max: 3000 },
+        { label: '$5,000 \u2013 $10,000', min: 5000, max: 10000 },
+        { label: '$25,000+', min: 25000, max: Infinity },
+      ];
 
-      for (const ev of sorted) {
-        const d = ev.date || '';
-        const isNewDate = d !== prevDate;
-        if (isNewDate) newDateRowIndices.add(rows.length);
-
-        // Date column: "01 Jun" on first event per day
-        let dateStr = '';
-        if (isNewDate) {
-          const dateObj = new Date(d);
-          dateStr = String(dateObj.getDate()).padStart(2, '0') + ' ' + MONTHS[dateObj.getMonth()];
-          prevDate = d;
+      // ── Build rows + metadata from a list of events ──
+      function buildRowsFromEvents(evts) {
+        const rows = [];
+        const newDateRowIndices = new Set();
+        const venueColors = [];
+        let prevDate = '';
+        for (const ev of evts) {
+          const d = ev.date || '';
+          const isNewDate = d !== prevDate;
+          if (isNewDate) newDateRowIndices.add(rows.length);
+          let dateStr = '';
+          if (isNewDate) {
+            const dateObj = new Date(d);
+            dateStr = String(dateObj.getDate()).padStart(2, '0') + ' ' + MONTHS[dateObj.getMonth()];
+            prevDate = d;
+          }
+          const venue = getVenueInfo(ev.venue);
+          venueColors.push(hexRGB(PDF_VENUE_COLORS[venue.abbr] || '#808080'));
+          const planned = ev.planned_entries || 1;
+          const entriesStr = planned + (planned === 1 ? ' Entry' : ' Entries');
+          rows.push([
+            dateStr,
+            ev.time || 'TBD',
+            venue.longName || venue.abbr,
+            ev.event_name || '',
+            ev.buyin ? formatBuyin(ev.buyin) : '\u2014',
+            entriesStr
+          ]);
         }
-
-        // Venue
-        const venue = getVenueInfo(ev.venue);
-        venueColors.push(hexRGB(PDF_VENUE_COLORS[venue.abbr] || '#808080'));
-
-        // Entries
-        const planned = ev.planned_entries || 1;
-        const entriesStr = planned + (planned === 1 ? ' Entry' : ' Entries');
-
-        rows.push([
-          dateStr,
-          ev.time || 'TBD',
-          venue.longName || venue.abbr,
-          ev.event_name || '',
-          ev.buyin ? formatBuyin(ev.buyin) : '\u2014',
-          entriesStr
-        ]);
+        return { rows, newDateRowIndices, venueColors };
       }
+
+      const { rows, newDateRowIndices, venueColors } = buildRowsFromEvents(sorted);
 
       // ── Page title (drawn in top margin of every page) ──
       function drawTitle() {
@@ -7173,137 +7178,129 @@
       doc.rect(0, 0, pw, ph, 'F');
       drawTitle();
 
-      // ── autoTable ──
+      // ── Draw a table section (reused for full list or per buy-in group) ──
       let currentPage = 1;
 
-      doc.autoTable({
-        startY: 24,
-        margin: { top: 24, left: mg, right: mg, bottom: 14 },
-        head: [['DATE', 'TIME', 'VENUE', 'EVENT', 'BUY-IN', 'ENTRIES']],
-        body: rows,
-        showHead: 'everyPage',
-        theme: 'plain',
-        tableWidth: 'auto',
+      function drawTableSection(sectionRows, sectionVenueColors, sectionDateIndices, startY) {
+        doc.autoTable({
+          startY: startY,
+          margin: { top: 24, left: mg, right: mg, bottom: 14 },
+          head: [['DATE', 'TIME', 'VENUE', 'EVENT', 'BUY-IN', 'ENTRIES']],
+          body: sectionRows,
+          showHead: 'everyPage',
+          theme: 'plain',
+          tableWidth: 'auto',
 
-        styles: {
-          fillColor: BG,
-          textColor: TEXT_PRI,
-          font: FONT_BODY,
-          fontStyle: 'normal',
-          fontSize: 7.5,
-          cellPadding: { top: 1.8, bottom: 1.8, left: 1, right: 1 },
-          lineWidth: 0,
-          overflow: 'ellipsize',
-          valign: 'middle',
-        },
+          styles: {
+            fillColor: BG,
+            textColor: TEXT_PRI,
+            font: FONT_BODY,
+            fontStyle: 'normal',
+            fontSize: 7.5,
+            cellPadding: { top: 1.8, bottom: 1.8, left: 1, right: 1 },
+            lineWidth: 0,
+            overflow: 'ellipsize',
+            valign: 'middle',
+          },
 
-        headStyles: {
-          fillColor: BG,
-          textColor: TEXT_MUT,
-          font: FONT_BODY,
-          fontStyle: 'bold',
-          fontSize: 6.5,
-          cellPadding: { top: 1.5, bottom: 2.5, left: 1, right: 1 },
-        },
+          headStyles: {
+            fillColor: BG,
+            textColor: TEXT_MUT,
+            font: FONT_BODY,
+            fontStyle: 'bold',
+            fontSize: 6.5,
+            cellPadding: { top: 1.5, bottom: 2.5, left: 1, right: 1 },
+          },
 
-        alternateRowStyles: {
-          fillColor: BG_ALT,
-        },
+          alternateRowStyles: {
+            fillColor: BG_ALT,
+          },
 
-        columnStyles: {
-          0: { cellWidth: 18 },
-          1: { cellWidth: 20 },
-          2: { cellWidth: 34, fontSize: 7 },
-          3: { cellWidth: 'auto' },
-          4: { cellWidth: 20 },
-          5: { cellWidth: 20, fontSize: 7 },
-        },
+          columnStyles: {
+            0: { cellWidth: 18 },
+            1: { cellWidth: 20 },
+            2: { cellWidth: 34, fontSize: 7 },
+            3: { cellWidth: 'auto' },
+            4: { cellWidth: 20 },
+            5: { cellWidth: 20, fontSize: 7 },
+          },
 
-        didParseCell: function(data) {
-          const col = data.column.index;
-          if (data.section === 'head') {
-            // Header alignment: Date left, Event left, Buy-in right, rest centered
-            if (col === 0 || col === 3) data.cell.styles.halign = 'left';
-            else if (col === 4) data.cell.styles.halign = 'right';
-            else data.cell.styles.halign = 'center';
-          }
-          if (data.section === 'body') {
-            // Date column: Libre Baskerville bold, left-aligned
-            if (col === 0) {
-              data.cell.styles.font = FONT_DATE;
-              data.cell.styles.fontStyle = 'bold';
+          didParseCell: function(data) {
+            const col = data.column.index;
+            if (data.section === 'head') {
+              if (col === 0 || col === 3) data.cell.styles.halign = 'left';
+              else if (col === 1 || col === 4) data.cell.styles.halign = 'right';
+              else data.cell.styles.halign = 'center';
             }
-            // Time: center
-            if (col === 1) data.cell.styles.halign = 'center';
-            // Venue: center + brand color
-            if (col === 2) {
-              data.cell.styles.halign = 'center';
-              data.cell.styles.textColor = venueColors[data.row.index];
+            if (data.section === 'body') {
+              if (col === 0) {
+                data.cell.styles.font = FONT_DATE;
+                data.cell.styles.fontStyle = 'bold';
+              }
+              if (col === 1) data.cell.styles.halign = 'right';
+              if (col === 2) {
+                data.cell.styles.halign = 'center';
+                data.cell.styles.textColor = sectionVenueColors[data.row.index];
+              }
+              if (col === 4) {
+                data.cell.styles.halign = 'right';
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.textColor = TEXT_ACC;
+              }
+              if (col === 5) {
+                data.cell.styles.halign = 'center';
+                data.cell.styles.textColor = TEXT_MUT;
+              }
             }
-            // Event: left (default)
-            // Buy-in: right, bold, accent color
-            if (col === 4) {
-              data.cell.styles.halign = 'right';
-              data.cell.styles.fontStyle = 'bold';
-              data.cell.styles.textColor = TEXT_ACC;
+          },
+
+          willDrawCell: function(data) {
+            const pageNum = doc.internal.getCurrentPageInfo().pageNumber;
+            if (pageNum > currentPage) {
+              currentPage = pageNum;
+              doc.setFillColor(...BG);
+              doc.rect(0, 0, pw, ph, 'F');
+              drawTitle();
             }
-            // Entries: centered, muted
-            if (col === 5) {
-              data.cell.styles.halign = 'center';
-              data.cell.styles.textColor = TEXT_MUT;
+            if (data.section === 'body' && data.column.index === 0
+                && sectionDateIndices.has(data.row.index) && data.row.index > 0) {
+              doc.setDrawColor(...LINE_CLR);
+              doc.setLineWidth(0.3);
+              doc.line(mg, data.cell.y, pw - mg, data.cell.y);
             }
-          }
-        },
+          },
 
-        willDrawCell: function(data) {
-          // Fill bg on new pages (fires before first cell is drawn on that page)
-          const pageNum = doc.internal.getCurrentPageInfo().pageNumber;
-          if (pageNum > currentPage) {
-            currentPage = pageNum;
-            doc.setFillColor(...BG);
-            doc.rect(0, 0, pw, ph, 'F');
-            drawTitle();
-          }
+          didDrawCell: function(data) {
+            if (data.section === 'head' && data.column.index === 5) {
+              doc.setDrawColor(...LINE_HEAD);
+              doc.setLineWidth(0.2);
+              const bottomY = data.cell.y + data.cell.height;
+              doc.line(mg, bottomY, pw - mg, bottomY);
+            }
+          },
 
-          // Date group separator line above first row of each new date group
-          if (data.section === 'body' && data.column.index === 0
-              && newDateRowIndices.has(data.row.index) && data.row.index > 0) {
-            doc.setDrawColor(...LINE_CLR);
-            doc.setLineWidth(0.3);
-            doc.line(mg, data.cell.y, pw - mg, data.cell.y);
-          }
-        },
+          didDrawPage: function(data) {
+            doc.setFont(FONT_BODY, 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...TEXT_MUT);
+            doc.text('Generated by futuregame', mg, ph - 5);
+            const pageStr = 'Page ' + currentPage;
+            const pageStrW = doc.getTextWidth(pageStr);
+            doc.text(pageStr, pw - mg - pageStrW, ph - 5);
+          },
+        });
 
-        didDrawCell: function(data) {
-          // Draw subtle line under header row
-          if (data.section === 'head' && data.column.index === 5) {
-            doc.setDrawColor(...LINE_HEAD);
-            doc.setLineWidth(0.2);
-            const bottomY = data.cell.y + data.cell.height;
-            doc.line(mg, bottomY, pw - mg, bottomY);
-          }
-        },
+        return doc.lastAutoTable.finalY || startY;
+      }
 
-        didDrawPage: function(data) {
-          // Footer on every page
-          doc.setFont(FONT_BODY, 'normal');
-          doc.setFontSize(6.5);
-          doc.setTextColor(...TEXT_MUT);
-          doc.text('Generated by futuregame', mg, ph - 5);
-          const pageStr = 'Page ' + currentPage;
-          const pageStrW = doc.getTextWidth(pageStr);
-          doc.text(pageStr, pw - mg - pageStrW, ph - 5);
-        },
-      });
-
-      // ── Total max buy-ins footer, right-aligned with Buy-in column ──
-      const totalMax = sorted.reduce((sum, ev) => {
-        const buyin = Number(ev.buyin) || 0;
-        const entries = ev.planned_entries || 1;
-        return sum + buyin * entries;
-      }, 0);
-      if (totalMax > 0) {
-        const finalY = doc.lastAutoTable.finalY || 24;
+      // ── Draw section subtotal line ──
+      function drawSectionTotal(evts, afterY) {
+        const total = evts.reduce((sum, ev) => {
+          const buyin = Number(ev.buyin) || 0;
+          const entries = ev.planned_entries || 1;
+          return sum + buyin * entries;
+        }, 0);
+        if (total <= 0) return afterY;
         const cols = doc.lastAutoTable.columns || [];
         let buyinRight = pw - mg;
         if (cols.length > 4) {
@@ -7311,27 +7308,78 @@
           for (let i = 0; i < 4; i++) colX += (cols[i].width || 0);
           buyinRight = colX + (cols[4].width || 0) - 1;
         }
-        const footY = finalY + 6;
-        // Check if we need a new page
+        let footY = afterY + 6;
         if (footY > ph - 20) {
           doc.addPage();
           currentPage++;
           doc.setFillColor(...BG);
           doc.rect(0, 0, pw, ph, 'F');
           drawTitle();
+          footY = 30;
         }
-        const drawY = (footY > ph - 20) ? 30 : footY;
         doc.setDrawColor(...LINE_FOOT);
         doc.setLineWidth(0.3);
-        doc.line(mg, drawY, pw - mg, drawY);
+        doc.line(mg, footY, pw - mg, footY);
         doc.setFont(FONT_BODY, 'bold');
         doc.setFontSize(8);
         doc.setTextColor(...TEXT_ACC);
-        doc.text('TOTAL MAXIMUM BUY-INS', mg, drawY + 5);
-        const totalStr = formatBuyin(totalMax);
+        doc.text('TOTAL MAXIMUM BUY-INS', mg, footY + 5);
         doc.setFontSize(8);
         doc.setTextColor(...TEXT_PRI);
-        doc.text(totalStr, buyinRight, drawY + 5, { align: 'right' });
+        doc.text(formatBuyin(total), buyinRight, footY + 5, { align: 'right' });
+        return footY + 5;
+      }
+
+      // ── Draw section header for buy-in groups ──
+      function drawSectionHeader(label, count, y) {
+        // Check if we need a new page (need ~20mm for header + first row)
+        if (y > ph - 30) {
+          doc.addPage();
+          currentPage++;
+          doc.setFillColor(...BG);
+          doc.rect(0, 0, pw, ph, 'F');
+          drawTitle();
+          y = 28;
+        }
+        doc.setFont(FONT_BODY, 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(...TEXT_PRI);
+        doc.text(label, mg, y);
+        doc.setFont(FONT_BODY, 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...TEXT_MUT);
+        doc.text('  ' + count + ' event' + (count !== 1 ? 's' : ''), mg + doc.getTextWidth(label) + 1, y);
+        doc.setDrawColor(...LINE_HEAD);
+        doc.setLineWidth(0.3);
+        doc.line(mg, y + 2, pw - mg, y + 2);
+        return y + 6;
+      }
+
+      // ── Render table(s) ──
+      if (opts.groupByBuyin) {
+        // Group events by buy-in range
+        const groups = BUYIN_RANGES.map(range => ({
+          ...range,
+          events: sorted.filter(ev => {
+            const b = Number(ev.buyin) || 0;
+            return b >= range.min && b <= range.max;
+          })
+        })).filter(g => g.events.length > 0);
+
+        let y = 24;
+        for (let gi = 0; gi < groups.length; gi++) {
+          const group = groups[gi];
+          y = drawSectionHeader(group.label, group.events.length, y);
+          const { rows: gRows, newDateRowIndices: gDateIdx, venueColors: gVColors } = buildRowsFromEvents(group.events);
+          y = drawTableSection(gRows, gVColors, gDateIdx, y);
+          y = drawSectionTotal(group.events, y);
+          // Add spacing before next group
+          if (gi < groups.length - 1) y += 10;
+        }
+      } else {
+        // Single table — original behavior
+        drawTableSection(rows, venueColors, newDateRowIndices, 24);
+        drawSectionTotal(sorted, doc.lastAutoTable.finalY || 24);
       }
 
       doc.save('my-schedule.pdf');
@@ -7406,8 +7454,9 @@
       ctx.fillStyle = cTEXT_MUT;
       ctx.textAlign = 'left';
       ctx.fillText('DATE', colDate, headerY);
+      ctx.textAlign = 'right';
+      ctx.fillText('TIME', colTime + 110, headerY);
       ctx.textAlign = 'center';
-      ctx.fillText('TIME', colTime + 55, headerY);
       ctx.fillText('VENUE', colVenue + 85, headerY);
       ctx.textAlign = 'left';
       ctx.fillText('EVENT', colEvent, headerY);
@@ -7463,8 +7512,8 @@
         // TIME column
         ctx.font = '400 22px Oswald, sans-serif';
         ctx.fillStyle = cTEXT;
-        ctx.textAlign = 'center';
-        ctx.fillText(ev.time || 'TBD', colTime + 55, textY);
+        ctx.textAlign = 'right';
+        ctx.fillText(ev.time || 'TBD', colTime + 110, textY);
 
         // VENUE column — brand color
         const venue = getVenueInfo(ev.venue);
@@ -12718,6 +12767,14 @@
       const [selectedVenues, setSelectedVenues] = useState(() => new Set(venueList.map(([a]) => a)));
       const [excludeSatellites, setExcludeSatellites] = useState(false);
       const [lightMode, setLightMode] = useState(false);
+      const [groupByBuyin, setGroupByBuyin] = useState(false);
+      const DEFAULT_BUYIN_RANGES = [
+        { label: 'Up to $1,500', min: 0, max: 1500 },
+        { label: 'Up to $3,000', min: 1501, max: 3000 },
+        { label: '$5,000 \u2013 $10,000', min: 5000, max: 10000 },
+        { label: '$25,000+', min: 25000, max: Infinity },
+      ];
+      const [buyinRanges, setBuyinRanges] = useState(DEFAULT_BUYIN_RANGES);
 
       const allSelected = selectedVenues.size === venueList.length;
       const toggleAll = () => {
@@ -12741,7 +12798,7 @@
       const handlePDF = async () => {
         if (!filteredEvents.length) return;
         try {
-          await generateSchedulePDF(filteredEvents, docTitle, { light: lightMode });
+          await generateSchedulePDF(filteredEvents, docTitle, { light: lightMode, groupByBuyin, buyinRanges: groupByBuyin ? buyinRanges : undefined });
           onClose();
         } catch (err) {
           console.error('PDF generation failed:', err);
@@ -12857,6 +12914,81 @@
                   style: { width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }
                 }),
                 'Export in Light Mode'
+              ),
+
+              // ── Group by buy-in range toggle ──
+              React.createElement('label', {
+                style: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontFamily: "'Oswald', sans-serif", fontWeight: 500, color: 'var(--text)', cursor: 'pointer', marginBottom: groupByBuyin ? '8px' : '12px' }
+              },
+                React.createElement('input', {
+                  type: 'checkbox',
+                  checked: groupByBuyin,
+                  onChange: e => setGroupByBuyin(e.target.checked),
+                  style: { width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }
+                }),
+                'Group by Buy-in Range'
+              ),
+
+              // ── Buy-in range editor (visible when groupByBuyin is on) ──
+              groupByBuyin && React.createElement('div', {
+                style: { marginBottom: '12px', padding: '10px 12px', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }
+              },
+                React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' } },
+                  React.createElement('span', { style: { fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: "'Oswald', sans-serif" } }, 'Ranges'),
+                  React.createElement('button', {
+                    onClick: () => setBuyinRanges(prev => [...prev, { min: 0, max: 0, label: '' }]),
+                    style: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", padding: 0 }
+                  }, '+ Add Range')
+                ),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
+                  buyinRanges.map((range, idx) =>
+                    React.createElement('div', { key: idx, style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                      React.createElement('input', {
+                        type: 'text',
+                        value: range.label,
+                        onChange: e => {
+                          const next = [...buyinRanges];
+                          next[idx] = { ...next[idx], label: e.target.value };
+                          setBuyinRanges(next);
+                        },
+                        placeholder: 'Label',
+                        style: { flex: 1, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Oswald', sans-serif", fontSize: '0.78rem' }
+                      }),
+                      React.createElement('input', {
+                        type: 'number',
+                        value: range.min === 0 ? '0' : range.min,
+                        onChange: e => {
+                          const next = [...buyinRanges];
+                          next[idx] = { ...next[idx], min: Number(e.target.value) || 0 };
+                          setBuyinRanges(next);
+                        },
+                        placeholder: 'Min',
+                        style: { width: '55px', padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Oswald', sans-serif", fontSize: '0.78rem', textAlign: 'right' }
+                      }),
+                      React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--text-muted)' } }, '\u2013'),
+                      React.createElement('input', {
+                        type: 'text',
+                        value: range.max === Infinity ? '' : range.max,
+                        onChange: e => {
+                          const next = [...buyinRanges];
+                          const val = e.target.value.trim();
+                          next[idx] = { ...next[idx], max: val === '' ? Infinity : (Number(val) || 0) };
+                          setBuyinRanges(next);
+                        },
+                        placeholder: '\u221E',
+                        style: { width: '55px', padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Oswald', sans-serif", fontSize: '0.78rem', textAlign: 'right' }
+                      }),
+                      buyinRanges.length > 1 && React.createElement('button', {
+                        onClick: () => setBuyinRanges(prev => prev.filter((_, i) => i !== idx)),
+                        style: { background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem', padding: '0 2px', lineHeight: 1 }
+                      }, '\u00D7')
+                    )
+                  )
+                ),
+                React.createElement('button', {
+                  onClick: () => setBuyinRanges(DEFAULT_BUYIN_RANGES),
+                  style: { marginTop: '6px', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.68rem', cursor: 'pointer', fontFamily: "'Oswald', sans-serif", padding: 0 }
+                }, 'Reset to Defaults')
               ),
 
               // ── Total max buyins ──

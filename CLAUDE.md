@@ -3,6 +3,7 @@
 ## Recent Changes
 <!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
 <!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-03-07**: Hand Replayer companion tool — Canvas-based felt table, flexible game engine supporting any card game (including custom/made-up games), 6 presets (NLHE, PLO, Stud, Draw, Pineapple, Short Deck), game builder UI, hand editor with card picker, step-through replay controls with keyboard support (arrow keys), action log sidebar. New file: `public/replayer.html`. New API routes: `/api/replayer/hands`, `/api/replayer/games`. New DB table: `replayer_games`. Page served at `/replayer`.
 - **2026-03-07**: Light mode export option — added "Export in Light Mode" checkbox to schedule export modal. Both PDF and image exports support `opts.light`. PDF uses theme constants (BG, BG_ALT, TEXT_PRI, TEXT_MUT, TEXT_ACC, LINE_CLR, LINE_HEAD, LINE_FOOT) and light venue colors. Image export (`drawSchedulePage`) uses equivalent canvas color variables. `generateScheduleImages` passes opts through.
 - **2026-03-07**: PDF total buy-ins right-aligned with buy-in column — used `doc.lastAutoTable.columns[4]` to get the exact buy-in column position and align the total amount with `{ align: 'right' }`. Merged with existing page-overflow logic.
 - **2026-03-05**: Spacing below search bar row — added 8px margin-bottom to search bar + filter button row for breathing room above the checkbox pills.
@@ -62,6 +63,7 @@ If SMTP is not configured, reset links are logged to the server console.
 | `server.js` | Express API server, auth, CRUD, live updates, file uploads |
 | `init-db.js` | Database schema creation + optional seed data |
 | `sample-data.js` | Tournament seed data used by init-db |
+| `public/replayer.html` | Hand replayer — Canvas table, game engine, editor, game builder |
 | `parsers/` | Schedule PDF parsing utilities |
 
 ## Conventions
@@ -87,6 +89,7 @@ If SMTP is not configured, reset links are logged to the server console.
 - Share Buddies: GET `/api/share-buddies`, PUT `/api/share-request/:id/accept`, DELETE `/api/share-buddy/:userId`
 - Groups: GET/POST `/api/groups`, DELETE `/api/groups/:id`, GET `/api/groups/:id/members`, POST `/api/groups/:id/members`, GET `/api/groups/:id/feed`, POST `/api/groups/:id/messages`, GET `/api/groups/:id/schedule`, GET/PUT `/api/groups/:id/leaderboard`
 - Group Invites: GET `/api/groups/:id/invites`, PUT `/api/group-invites/:id/accept`, PUT `/api/group-invites/:id/decline`
+- Hand Replayer: GET/POST `/api/replayer/hands`, PUT/DELETE `/api/replayer/hands/:id`, GET/POST/DELETE `/api/replayer/games`
 
 ## Dev Server Config
 The `.claude/` directory is gitignored. For Claude Code preview tools, create `.claude/launch.json`:
