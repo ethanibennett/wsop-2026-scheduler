@@ -2257,6 +2257,35 @@ app.get('/api/avatar/:userId', (req, res) => {
 
 // ── Share Request Endpoints ───────────────────────────────────
 
+// Search users by username or real_name (prefix match)
+app.get('/api/users/search', authenticateToken, requireRegistered, (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.json([]);
+    const pattern = q + '%';
+    const stmt = db.prepare(`
+      SELECT u.id, u.username, u.real_name, u.avatar
+      FROM users u
+      WHERE (u.username LIKE ? OR u.real_name LIKE ?) AND u.id != ?
+        AND u.id NOT IN (
+          SELECT CASE WHEN from_user_id = ? THEN to_user_id ELSE from_user_id END
+          FROM share_requests
+          WHERE (from_user_id = ? OR to_user_id = ?)
+            AND status IN ('pending', 'accepted')
+        )
+      LIMIT 10
+    `);
+    stmt.bind([pattern, pattern, req.user.id, req.user.id, req.user.id, req.user.id]);
+    const results = [];
+    while (stmt.step()) results.push(stmt.getAsObject());
+    stmt.free();
+    res.json(results);
+  } catch (err) {
+    console.error('User search error:', err);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 // Send a share request to another user
 app.post('/api/share-request', authenticateToken, requireRegistered, async (req, res) => {
   try {

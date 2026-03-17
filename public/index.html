@@ -659,6 +659,11 @@
       box-shadow: 0 0 4px rgba(248,113,113,0.2);
       opacity: 0.7;
     }
+    .replayer-seat.split {
+      border-color: #facc15;
+      box-shadow: 0 0 8px rgba(250,204,21,0.35), 0 0 16px rgba(250,204,21,0.15);
+    }
+    .replayer-seat.split .replayer-seat-hand-name { color:#facc15; }
     .replayer-seat-name { font-size:0.68rem; font-weight:600; color:var(--text); font-family:'Oswald',sans-serif; }
     .replayer-seat-pos { font-size:0.55rem; color:var(--accent2); }
     .replayer-seat-stack { font-size:0.68rem; color:var(--text-muted); font-family:'Oswald',sans-serif; margin-top:2px; }
@@ -15642,7 +15647,7 @@
     function SocialView({
       shareBuddies, buddyLiveUpdates, displayName, myGroups, activeGroupId, setActiveGroupId,
       groupFeed, groupSchedule, fetchGroupFeed, fetchGroupSchedule, fetchMyGroups,
-      token, onRemoveBuddy, onNavigate
+      token, onRemoveBuddy, fetchShareBuddies, onNavigate
     }) {
       const [expandedId, setExpandedId] = useState(null);
       const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -15651,6 +15656,44 @@
       const [addToGroupBuddyId, setAddToGroupBuddyId] = useState(null);
       const [confirmRemoveId, setConfirmRemoveId] = useState(null);
       const [inviteStatus, setInviteStatus] = useState({}); // { buddyId: { groupId: 'sent' | 'error' | 'member' } }
+      const [searchQuery, setSearchQuery] = useState('');
+      const [searchResults, setSearchResults] = useState([]);
+      const [searchLoading, setSearchLoading] = useState(false);
+      const [searchMsg, setSearchMsg] = useState('');
+      const searchTimerRef = useRef(null);
+
+      const handleSearchChange = (val) => {
+        setSearchQuery(val);
+        setSearchMsg('');
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        if (val.trim().length < 2) { setSearchResults([]); return; }
+        setSearchLoading(true);
+        searchTimerRef.current = setTimeout(async () => {
+          try {
+            const res = await fetch(`${API_URL}/users/search?q=${encodeURIComponent(val.trim())}`, {
+              headers: { Authorization: 'Bearer ' + token }
+            });
+            if (res.ok) setSearchResults(await res.json());
+            else setSearchResults([]);
+          } catch { setSearchResults([]); }
+          setSearchLoading(false);
+        }, 300);
+      };
+
+      const handleSendRequest = async (username) => {
+        try {
+          const res = await fetch(`${API_URL}/share-request`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+          });
+          const data = await res.json();
+          if (!res.ok) { setSearchMsg(data.error || 'Failed'); return; }
+          setSearchMsg('Request sent to ' + username);
+          setSearchResults(prev => prev.filter(u => u.username !== username));
+          if (fetchShareBuddies) fetchShareBuddies();
+        } catch { setSearchMsg('Failed to send request'); }
+      };
 
       const handleInviteToGroup = async (buddyId, groupId, username) => {
         try {
@@ -15717,18 +15760,76 @@
       const hasBuddies = shareBuddies && shareBuddies.length > 0;
       const hasGroups = myGroups && myGroups.length > 0;
 
+      const searchBar = (
+        <div style={{position:'relative',marginBottom:'12px'}}>
+          <input
+            type="text"
+            placeholder="Search by username or name..."
+            value={searchQuery}
+            onChange={e => handleSearchChange(e.target.value)}
+            style={{
+              width:'100%',boxSizing:'border-box',padding:'8px 12px',
+              border:'1.5px solid var(--border)',borderRadius:'var(--radius-sm)',
+              background:'var(--bg)',color:'var(--text)',fontFamily:"'Oswald',sans-serif",
+              fontSize:'0.82rem',outline:'none',
+            }}
+          />
+          {searchMsg && (
+            <div style={{fontSize:'0.7rem',color:'var(--accent)',fontFamily:"'Oswald',sans-serif",marginTop:'4px'}}>{searchMsg}</div>
+          )}
+          {(searchResults.length > 0 || searchLoading) && searchQuery.trim().length >= 2 && (
+            <div style={{
+              position:'absolute',top:'100%',left:0,right:0,zIndex:20,
+              background:'var(--surface)',border:'1px solid var(--border)',
+              borderRadius:'var(--radius-sm)',marginTop:'2px',
+              maxHeight:'240px',overflowY:'auto',
+              boxShadow:'0 4px 16px rgba(0,0,0,0.3)',
+            }}>
+              {searchLoading && !searchResults.length && (
+                <div style={{padding:'10px 12px',fontSize:'0.75rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif"}}>Searching...</div>
+              )}
+              {searchResults.map(u => (
+                <div key={u.id} style={{
+                  display:'flex',alignItems:'center',gap:'8px',padding:'8px 12px',
+                  borderBottom:'1px solid var(--border)',cursor:'default',
+                }}>
+                  <Avatar src={u.avatar} username={u.username} size={28} />
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:'0.78rem',fontWeight:600,color:'var(--text)',fontFamily:"'Oswald',sans-serif",overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      {u.real_name || u.username}
+                    </div>
+                    {u.real_name && (
+                      <div style={{fontSize:'0.62rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif"}}>@{u.username}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleSendRequest(u.username)}
+                    style={{
+                      padding:'3px 10px',borderRadius:'6px',border:'1px solid var(--accent)',
+                      background:'transparent',color:'var(--accent)',fontFamily:"'Oswald',sans-serif",
+                      fontSize:'0.65rem',cursor:'pointer',whiteSpace:'nowrap',
+                    }}
+                  >Connect</button>
+                </div>
+              ))}
+              {!searchLoading && searchResults.length === 0 && searchQuery.trim().length >= 2 && (
+                <div style={{padding:'10px 12px',fontSize:'0.75rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif"}}>No users found</div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+
       if (!hasBuddies && !hasGroups) {
         return (
-          <div className="placeholder-view">
-            <Icon.people />
-            <h2>Social</h2>
-            <p>
-              No connections yet.{' '}
-              <button onClick={() => onNavigate('settings')} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline',padding:0}}>
-                Add friends
-              </button>{' '}
-              to see their live updates here.
-            </p>
+          <div style={{maxWidth:'600px',margin:'0 auto'}}>
+            <div className="dashboard-section-header" style={{marginBottom:'12px'}}>
+              <div className="dashboard-section-title">Social</div>
+            </div>
+            {searchBar}
+            <div style={{textAlign:'center',color:'var(--text-muted)',fontSize:'0.82rem',padding:'24px 0'}}>
+              No connections yet. Search for friends above to get started.
+            </div>
           </div>
         );
       }
@@ -15786,12 +15887,13 @@
           )}
 
           {/* ── Connections section ── */}
+          <div className="dashboard-section-header" style={{marginBottom:'8px',marginTop:12}}>
+            <div className="dashboard-section-title">Connections</div>
+            {hasBuddies && <span className="dashboard-section-badge">{shareBuddies.length} friend{shareBuddies.length !== 1 ? 's' : ''}</span>}
+          </div>
+          {searchBar}
           {hasBuddies && (
             <React.Fragment>
-              <div className="dashboard-section-header" style={{marginBottom:'8px',marginTop:12}}>
-                <div className="dashboard-section-title">Connections</div>
-                <span className="dashboard-section-badge">{shareBuddies.length} friend{shareBuddies.length !== 1 ? 's' : ''}</span>
-              </div>
               {shareBuddies.map(buddy => {
                 const lu = buddyLiveUpdates?.[buddy.id];
                 const isLive = lu && !lu.isBusted;
@@ -16857,10 +16959,19 @@
       if (['2-7 TD', 'PL 2-7 TD', 'L 2-7 TD', 'A-5 TD', 'Badeucy', 'Badacy'].includes(gameType)) return 'draw_triple';
       if (['NL 2-7 SD', 'PL 5CD Hi'].includes(gameType)) return 'draw_single';
       if (gameType === 'Badugi') return 'draw_triple'; // Badugi is triple draw
+      // Check for custom draw config
+      if (!cfg.hasBoard && !cfg.isStud) {
+        const customDef = STREET_DEFS['custom_' + gameType];
+        if (customDef && customDef.streets.length > 3) return 'draw_triple';
+        if (customDef && customDef.streets.length <= 3) return 'draw_single';
+      }
       return 'community';
     }
 
     function getStreetDef(gameType) {
+      // Check for custom street def first
+      const customDef = STREET_DEFS['custom_' + gameType];
+      if (customDef) return customDef;
       return STREET_DEFS[getGameCategory(gameType)] || STREET_DEFS.community;
     }
 
@@ -17161,12 +17272,53 @@
             </div>
           </div>
 
+          {/* Result / Winner entry */}
+          <div className="replayer-section">
+            <div className="replayer-section-title">Result (optional)</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
+              {hand.players.map((p, pi) => {
+                const winners = hand.result?.winners || [];
+                const isWinner = winners.some(w => w.playerIdx === pi && !w.split);
+                const isSplit = winners.some(w => w.playerIdx === pi && w.split);
+                return (
+                  <button key={pi} style={{
+                    padding:'4px 10px',borderRadius:'6px',border:'1px solid',cursor:'pointer',
+                    fontFamily:"'Oswald',sans-serif",fontSize:'0.68rem',transition:'all 0.15s',
+                    background: isWinner ? 'rgba(74,222,128,0.15)' : isSplit ? 'rgba(250,204,21,0.15)' : 'transparent',
+                    borderColor: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--border)',
+                    color: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--text-muted)',
+                  }} onClick={() => {
+                    setHand(prev => {
+                      const prevWinners = prev.result?.winners || [];
+                      const existing = prevWinners.find(w => w.playerIdx === pi);
+                      let newWinners;
+                      if (!existing) {
+                        // Not selected -> winner
+                        newWinners = [...prevWinners, { playerIdx: pi, split: false, label: '' }];
+                      } else if (!existing.split) {
+                        // Winner -> split
+                        newWinners = prevWinners.map(w => w.playerIdx === pi ? { ...w, split: true } : w);
+                      } else {
+                        // Split -> remove
+                        newWinners = prevWinners.filter(w => w.playerIdx !== pi);
+                      }
+                      return { ...prev, result: { ...prev.result, winners: newWinners } };
+                    });
+                  }}>
+                    {p.name} {isWinner ? '(Win)' : isSplit ? '(Split)' : ''}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',marginTop:'4px',fontFamily:"'Oswald',sans-serif"}}>
+              Tap to cycle: none → win → split → none
+            </div>
+          </div>
+
           {/* Bottom actions */}
           <div style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}>
             <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
-            <button className="btn btn-primary btn-sm" onClick={() => onDone(hand)}>
-              {currentStreetIdx < hand.streets.length - 1 ? 'Save & Replay' : 'Save & Replay'}
-            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => onDone(hand)}>Save & Replay</button>
           </div>
         </div>
       );
@@ -17240,6 +17392,17 @@
 
       // Evaluate final hand result
       const evalResult = useMemo(() => {
+        // Manual result from hand.result (for custom games or overrides)
+        if (showResult && hand.result && hand.result.winners) {
+          return hand.result.winners.map(w => ({
+            index: w.playerIdx > 0 ? w.playerIdx - 1 : 0,
+            result: {
+              outcome: w.playerIdx === 0 ? 'hero' : (w.split ? 'split' : 'opponent'),
+              text: w.label || (w.playerIdx === 0 ? 'Hero wins' : hand.players[w.playerIdx]?.name + ' wins'),
+              color: w.split ? 'yellow' : (w.playerIdx === 0 ? 'green' : 'red'),
+            },
+          }));
+        }
         if (!showResult || !gameEval) return null;
         const hCards = parseCardNotation(heroCards);
         const bCards = gameCfg.hasBoard ? parseCardNotation(boardCards) : [];
@@ -17332,18 +17495,30 @@
       // Determine winner styling for seats
       const getPlayerSeatClass = (playerIdx) => {
         if (folded.has(playerIdx)) return 'folded';
-        if (showResult && evalResult) {
-          if (playerIdx === 0) {
-            // Hero
-            const heroWins = evalResult.some(r => r.result.outcome === 'hero');
-            const heroLoses = evalResult.some(r => r.result.outcome === 'opponent');
-            if (heroWins && !heroLoses) return 'winner';
-            if (heroLoses && !heroWins) return 'loser';
-          } else {
-            const oppResult = evalResult.find(r => r.index === playerIdx - 1);
-            if (oppResult) {
-              if (oppResult.result.outcome === 'opponent') return 'winner';
-              if (oppResult.result.outcome === 'hero') return 'loser';
+        if (showResult) {
+          // Manual result check first
+          const manualWinners = hand.result?.winners;
+          if (manualWinners && manualWinners.length > 0) {
+            const entry = manualWinners.find(w => w.playerIdx === playerIdx);
+            if (entry) return entry.split ? 'split' : 'winner';
+            return manualWinners.length > 0 ? 'loser' : '';
+          }
+          // Auto-eval result
+          if (evalResult) {
+            if (playerIdx === 0) {
+              const heroWins = evalResult.some(r => r.result.outcome === 'hero');
+              const heroLoses = evalResult.some(r => r.result.outcome === 'opponent');
+              const heroSplits = evalResult.some(r => r.result.outcome === 'split');
+              if (heroWins && !heroLoses) return 'winner';
+              if (heroLoses && !heroWins) return 'loser';
+              if (heroSplits) return 'split';
+            } else {
+              const oppResult = evalResult.find(r => r.index === playerIdx - 1);
+              if (oppResult) {
+                if (oppResult.result.outcome === 'opponent') return 'winner';
+                if (oppResult.result.outcome === 'hero') return 'loser';
+                if (oppResult.result.outcome === 'split') return 'split';
+              }
             }
           }
         }
@@ -17571,7 +17746,15 @@
           </div>
 
           {/* Result banner */}
-          {showResult && evalResult && evalResult.map((r, ri) => (
+          {showResult && hand.result?.winners?.length > 0 && (
+            <div className={`replayer-result ${hand.result.winners.some(w => w.split) ? 'replayer-result-split' : 'replayer-result-hero'}`}>
+              {hand.result.winners.map(w => {
+                const name = hand.players[w.playerIdx]?.name || 'Player';
+                return w.split ? name + ' (split)' : name + ' wins';
+              }).join(' | ')}
+            </div>
+          )}
+          {showResult && !hand.result?.winners?.length && evalResult && evalResult.map((r, ri) => (
             <div key={ri} className={`replayer-result replayer-result-${r.result.color === 'green' ? 'hero' : r.result.color === 'red' ? 'opponent' : 'split'}`}>
               {r.result.text}
             </div>
@@ -17656,6 +17839,11 @@
       const [notes, setNotes] = useState('');
       const [isPublic, setIsPublic] = useState(false);
       const [loading, setLoading] = useState(false);
+      // Custom game config
+      const [customGameName, setCustomGameName] = useState('');
+      const [customHeroCards, setCustomHeroCards] = useState(2);
+      const [customCategory, setCustomCategory] = useState('community'); // community | stud | draw_triple | draw_single
+      const [customStreetNames, setCustomStreetNames] = useState('');
 
       const gameTypes = Object.keys(HAND_CONFIG).filter(k => k !== 'OFC Pineapple');
 
@@ -17672,7 +17860,57 @@
       useEffect(() => { fetchHands(); }, [token]);
 
       const startNewHand = () => {
-        setCurrentHand(createEmptyHand(selectedGameType));
+        if (selectedGameType === 'Custom') {
+          const gameName = customGameName.trim() || 'Custom';
+          const heroCards = Math.max(1, Math.min(13, customHeroCards));
+          const cat = customCategory;
+          const hasBoard = cat === 'community';
+          const isStud = cat === 'stud';
+          // Register custom config at runtime
+          HAND_CONFIG[gameName] = { heroCards, hasBoard, boardMax: hasBoard ? 5 : 0, isStud, heroPlaceholder: '' };
+          // Custom street names
+          let streetNames;
+          if (customStreetNames.trim()) {
+            streetNames = customStreetNames.split(',').map(s => s.trim()).filter(Boolean);
+          } else {
+            const def = STREET_DEFS[cat] || STREET_DEFS.community;
+            streetNames = def.streets;
+          }
+          // Register custom street def
+          if (!STREET_DEFS['custom_' + gameName]) {
+            const boardCards = streetNames.map((_, i) => {
+              if (!hasBoard) return 0;
+              if (i === 0) return 0;
+              if (i === 1) return 3;
+              return 1;
+            });
+            STREET_DEFS['custom_' + gameName] = { streets: streetNames, boardCards };
+          }
+          // Patch getGameCategory and getStreetDef for this game
+          const origGetCat = getGameCategory;
+          const origGetDef = getStreetDef;
+          // Temporarily override — these are stable since the config is now in HAND_CONFIG
+          const customDef = STREET_DEFS['custom_' + gameName];
+          const hand = {
+            gameType: gameName,
+            customConfig: { heroCards, category: cat, streetNames: customDef.streets, hasBoard, isStud },
+            players: [
+              { name: 'Hero', position: 'BTN', startingStack: 50000 },
+              { name: 'Opp 1', position: 'BB', startingStack: 50000 },
+            ],
+            blinds: { sb: 100, bb: 200, ante: 0 },
+            streets: customDef.streets.map(name => ({
+              name,
+              cards: { hero: '', opponents: [''], board: '' },
+              actions: [],
+              draws: [],
+            })),
+            result: null,
+          };
+          setCurrentHand(hand);
+        } else {
+          setCurrentHand(createEmptyHand(selectedGameType));
+        }
         setCurrentHandId(null);
         setTitle('');
         setNotes('');
@@ -17688,6 +17926,37 @@
           if (res.ok) {
             const data = await res.json();
             const handData = typeof data.hand_data === 'string' ? JSON.parse(data.hand_data) : data.hand_data;
+            // Restore custom game config if needed
+            if (handData.gameType && !HAND_CONFIG[handData.gameType]) {
+              const cc = handData.customConfig;
+              if (cc) {
+                HAND_CONFIG[handData.gameType] = {
+                  heroCards: cc.heroCards || 2,
+                  hasBoard: !!cc.hasBoard,
+                  boardMax: cc.hasBoard ? 5 : 0,
+                  isStud: !!cc.isStud,
+                  heroPlaceholder: '',
+                };
+                STREET_DEFS['custom_' + handData.gameType] = {
+                  streets: cc.streetNames || handData.streets.map(s => s.name),
+                  boardCards: (cc.streetNames || handData.streets.map(s => s.name)).map((_, i) => {
+                    if (!cc.hasBoard) return 0;
+                    if (i === 0) return 0;
+                    if (i === 1) return 3;
+                    return 1;
+                  }),
+                };
+              } else {
+                // Fallback: infer from hand data
+                const streets = handData.streets || [];
+                const hasBoard = streets.some(s => s.cards?.board);
+                HAND_CONFIG[handData.gameType] = { heroCards: 2, hasBoard, boardMax: hasBoard ? 5 : 0, isStud: false, heroPlaceholder: '' };
+                STREET_DEFS['custom_' + handData.gameType] = {
+                  streets: streets.map(s => s.name),
+                  boardCards: streets.map((_, i) => !hasBoard ? 0 : i === 0 ? 0 : i === 1 ? 3 : 1),
+                };
+              }
+            }
             setCurrentHand(handData);
             setCurrentHandId(data.id);
             setTitle(data.title || '');
@@ -17756,16 +18025,24 @@
           { label: 'Draw', games: ['2-7 TD', 'NL 2-7 SD', 'PL 2-7 TD', 'L 2-7 TD', 'A-5 TD', 'Badugi', 'Badeucy', 'Badacy', 'PL 5CD Hi'] },
           { label: 'Stud', games: ['Razz', 'Stud Hi', 'Stud8', 'Stud Hi-Lo', '2-7 Razz'] },
         ];
-        return groups.map(g => (
-          <div key={g.label} style={{marginBottom:'6px'}}>
-            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>{g.label}</div>
+        return React.createElement(React.Fragment, null,
+          groups.map(g => (
+            <div key={g.label} style={{marginBottom:'6px'}}>
+              <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>{g.label}</div>
+              <div className="hand-game-pill-row" style={{flexWrap:'wrap'}}>
+                {g.games.map(game => (
+                  <button key={game} className={selectedGameType === game ? 'active' : ''} onClick={() => setSelectedGameType(game)}>{game}</button>
+                ))}
+              </div>
+            </div>
+          )),
+          <div key="custom" style={{marginBottom:'6px'}}>
+            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>Custom</div>
             <div className="hand-game-pill-row" style={{flexWrap:'wrap'}}>
-              {g.games.map(game => (
-                <button key={game} className={selectedGameType === game ? 'active' : ''} onClick={() => setSelectedGameType(game)}>{game}</button>
-              ))}
+              <button className={selectedGameType === 'Custom' ? 'active' : ''} onClick={() => setSelectedGameType('Custom')}>Custom Game</button>
             </div>
           </div>
-        ));
+        );
       };
 
       if (mode === 'entry' && currentHand) {
@@ -17820,9 +18097,38 @@
             <div className="hand-game-pills">
               {renderGamePills()}
             </div>
+            {selectedGameType === 'Custom' && (
+              <div style={{marginTop:'8px',display:'flex',flexDirection:'column',gap:'6px',padding:'8px 10px',background:'var(--surface2)',borderRadius:'var(--radius-sm)'}}>
+                <div className="replayer-row">
+                  <div className="replayer-field" style={{flex:'1 1 120px'}}>
+                    <label>Game Name</label>
+                    <input type="text" placeholder="e.g. Double Board PLO" value={customGameName} onChange={e => setCustomGameName(e.target.value)} />
+                  </div>
+                  <div className="replayer-field" style={{flex:'0 0 70px'}}>
+                    <label>Hole Cards</label>
+                    <input type="number" min="1" max="13" value={customHeroCards} onChange={e => setCustomHeroCards(Number(e.target.value) || 2)} />
+                  </div>
+                </div>
+                <div className="replayer-row">
+                  <div className="replayer-field">
+                    <label>Structure</label>
+                    <select value={customCategory} onChange={e => setCustomCategory(e.target.value)}>
+                      <option value="community">Community Board</option>
+                      <option value="stud">Stud (no board)</option>
+                      <option value="draw_triple">Triple Draw</option>
+                      <option value="draw_single">Single Draw</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="replayer-field">
+                  <label>Street Names (comma-separated, leave blank for defaults)</label>
+                  <input type="text" placeholder="e.g. Preflop, Flop, Turn, River, Extra" value={customStreetNames} onChange={e => setCustomStreetNames(e.target.value)} />
+                </div>
+              </div>
+            )}
             <div style={{display:'flex',justifyContent:'flex-end',marginTop:'8px'}}>
               <button className="btn btn-primary btn-sm" onClick={startNewHand}>
-                Create {selectedGameType} Hand
+                Create {selectedGameType === 'Custom' ? (customGameName.trim() || 'Custom') : selectedGameType} Hand
               </button>
             </div>
           </div>
@@ -18844,6 +19150,7 @@
                 fetchMyGroups={fetchMyGroups}
                 token={token}
                 onRemoveBuddy={handleRemoveBuddy}
+                fetchShareBuddies={fetchShareBuddies}
                 onNavigate={(v) => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }}
               />
             )}
