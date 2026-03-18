@@ -11269,7 +11269,7 @@
 
     // ── Tournaments View ───────────────────────────────────────
 
-    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
         minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: ''
@@ -19338,6 +19338,7 @@
                 onSetPlannedEntries={setPlannedEntries}
                 buddyEvents={buddyEvents}
                 buddyLiveUpdates={buddyLiveUpdates}
+                onBuddySwap={onBuddySwap}
               />
             )}
 
