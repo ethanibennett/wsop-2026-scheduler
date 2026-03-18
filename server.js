@@ -5704,6 +5704,23 @@ app.get('/api/admin/users', adminLimiter, (req, res) => {
   }
 });
 
+// Admin: list users (JWT auth, hardcoded admin username)
+app.get('/api/admin/users-list', authenticateToken, requireRegistered, (req, res) => {
+  if (req.user.username !== 'eib') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const stmt = db.prepare('SELECT id, username, email, real_name, avatar, created_at FROM users ORDER BY created_at DESC');
+    const users = [];
+    while (stmt.step()) users.push(stmt.getAsObject());
+    stmt.free();
+    res.json(users);
+  } catch (error) {
+    console.error('Admin users-list error:', error);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 // SPA catch-all for /shared/* routes
 app.get('/shared/:token', serveIndex);
 
