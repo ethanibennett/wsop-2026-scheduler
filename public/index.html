@@ -18661,6 +18661,48 @@
         return () => es.close();
       }, [token]);
 
+      // ── Push notifications (admin only) ──
+      useEffect(() => {
+        if (!token || isGuest || (username || '').toLowerCase() !== 'ham') return;
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+        (async () => {
+          try {
+            const reg = await navigator.serviceWorker.register('/sw.js');
+            const existing = await reg.pushManager.getSubscription();
+            if (existing) {
+              // Already subscribed — ensure server knows
+              await fetch(`${API_URL}/push-subscribe`, {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscription: existing })
+              });
+              return;
+            }
+            // Request permission
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') return;
+            // Get VAPID key
+            const keyRes = await fetch(`${API_URL}/push/vapid-key`);
+            const { key } = await keyRes.json();
+            if (!key) return;
+            // Subscribe
+            const sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: key
+            });
+            // Send to server
+            await fetch(`${API_URL}/push-subscribe`, {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription: sub })
+            });
+          } catch (err) {
+            console.log('Push setup:', err.message);
+          }
+        })();
+      }, [token, username, isGuest]);
+
       // Auto-logout on 401/403 (expired/invalid token)
       const guardedFetch = async (url, opts) => {
         const res = await fetch(url, opts);
