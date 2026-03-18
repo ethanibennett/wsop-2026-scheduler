@@ -10068,17 +10068,21 @@
       const [type, setType] = useState('swap');
       const [myPct, setMyPct] = useState('5');
       const [theirPct, setTheirPct] = useState('5');
+      const [cbPct, setCbPct] = useState('50');
+      const [cbCap, setCbCap] = useState('');
       const [sending, setSending] = useState(false);
       const [msg, setMsg] = useState('');
 
       const handleSend = async () => {
         setSending(true);
         setMsg('');
+        const sendMyPct = type === 'crossbook' ? cbPct : myPct;
+        const sendTheirPct = type === 'crossbook' ? cbPct : theirPct;
         try {
           const res = await fetch(`${API_URL}/swap-suggest`, {
             method: 'POST',
             headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ toUserId: buddy.id, tournamentId: tournament.id, type, myPct, theirPct })
+            body: JSON.stringify({ toUserId: buddy.id, tournamentId: tournament.id, type, myPct: sendMyPct, theirPct: sendTheirPct, cap: type === 'crossbook' && cbCap ? Number(cbCap) : undefined })
           });
           const data = await res.json();
           if (!res.ok) { setMsg(data.error || 'Failed'); setSending(false); return; }
@@ -10113,24 +10117,45 @@
                 }}>{t}</button>
               ))}
             </div>
-            <div style={{display:'flex',gap:'12px',marginBottom:'16px'}}>
-              <div style={{flex:1}}>
-                <label style={{fontSize:'0.7rem',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:'0.05em',display:'block',marginBottom:4}}>You give</label>
-                <div style={{display:'flex',alignItems:'center',gap:4}}>
-                  <input type="number" min="1" max="100" value={myPct} onChange={e => setMyPct(e.target.value)}
-                    style={{width:'100%',padding:'8px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)',fontSize:'1rem',textAlign:'center'}} />
-                  <span style={{color:'var(--text-muted)',fontWeight:600}}>%</span>
+            {type === 'swap' ? (
+              <div style={{display:'flex',gap:'12px',marginBottom:'16px'}}>
+                <div style={{flex:1}}>
+                  <label style={{fontSize:'0.7rem',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:'0.05em',display:'block',marginBottom:4}}>You give</label>
+                  <div style={{display:'flex',alignItems:'center',gap:4}}>
+                    <input type="number" min="1" max="100" value={myPct} onChange={e => setMyPct(e.target.value)}
+                      style={{width:'100%',padding:'8px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)',fontSize:'1rem',textAlign:'center'}} />
+                    <span style={{color:'var(--text-muted)',fontWeight:600}}>%</span>
+                  </div>
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{fontSize:'0.7rem',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:'0.05em',display:'block',marginBottom:4}}>They give</label>
+                  <div style={{display:'flex',alignItems:'center',gap:4}}>
+                    <input type="number" min="1" max="100" value={theirPct} onChange={e => setTheirPct(e.target.value)}
+                      style={{width:'100%',padding:'8px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)',fontSize:'1rem',textAlign:'center'}} />
+                    <span style={{color:'var(--text-muted)',fontWeight:600}}>%</span>
+                  </div>
                 </div>
               </div>
-              <div style={{flex:1}}>
-                <label style={{fontSize:'0.7rem',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:'0.05em',display:'block',marginBottom:4}}>They give</label>
-                <div style={{display:'flex',alignItems:'center',gap:4}}>
-                  <input type="number" min="1" max="100" value={theirPct} onChange={e => setTheirPct(e.target.value)}
-                    style={{width:'100%',padding:'8px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)',fontSize:'1rem',textAlign:'center'}} />
-                  <span style={{color:'var(--text-muted)',fontWeight:600}}>%</span>
+            ) : (
+              <div style={{display:'flex',gap:'12px',marginBottom:'16px'}}>
+                <div style={{flex:1}}>
+                  <label style={{fontSize:'0.7rem',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:'0.05em',display:'block',marginBottom:4}}>Percentage</label>
+                  <div style={{display:'flex',alignItems:'center',gap:4}}>
+                    <input type="number" min="1" max="100" value={cbPct} onChange={e => setCbPct(e.target.value)}
+                      style={{width:'100%',padding:'8px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)',fontSize:'1rem',textAlign:'center'}} />
+                    <span style={{color:'var(--text-muted)',fontWeight:600}}>%</span>
+                  </div>
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{fontSize:'0.7rem',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:'0.05em',display:'block',marginBottom:4}}>Cap (optional)</label>
+                  <div style={{display:'flex',alignItems:'center',gap:4}}>
+                    <input type="number" min="0" value={cbCap} onChange={e => setCbCap(e.target.value)} placeholder="—"
+                      style={{width:'100%',padding:'8px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)',fontSize:'1rem',textAlign:'center'}} />
+                    <span style={{color:'var(--text-muted)',fontWeight:600}}>{currencySymbol(tournament.venue)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             {msg && <div style={{textAlign:'center',fontSize:'0.82rem',color: msg === 'Sent!' ? '#22c55e' : '#ef4444',marginBottom:8}}>{msg}</div>}
             <button onClick={handleSend} disabled={sending} style={{
               width:'100%',padding:'12px',borderRadius:10,border:'none',
