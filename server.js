@@ -5706,7 +5706,7 @@ app.get('/api/admin/users', adminLimiter, (req, res) => {
 
 // Admin: list users (JWT auth, hardcoded admin username)
 app.get('/api/admin/users-list', authenticateToken, requireRegistered, (req, res) => {
-  if (req.user.username !== 'ham') {
+  if ((req.user.username || '').toLowerCase() !== 'ham') {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
