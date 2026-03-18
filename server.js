@@ -1435,6 +1435,18 @@ async function initDatabase() {
         console.log(`Stud8 → Stud 8: ${v} variants, ${n} event names updated`);
       }
     },
+    {
+      name: 'remove-non-wsop-venues-2026-03',
+      fn: () => {
+        const venues = ['Wynn Las Vegas', 'Wynn', 'Aria Resort & Casino', 'Aria', 'Golden Nugget', 'MGM Grand', 'Orleans', 'Resorts World'];
+        let total = 0;
+        for (const v of venues) {
+          db.run('DELETE FROM tournaments WHERE venue = ?', [v]);
+          total += db.getRowsModified();
+        }
+        console.log(`Removed ${total} events from non-WSOP Vegas venues`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
