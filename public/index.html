@@ -11306,6 +11306,43 @@
       const hasScrolled = useRef(false);
       const stickyFiltersRef = useRef(null);
       const [dateBreakTop, setDateBreakTop] = useState(0);
+      const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
+
+      // Wrap setFilters to preserve scroll position when toggling show checkboxes
+      const setFiltersWithScroll = useCallback((updater) => {
+        const container = document.querySelector('.content-area');
+        if (container) {
+          // Find the first visible date-group element
+          const groups = container.querySelectorAll('[data-date-group]');
+          for (const g of groups) {
+            const rect = g.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            if (rect.bottom > containerRect.top) {
+              scrollAnchorRef.current = { date: g.getAttribute('data-date-group'), offsetFromTop: rect.top - containerRect.top };
+              break;
+            }
+          }
+        }
+        setFilters(updater);
+      }, []);
+
+      // After re-render, restore scroll to the anchored date group
+      useEffect(() => {
+        if (!scrollAnchorRef.current) return;
+        const { date, offsetFromTop } = scrollAnchorRef.current;
+        scrollAnchorRef.current = null;
+        const container = document.querySelector('.content-area');
+        if (!container) return;
+        requestAnimationFrame(() => {
+          const target = container.querySelector(`[data-date-group="${date}"]`);
+          if (target) {
+            const containerRect = container.getBoundingClientRect();
+            const targetRect = target.getBoundingClientRect();
+            const currentOffset = targetRect.top - containerRect.top;
+            container.scrollTop += (currentOffset - offsetFromTop);
+          }
+        });
+      }, [filters]);
 
       useEffect(() => {
         const measure = () => {
@@ -11482,7 +11519,7 @@
               </div>
             </div>
 
-            <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} />
+            <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} />
           </div>
 
           {filtered.length === 0 ? (
@@ -11517,7 +11554,7 @@
                   const needsRef = !scrollRefAssigned && group.date >= todayISO;
                   if (needsRef) scrollRefAssigned = true;
                   return (
-                    <div key={group.date} ref={needsRef ? todayScrollRef : undefined} data-today-scroll={needsRef ? 'true' : undefined} style={{marginTop: gi === 0 ? 0 : '8px'}}>
+                    <div key={group.date} ref={needsRef ? todayScrollRef : undefined} data-today-scroll={needsRef ? 'true' : undefined} data-date-group={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                       <div className="schedule-date-break" style={{
                         position: 'sticky', top: dateBreakTop + 'px', zIndex: 5,
                         padding: '12px 12px 8px 2px',
