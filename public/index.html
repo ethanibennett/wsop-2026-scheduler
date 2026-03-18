@@ -13823,9 +13823,9 @@
 
       // ── Parse level duration from tournament data ──
       function parseLevelDuration(t) {
-        if (!t.level_duration) return 40; // GUESS: default 40 min
+        if (!t.level_duration) return null;
         const match = t.level_duration.match(/(\d+)/);
-        return match ? parseInt(match[1]) : 40;
+        return match ? parseInt(match[1]) : null;
       }
 
       // ── Check if late reg has ended ──
@@ -13892,7 +13892,7 @@
         const started = now >= startMs;
         const regClosed = isLateRegClosed(event);
         const levelDuration = parseLevelDuration(event);
-        const blindInfo = started ? estimateBlindLevel(startMs, levelDuration) : null;
+        const blindInfo = started && levelDuration ? estimateBlindLevel(startMs, levelDuration) : null;
         const startingChips = event.starting_chips || 20000; // GUESS: default starting stack
 
         const currentStack = (activeEventMap[event.id]?.stack) ? Number(activeEventMap[event.id].stack) : startingChips;
