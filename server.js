@@ -618,6 +618,7 @@ async function initDatabase() {
     { file: 'ipo-events.json', label: 'Irish Poker Open', check: "venue = 'Irish Poker Open'" },
     { file: 'turning-stone-events.json', label: 'Turning Stone', check: "venue = 'Turning Stone Casino'" },
     { file: 'tch-events.json', label: 'Texas Card House', check: "venue = 'Texas Card House'" },
+    { file: 'wsope-events.json', label: 'WSOP Europe', check: "venue = 'WSOP Europe'" },
   ];
   for (const seed of seedFiles) {
     try {
