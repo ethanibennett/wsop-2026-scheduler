@@ -1483,6 +1483,13 @@ async function initDatabase() {
         console.log('Created push_subscriptions table');
       }
     },
+    {
+      name: 'rename-triathlon-2026-03',
+      fn: () => {
+        db.run(`UPDATE tournaments SET event_name = 'NLH Triathlon Championship - Unlimited Re-Entry' WHERE event_name LIKE '%Triathlon Championship%' AND venue = 'Irish Poker Open'`);
+        console.log(`Renamed Triathlon Championship: ${db.getRowsModified()} rows`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
