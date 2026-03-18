@@ -498,7 +498,8 @@ async function initDatabase() {
     const backfillStmt = db.prepare(
       `SELECT id, event_number, buyin FROM tournaments
        WHERE buyin > 0 AND rake_pct IS NULL
-       AND (venue LIKE '%WSOP%' OR venue LIKE '%Horseshoe%' OR venue LIKE '%Paris Las Vegas%')`
+       AND (venue LIKE '%WSOP%' OR venue LIKE '%Horseshoe%' OR venue LIKE '%Paris Las Vegas%')
+       AND venue != 'WSOP Europe'`
     );
     let backfillCount = 0;
     while (backfillStmt.step()) {
@@ -1381,6 +1382,18 @@ async function initDatabase() {
           updated += db.getRowsModified();
         }
         console.log(`WSOPE event rename: ${updated} rows updated`);
+      }
+    },
+    {
+      name: 'wsope-clear-wrong-rake-2026-03',
+      fn: () => {
+        db.run(
+          `UPDATE tournaments SET rake_pct = NULL, rake_dollars = NULL,
+           house_fee = NULL, prize_pool = NULL, opt_add_on = NULL
+           WHERE venue = 'WSOP Europe'`
+        );
+        const updated = db.getRowsModified();
+        console.log(`WSOPE: cleared incorrect rake data from ${updated} events`);
       }
     },
   ];
