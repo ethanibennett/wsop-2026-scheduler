@@ -1396,6 +1396,14 @@ async function initDatabase() {
         console.log(`WSOPE: cleared incorrect rake data from ${updated} events`);
       }
     },
+    {
+      name: 'fix-1149-buyin-2026-03',
+      fn: () => {
+        db.run(`UPDATE tournaments SET buyin = 1150 WHERE buyin = 1149`);
+        const updated = db.getRowsModified();
+        console.log(`Fixed $1149 → $1150 buyin: ${updated} events`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
