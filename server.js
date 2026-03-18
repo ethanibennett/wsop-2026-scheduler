@@ -246,7 +246,7 @@ function normalizeEventName(name, gameVariant) {
     const VARIANT_MAP = {
       'NLH': 'NLH', 'PLO': 'PLO', 'PLO8': 'PLO8', 'O8': 'O8',
       'HORSE': 'HORSE', 'Mixed': 'Mixed', 'Big O': 'Big O',
-      'Razz': 'Razz', 'Badugi': 'Badugi', 'Stud8': 'Stud8',
+      'Razz': 'Razz', 'Badugi': 'Badugi', 'Stud 8': 'Stud 8',
       '7-Card Stud': '7-Card Stud', 'Limit Hold\'em': 'Limit Hold\'em',
       'NL 2-7 Single Draw': 'NL 2-7 Single Draw',
       'NL 2-7 Triple Draw': '2-7 Triple Draw',
@@ -256,7 +256,7 @@ function normalizeEventName(name, gameVariant) {
     const abbrev = VARIANT_MAP[gameVariant] || gameVariant;
     const KNOWN_STARTS = [
       'NLH', 'PLO8', 'PLO', 'O8', 'HORSE', 'Mixed', 'Big O', 'Razz',
-      'Badugi', 'Stud8', '7-Card', 'Limit', 'NL 2-7', '2-7', 'OFC',
+      'Badugi', 'Stud 8', '7-Card', 'Limit', 'NL 2-7', '2-7', 'OFC',
       'Sviten', 'TORSE', 'Dealer', '5-Card', '8-Game', '9-Game',
       'Pick Your', 'Daily Deepstack', 'WSOP',
     ];
@@ -1402,6 +1402,16 @@ async function initDatabase() {
         db.run(`UPDATE tournaments SET buyin = 1150 WHERE buyin = 1149`);
         const updated = db.getRowsModified();
         console.log(`Fixed $1149 → $1150 buyin: ${updated} events`);
+      }
+    },
+    {
+      name: 'stud8-to-stud-8-2026-03',
+      fn: () => {
+        db.run(`UPDATE tournaments SET game_variant = 'Stud 8' WHERE game_variant = 'Stud8'`);
+        const v = db.getRowsModified();
+        db.run(`UPDATE tournaments SET event_name = REPLACE(event_name, 'Stud8', 'Stud 8') WHERE event_name LIKE '%Stud8%'`);
+        const n = db.getRowsModified();
+        console.log(`Stud8 → Stud 8: ${v} variants, ${n} event names updated`);
       }
     },
   ];
