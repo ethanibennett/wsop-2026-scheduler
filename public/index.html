@@ -16814,7 +16814,7 @@
     }
 
     // ── Admin View ─────────────────────────────────────────────
-    function AdminView({ token }) {
+    function AdminView({ token, onNavigate }) {
       const [users, setUsers] = useState([]);
       const [loading, setLoading] = useState(true);
       const [filter, setFilter] = useState('');
@@ -16877,6 +16877,11 @@
             <h2 style={{fontFamily:'Oswald, sans-serif',fontWeight:700,fontSize:'1.2rem',color:'var(--text)',margin:0}}>
               ADMIN — {users.length} Users
             </h2>
+            {onNavigate && (
+              <button onClick={() => onNavigate('hands')} style={{padding:'6px 12px',borderRadius:8,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.78rem',fontFamily:'Oswald, sans-serif',fontWeight:600,cursor:'pointer'}}>
+                Hand Replayer
+              </button>
+            )}
           </div>
           <input
             type="text"
@@ -19467,7 +19472,7 @@
             )}
 
             {currentView === 'admin' && (username || '').toLowerCase() === 'ham' && (
-              <AdminView token={token} />
+              <AdminView token={token} onNavigate={(v) => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }} />
             )}
 
             {currentView === 'staking' && (
