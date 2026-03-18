@@ -1201,6 +1201,27 @@ async function initDatabase() {
       }
     },
     {
+      name: 'swap-suggestions-table-2026-03',
+      fn: () => {
+        db.run(`CREATE TABLE IF NOT EXISTS swap_suggestions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          from_user_id INTEGER NOT NULL,
+          to_user_id INTEGER NOT NULL,
+          tournament_id INTEGER NOT NULL,
+          type TEXT NOT NULL,
+          my_pct REAL NOT NULL,
+          their_pct REAL NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          responded_at DATETIME,
+          FOREIGN KEY (from_user_id) REFERENCES users(id),
+          FOREIGN KEY (to_user_id) REFERENCES users(id),
+          FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
+        )`);
+        console.log('Created swap_suggestions table');
+      }
+    },
+    {
       name: 'live-updates-play-time-2026-02',
       fn: () => {
         db.run('ALTER TABLE live_updates ADD COLUMN play_started_at DATETIME');
@@ -3231,7 +3252,22 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
       abStmt.free();
     }
 
-    res.json({ groupInvites, buddyRequests, acceptedBuddies, lastSeenNotifications: lastSeen });
+    // Pending incoming swap suggestions
+    const swapStmt = db.prepare(`
+      SELECT ss.*, u.username AS from_username, u.avatar AS from_avatar, u.real_name AS from_real_name,
+             t.event_name, t.date, t.time, t.buyin, t.venue
+      FROM swap_suggestions ss
+      JOIN users u ON ss.from_user_id = u.id
+      JOIN tournaments t ON ss.tournament_id = t.id
+      WHERE ss.to_user_id = ? AND ss.status = 'pending'
+      ORDER BY ss.created_at DESC
+    `);
+    swapStmt.bind([uid]);
+    const swapSuggestions = [];
+    while (swapStmt.step()) swapSuggestions.push(swapStmt.getAsObject());
+    swapStmt.free();
+
+    res.json({ groupInvites, buddyRequests, acceptedBuddies, swapSuggestions, lastSeenNotifications: lastSeen });
   } catch (error) {
     console.error('Get notifications error:', error);
     res.status(500).json({ error: 'Something went wrong' });
@@ -5718,6 +5754,103 @@ app.get('/api/admin/users-list', authenticateToken, requireRegistered, (req, res
   } catch (error) {
     console.error('Admin users-list error:', error);
     res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// ── Swap / Crossbook Suggestions ────────────────────────────
+
+// Send a swap/crossbook suggestion
+app.post('/api/swap-suggest', authenticateToken, requireRegistered, (req, res) => {
+  try {
+    const { toUserId, tournamentId, type, myPct, theirPct } = req.body;
+    if (!toUserId || !tournamentId) return res.status(400).json({ error: 'Missing required fields' });
+    if (!['swap', 'crossbook'].includes(type)) return res.status(400).json({ error: 'Type must be swap or crossbook' });
+    const my = parseFloat(myPct) || 0;
+    const their = parseFloat(theirPct) || 0;
+    if (my <= 0 || my > 100 || their <= 0 || their > 100) return res.status(400).json({ error: 'Percentages must be 1-100' });
+    if (toUserId === req.user.id) return res.status(400).json({ error: "Can't swap with yourself" });
+
+    // Check for existing pending suggestion for same pair + tournament
+    const chk = db.prepare(
+      `SELECT id FROM swap_suggestions WHERE from_user_id = ? AND to_user_id = ? AND tournament_id = ? AND status = 'pending'`
+    );
+    chk.bind([req.user.id, toUserId, tournamentId]);
+    if (chk.step()) { chk.free(); return res.status(400).json({ error: 'You already have a pending suggestion for this event' }); }
+    chk.free();
+
+    db.run(
+      `INSERT INTO swap_suggestions (from_user_id, to_user_id, tournament_id, type, my_pct, their_pct) VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.user.id, toUserId, tournamentId, type, my, their]
+    );
+    res.json({ message: 'Suggestion sent' });
+  } catch (err) {
+    console.error('Swap suggest error:', err);
+    res.status(500).json({ error: 'Failed to send suggestion' });
+  }
+});
+
+// Get your swap suggestions (incoming + outgoing)
+app.get('/api/swap-suggestions', authenticateToken, requireRegistered, (req, res) => {
+  try {
+    // Incoming
+    const inStmt = db.prepare(`
+      SELECT ss.*, u.username AS from_username, u.avatar AS from_avatar, u.real_name AS from_real_name,
+             t.event_name, t.date, t.time, t.buyin, t.venue
+      FROM swap_suggestions ss
+      JOIN users u ON ss.from_user_id = u.id
+      JOIN tournaments t ON ss.tournament_id = t.id
+      WHERE ss.to_user_id = ? AND ss.status = 'pending'
+      ORDER BY ss.created_at DESC
+    `);
+    inStmt.bind([req.user.id]);
+    const incoming = [];
+    while (inStmt.step()) incoming.push(inStmt.getAsObject());
+    inStmt.free();
+
+    // Outgoing
+    const outStmt = db.prepare(`
+      SELECT ss.*, u.username AS to_username, u.avatar AS to_avatar, u.real_name AS to_real_name,
+             t.event_name, t.date, t.time, t.buyin, t.venue
+      FROM swap_suggestions ss
+      JOIN users u ON ss.to_user_id = u.id
+      JOIN tournaments t ON ss.tournament_id = t.id
+      WHERE ss.from_user_id = ? AND ss.status = 'pending'
+      ORDER BY ss.created_at DESC
+    `);
+    outStmt.bind([req.user.id]);
+    const outgoing = [];
+    while (outStmt.step()) outgoing.push(outStmt.getAsObject());
+    outStmt.free();
+
+    res.json({ incoming, outgoing });
+  } catch (err) {
+    console.error('Swap suggestions error:', err);
+    res.status(500).json({ error: 'Failed to load suggestions' });
+  }
+});
+
+// Respond to a swap suggestion
+app.put('/api/swap-suggest/:id/respond', authenticateToken, requireRegistered, (req, res) => {
+  try {
+    const { response } = req.body;
+    if (!['accepted', 'declined'].includes(response)) return res.status(400).json({ error: 'Response must be accepted or declined' });
+
+    const stmt = db.prepare('SELECT * FROM swap_suggestions WHERE id = ? AND to_user_id = ? AND status = ?');
+    stmt.bind([req.params.id, req.user.id, 'pending']);
+    let suggestion = null;
+    if (stmt.step()) suggestion = stmt.getAsObject();
+    stmt.free();
+
+    if (!suggestion) return res.status(404).json({ error: 'Suggestion not found' });
+
+    db.run(
+      `UPDATE swap_suggestions SET status = ?, responded_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [response, req.params.id]
+    );
+    res.json({ message: `Suggestion ${response}` });
+  } catch (err) {
+    console.error('Swap respond error:', err);
+    res.status(500).json({ error: 'Failed to respond' });
   }
 });
 
