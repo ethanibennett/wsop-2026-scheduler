@@ -2341,7 +2341,7 @@ app.get('/api/users/search', authenticateToken, requireRegistered, (req, res) =>
 app.post('/api/share-request', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const { username } = req.body;
-    const stmt = db.prepare('SELECT id FROM users WHERE username = ?');
+    const stmt = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
     stmt.bind([username]);
     let target = null;
     if (stmt.step()) target = stmt.getAsObject();
@@ -4061,7 +4061,7 @@ app.post('/api/staking/backers', authenticateToken, requireRegistered, stakingLi
     // GUESS: If appUsername is provided, look up the user to link them
     let appUserId = null;
     if (appUsername) {
-      const uStmt = db.prepare('SELECT id FROM users WHERE username = ?');
+      const uStmt = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
       uStmt.bind([appUsername]);
       if (uStmt.step()) appUserId = uStmt.getAsObject().id;
       uStmt.free();
@@ -4103,7 +4103,7 @@ app.put('/api/staking/backers/:id', authenticateToken, requireRegistered, async 
     let appUserId = undefined; // undefined = don't update
     if (appUsername !== undefined) {
       if (appUsername) {
-        const uStmt = db.prepare('SELECT id FROM users WHERE username = ?');
+        const uStmt = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
         uStmt.bind([appUsername]);
         if (uStmt.step()) appUserId = uStmt.getAsObject().id;
         uStmt.free();
@@ -4251,7 +4251,7 @@ app.post('/api/staking/series/:seriesId/agreements', authenticateToken, requireR
     // Resolve swap/crossbook users
     let swapUserId = null;
     if (backerType === 'swap' && swapUsername) {
-      const uStmt = db.prepare('SELECT id FROM users WHERE username = ?');
+      const uStmt = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
       uStmt.bind([swapUsername]);
       if (uStmt.step()) swapUserId = uStmt.getAsObject().id;
       uStmt.free();
@@ -4260,7 +4260,7 @@ app.post('/api/staking/series/:seriesId/agreements', authenticateToken, requireR
 
     let crossbookUserId = null;
     if (backerType === 'crossbook' && crossbookUsername) {
-      const uStmt = db.prepare('SELECT id FROM users WHERE username = ?');
+      const uStmt = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
       uStmt.bind([crossbookUsername]);
       if (uStmt.step()) crossbookUserId = uStmt.getAsObject().id;
       uStmt.free();
