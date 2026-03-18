@@ -1364,6 +1364,25 @@ async function initDatabase() {
         console.log(`TCH re-entry: set ${updated} events to Unlimited`);
       }
     },
+    {
+      name: 'wsope-rename-events-2026-03',
+      fn: () => {
+        // Re-read seed file and update event names to match WSOP naming format
+        const seedPath = path.join(__dirname, 'wsope-events.json');
+        if (!require('fs').existsSync(seedPath)) return;
+        const rows = JSON.parse(require('fs').readFileSync(seedPath, 'utf8'));
+        let updated = 0;
+        for (const t of rows) {
+          db.run(
+            `UPDATE tournaments SET event_name = ?
+             WHERE venue = 'WSOP Europe' AND event_number = ? AND date = ? AND time = ?`,
+            [t.event_name, t.event_number, t.date, t.time]
+          );
+          updated += db.getRowsModified();
+        }
+        console.log(`WSOPE event rename: ${updated} rows updated`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {

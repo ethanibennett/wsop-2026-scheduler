@@ -1,7 +1,7 @@
 [
   {
     "event_number": "WSOPE-1",
-    "event_name": "WSOPE #1: €1,100 The Opener Mystery Bounty - Flight A",
+    "event_name": "NLH The Opener Mystery Bounty - Flight A",
     "date": "March 31, 2026",
     "time": "12:00 PM",
     "buyin": 1100,
@@ -33,7 +33,7 @@
   },
   {
     "event_number": "WSOPE-2",
-    "event_name": "WSOPE #2: €3,300 Mixed PLO / PLO8 / Big O",
+    "event_name": "Mixed PLO / PLO8 / Big O",
     "date": "March 31, 2026",
     "time": "2:00 PM",
     "buyin": 3300,
@@ -65,7 +65,7 @@
   },
   {
     "event_number": "WSOPE-1",
-    "event_name": "WSOPE #1: €1,100 The Opener Mystery Bounty - Flight B",
+    "event_name": "NLH The Opener Mystery Bounty - Flight B",
     "date": "March 31, 2026",
     "time": "6:00 PM",
     "buyin": 1100,
@@ -97,7 +97,7 @@
   },
   {
     "event_number": "WSOPE-1",
-    "event_name": "WSOPE #1: €1,100 The Opener Mystery Bounty - Flight C",
+    "event_name": "NLH The Opener Mystery Bounty - Flight C",
     "date": "April 1, 2026",
     "time": "12:00 PM",
     "buyin": 1100,
@@ -129,7 +129,7 @@
   },
   {
     "event_number": "WSOPE-1",
-    "event_name": "WSOPE #1: €1,100 The Opener Mystery Bounty - Flight D",
+    "event_name": "NLH The Opener Mystery Bounty - Flight D",
     "date": "April 1, 2026",
     "time": "6:00 PM",
     "buyin": 1100,
@@ -161,7 +161,7 @@
   },
   {
     "event_number": "WSOPE-3",
-    "event_name": "WSOPE #3: €565 COLOSSUS NLH - Flight A",
+    "event_name": "NLH COLOSSUS - Flight A",
     "date": "April 2, 2026",
     "time": "12:00 PM",
     "buyin": 565,
@@ -193,7 +193,7 @@
   },
   {
     "event_number": "WSOPE-3",
-    "event_name": "WSOPE #3: €565 COLOSSUS NLH - Flight B",
+    "event_name": "NLH COLOSSUS - Flight B",
     "date": "April 2, 2026",
     "time": "6:00 PM",
     "buyin": 565,
@@ -225,7 +225,7 @@
   },
   {
     "event_number": "WSOPE-4",
-    "event_name": "WSOPE #4: €565 PLOSSUS Bounty - Flight A",
+    "event_name": "PLO PLOSSUS Bounty - Flight A",
     "date": "April 3, 2026",
     "time": "12:00 PM",
     "buyin": 565,
@@ -257,7 +257,7 @@
   },
   {
     "event_number": "WSOPE-5",
-    "event_name": "WSOPE #5: €5,300 Europe Main Event - €10M GTD - Flight A",
+    "event_name": "NLH Europe Main Event - €10M GTD - Flight A",
     "date": "April 3, 2026",
     "time": "12:00 PM",
     "buyin": 5300,
@@ -289,7 +289,7 @@
   },
   {
     "event_number": "WSOPE-4",
-    "event_name": "WSOPE #4: €565 PLOSSUS Bounty - Flight B",
+    "event_name": "PLO PLOSSUS Bounty - Flight B",
     "date": "April 3, 2026",
     "time": "6:00 PM",
     "buyin": 565,
@@ -321,7 +321,7 @@
   },
   {
     "event_number": "WSOPE-6",
-    "event_name": "WSOPE #6: €1,000 Ladies Championship",
+    "event_name": "NLH Ladies Championship",
     "date": "April 4, 2026",
     "time": "12:00 PM",
     "buyin": 1000,
@@ -353,7 +353,7 @@
   },
   {
     "event_number": "WSOPE-5",
-    "event_name": "WSOPE #5: €5,300 Europe Main Event - €10M GTD - Flight B",
+    "event_name": "NLH Europe Main Event - €10M GTD - Flight B",
     "date": "April 4, 2026",
     "time": "12:00 PM",
     "buyin": 5300,
@@ -385,7 +385,7 @@
   },
   {
     "event_number": "WSOPE-5",
-    "event_name": "WSOPE #5: €5,300 Europe Main Event - €10M GTD - Flight C",
+    "event_name": "NLH Europe Main Event - €10M GTD - Flight C",
     "date": "April 5, 2026",
     "time": "12:00 PM",
     "buyin": 5300,
@@ -417,7 +417,7 @@
   },
   {
     "event_number": "WSOPE-7",
-    "event_name": "WSOPE #7: €2,200 Turbo Bounty NLH",
+    "event_name": "NLH Turbo Bounty",
     "date": "April 5, 2026",
     "time": "2:00 PM",
     "buyin": 2200,
@@ -449,7 +449,7 @@
   },
   {
     "event_number": "WSOPE-8",
-    "event_name": "WSOPE #8: €1,650 MONSTER STACK NLH",
+    "event_name": "NLH MONSTER STACK",
     "date": "April 6, 2026",
     "time": "2:00 PM",
     "buyin": 1650,
@@ -481,7 +481,7 @@
   },
   {
     "event_number": "WSOPE-9",
-    "event_name": "WSOPE #9: €5,300 PLO European Championship",
+    "event_name": "PLO European Championship",
     "date": "April 6, 2026",
     "time": "4:00 PM",
     "buyin": 5300,
@@ -513,7 +513,7 @@
   },
   {
     "event_number": "WSOPE-10",
-    "event_name": "WSOPE #10: €2,750 Rounder Cup NLH (EU vs. World) - Flight A",
+    "event_name": "NLH Rounder Cup (EU vs. World) - Flight A",
     "date": "April 7, 2026",
     "time": "12:00 PM",
     "buyin": 2750,
@@ -545,7 +545,7 @@
   },
   {
     "event_number": "WSOPE-10",
-    "event_name": "WSOPE #10: €2,750 Rounder Cup NLH (EU vs. World) - Flight B",
+    "event_name": "NLH Rounder Cup (EU vs. World) - Flight B",
     "date": "April 7, 2026",
     "time": "6:00 PM",
     "buyin": 2750,
@@ -577,7 +577,7 @@
   },
   {
     "event_number": "WSOPE-12",
-    "event_name": "WSOPE #12: €1,500 European Circuit Championship - €1.5M GTD - Flight A",
+    "event_name": "NLH European Circuit Championship - €1.5M GTD - Flight A",
     "date": "April 8, 2026",
     "time": "12:00 PM",
     "buyin": 1500,
@@ -609,7 +609,7 @@
   },
   {
     "event_number": "WSOPE-11",
-    "event_name": "WSOPE #11: €20,800 Super High Roller NLH",
+    "event_name": "NLH Super High Roller",
     "date": "April 8, 2026",
     "time": "2:00 PM",
     "buyin": 20800,
@@ -641,7 +641,7 @@
   },
   {
     "event_number": "WSOPE-12",
-    "event_name": "WSOPE #12: €1,500 European Circuit Championship - €1.5M GTD - Flight B",
+    "event_name": "NLH European Circuit Championship - €1.5M GTD - Flight B",
     "date": "April 8, 2026",
     "time": "6:00 PM",
     "buyin": 1500,
@@ -673,7 +673,7 @@
   },
   {
     "event_number": "WSOPE-12",
-    "event_name": "WSOPE #12: €1,500 European Circuit Championship - €1.5M GTD - Flight C",
+    "event_name": "NLH European Circuit Championship - €1.5M GTD - Flight C",
     "date": "April 9, 2026",
     "time": "12:00 PM",
     "buyin": 1500,
@@ -705,7 +705,7 @@
   },
   {
     "event_number": "WSOPE-13",
-    "event_name": "WSOPE #13: €8,400 GGMillion$ High Roller NLH",
+    "event_name": "NLH GGMillion$ High Roller",
     "date": "April 9, 2026",
     "time": "2:00 PM",
     "buyin": 8400,
@@ -737,7 +737,7 @@
   },
   {
     "event_number": "WSOPE-12",
-    "event_name": "WSOPE #12: €1,500 European Circuit Championship - €1.5M GTD - Flight D",
+    "event_name": "NLH European Circuit Championship - €1.5M GTD - Flight D",
     "date": "April 9, 2026",
     "time": "6:00 PM",
     "buyin": 1500,
@@ -769,7 +769,7 @@
   },
   {
     "event_number": "WSOPE-14",
-    "event_name": "WSOPE #14: €1,100 PLO Double Board Bomb Pot",
+    "event_name": "PLO Double Board Bomb Pot",
     "date": "April 10, 2026",
     "time": "12:00 PM",
     "buyin": 1100,
@@ -801,7 +801,7 @@
   },
   {
     "event_number": "WSOPE-15",
-    "event_name": "WSOPE #15: €2,750 The Closer Turbo Bounty - Presented by GGPoker",
+    "event_name": "NLH The Closer Turbo Bounty",
     "date": "April 10, 2026",
     "time": "2:00 PM",
     "buyin": 2750,
@@ -812,7 +812,7 @@
     "late_reg_end": null,
     "game_variant": "NLH",
     "venue": "WSOP Europe",
-    "notes": "Turbo Bounty format",
+    "notes": "Turbo Bounty format, Presented by GGPoker",
     "category": null,
     "is_satellite": 0,
     "target_event": null,
