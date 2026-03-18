@@ -4266,7 +4266,7 @@
       'Limit Hold\'em':     '#6a6a6a',
       'Big O':              '#909090',
       '7-Card Stud':        '#757575',
-      'Stud8':              '#858585',
+      'Stud 8':              '#858585',
       'Razz':               '#707070',
       'HORSE':              '#9a9a9a',
       'TORSE':              '#8f8f8f',
@@ -4292,21 +4292,21 @@
 
     // ── Multi-game variant expansion ─────────────────────────
     const MULTI_GAME_MAP = {
-      'HORSE':            ['LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8'],
-      'OE':               ['O8', 'Stud8'],
-      'TOE':              ['2-7 TD', 'O8', 'Stud8'],
-      'TORSE':            ['2-7 TD', 'O8', 'Razz', 'Stud Hi', 'Stud8'],
-      '8-Game Mix':       ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8'],
-      '8-Game Mix (Chainsaw)': ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'PLO8', 'Big O'],
-      '9-Game Mix':       ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NL 2-7 SD'],
+      'HORSE':            ['LHE', 'O8', 'Razz', 'Stud Hi', 'Stud 8'],
+      'OE':               ['O8', 'Stud 8'],
+      'TOE':              ['2-7 TD', 'O8', 'Stud 8'],
+      'TORSE':            ['2-7 TD', 'O8', 'Razz', 'Stud Hi', 'Stud 8'],
+      '8-Game Mix':       ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud 8'],
+      '8-Game Mix (Chainsaw)': ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud 8', 'PLO8', 'Big O'],
+      '9-Game Mix':       ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud 8', 'NL 2-7 SD'],
       'Mixed Triple Draw': ['2-7 TD', 'A-5 TD', 'Badugi'],
       'Mixed Triple Draw (x5)': ['2-7 TD', 'A-5 TD', 'Badugi', 'Badeucy', 'Badacy'],
-      '10-Game Mix':      ['LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NLH', 'PLO', '2-7 TD', 'Badugi', 'NL 2-7 SD'],
+      '10-Game Mix':      ['LHE', 'O8', 'Razz', 'Stud Hi', 'Stud 8', 'NLH', 'PLO', '2-7 TD', 'Badugi', 'NL 2-7 SD'],
       'Mixed PLO':        ['PLO', 'PLO8', 'Big O'],
       'PLO/NLH Mix':      ['PLO', 'NLH'],
       "Big Bet Dealer's Choice": ['NLH', 'PLO', 'PLO8', 'Big O', 'PL 2-7 TD', 'NL 2-7 SD', 'NL 5CD'],
       "Dealer's Choice":  [
-        'NLH', 'LHE', 'Razz', 'Stud Hi', 'Stud8', 'Stud Hi-Lo',
+        'NLH', 'LHE', 'Razz', 'Stud Hi', 'Stud 8', 'Stud Hi-Lo',
         'PLH', 'PLO', 'PLO8', 'PL 2-7 TD', 'Big O', 'LO Hi',
         'O8', 'L 2-7 TD', 'A-5 TD', 'Badugi', 'Badeucy', 'Badacy',
         'NL 2-7 SD', 'PL 5CD Hi', '2-7 Razz'
@@ -4328,7 +4328,7 @@
         const base = eventName.replace(/ - Day \d+$/, '').replace(/ - Flight [A-Z]$/, '');
         // Known named events
         if (/Poker Players Championship/i.test(base))
-          return ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud8', 'NL 2-7 SD', 'PLO8'];
+          return ['NLH', 'PLO', '2-7 TD', 'LHE', 'O8', 'Razz', 'Stud Hi', 'Stud 8', 'NL 2-7 SD', 'PLO8'];
         if (/Mixed Big Bet/i.test(base))
           return ['NLH', 'PLO', 'PLO8', 'Big O', 'PL 2-7 TD', 'NL 2-7 SD', 'PL 5CD Hi'];
         // "Mixed: PLO8, O8, Big O"
@@ -4337,7 +4337,7 @@
         // "NLH / PLO Mixed" or "PLO/NLH Mixed"
         const slashMatch = base.match(/^([\w']+)\s*\/\s*([\w']+)/);
         if (slashMatch) return [slashMatch[1], slashMatch[2]];
-        // "Mixed O8, Stud8"
+        // "Mixed O8, Stud 8"
         const mixedPrefix = base.match(/^Mixed\s+(.+)/i);
         if (mixedPrefix) return mixedPrefix[1].split(/,\s*/).map(s => pillName(s.trim())).filter(Boolean);
       }
@@ -4354,7 +4354,7 @@
       'Big O':    { heroCards: 5, hasBoard: true, boardMax: 5, heroPlaceholder: 'AK2Q9hdcsd', boardPlaceholder: 'J72hds' },
       'Razz':     { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A23x4567xhdscx' },
       'Stud Hi':  { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A9xxAKQJThdcsx' },
-      'Stud8':    { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A234567hdcshds' },
+      'Stud 8':    { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A234567hdcshds' },
       '2-7 TD':   { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
       'NL 2-7 SD':{ heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
       'Badugi':   { heroCards: 4, hasBoard: false, boardMax: 0, heroPlaceholder: 'A234hdcs' },
@@ -5574,7 +5574,7 @@
       'Stud Hi':{type:'high',method:'standard'},'PL 5CD Hi':{type:'high',method:'standard'},
       'PLO':{type:'high',method:'omaha'},'LO Hi':{type:'high',method:'omaha'},
       'PLO8':{type:'hilo',method:'omaha'},'O8':{type:'hilo',method:'omaha'},'Big O':{type:'hilo',method:'omaha'},
-      'Stud8':{type:'hilo',method:'standard'},'Stud Hi-Lo':{type:'hilo',method:'standard'},
+      'Stud 8':{type:'hilo',method:'standard'},'Stud Hi-Lo':{type:'hilo',method:'standard'},
       'Razz':{type:'low',lowType:'a5'},'A-5 TD':{type:'low',lowType:'a5'},
       '2-7 TD':{type:'low',lowType:'27'},'PL 2-7 TD':{type:'low',lowType:'27'},'L 2-7 TD':{type:'low',lowType:'27'},
       'NL 2-7 SD':{type:'low',lowType:'27'},'2-7 Razz':{type:'low',lowType:'27'},
@@ -10580,7 +10580,7 @@
       { label: 'NLH', variants: ['NLH'] },
       { label: 'PLO', variants: ['PLO'] },
       { label: 'Omaha', variants: ['O8', 'PLO8', 'Big O'] },
-      { label: 'Stud', variants: ['7-Card Stud', 'Razz', 'Stud8'] },
+      { label: 'Stud', variants: ['7-Card Stud', 'Razz', 'Stud 8'] },
       { label: 'Draw', variants: ['2-7 Triple Draw', 'Mixed Triple Draw', 'NL 2-7 Single Draw', 'Badugi'] },
       { label: 'Mixed', variants: ['8-Game Mix', '9-Game Mix', 'HORSE', 'TORSE', 'Mixed', "Dealer's Choice", 'Limit Hold\'em'] },
     ];
@@ -16029,9 +16029,9 @@
                                       <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--text-muted)',fontFamily:"'Libre Baskerville', Georgia, serif",whiteSpace:'nowrap',padding:'4px 0'}}>{i === 0 ? dayAbbr : ''}</span>
                                       <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--text)',fontFamily:"'Libre Baskerville', Georgia, serif",whiteSpace:'nowrap',padding:'4px 0'}}>{i === 0 ? dateLabel : ''}</span>
                                       <span style={{color: getVenueBrandColor(v.abbr),fontWeight:600,fontSize:'0.65rem',whiteSpace:'nowrap',textAlign:'center'}}>{v.abbr}</span>
-                                      <span style={{color:'var(--text-muted)',fontSize:'0.72rem',whiteSpace:'nowrap'}}>{t.time || 'TBD'}</span>
+                                      <span style={{color:'var(--text-muted)',fontSize:'0.72rem',whiteSpace:'nowrap',textAlign:'right'}}>{t.time || 'TBD'}</span>
                                       <span style={{color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{t.event_name}</span>
-                                      <span style={{color:'var(--text-muted)',fontSize:'0.72rem',fontWeight:600,whiteSpace:'nowrap',textAlign:'right'}}>{formatBuyin(t.buyin)}</span>
+                                      <span style={{color:'var(--text-muted)',fontSize:'0.72rem',fontWeight:600,whiteSpace:'nowrap',textAlign:'right'}}>{formatBuyin(t.buyin, t.venue)}</span>
                                     </React.Fragment>
                                   );
                                 })}
@@ -18044,7 +18044,7 @@
         const groups = [
           { label: 'Community', games: ['NLH', 'LHE', 'PLH', 'PLO', 'PLO8', 'O8', 'Big O', 'LO Hi'] },
           { label: 'Draw', games: ['2-7 TD', 'NL 2-7 SD', 'PL 2-7 TD', 'L 2-7 TD', 'A-5 TD', 'Badugi', 'Badeucy', 'Badacy', 'PL 5CD Hi'] },
-          { label: 'Stud', games: ['Razz', 'Stud Hi', 'Stud8', 'Stud Hi-Lo', '2-7 Razz'] },
+          { label: 'Stud', games: ['Razz', 'Stud Hi', 'Stud 8', 'Stud Hi-Lo', '2-7 Razz'] },
         ];
         return React.createElement(React.Fragment, null,
           groups.map(g => (
