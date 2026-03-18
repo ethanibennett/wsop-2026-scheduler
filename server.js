@@ -14,7 +14,20 @@ const initSqlJs = require('sql.js');
 const { parseWSOP2025Schedule, getWSOPRake } = require('./parsers/wsop-parser');
 const { parseGenericSchedule, detectFormat } = require('./parsers/generic-parser');
 const nodemailer = require('nodemailer');
+const webpush = require('web-push');
 const sampleTournaments = require('./sample-data');
+
+// ── Web Push (VAPID) setup ──
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || 'mailto:admin@futurega.me',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+  console.log('Web Push configured');
+} else {
+  console.log('Web Push not configured — VAPID keys missing');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -1455,6 +1468,21 @@ async function initDatabase() {
         console.log(`Removed ${d} South Point events`);
       }
     },
+    {
+      name: 'push-subscriptions-table-2026-03',
+      fn: () => {
+        db.run(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          endpoint TEXT NOT NULL UNIQUE,
+          keys_p256dh TEXT NOT NULL,
+          keys_auth TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )`);
+        console.log('Created push_subscriptions table');
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -1740,6 +1768,9 @@ app.post('/api/register', authLimiter, async (req, res) => {
     );
 
     await saveDatabase();
+
+    // Notify admin of new registration
+    sendPushToAdmin('New User', `${username} (${realName.trim()}) just registered`).catch(() => {});
 
     res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
@@ -5873,6 +5904,86 @@ app.put('/api/swap-suggest/:id/respond', authenticateToken, requireRegistered, (
     res.status(500).json({ error: 'Failed to respond' });
   }
 });
+
+// ── Push Notifications ──────────────────────────────────────
+
+// VAPID public key (needed by frontend to subscribe)
+app.get('/api/push/vapid-key', (req, res) => {
+  res.json({ key: process.env.VAPID_PUBLIC_KEY || null });
+});
+
+// Save push subscription
+app.post('/api/push-subscribe', authenticateToken, requireRegistered, async (req, res) => {
+  try {
+    const { subscription } = req.body;
+    if (!subscription || !subscription.endpoint || !subscription.keys) {
+      return res.status(400).json({ error: 'Invalid subscription' });
+    }
+    // Upsert: replace if endpoint already exists
+    db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', [subscription.endpoint]);
+    db.run(
+      'INSERT INTO push_subscriptions (user_id, endpoint, keys_p256dh, keys_auth) VALUES (?, ?, ?, ?)',
+      [req.user.id, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth]
+    );
+    await saveDatabase();
+    res.json({ message: 'Subscribed' });
+  } catch (err) {
+    console.error('Push subscribe error:', err);
+    res.status(500).json({ error: 'Failed to subscribe' });
+  }
+});
+
+// Remove push subscription
+app.post('/api/push-unsubscribe', authenticateToken, requireRegistered, async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (endpoint) {
+      db.run('DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?', [endpoint, req.user.id]);
+    } else {
+      db.run('DELETE FROM push_subscriptions WHERE user_id = ?', [req.user.id]);
+    }
+    await saveDatabase();
+    res.json({ message: 'Unsubscribed' });
+  } catch (err) {
+    console.error('Push unsubscribe error:', err);
+    res.status(500).json({ error: 'Failed to unsubscribe' });
+  }
+});
+
+// Helper: send push notification to admin user(s)
+async function sendPushToAdmin(title, body, url) {
+  if (!process.env.VAPID_PUBLIC_KEY) return;
+  try {
+    const stmt = db.prepare(`
+      SELECT ps.endpoint, ps.keys_p256dh, ps.keys_auth
+      FROM push_subscriptions ps
+      JOIN users u ON ps.user_id = u.id
+      WHERE LOWER(u.username) = 'ham'
+    `);
+    const subs = [];
+    while (stmt.step()) subs.push(stmt.getAsObject());
+    stmt.free();
+
+    const payload = JSON.stringify({ title, body, url: url || '/', tag: 'admin' });
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification({
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth }
+        }, payload);
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          // Subscription expired — remove it
+          db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', [sub.endpoint]);
+        } else {
+          console.error('Push send error:', err.statusCode || err.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('sendPushToAdmin error:', err);
+  }
+}
 
 // SPA catch-all for /shared/* routes
 app.get('/shared/:token', serveIndex);
