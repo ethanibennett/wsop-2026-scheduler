@@ -79,6 +79,7 @@
       --venue-tch:           #a0522d;
       --venue-caesars:       #b8962e;
       --venue-hardrock:      #1a9e9e;
+      --venue-wsope:         #1a3c6e;
     }
 
     [data-theme="light"] {
@@ -113,6 +114,7 @@
       --venue-tch:           #b5603a;
       --venue-caesars:       #9a7a20;
       --venue-hardrock:      #0d8a8a;
+      --venue-wsope:         #1a4a8c;
     }
 
     /* Dusk theme — deep navy/blue dark variant */
@@ -148,6 +150,7 @@
       --venue-tch:           #a0522d;
       --venue-caesars:       #b8962e;
       --venue-hardrock:      #1a9e9e;
+      --venue-wsope:         #1a3c6e;
     }
 
     /* Cloudy theme — muted grey light variant */
@@ -183,6 +186,7 @@
       --venue-tch:           #b5603a;
       --venue-caesars:       #9a7a20;
       --venue-hardrock:      #0d8a8a;
+      --venue-wsope:         #1a4a8c;
     }
 
     /* High contrast — dark */
@@ -4389,6 +4393,7 @@
       'Texas Card House':            { abbr: 'TCH', color: '#a0522d', longName: 'WSOPC Texas Card House' },
       'Caesars Palace':              { abbr: 'CAESARS', color: '#b8962e', longName: 'Caesars Palace' },
       'Seminole Hard Rock':          { abbr: 'HARD ROCK', color: '#1a9e9e', longName: 'Seminole Hard Rock' },
+      'WSOP Europe':                 { abbr: 'WSOPE', color: '#1a3c6e', longName: 'WSOP Europe' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -4411,6 +4416,7 @@
       'TCH':           '--venue-tch',
       'CAESARS':        '--venue-caesars',
       'HARD ROCK':      '--venue-hardrock',
+      'WSOPE':          '--venue-wsope',
     };
     function getVenueBrandColor(abbr) {
       const cssVar = VENUE_BRAND_VAR[abbr];
