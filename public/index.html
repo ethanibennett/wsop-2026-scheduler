@@ -19268,7 +19268,7 @@
               />
             )}
 
-            {currentView === 'admin' && username === 'ham' && (
+            {currentView === 'admin' && (username || '').toLowerCase() === 'ham' && (
               <AdminView token={token} />
             )}
 
@@ -19306,7 +19306,7 @@
               }}
               onExport={() => setShowExportFromMore(true)}
               hasSchedule={mySchedule && mySchedule.length > 0}
-              isAdmin={username === 'ham'}
+              isAdmin={(username || '').toLowerCase() === 'ham'}
               />
             )}
 
