@@ -7356,10 +7356,11 @@
         doc.setFontSize(10);
         doc.setTextColor(...TEXT_PRI);
         doc.text(label, mg, y);
+        const labelW = doc.getTextWidth(label);
         doc.setFont(FONT_BODY, 'normal');
         doc.setFontSize(7);
         doc.setTextColor(...TEXT_MUT);
-        doc.text('  ' + count + ' event' + (count !== 1 ? 's' : ''), mg + doc.getTextWidth(label) + 1, y);
+        doc.text('  ' + count + ' event' + (count !== 1 ? 's' : ''), mg + labelW + 1, y);
         doc.setDrawColor(...LINE_HEAD);
         doc.setLineWidth(0.3);
         doc.line(mg, y + 2, pw - mg, y + 2);
