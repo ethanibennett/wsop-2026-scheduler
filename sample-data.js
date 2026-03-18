@@ -6,7 +6,7 @@ const wsop2026 = require('./wsop-2026-official.json');
 const { getWSOPRake } = require('./parsers/wsop-parser');
 
 // Normalize to the shape the DB insert expects
-const EXCLUDED_VENUES = ['Wynn Las Vegas', 'Wynn', 'Aria Resort & Casino', 'Aria', 'Golden Nugget', 'MGM Grand', 'Orleans', 'Resorts World'];
+const EXCLUDED_VENUES = ['Wynn Las Vegas', 'Wynn', 'Aria Resort & Casino', 'Aria', 'Golden Nugget', 'MGM Grand', 'Orleans', 'Resorts World', 'South Point'];
 const sampleTournaments = wsop2026.filter(t => !EXCLUDED_VENUES.includes(t.venue)).map(t => {
   const rake = getWSOPRake(t.buyin, t.eventNumber);
   return {

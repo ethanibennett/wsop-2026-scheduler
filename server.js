@@ -1447,6 +1447,14 @@ async function initDatabase() {
         console.log(`Removed ${total} events from non-WSOP Vegas venues`);
       }
     },
+    {
+      name: 'remove-south-point-2026-03',
+      fn: () => {
+        db.run("DELETE FROM tournaments WHERE venue = 'South Point'");
+        const d = db.getRowsModified();
+        console.log(`Removed ${d} South Point events`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
