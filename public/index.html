@@ -18663,42 +18663,53 @@
 
       // ── Push notifications (admin only) ──
       useEffect(() => {
+        console.log('[Push] check:', { token: !!token, isGuest, username, sw: 'serviceWorker' in navigator, push: 'PushManager' in window });
         if (!token || isGuest || (username || '').toLowerCase() !== 'ham') return;
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (!('serviceWorker' in navigator)) { console.log('[Push] No serviceWorker support'); return; }
+        if (!('PushManager' in window)) { console.log('[Push] No PushManager support'); return; }
 
         (async () => {
           try {
+            console.log('[Push] Registering service worker...');
             const reg = await navigator.serviceWorker.register('/sw.js');
+            await navigator.serviceWorker.ready;
+            console.log('[Push] SW ready');
+
             const existing = await reg.pushManager.getSubscription();
             if (existing) {
-              // Already subscribed — ensure server knows
+              console.log('[Push] Existing subscription found, syncing...');
               await fetch(`${API_URL}/push-subscribe`, {
                 method: 'POST',
                 headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ subscription: existing })
               });
+              console.log('[Push] Synced existing subscription');
               return;
             }
-            // Request permission
+
+            console.log('[Push] No existing subscription, requesting permission...');
             const permission = await Notification.requestPermission();
+            console.log('[Push] Permission:', permission);
             if (permission !== 'granted') return;
-            // Get VAPID key
+
             const keyRes = await fetch(`${API_URL}/push/vapid-key`);
             const { key } = await keyRes.json();
+            console.log('[Push] VAPID key:', key ? 'received' : 'missing');
             if (!key) return;
-            // Subscribe
+
             const sub = await reg.pushManager.subscribe({
               userVisibleOnly: true,
               applicationServerKey: key
             });
-            // Send to server
+            console.log('[Push] Subscribed, sending to server...');
             await fetch(`${API_URL}/push-subscribe`, {
               method: 'POST',
               headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
               body: JSON.stringify({ subscription: sub })
             });
+            console.log('[Push] Done!');
           } catch (err) {
-            console.log('Push setup:', err.message);
+            console.log('[Push] Error:', err.message, err);
           }
         })();
       }, [token, username, isGuest]);
