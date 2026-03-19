@@ -154,7 +154,7 @@ function serveIndex(req, res) {
 }
 app.get('/', serveIndex);
 
-// Hendon Mob lookup — follow Google "I'm Feeling Lucky" redirect, cache results
+// Hendon Mob lookup — Google search, extract first result, cache it
 const hendonCache = new Map();
 app.get('/api/hendon-mob', async (req, res) => {
   const name = req.query.name;
@@ -165,24 +165,24 @@ app.get('/api/hendon-mob', async (req, res) => {
 
   const fallback = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
   try {
-    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
-    const resp = await fetch(googleUrl, { redirect: 'manual', headers: {
+    const resp = await fetch(fallback, { headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }});
-    const location = resp.headers.get('location');
-    if (location) {
-      try {
-        const parsed = new URL(location);
-        const inner = parsed.searchParams.get('q');
-        if (inner && inner.includes('thehendonmob.com')) {
-          hendonCache.set(key, inner);
-          return res.json({ url: inner });
-        }
-      } catch {}
-      if (location.includes('thehendonmob.com')) {
-        hendonCache.set(key, location);
-        return res.json({ url: location });
-      }
+    const html = await resp.text();
+    // Google wraps result URLs in /url?q=... redirects
+    const matches = html.match(/\/url\?q=(https?:\/\/(?:www\.)?(?:pokerdb\.)?thehendonmob\.com[^&"]*)/g);
+    if (matches) {
+      const raw = matches[0].replace('/url?q=', '');
+      const url = decodeURIComponent(raw);
+      hendonCache.set(key, url);
+      return res.json({ url });
+    }
+    // Fallback: direct href pattern
+    const direct = html.match(/href="(https?:\/\/(?:www\.)?(?:pokerdb\.)?thehendonmob\.com[^"]+)"/);
+    if (direct) {
+      const url = direct[1].replace(/&amp;/g, '&');
+      hendonCache.set(key, url);
+      return res.json({ url });
     }
     res.json({ url: fallback });
   } catch {
