@@ -10251,7 +10251,9 @@
     }
 
     function hendonMobUrl(name) {
-      return `https://www.google.com/search?q=${encodeURIComponent('hendonmob ' + name)}`;
+      // Google "I'm Feeling Lucky" with site:thehendonmob.com
+      // Redirects directly to the player's Hendon Mob profile page
+      return `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
     }
 
     function TableScanner() {
@@ -10270,7 +10272,6 @@
         setNames([]);
 
         try {
-          // Preprocess image for better OCR on dark WSOP UI
           const processed = await preprocessImage(file);
 
           const worker = await Tesseract.createWorker('eng', 1, {
@@ -10278,8 +10279,6 @@
               if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 100));
             }
           });
-          // PSM 11 = Sparse text: find as much text as possible in no particular order
-          // Best for scattered names around a poker table layout
           await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT });
           const { data } = await worker.recognize(processed);
           await worker.terminate();
@@ -10297,7 +10296,6 @@
           setError('Failed to scan image. Please try again.');
           setState('idle');
         }
-        // Reset file input so same file can be re-selected
         if (fileRef.current) fileRef.current.value = '';
       };
 
