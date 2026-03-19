@@ -154,6 +154,36 @@ function serveIndex(req, res) {
 }
 app.get('/', serveIndex);
 
+// Hendon Mob lookup — follow Google "I'm Feeling Lucky" redirect to get final URL
+app.get('/api/hendon-mob', async (req, res) => {
+  const name = req.query.name;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  try {
+    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
+    const resp = await fetch(googleUrl, { redirect: 'manual', headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; PokerApp/1.0)'
+    }});
+    const location = resp.headers.get('location');
+    if (location) {
+      // Google may wrap in /url?q=... — extract the actual URL
+      try {
+        const parsed = new URL(location);
+        const inner = parsed.searchParams.get('q');
+        if (inner && inner.includes('thehendonmob.com')) {
+          return res.json({ url: inner });
+        }
+      } catch {}
+      if (location.includes('thehendonmob.com')) {
+        return res.json({ url: location });
+      }
+    }
+    // Fallback: return Google search URL
+    res.json({ url: googleUrl });
+  } catch {
+    res.json({ url: `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI` });
+  }
+});
+
 // File upload configuration
 const upload = multer({ dest: 'uploads/' });
 

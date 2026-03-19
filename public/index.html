@@ -2174,7 +2174,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
+      margin-bottom: 14px;
     }
     .table-scanner-rescan {
       background: none;
@@ -2190,25 +2190,57 @@
     }
     .table-scanner-rescan:active { opacity: 0.6; }
 
-    .table-scanner-names {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
+    .table-scanner-oval {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 2 / 1;
+      margin: 4px 0;
     }
+    .table-scanner-felt {
+      position: absolute;
+      inset: 22% 20%;
+      background: radial-gradient(ellipse, #1a6b3a 0%, #145a2f 60%, #0d4424 100%);
+      border-radius: 50%;
+      border: 2px solid #2a8a50;
+      box-shadow: 0 0 0 3px rgba(0,0,0,0.3), inset 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .table-scanner-seat {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+    }
+    .table-scanner-seat.seat-left { transform: translate(0%, -50%); }
+    .table-scanner-seat.seat-right { transform: translate(-100%, -50%); }
     .table-scanner-link {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 4px 10px;
+      gap: 3px;
+      padding: 4px 8px;
       background: var(--surface2);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      font-size: 0.8rem;
+      font-size: 0.7rem;
       font-weight: 500;
       color: var(--accent);
       text-decoration: none;
+      white-space: nowrap;
       transition: background 0.15s;
+      cursor: pointer;
+      font-family: inherit;
     }
     .table-scanner-link:active { background: var(--border); }
+    .table-scanner-name-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+      line-height: 1.2;
+    }
+    .table-scanner-chips {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
 
     .cal-action-row {
       display: flex;
@@ -10138,6 +10170,77 @@
     }
 
     // ── Table Scanner — OCR screenshot → Hendon Mob links ────
+
+    // Common first names for OCR correction (lowercase)
+    const COMMON_FIRST_NAMES = new Set([
+      'aaron','adam','adrian','alan','albert','alex','alexander','alfred',
+      'allen','andrew','angel','anthony','antonio','arthur','austin',
+      'barry','ben','benjamin','bernard','bill','billy','bobby','brad',
+      'bradley','brandon','brian','bruce','bryan','carl','carlos','chad',
+      'charles','charlie','chris','christian','christopher','clarence',
+      'claude','clifford','cody','cole','colin','connor','corey','craig',
+      'dale','dan','daniel','danny','darren','dave','david','dean','dennis',
+      'derek','derrick','dino','dom','dominic','don','donald','dong','doug',
+      'douglas','drew','dustin','dwight','dylan','earl','eddie','edward',
+      'edwin','eli','elias','elliot','eric','erik','ernest','ethan','eugene',
+      'evan','felix','fernando','frank','fred','frederick','gabriel','gary',
+      'gene','george','gerald','glen','glenn','gordon','grant','greg',
+      'gregory','guy','hank','harold','harry','harvey','hector','henry',
+      'herbert','herman','howard','hugh','ian','isaac','ivan','jack',
+      'jacob','jake','james','jamie','jared','jason','jay','jeff','jeffrey',
+      'jeremy','jerome','jerry','jesse','jim','jimmy','joe','joel','john',
+      'johnny','jon','jonathan','jordan','jorge','jose','joseph','josh',
+      'joshua','juan','julian','justin','karl','keith','kelly','ken',
+      'kenneth','kevin','kirk','kyle','lance','larry','lawrence','lee',
+      'leon','leonard','lester','lewis','liam','logan','lonnie','louis',
+      'lucas','luis','luke','marcus','mario','mark','marshall','martin',
+      'marvin','mason','matt','matthew','maurice','max','michael','miguel',
+      'mike','miles','mitchell','mohammad','morris','murray','nathan',
+      'nathaniel','neil','nelson','nicholas','nick','noah','norman','oliver',
+      'omar','oscar','owen','pablo','patrick','paul','pedro','perry','pete',
+      'peter','phil','philip','phillip','pierre','raj','ralph','ramon',
+      'randy','ray','raymond','ricardo','rich','richard','rick','ricky',
+      'rob','robert','robin','rod','rodney','roger','roland','roman','ron',
+      'ronald','ross','roy','ruben','russell','ryan','sam','samuel','scott',
+      'sean','sergio','seth','shane','shaun','shawn','simon','spencer',
+      'stanley','stephen','steve','steven','stuart','ted','terry','thomas',
+      'tim','timothy','todd','tom','tommy','tony','travis','trevor','troy',
+      'tyler','victor','vincent','virgil','wade','walter','warren','wayne',
+      'wesley','will','william','willie','zachary',
+    ]);
+
+    // OCR confusion pairs: [misread, correct] at character level
+    const OCR_SUBS = [
+      ['w', 'v'],  ['v', 'w'],   // Dawid→David, Vill→Will
+      ['rn', 'm'], ['m', 'rn'],  // Tirn→Tim, Jarne→Jarne
+      ['cl', 'd'], ['d', 'cl'],  // Dacl→Dad
+      ['li', 'h'], ['h', 'li'],  // Jolm→John (l+i looks like h sometimes)
+      ['l', 'i'],  ['i', 'l'],   // Mlke→Mike, Damel→Daniel
+      ['0', 'o'],  ['o', '0'],   // R0bert→Robert
+      ['1', 'l'],  ['l', '1'],   // Pau1→Paul
+      ['ii', 'n'], ['n', 'ii'],  // Daii→Dan (unlikely but possible)
+      ['vv', 'w'], ['w', 'vv'],  // Davvid edge case
+    ];
+
+    function ocrCorrectFirstName(word) {
+      const lower = word.toLowerCase();
+      if (COMMON_FIRST_NAMES.has(lower)) return word; // already valid
+
+      // Try each substitution and see if result is a known name
+      for (const [from, to] of OCR_SUBS) {
+        let idx = 0;
+        while ((idx = lower.indexOf(from, idx)) !== -1) {
+          const candidate = lower.slice(0, idx) + to + lower.slice(idx + from.length);
+          if (COMMON_FIRST_NAMES.has(candidate)) {
+            // Rebuild with original casing style (Title Case)
+            return candidate.charAt(0).toUpperCase() + candidate.slice(1);
+          }
+          idx++;
+        }
+      }
+      return word; // no correction found, keep as-is
+    }
+
     const WSOP_UI_NOISE = new Set([
       'table','day','players','player','largest','smallest','stack',
       'reg','closed','open','main','story','blinds','tabs','buy',
@@ -10152,81 +10255,202 @@
       'team','ladies','senior','employee','daily','special',
     ]);
 
-    function extractPlayerNames(ocrText) {
-      // Split into lines, then extract candidate names
-      const lines = ocrText.split('\n').map(l => l.trim()).filter(Boolean);
-      const names = [];
+    // Parse chip count string like "405.0K" or "1.1M" into display format
+    // Requires K/M suffix or a raw number >= 1000 (filters OCR noise like "1", "23")
+    const CHIP_RE = /(\d[\d,]*\.?\d*)\s*([KkMm])?/;
+    function parseChips(line) {
+      const m = line.match(CHIP_RE);
+      if (!m) return null;
+      const num = parseFloat(m[1].replace(/,/g, ''));
+      const suffix = (m[2] || '').toUpperCase();
+      if (isNaN(num)) return null;
+      // Must have K/M suffix or be >= 1000 raw
+      if (!suffix && num < 1000) return null;
+      if (suffix === 'M') return num >= 10 ? Math.round(num) + 'M' : num + 'M';
+      if (suffix === 'K') return num >= 100 ? Math.round(num) + 'K' : num + 'K';
+      if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
+      return null;
+    }
+
+    function isNameCandidate(text) {
+      const line = text.trim();
+      if (line.length < 4) return null;
+      if (/\d/.test(line)) return null;
+      if (/[#@:;{}()\[\]<>|\\\/~`!^*+=]/.test(line)) return null;
+
+      let cleaned = line.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '').trim();
+      if (!cleaned || cleaned.length < 4) return null;
+
+      const words = cleaned.split(/\s+/).filter(w => /^[A-Za-z'-]+$/.test(w) && w.length >= 2);
+      if (words.length < 2 || words.length > 3) return null;
+      if (words.some(w => w.replace(/['-]/g, '').length < 2)) return null;
+
+      const allNoise = words.every(w => WSOP_UI_NOISE.has(w.toLowerCase()));
+      if (allNoise) return null;
+      const noiseCount = words.filter(w => WSOP_UI_NOISE.has(w.toLowerCase())).length;
+      if (noiseCount > 0 && noiseCount >= words.length - 1 && words.length > 2) return null;
+
+      const totalChars = words.join('').replace(/['-]/g, '').length;
+      if (totalChars < 6) return null;
+      if (!words.some(w => w.replace(/['-]/g, '').length >= 4)) return null;
+
+      const titleCased = words.map(w => w.replace(/[A-Za-z]+/g, (m, i) =>
+        i === 0 || w[i-1] === "'" || w[i-1] === '-'
+          ? m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()
+          : m.toLowerCase()
+      ));
+      titleCased[0] = ocrCorrectFirstName(titleCased[0]);
+      return titleCased.join(' ');
+    }
+
+    function extractPlayerNames(ocrData) {
+      // Use Tesseract word-level bounding boxes for precise spatial matching
+      const ocrLines = ocrData.lines || [];
+      const nameBlocks = []; // {name, cx, cy}
+      const chipBlocks = []; // {chips, cx, cy}
       const seen = new Set();
 
-      for (const line of lines) {
-        // Skip lines that are mostly numbers / chip counts
-        if (/^[\d,.\s%KkMm$€]+$/.test(line)) continue;
-        // Skip lines with chip-count patterns like "405.0K" or "1.1M"
-        if (/\d+[.,]\d*[KkMm]/.test(line)) continue;
-        // Skip lines starting with "Day" + number pattern
-        if (/^Day\s*\d/i.test(line)) continue;
-        // Skip short lines
-        if (line.length < 4) continue;
-        // Skip lines with special characters common in UI
-        if (/[#@:;{}()\[\]<>|\\\/~`!^*+=]/.test(line)) continue;
-        // Skip lines containing any digit (chip counts, table numbers, times, etc.)
-        if (/\d/.test(line)) continue;
+      for (const line of ocrLines) {
+        const text = (line.text || '').trim();
+        if (!text) continue;
+        const box = line.bbox;
+        const cx = (box.x0 + box.x1) / 2;
+        const cy = (box.y0 + box.y1) / 2;
 
-        // Clean: remove leading/trailing punctuation
-        let cleaned = line.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '').trim();
-        if (!cleaned || cleaned.length < 4) continue;
+        // Try as name
+        const name = isNameCandidate(text);
+        if (name) {
+          const key = name.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            nameBlocks.push({ name, cx, cy });
+          }
+          // DON'T continue — also scan this line's words for chip values
+        }
 
-        // Split into words — must be alpha (with apostrophes/hyphens allowed)
-        const words = cleaned.split(/\s+/).filter(w => /^[A-Za-z'-]+$/.test(w) && w.length >= 2);
-        if (words.length < 2 || words.length > 3) continue;
-
-        // Each word should be at least 2 chars
-        if (words.some(w => w.replace(/['-]/g, '').length < 2)) continue;
-
-        // Reject if ALL words are noise/UI text
-        const allNoise = words.every(w => WSOP_UI_NOISE.has(w.toLowerCase()));
-        if (allNoise) continue;
-
-        // Reject if majority of words are noise (e.g. "Table Players Lest")
-        const noiseCount = words.filter(w => WSOP_UI_NOISE.has(w.toLowerCase())).length;
-        if (noiseCount > 0 && noiseCount >= words.length - 1 && words.length > 2) continue;
-
-        // Reject very short total name (likely OCR garbage like "Woe Er")
-        const totalChars = words.join('').replace(/['-]/g, '').length;
-        if (totalChars < 6) continue;
-
-        // At least one word must be >= 4 chars (filters "Ee Tf Or" type garbage)
-        if (!words.some(w => w.replace(/['-]/g, '').length >= 4)) continue;
-
-        // Normalize: Title Case (handle O'Brien, McDonald etc.)
-        const name = words.map(w => w.replace(/[A-Za-z]+/g, (m, i) =>
-          i === 0 || w[i-1] === "'" || w[i-1] === '-'
-            ? m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()
-            : m.toLowerCase()
-        )).join(' ');
-
-        const key = name.toLowerCase();
-        if (!seen.has(key)) {
-          seen.add(key);
-          names.push(name);
+        // Scan individual words for chip counts (word-level bboxes are more precise)
+        const words = line.words || [];
+        for (const word of words) {
+          const wt = (word.text || '').trim();
+          if (!/\d/.test(wt)) continue;
+          const chips = parseChips(wt);
+          if (chips) {
+            const wb = word.bbox;
+            chipBlocks.push({
+              chips,
+              cx: (wb.x0 + wb.x1) / 2,
+              cy: (wb.y0 + wb.y1) / 2,
+            });
+          }
+        }
+        // Fallback: if no words array, try line-level chip detection
+        if (!words.length && /\d/.test(text)) {
+          const chips = parseChips(text);
+          if (chips) chipBlocks.push({ chips, cx, cy });
         }
       }
-      return names;
+
+      // Optimal 1:1 matching: sort ALL candidate pairs by distance,
+      // assign best matches first so no name steals another's chip count
+      const pairs = [];
+      for (let ni = 0; ni < nameBlocks.length; ni++) {
+        for (let ci = 0; ci < chipBlocks.length; ci++) {
+          const nb = nameBlocks[ni], cb = chipBlocks[ci];
+          pairs.push({ ni, ci, dist: (cb.cx - nb.cx) ** 2 + (cb.cy - nb.cy) ** 2 });
+        }
+      }
+      pairs.sort((a, b) => a.dist - b.dist);
+
+      const usedNames = new Set(), usedChips = new Set();
+      const chipMap = {};
+      for (const { ni, ci } of pairs) {
+        if (usedNames.has(ni) || usedChips.has(ci)) continue;
+        usedNames.add(ni);
+        usedChips.add(ci);
+        chipMap[ni] = chipBlocks[ci].chips;
+      }
+      // Compute image bounds for normalizing positions to 0-100%
+      const allBlocks = [...nameBlocks, ...chipBlocks];
+      const minX = Math.min(...allBlocks.map(b => b.cx));
+      const maxX = Math.max(...allBlocks.map(b => b.cx));
+      const minY = Math.min(...allBlocks.map(b => b.cy));
+      const maxY = Math.max(...allBlocks.map(b => b.cy));
+      const rangeX = maxX - minX || 1;
+      const rangeY = maxY - minY || 1;
+
+      return nameBlocks.map((nb, ni) => ({
+        name: nb.name,
+        chips: chipMap[ni] || null,
+        // Normalized position (0-100) from OCR bounding boxes
+        px: ((nb.cx - minX) / rangeX) * 100,
+        py: ((nb.cy - minY) / rangeY) * 100,
+      }));
     }
 
     function preprocessImage(file) {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
-          // Scale up 2x for better OCR on small mobile text
+          // Step 1: Detect the green table felt region
+          const tmpCanvas = document.createElement('canvas');
+          tmpCanvas.width = img.width;
+          tmpCanvas.height = img.height;
+          const tmpCtx = tmpCanvas.getContext('2d');
+          tmpCtx.drawImage(img, 0, 0);
+          const fullPixels = tmpCtx.getImageData(0, 0, img.width, img.height).data;
+
+          // Scan rows for green felt pixels
+          let tableTop = -1, tableBottom = -1;
+          for (let y = 0; y < img.height; y++) {
+            let greenCount = 0;
+            for (let x = 0; x < img.width; x++) {
+              const idx = (y * img.width + x) * 4;
+              const r = fullPixels[idx], g = fullPixels[idx+1], b = fullPixels[idx+2];
+              // Green felt: green channel dominant over red and blue
+              if (g > r * 1.2 && g > b * 1.2 && g > 30) greenCount++;
+            }
+            if (greenCount / img.width > 0.1) {
+              if (tableTop === -1) tableTop = y;
+              tableBottom = y;
+            }
+          }
+
+          // Crop to table area with padding for player name labels
+          const pad = Math.round(img.height * 0.02);
+          const cropY = Math.max(0, (tableTop !== -1 ? tableTop : 0) - pad);
+          const cropEnd = Math.min(img.height, (tableBottom !== -1 ? tableBottom : img.height) + pad);
+          const cropH = cropEnd - cropY;
+
+          // Build header image (area above the table) for event title extraction
+          let headerBlob = null;
+          if (cropY > 30) {
+            const hCanvas = document.createElement('canvas');
+            const hScale = 2;
+            hCanvas.width = img.width * hScale;
+            hCanvas.height = cropY * hScale;
+            const hCtx = hCanvas.getContext('2d');
+            hCtx.drawImage(img, 0, 0, img.width, cropY, 0, 0, hCanvas.width, hCanvas.height);
+            // Invert for OCR (white text on dark bg → dark on light)
+            const hData = hCtx.getImageData(0, 0, hCanvas.width, hCanvas.height);
+            const hd = hData.data;
+            for (let i = 0; i < hd.length; i += 4) {
+              const gray = 0.299 * hd[i] + 0.587 * hd[i+1] + 0.114 * hd[i+2];
+              hd[i] = hd[i+1] = hd[i+2] = 255 - gray;
+            }
+            hCtx.putImageData(hData, 0, 0);
+            headerBlob = new Promise(r => hCanvas.toBlob(r, 'image/png'));
+          }
+
+          // Step 2: Scale up 2x and preprocess cropped region
           const scale = 2;
           const canvas = document.createElement('canvas');
           canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
+          canvas.height = cropH * scale;
           const ctx = canvas.getContext('2d');
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, cropY, img.width, cropH, 0, 0, canvas.width, canvas.height);
 
           // Invert + grayscale: WSOP app has white text on dark bg
           // Tesseract works best with dark text on light bg
@@ -10234,32 +10458,79 @@
           const d = imageData.data;
           for (let i = 0; i < d.length; i += 4) {
             const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-            // Invert and apply gentle contrast curve
             const inverted = 255 - gray;
-            // Stretch: make the previously-white text (now dark) darker,
-            // and the previously-dark background (now light) lighter
             const val = inverted < 80 ? Math.max(0, inverted * 0.5) :
                         inverted > 180 ? 255 :
                         Math.round((inverted - 80) / 100 * 255);
             d[i] = d[i+1] = d[i+2] = val;
           }
           ctx.putImageData(imageData, 0, 0);
-          canvas.toBlob(resolve, 'image/png');
+          canvas.toBlob(async (tableBlob) => {
+            resolve({ tableBlob, headerBlob: headerBlob ? await headerBlob : null });
+          }, 'image/png');
         };
         img.src = URL.createObjectURL(file);
       });
     }
 
-    function hendonMobUrl(name) {
-      // Google "I'm Feeling Lucky" with site:thehendonmob.com
-      // Redirects directly to the player's Hendon Mob profile page
-      return `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
+    function cleanOcrTitle(raw) {
+      // Strip leading/trailing non-alphanumeric OCR noise (e.g., "<{", "}")
+      let s = raw.replace(/^[^A-Za-z0-9#$]+/, '').replace(/[^A-Za-z0-9%)+]+$/, '');
+      // Collapse whitespace
+      s = s.replace(/\s+/g, ' ').trim();
+      // Strip trailing " - Fi" or similar truncated suffixes from OCR
+      s = s.replace(/\s*-\s*[A-Z][a-z]?\.{0,3}$/, '');
+      return s;
+    }
+
+    function extractEventTitle(ocrText) {
+      const lines = ocrText.split('\n').map(l => l.trim()).filter(Boolean);
+      // Try to find "#XX: Event Name" anywhere in a line
+      for (const line of lines) {
+        const m = line.match(/#\s*(\d{1,3})\s*[:\-—]\s*(.+)/);
+        if (m) {
+          const num = m[1];
+          const name = cleanOcrTitle(m[2]);
+          if (name.length > 4) return `#${num}: ${name}`;
+        }
+      }
+      // Look for "Event #XX" pattern
+      for (const line of lines) {
+        const m = line.match(/Event\s*#?\s*(\d{1,3})\b/i);
+        if (m) {
+          // Try to grab the rest after the number
+          const after = line.slice(m.index + m[0].length).replace(/^[\s:\-—]+/, '');
+          const name = cleanOcrTitle(after);
+          if (name.length > 4) return `#${m[1]}: ${name}`;
+          return `Event #${m[1]}`;
+        }
+      }
+      // Look for poker keywords
+      const keywords = ['hold\'em', 'holdem', 'no limit', 'no-limit', 'nlh', 'omaha', 'plo', 'stud', 'razz', 'mixed', 'bounty', 'deepstack', 'turbo', 'mega', 'monster'];
+      for (const line of lines) {
+        const lower = line.toLowerCase();
+        if (keywords.some(kw => lower.includes(kw)) && line.length > 8 && line.length < 80) {
+          return cleanOcrTitle(line);
+        }
+      }
+      return null;
+    }
+
+    async function resolveHendonMobUrl(name) {
+      try {
+        const resp = await fetch(`/api/hendon-mob?name=${encodeURIComponent(name)}`);
+        const data = await resp.json();
+        return data.url;
+      } catch {
+        return `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
+      }
     }
 
     function TableScanner() {
       const [state, setState] = useState('idle'); // idle | processing | results
       const [progress, setProgress] = useState(0);
-      const [names, setNames] = useState([]);
+      const [players, setPlayers] = useState([]);
+      const [eventTitle, setEventTitle] = useState('');
       const [error, setError] = useState('');
       const fileRef = useRef(null);
 
@@ -10269,26 +10540,38 @@
         setState('processing');
         setProgress(0);
         setError('');
-        setNames([]);
+        setPlayers([]);
+        setEventTitle('');
 
         try {
-          const processed = await preprocessImage(file);
+          const { tableBlob, headerBlob } = await preprocessImage(file);
 
+          // OCR the table region for player names
           const worker = await Tesseract.createWorker('eng', 1, {
             logger: (m) => {
               if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 100));
             }
           });
           await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT });
-          const { data } = await worker.recognize(processed);
+          const { data } = await worker.recognize(tableBlob);
+
+          // OCR the header region for event title (if available)
+          if (headerBlob) {
+            try {
+              await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO });
+              const { data: headerData } = await worker.recognize(headerBlob);
+              const title = extractEventTitle(headerData.text);
+              if (title) setEventTitle(title);
+            } catch {}
+          }
           await worker.terminate();
 
-          const extracted = extractPlayerNames(data.text);
+          const extracted = extractPlayerNames(data);
           if (extracted.length === 0) {
             setError('No player names found. Try a clearer screenshot of the table view.');
             setState('idle');
           } else {
-            setNames(extracted);
+            setPlayers(extracted);
             setState('results');
           }
         } catch (err) {
@@ -10306,12 +10589,12 @@
 
           {state === 'idle' && (
             <button className="cal-structure-link" onClick={() => fileRef.current?.click()}
-              style={{display:'flex',alignItems:'center',gap:'6px'}}>
+              style={{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'1px solid var(--accent)',borderRadius:'6px',padding:'6px 12px',cursor:'pointer',color:'var(--accent)',font:'inherit',fontSize:'0.78rem'}}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                 <circle cx="12" cy="13" r="4"/>
               </svg>
-              Scan Table for Hendon Mob ↗
+              Upload WSOP+ Screenshot for Table Info
             </button>
           )}
 
@@ -10328,25 +10611,65 @@
           {state === 'results' && (
             <div className="table-scanner-results">
               <div className="table-scanner-results-header">
-                <span style={{fontWeight:600,fontSize:'0.82rem',color:'var(--text)'}}>
-                  {names.length} player{names.length !== 1 ? 's' : ''} found
+                <span style={{fontWeight:600,fontSize:'0.82rem',color:'var(--text)',flex:1,minWidth:0}}>
+                  {eventTitle || `${players.length} player${players.length !== 1 ? 's' : ''} found`}
                 </span>
-                <button className="table-scanner-rescan" onClick={() => { setState('idle'); setNames([]); }}>
+                <button className="table-scanner-rescan" onClick={() => { setState('idle'); setPlayers([]); setEventTitle(''); }}>
                   Rescan
                 </button>
               </div>
-              <div className="table-scanner-names">
-                {names.map((name, i) => (
-                  <a key={i} href={hendonMobUrl(name)} target="_blank" rel="noopener noreferrer"
-                    className="table-scanner-link">
-                    {name}
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,opacity:0.5}}>
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                      <polyline points="15 3 21 3 21 9"/>
-                      <line x1="10" y1="14" x2="21" y2="3"/>
-                    </svg>
-                  </a>
-                ))}
+              <div className="table-scanner-oval">
+                <div className="table-scanner-felt" />
+                {(() => {
+                  // Sort players clockwise by their OCR position, then assign to fixed seat layouts
+                  const sorted = [...players].sort((a, b) => {
+                    const angA = Math.atan2((a.px ?? 50) - 50, 50 - (a.py ?? 50));
+                    const angB = Math.atan2((b.px ?? 50) - 50, 50 - (b.py ?? 50));
+                    return (angA < 0 ? angA + 2 * Math.PI : angA) - (angB < 0 ? angB + 2 * Math.PI : angB);
+                  });
+                  const layouts = {
+                    2:  [[50,4],[50,96]],
+                    3:  [[50,4],[85,75],[15,75]],
+                    4:  [[50,4],[98,50],[50,96],[2,50]],
+                    5:  [[50,4],[98,40],[80,96],[20,96],[2,40]],
+                    6:  [[30,4],[70,4],[98,50],[70,96],[30,96],[2,50]],
+                    7:  [[50,4],[98,28],[98,65],[70,96],[30,96],[2,65],[2,28]],
+                    8:  [[30,4],[70,4],[98,28],[98,72],[70,96],[30,96],[2,72],[2,28]],
+                    9:  [[50,4],[80,10],[98,42],[98,72],[70,96],[30,96],[2,72],[2,42],[20,10]],
+                    10: [[35,4],[65,4],[98,22],[98,50],[98,78],[65,96],[35,96],[2,78],[2,50],[2,22]],
+                  };
+                  const n = Math.min(Math.max(sorted.length, 2), 10);
+                  const seats = layouts[n] || layouts[9];
+                  return sorted.map((player, i) => {
+                  const pos = seats[i] || [50, 50];
+                  const align = pos[0] <= 5 ? ' seat-left' : pos[0] >= 95 ? ' seat-right' : '';
+                  return (
+                    <div key={i} className={'table-scanner-seat' + align}
+                      style={{left: pos[0] + '%', top: pos[1] + '%'}}>
+                      <button className="table-scanner-link"
+                        onClick={async (e) => {
+                          const btn = e.currentTarget;
+                          btn.disabled = true;
+                          btn.style.opacity = '0.5';
+                          const url = await resolveHendonMobUrl(player.name);
+                          btn.disabled = false;
+                          btn.style.opacity = '';
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        }}>
+                        <span className="table-scanner-name-stack">
+                          <span>{player.name}</span>
+                          {player.chips && <span className="table-scanner-chips">{player.chips}</span>}
+                        </span>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,opacity:0.4}}>
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                          <polyline points="15 3 21 3 21 9"/>
+                          <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                });
+                })()}
               </div>
             </div>
           )}
@@ -10800,9 +11123,6 @@
                     </a>
                   )}
 
-                  {(['WSOP','WSOPE'].includes(venue.abbr) || /^WSOPC/.test(venue.longName)) && (
-                    <TableScanner />
-                  )}
 
                   {!readOnly && (
                   <div className="cal-action-row">
@@ -14724,6 +15044,14 @@
               </div>
             </div>
           )}
+
+          {/* ── Table Scanner ── */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-header">
+              <div className="dashboard-section-title">Table Scanner <span style={{fontWeight:400,fontSize:'0.7rem',color:'var(--text-muted)'}}>(WSOP+ only)</span></div>
+            </div>
+            <TableScanner />
+          </div>
 
           <div className="dash-bottom-stack">
           {/* ── Results ── */}
