@@ -10093,21 +10093,22 @@
       };
 
       return (
-        <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px'}} onClick={onClose}>
-          <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.5)'}} />
-          <div style={{position:'relative',width:'100%',maxWidth:380,maxHeight:'80vh',overflowY:'auto',background:'var(--surface)',borderRadius:16,padding:'20px'}} onClick={e => e.stopPropagation()}>
-            <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'16px'}}>
-              <Avatar src={buddy.avatar} username={buddy.username} size={36} />
+        <div style={{position:'fixed',inset:0,zIndex:9999,overflowY:'auto',WebkitOverflowScrolling:'touch'}} onClick={onClose}>
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)'}} />
+          <div style={{position:'relative',minHeight:'100%',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}}>
+          <div style={{position:'relative',width:'100%',maxWidth:380,background:'var(--surface)',borderRadius:16,padding:'16px 20px'}} onClick={e => e.stopPropagation()}>
+            <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'12px'}}>
+              <Avatar src={buddy.avatar} username={buddy.username} size={32} />
               <div>
-                <div style={{fontWeight:700,color:'var(--text)',fontSize:'0.95rem'}}>{dn(buddy)}</div>
-                <div style={{color:'var(--text-muted)',fontSize:'0.75rem'}}>@{buddy.username}</div>
+                <div style={{fontWeight:700,color:'var(--text)',fontSize:'0.9rem'}}>{dn(buddy)}</div>
+                <div style={{color:'var(--text-muted)',fontSize:'0.72rem'}}>@{buddy.username}</div>
               </div>
             </div>
-            <div style={{background:'var(--surface2)',borderRadius:8,padding:'10px 12px',marginBottom:'16px',fontSize:'0.82rem'}}>
+            <div style={{background:'var(--surface2)',borderRadius:8,padding:'8px 12px',marginBottom:'12px',fontSize:'0.82rem'}}>
               <div style={{color:'var(--text)',fontWeight:600}}>{tournament.event_name}</div>
               <div style={{color:'var(--text-muted)',fontSize:'0.72rem',marginTop:2}}>{tournament.date} · {tournament.time} · {formatBuyin(tournament.buyin, tournament.venue)}</div>
             </div>
-            <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
+            <div style={{display:'flex',gap:'8px',marginBottom:'12px'}}>
               {['swap', 'crossbook'].map(t => (
                 <button key={t} onClick={() => setType(t)} style={{
                   flex:1,padding:'8px',borderRadius:8,border:'1px solid var(--border)',
@@ -10118,7 +10119,7 @@
               ))}
             </div>
             {type === 'swap' ? (
-              <div style={{display:'flex',gap:'12px',marginBottom:'16px'}}>
+              <div style={{display:'flex',gap:'12px',marginBottom:'12px'}}>
                 <div style={{flex:1}}>
                   <label style={{fontSize:'0.7rem',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:'0.05em',display:'block',marginBottom:4}}>You give</label>
                   <div style={{display:'flex',alignItems:'center',gap:4}}>
@@ -10137,7 +10138,7 @@
                 </div>
               </div>
             ) : (
-              <div style={{display:'flex',gap:'12px',marginBottom:'16px'}}>
+              <div style={{display:'flex',gap:'12px',marginBottom:'12px'}}>
                 <div style={{flex:1}}>
                   <label style={{fontSize:'0.7rem',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:'0.05em',display:'block',marginBottom:4}}>Percentage</label>
                   <div style={{display:'flex',alignItems:'center',gap:4}}>
@@ -10156,14 +10157,15 @@
                 </div>
               </div>
             )}
-            {msg && <div style={{textAlign:'center',fontSize:'0.82rem',color: msg === 'Sent!' ? '#22c55e' : '#ef4444',marginBottom:8}}>{msg}</div>}
+            {msg && <div style={{textAlign:'center',fontSize:'0.82rem',color: msg === 'Sent!' ? '#22c55e' : '#ef4444',marginBottom:6}}>{msg}</div>}
             <button onClick={handleSend} disabled={sending} style={{
-              width:'100%',padding:'12px',borderRadius:10,border:'none',
+              width:'100%',padding:'10px',borderRadius:10,border:'none',
               background:'var(--accent)',color:'var(--bg)',fontWeight:700,fontSize:'0.9rem',
               fontFamily:'Oswald, sans-serif',cursor: sending ? 'wait' : 'pointer',opacity: sending ? 0.6 : 1
             }}>
               {sending ? 'Sending...' : `Send ${type === 'swap' ? 'Swap' : 'Crossbook'} Offer`}
             </button>
+          </div>
           </div>
         </div>
       );
