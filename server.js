@@ -154,33 +154,39 @@ function serveIndex(req, res) {
 }
 app.get('/', serveIndex);
 
-// Hendon Mob lookup — follow Google "I'm Feeling Lucky" redirect to get final URL
+// Hendon Mob lookup — scrape first Google result, cache to avoid rate limits
+const hendonCache = new Map();
 app.get('/api/hendon-mob', async (req, res) => {
   const name = req.query.name;
   if (!name) return res.status(400).json({ error: 'name required' });
+
+  const key = name.toLowerCase().trim();
+  if (hendonCache.has(key)) return res.json({ url: hendonCache.get(key) });
+
+  const fallback = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
   try {
-    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
-    const resp = await fetch(googleUrl, { redirect: 'manual', headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; PokerApp/1.0)'
+    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
+    const resp = await fetch(googleUrl, { headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }});
-    const location = resp.headers.get('location');
-    if (location) {
-      // Google may wrap in /url?q=... — extract the actual URL
-      try {
-        const parsed = new URL(location);
-        const inner = parsed.searchParams.get('q');
-        if (inner && inner.includes('thehendonmob.com')) {
-          return res.json({ url: inner });
-        }
-      } catch {}
-      if (location.includes('thehendonmob.com')) {
-        return res.json({ url: location });
-      }
+    const html = await resp.text();
+    // Extract first result URL from Google search HTML
+    const match = html.match(/href="(https?:\/\/(?:www\.)?(?:pokerdb\.)?thehendonmob\.com\/player\.php\?[^"]+)"/);
+    if (match) {
+      const url = match[1].replace(/&amp;/g, '&');
+      hendonCache.set(key, url);
+      return res.json({ url });
     }
-    // Fallback: return Google search URL
-    res.json({ url: googleUrl });
+    // Try broader hendonmob link pattern
+    const broad = html.match(/href="(https?:\/\/(?:www\.)?(?:pokerdb\.)?thehendonmob\.com[^"]*)"/)
+    if (broad) {
+      const url = broad[1].replace(/&amp;/g, '&');
+      hendonCache.set(key, url);
+      return res.json({ url });
+    }
+    res.json({ url: fallback });
   } catch {
-    res.json({ url: `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI` });
+    res.json({ url: fallback });
   }
 });
 

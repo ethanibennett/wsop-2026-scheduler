@@ -10516,10 +10516,14 @@
       return null;
     }
 
-    function resolveHendonMobUrl(name) {
-      // Open Google "I'm Feeling Lucky" directly in user's browser — avoids
-      // server-side rate limiting and Hendon Mob's Cloudflare blocking
-      return `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
+    async function resolveHendonMobUrl(name) {
+      try {
+        const resp = await fetch(`/api/hendon-mob?name=${encodeURIComponent(name)}`);
+        const data = await resp.json();
+        return data.url;
+      } catch {
+        return `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
+      }
     }
 
     function TableScanner() {
@@ -10644,7 +10648,11 @@
                       style={{left: pos[0] + '%', top: pos[1] + '%'}}>
                       <button className="table-scanner-link"
                         onClick={() => {
-                          window.open(resolveHendonMobUrl(player.name), '_blank', 'noopener,noreferrer');
+                          const win = window.open('about:blank', '_blank');
+                          resolveHendonMobUrl(player.name).then(url => {
+                            if (win) win.location.href = url;
+                            else window.location.href = url;
+                          });
                         }}>
                         <span className="table-scanner-name-stack">
                           <span>{player.name}</span>
