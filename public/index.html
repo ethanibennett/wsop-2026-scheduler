@@ -42,6 +42,7 @@
   <script src="https://unpkg.com/@babel/standalone@7.26.9/babel.min.js"></script>
   <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     :root {
       --bg:        #111111;
@@ -2136,6 +2137,78 @@
       margin-bottom: 10px;
     }
     .cal-structure-link:active { opacity: 0.6; }
+
+    /* ── Table Scanner (Hendon Mob) ── */
+    .table-scanner { margin-bottom: 10px; }
+
+    .table-scanner-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .table-scanner-progress-label { white-space: nowrap; }
+    .table-scanner-progress-pct { white-space: nowrap; min-width: 32px; text-align: right; }
+    .table-scanner-bar-track {
+      flex: 1;
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .table-scanner-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.2s;
+    }
+
+    .table-scanner-results {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .table-scanner-results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .table-scanner-rescan {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-family: 'Oswald', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .table-scanner-rescan:active { opacity: 0.6; }
+
+    .table-scanner-names {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .table-scanner-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: var(--surface2);
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--accent);
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .table-scanner-link:active { background: var(--border); }
 
     .cal-action-row {
       display: flex;
@@ -10064,6 +10137,197 @@
       );
     }
 
+    // ── Table Scanner — OCR screenshot → Hendon Mob links ────
+    const WSOP_UI_NOISE = new Set([
+      'table','day','players','player','largest','smallest','stack',
+      'reg','closed','open','main','story','blinds','tabs','buy',
+      'buyin','start','late','nlh','plo','gtd','flight','event',
+      'monster','bounty','mystery','sat','mon','tue','wed','thu',
+      'fri','sat','sun','jan','feb','mar','apr','may','jun','jul',
+      'aug','sep','oct','nov','dec','the','and','for',
+    ]);
+
+    function extractPlayerNames(ocrText) {
+      // Split into lines, then extract candidate names
+      const lines = ocrText.split('\n').map(l => l.trim()).filter(Boolean);
+      const names = [];
+      const seen = new Set();
+
+      for (const line of lines) {
+        // Skip lines that are mostly numbers / chip counts
+        if (/^[\d,.\s%KkMm$€]+$/.test(line)) continue;
+        // Skip lines with chip-count patterns like "405.0K" or "1.1M"
+        if (/\d+[.,]\d*[KkMm]/.test(line)) continue;
+        // Skip lines starting with "Day" + number pattern
+        if (/^Day\s*\d/i.test(line)) continue;
+        // Skip single character lines
+        if (line.length < 3) continue;
+        // Skip lines with special characters
+        if (/[#@:;{}()\[\]<>|\\\/]/.test(line)) continue;
+
+        // Clean: remove leading/trailing punctuation, numbers
+        let cleaned = line.replace(/^[\d\s.,]+|[\d\s.,]+$/g, '').trim();
+        if (!cleaned || cleaned.length < 3) continue;
+
+        // Split into words
+        const words = cleaned.split(/\s+/).filter(w => /^[A-Za-z'-]+$/.test(w) && w.length > 1);
+        if (words.length < 2 || words.length > 4) continue;
+
+        // All words should be non-noise
+        const allNoise = words.every(w => WSOP_UI_NOISE.has(w.toLowerCase()));
+        if (allNoise) continue;
+        // At least one word must NOT be noise
+        const nonNoiseCount = words.filter(w => !WSOP_UI_NOISE.has(w.toLowerCase())).length;
+        if (nonNoiseCount < 1) continue;
+
+        // Normalize: Title Case (handle O'Brien, McDonald etc.)
+        const name = words.map(w => w.replace(/[A-Za-z]+/g, (m, i) =>
+          i === 0 || w[i-1] === "'" || w[i-1] === '-'
+            ? m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()
+            : m.toLowerCase()
+        )).join(' ');
+
+        const key = name.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          names.push(name);
+        }
+      }
+      return names;
+    }
+
+    function preprocessImage(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+
+          // Get image data and apply contrast + grayscale
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imageData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            // Grayscale
+            const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+            // High contrast threshold — white text on dark bg becomes black on white
+            const val = gray > 140 ? 255 : 0;
+            d[i] = d[i+1] = d[i+2] = val;
+          }
+          ctx.putImageData(imageData, 0, 0);
+          canvas.toBlob(resolve, 'image/png');
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    function hendonMobUrl(name) {
+      return `https://pokerdb.thehendonmob.com/player.php?a=l&s=${encodeURIComponent(name)}`;
+    }
+
+    function TableScanner() {
+      const [state, setState] = useState('idle'); // idle | processing | results
+      const [progress, setProgress] = useState(0);
+      const [names, setNames] = useState([]);
+      const [error, setError] = useState('');
+      const fileRef = useRef(null);
+
+      const handleFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setState('processing');
+        setProgress(0);
+        setError('');
+        setNames([]);
+
+        try {
+          // Preprocess image for better OCR on dark WSOP UI
+          const processed = await preprocessImage(file);
+
+          const worker = await Tesseract.createWorker('eng', 1, {
+            logger: (m) => {
+              if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 100));
+            }
+          });
+          const { data } = await worker.recognize(processed);
+          await worker.terminate();
+
+          const extracted = extractPlayerNames(data.text);
+          if (extracted.length === 0) {
+            setError('No player names found. Try a clearer screenshot of the table view.');
+            setState('idle');
+          } else {
+            setNames(extracted);
+            setState('results');
+          }
+        } catch (err) {
+          console.error('OCR error:', err);
+          setError('Failed to scan image. Please try again.');
+          setState('idle');
+        }
+        // Reset file input so same file can be re-selected
+        if (fileRef.current) fileRef.current.value = '';
+      };
+
+      return (
+        <div className="table-scanner">
+          <input ref={fileRef} type="file" accept="image/*" capture="environment"
+            style={{display:'none'}} onChange={handleFile} />
+
+          {state === 'idle' && (
+            <button className="cal-structure-link" onClick={() => fileRef.current?.click()}
+              style={{display:'flex',alignItems:'center',gap:'6px'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Scan Table for Hendon Mob ↗
+            </button>
+          )}
+
+          {state === 'processing' && (
+            <div className="table-scanner-progress">
+              <div className="table-scanner-progress-label">Scanning image…</div>
+              <div className="table-scanner-bar-track">
+                <div className="table-scanner-bar-fill" style={{width: progress + '%'}} />
+              </div>
+              <div className="table-scanner-progress-pct">{progress}%</div>
+            </div>
+          )}
+
+          {state === 'results' && (
+            <div className="table-scanner-results">
+              <div className="table-scanner-results-header">
+                <span style={{fontWeight:600,fontSize:'0.82rem',color:'var(--text)'}}>
+                  {names.length} player{names.length !== 1 ? 's' : ''} found
+                </span>
+                <button className="table-scanner-rescan" onClick={() => { setState('idle'); setNames([]); }}>
+                  Rescan
+                </button>
+              </div>
+              <div className="table-scanner-names">
+                {names.map((name, i) => (
+                  <a key={i} href={hendonMobUrl(name)} target="_blank" rel="noopener noreferrer"
+                    className="table-scanner-link">
+                    {name}
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,opacity:0.5}}>
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {error && <div style={{fontSize:'0.78rem',color:'#ef4444',marginTop:4}}>{error}</div>}
+        </div>
+      );
+    }
+
     // ── Swap/Crossbook Suggestion Modal ───────────────────────
     function SwapModal({ buddy, tournament, token, onClose }) {
       const dn = useDisplayName();
@@ -10506,6 +10770,10 @@
                     >
                       View Structure Sheet ↗
                     </a>
+                  )}
+
+                  {['WSOP','WSOPC','WSOPE'].includes(venue.abbr) && isInSchedule && (
+                    <TableScanner />
                   )}
 
                   {!readOnly && (
