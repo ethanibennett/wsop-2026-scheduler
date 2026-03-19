@@ -10516,14 +10516,8 @@
       return null;
     }
 
-    async function resolveHendonMobUrl(name) {
-      try {
-        const resp = await fetch(`/api/hendon-mob?name=${encodeURIComponent(name)}`);
-        const data = await resp.json();
-        return data.url;
-      } catch {
-        return `https://www.thehendonmob.com/?s=${encodeURIComponent(name)}`;
-      }
+    function hendonMobUrl(name) {
+      return `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
     }
 
     function TableScanner() {
@@ -10647,13 +10641,7 @@
                     <div key={i} className={'table-scanner-seat' + align}
                       style={{left: pos[0] + '%', top: pos[1] + '%'}}>
                       <button className="table-scanner-link"
-                        onClick={() => {
-                          const win = window.open('about:blank', '_blank');
-                          resolveHendonMobUrl(player.name).then(url => {
-                            if (win) win.location.href = url;
-                            else window.location.href = url;
-                          });
-                        }}>
+                        onClick={() => window.open(hendonMobUrl(player.name), '_blank', 'noopener,noreferrer')}>
                         <span className="table-scanner-name-stack">
                           <span>{player.name}</span>
                           {player.chips && <span className="table-scanner-chips">{player.chips}</span>}
