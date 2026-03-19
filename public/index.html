@@ -10584,7 +10584,7 @@
 
       return (
         <div className="table-scanner">
-          <input ref={fileRef} type="file" accept="image/*" capture="environment"
+          <input ref={fileRef} type="file" accept="image/*"
             style={{display:'none'}} onChange={handleFile} />
 
           {state === 'idle' && (
@@ -13088,6 +13088,7 @@
 
     function AuthScreen({ onSubmit, error, success, theme, toggleTheme, onForgotPassword, onGuestLogin, initialRegister }) {
       const [isRegister, setIsRegister] = useState(!!initialRegister);
+      const [keepSignedIn, setKeepSignedIn] = useState(true);
       const nextThemeLabel = THEME_LABEL[THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]];
 
       return (
@@ -13106,7 +13107,7 @@
             {error && <div className="alert alert-error">{error}</div>}
             {success && <div className="alert alert-success">{success}</div>}
 
-            <form onSubmit={e => onSubmit(e, isRegister)}>
+            <form onSubmit={e => onSubmit(e, isRegister, keepSignedIn)}>
               {isRegister && (
                 <div className="form-field">
                   <label>Full Name</label>
@@ -13127,6 +13128,13 @@
                 <label>Password</label>
                 <input type="password" name="password" placeholder={isRegister ? 'Min. 6 characters' : 'Your password'} required minLength="6" autoComplete={isRegister ? 'new-password' : 'current-password'} />
               </div>
+              {!isRegister && (
+                <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.8rem',color:'var(--text-muted)',marginTop:'10px',cursor:'pointer'}}>
+                  <input type="checkbox" checked={keepSignedIn} onChange={e => setKeepSignedIn(e.target.checked)}
+                    style={{accentColor:'var(--accent)',cursor:'pointer'}} />
+                  Keep me signed in
+                </label>
+              )}
               <button type="submit" className="btn btn-primary btn-full" style={{marginTop:'8px'}}>
                 {isRegister ? 'Create Account' : 'Sign In'}
               </button>
@@ -19130,8 +19138,8 @@
     // ── App ────────────────────────────────────────────────────
 
     function App() {
-      const [token, setToken] = useState(localStorage.getItem('token'));
-      const [username, setUsername] = useState(localStorage.getItem('username'));
+      const [token, setToken] = useState(localStorage.getItem('token') || sessionStorage.getItem('token'));
+      const [username, setUsername] = useState(localStorage.getItem('username') || sessionStorage.getItem('username'));
       const [isGuest, setIsGuest] = useState(localStorage.getItem('isGuest') === 'true');
       const [authView, setAuthView] = useState('login');
       const [currentView, _setCurrentView] = useState('dashboard');
@@ -19676,7 +19684,7 @@
         } catch {}
       };
 
-      const handleLogin = async (e, isRegister = false) => {
+      const handleLogin = async (e, isRegister = false, keepSignedIn = true) => {
         e.preventDefault();
         setError(''); setSuccess('');
         const fd = new FormData(e.target);
@@ -19703,12 +19711,14 @@
           if (isRegister) {
             setSuccess('Account created! Please sign in.');
           } else {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('username', data.username);
-            if (data.avatar) localStorage.setItem('avatar', data.avatar);
-            else localStorage.removeItem('avatar');
-            if (data.realName) localStorage.setItem('realName', data.realName);
-            else localStorage.removeItem('realName');
+            const store = keepSignedIn ? localStorage : sessionStorage;
+            store.setItem('token', data.token);
+            store.setItem('username', data.username);
+            if (data.avatar) store.setItem('avatar', data.avatar);
+            else store.removeItem('avatar');
+            if (data.realName) store.setItem('realName', data.realName);
+            else store.removeItem('realName');
+            if (!keepSignedIn) localStorage.setItem('sessionOnly', 'true');
             setToken(data.token);
             setUsername(data.username);
             setAvatar(data.avatar || null);
@@ -19736,11 +19746,10 @@
       };
 
       const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('username');
-        localStorage.removeItem('avatar');
-        localStorage.removeItem('isGuest');
-        localStorage.removeItem('realName');
+        ['token','username','avatar','isGuest','realName','sessionOnly'].forEach(k => {
+          localStorage.removeItem(k);
+          sessionStorage.removeItem(k);
+        });
         setToken(null);
         setUsername(null);
         setIsGuest(false);
