@@ -163,9 +163,10 @@ app.get('/api/hendon-mob', async (req, res) => {
   const key = name.toLowerCase().trim();
   if (hendonCache.has(key)) return res.json({ url: hendonCache.get(key) });
 
-  const fallback = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
+  const fallback = `https://www.thehendonmob.com/poker-player-search?search=${encodeURIComponent(name)}`;
   try {
-    const resp = await fetch(fallback, { headers: {
+    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
+    const resp = await fetch(googleUrl, { headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }});
     const html = await resp.text();
