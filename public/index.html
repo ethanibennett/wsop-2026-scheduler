@@ -10772,7 +10772,7 @@
                     </a>
                   )}
 
-                  {['WSOP','WSOPC','WSOPE'].includes(venue.abbr) && isInSchedule && (
+                  {(['WSOP','WSOPE'].includes(venue.abbr) || /^WSOPC/.test(venue.longName)) && (
                     <TableScanner />
                   )}
 
