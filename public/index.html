@@ -10522,7 +10522,7 @@
         const data = await resp.json();
         return data.url;
       } catch {
-        return `https://www.thehendonmob.com/poker-player-search?search=${encodeURIComponent(name)}`;
+        return `https://pokerdb.thehendonmob.com/player.php?name=${encodeURIComponent(name)}`;
       }
     }
 
