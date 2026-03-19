@@ -10647,14 +10647,18 @@
                     <div key={i} className={'table-scanner-seat' + align}
                       style={{left: pos[0] + '%', top: pos[1] + '%'}}>
                       <button className="table-scanner-link"
-                        onClick={async (e) => {
+                        onClick={(e) => {
                           const btn = e.currentTarget;
                           btn.disabled = true;
                           btn.style.opacity = '0.5';
-                          const url = await resolveHendonMobUrl(player.name);
-                          btn.disabled = false;
-                          btn.style.opacity = '';
-                          window.open(url, '_blank', 'noopener,noreferrer');
+                          // Open window immediately to preserve user gesture on mobile
+                          const win = window.open('about:blank', '_blank');
+                          resolveHendonMobUrl(player.name).then(url => {
+                            if (win) win.location.href = url;
+                            else window.location.href = url;
+                            btn.disabled = false;
+                            btn.style.opacity = '';
+                          });
                         }}>
                         <span className="table-scanner-name-stack">
                           <span>{player.name}</span>
