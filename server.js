@@ -154,7 +154,7 @@ function serveIndex(req, res) {
 }
 app.get('/', serveIndex);
 
-// Hendon Mob lookup — scrape first Google result, cache to avoid rate limits
+// Hendon Mob lookup — follow Google "I'm Feeling Lucky" redirect, cache results
 const hendonCache = new Map();
 app.get('/api/hendon-mob', async (req, res) => {
   const name = req.query.name;
@@ -165,24 +165,24 @@ app.get('/api/hendon-mob', async (req, res) => {
 
   const fallback = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
   try {
-    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
-    const resp = await fetch(googleUrl, { headers: {
+    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
+    const resp = await fetch(googleUrl, { redirect: 'manual', headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }});
-    const html = await resp.text();
-    // Extract first result URL from Google search HTML
-    const match = html.match(/href="(https?:\/\/(?:www\.)?(?:pokerdb\.)?thehendonmob\.com\/player\.php\?[^"]+)"/);
-    if (match) {
-      const url = match[1].replace(/&amp;/g, '&');
-      hendonCache.set(key, url);
-      return res.json({ url });
-    }
-    // Try broader hendonmob link pattern
-    const broad = html.match(/href="(https?:\/\/(?:www\.)?(?:pokerdb\.)?thehendonmob\.com[^"]*)"/)
-    if (broad) {
-      const url = broad[1].replace(/&amp;/g, '&');
-      hendonCache.set(key, url);
-      return res.json({ url });
+    const location = resp.headers.get('location');
+    if (location) {
+      try {
+        const parsed = new URL(location);
+        const inner = parsed.searchParams.get('q');
+        if (inner && inner.includes('thehendonmob.com')) {
+          hendonCache.set(key, inner);
+          return res.json({ url: inner });
+        }
+      } catch {}
+      if (location.includes('thehendonmob.com')) {
+        hendonCache.set(key, location);
+        return res.json({ url: location });
+      }
     }
     res.json({ url: fallback });
   } catch {
