@@ -154,12 +154,35 @@ function serveIndex(req, res) {
 }
 app.get('/', serveIndex);
 
-// Hendon Mob search — DuckDuckGo (no iOS app interception like Google)
-app.get('/api/hendon-redirect', (req, res) => {
+// Hendon Mob lookup — resolve via DuckDuckGo, redirect user straight to Hendon Mob
+const hendonCache = new Map();
+app.get('/api/hendon-redirect', async (req, res) => {
   const name = req.query.name;
   if (!name) return res.status(400).send('name required');
-  const url = `https://duckduckgo.com/?q=${encodeURIComponent('\\ site:thehendonmob.com ' + name)}`;
-  res.redirect(url);
+
+  const key = name.toLowerCase().trim();
+  if (hendonCache.has(key)) return res.redirect(hendonCache.get(key));
+
+  const ddgUrl = `https://duckduckgo.com/?q=${encodeURIComponent('\\ site:thehendonmob.com ' + name)}`;
+  try {
+    const resp = await fetch(ddgUrl, { redirect: 'manual', headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }});
+    // DDG returns HTML with a /l/?uddg= redirect containing the actual URL
+    const html = await resp.text();
+    const match = html.match(/uddg=(https?[^&"]+)/);
+    if (match) {
+      const finalUrl = decodeURIComponent(match[1]);
+      if (finalUrl.includes('thehendonmob.com')) {
+        hendonCache.set(key, finalUrl);
+        return res.redirect(finalUrl);
+      }
+    }
+    // Fallback: send to DDG search results
+    res.redirect(ddgUrl.replace('%5C%20', ''));
+  } catch {
+    res.redirect(ddgUrl.replace('%5C%20', ''));
+  }
 });
 
 // File upload configuration
