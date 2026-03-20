@@ -154,12 +154,12 @@ function serveIndex(req, res) {
 }
 app.get('/', serveIndex);
 
-// Hendon Mob redirect — server-side 302 so iOS opens in Safari, not Google app
+// Hendon Mob redirect — JS redirect to avoid iOS Universal Links opening Google app
 app.get('/api/hendon-redirect', (req, res) => {
   const name = req.query.name;
   if (!name) return res.status(400).send('name required');
   const url = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
-  res.redirect(url);
+  res.send(`<!DOCTYPE html><html><head><script>window.location.replace(${JSON.stringify(url)});</script></head><body></body></html>`);
 });
 
 // File upload configuration
