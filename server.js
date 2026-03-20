@@ -158,7 +158,7 @@ app.get('/', serveIndex);
 app.get('/api/hendon-redirect', (req, res) => {
   const name = req.query.name;
   if (!name) return res.status(400).send('name required');
-  const url = `https://duckduckgo.com/?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
+  const url = `https://duckduckgo.com/?q=${encodeURIComponent('\\ site:thehendonmob.com ' + name)}`;
   res.redirect(url);
 });
 
