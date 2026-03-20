@@ -8,6 +8,8 @@
   <meta name="theme-color" content="#111111">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="apple-touch-icon" href="/icon-192.png">
   <title>futurega.me | summer 2026</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4342,7 +4344,7 @@
       );
     }
 
-    const API_URL = window.location.origin + '/api';
+    const API_URL = (window.Capacitor && window.Capacitor.isNativePlatform()) ? 'https://futurega.me/api' : window.location.origin + '/api';
 
     // Detect shared schedule URL: /shared/:token
     const SHARED_MATCH = window.location.pathname.match(/^\/shared\/([a-f0-9]+)$/);
@@ -19321,6 +19323,7 @@
 
       // ── Push notifications (admin only) ──
       useEffect(() => {
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) return;
         if (!token || isGuest || (username || '').toLowerCase() !== 'ham') return;
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
@@ -20086,11 +20089,13 @@
             )}
 
             {currentView === 'hands' && (
-              <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
-                <div style={{fontSize:'2.5rem',marginBottom:'12px'}}>🃏</div>
-                <h2 style={{fontFamily:"'Oswald', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Hand Replayer</h2>
-                <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
-              </div>
+              (username || '').toLowerCase() === 'ham'
+                ? <HandReplayerView token={token} />
+                : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
+                    <div style={{fontSize:'2.5rem',marginBottom:'12px'}}>🃏</div>
+                    <h2 style={{fontFamily:"'Oswald', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Hand Replayer</h2>
+                    <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
+                  </div>
             )}
 
             {currentView === 'settings' && (
@@ -20248,6 +20253,18 @@
       ReactDOM.render(<ResetPage />, document.getElementById('root'));
     } else {
       ReactDOM.render(<ToastProvider><App /></ToastProvider>, document.getElementById('root'));
+    }
+  </script>
+  <script>
+    // Register service worker for PWA offline support
+    if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform()) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').then(function(reg) {
+          console.log('SW registered, scope:', reg.scope);
+        }).catch(function(err) {
+          console.log('SW registration failed:', err);
+        });
+      });
     }
   </script>
 </body>

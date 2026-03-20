@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#111111"/>
+  <rect x="24" y="24" width="464" height="464" rx="48" fill="none" stroke="#333333" stroke-width="4"/>
+  <!-- Spade symbol -->
+  <path d="M256 120 C256 120 160 210 160 270 C160 310 190 340 230 340 C245 340 255 335 256 330 C257 335 267 340 282 340 C322 340 352 310 352 270 C352 210 256 120 256 120Z" fill="#e8e8e8"/>
+  <path d="M256 310 L256 380 L236 380 C226 380 226 370 236 365 L256 355 L276 365 C286 370 286 380 276 380 L256 380" fill="#e8e8e8"/>
+  <!-- WSOP text -->
+  <text x="256" y="445" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="72" fill="#e8e8e8" letter-spacing="8">WSOP</text>
+</svg>
