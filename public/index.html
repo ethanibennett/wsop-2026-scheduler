@@ -10516,10 +10516,6 @@
       return null;
     }
 
-    function hendonMobUrl(name) {
-      return `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
-    }
-
     function TableScanner() {
       const [state, setState] = useState('idle'); // idle | processing | results
       const [progress, setProgress] = useState(0);
@@ -10641,7 +10637,7 @@
                     <div key={i} className={'table-scanner-seat' + align}
                       style={{left: pos[0] + '%', top: pos[1] + '%'}}>
                       <button className="table-scanner-link"
-                        onClick={() => window.open(hendonMobUrl(player.name), '_blank', 'noopener,noreferrer')}>
+                        onClick={() => window.open(`/api/hendon-redirect?name=${encodeURIComponent(player.name)}`, '_blank', 'noopener,noreferrer')}>
                         <span className="table-scanner-name-stack">
                           <span>{player.name}</span>
                           {player.chips && <span className="table-scanner-chips">{player.chips}</span>}

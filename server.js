@@ -154,41 +154,12 @@ function serveIndex(req, res) {
 }
 app.get('/', serveIndex);
 
-// Hendon Mob lookup — Google search, extract first result, cache it
-const hendonCache = new Map();
-app.get('/api/hendon-mob', async (req, res) => {
+// Hendon Mob redirect — server-side 302 so iOS opens in Safari, not Google app
+app.get('/api/hendon-redirect', (req, res) => {
   const name = req.query.name;
-  if (!name) return res.status(400).json({ error: 'name required' });
-
-  const key = name.toLowerCase().trim();
-  if (hendonCache.has(key)) return res.json({ url: hendonCache.get(key) });
-
-  const fallback = `https://www.thehendonmob.com/?s=${encodeURIComponent(name)}`;
-  try {
-    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
-    const resp = await fetch(googleUrl, { headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }});
-    const html = await resp.text();
-    // Google wraps result URLs in /url?q=... redirects
-    const matches = html.match(/\/url\?q=(https?:\/\/(?:www\.)?(?:pokerdb\.)?thehendonmob\.com[^&"]*)/g);
-    if (matches) {
-      const raw = matches[0].replace('/url?q=', '');
-      const url = decodeURIComponent(raw);
-      hendonCache.set(key, url);
-      return res.json({ url });
-    }
-    // Fallback: direct href pattern
-    const direct = html.match(/href="(https?:\/\/(?:www\.)?(?:pokerdb\.)?thehendonmob\.com[^"]+)"/);
-    if (direct) {
-      const url = direct[1].replace(/&amp;/g, '&');
-      hendonCache.set(key, url);
-      return res.json({ url });
-    }
-    res.json({ url: fallback });
-  } catch {
-    res.json({ url: fallback });
-  }
+  if (!name) return res.status(400).send('name required');
+  const url = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
+  res.redirect(url);
 });
 
 // File upload configuration
