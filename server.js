@@ -154,12 +154,12 @@ function serveIndex(req, res) {
 }
 app.get('/', serveIndex);
 
-// Hendon Mob redirect — JS redirect to avoid iOS Universal Links opening Google app
+// Hendon Mob search — DuckDuckGo (no iOS app interception like Google)
 app.get('/api/hendon-redirect', (req, res) => {
   const name = req.query.name;
   if (!name) return res.status(400).send('name required');
-  const url = `https://www.google.com/search?q=${encodeURIComponent('site:thehendonmob.com ' + name)}&btnI`;
-  res.send(`<!DOCTYPE html><html><head><script>window.location.replace(${JSON.stringify(url)});</script></head><body></body></html>`);
+  const url = `https://duckduckgo.com/?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
+  res.redirect(url);
 });
 
 // File upload configuration
