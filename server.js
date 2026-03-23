@@ -1714,6 +1714,13 @@ async function initDatabase() {
       }
     },
     {
+      name: 'ipo-spinandgo-side-2026-03',
+      fn: () => {
+        db.run("UPDATE tournaments SET category = 'side' WHERE venue = 'Irish Poker Open' AND event_name LIKE 'Spin n%'");
+        console.log(`IPO Spin n Go set to side: ${db.getRowsModified()} rows`);
+      }
+    },
+    {
       name: 'rename-triathlon-2026-03',
       fn: () => {
         db.run(`UPDATE tournaments SET event_name = 'NLH Triathlon Championship - Unlimited Re-Entry' WHERE event_name LIKE '%Triathlon Championship%' AND venue = 'Irish Poker Open'`);
