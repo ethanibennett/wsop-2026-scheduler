@@ -50,7 +50,7 @@ app.use(helmet({
 // CORS — restrict to known origins
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3001', 'http://localhost:3000'];
+  : ['http://localhost:3001', 'http://localhost:3000', 'capacitor://localhost', 'http://localhost'];
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, same-origin)
@@ -94,7 +94,7 @@ if (process.env.SMTP_HOST) {
   });
   console.log('Mail transporter configured');
 } else {
-  console.warn('SMTP not configured — password reset emails will be logged to console');
+  console.log('SMTP not configured — password reset emails will be logged to console');
 }
 
 async function sendResetEmail(toEmail, resetToken) {
@@ -608,6 +608,13 @@ async function initDatabase() {
   // Migrate: add real_name to users
   try {
     db.run('ALTER TABLE users ADD COLUMN real_name TEXT');
+  } catch (e) {
+    // Column already exists — ignore
+  }
+
+  // Migrate: add hand_replayer_access to users
+  try {
+    db.run('ALTER TABLE users ADD COLUMN hand_replayer_access INTEGER DEFAULT 0');
   } catch (e) {
     // Column already exists — ignore
   }
@@ -1847,7 +1854,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
       expiresIn: '24h'
     });
 
-    res.json({ token, username: user.username, userId: user.id, avatar: user.avatar || null, realName: user.real_name || null });
+    res.json({ token, username: user.username, userId: user.id, avatar: user.avatar || null, realName: user.real_name || null, handReplayerAccess: !!user.hand_replayer_access });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed. Please try again.' });
@@ -5831,17 +5838,33 @@ app.get('/api/admin/users', adminLimiter, (req, res) => {
 
 // Admin: list users (JWT auth, hardcoded admin username)
 app.get('/api/admin/users-list', authenticateToken, requireRegistered, (req, res) => {
-  if ((req.user.username || '').toLowerCase() !== 'ham') {
+  if (!['ham', 'ham5'].includes((req.user.username || '').toLowerCase())) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
-    const stmt = db.prepare('SELECT id, username, email, real_name, avatar, created_at FROM users ORDER BY created_at DESC');
+    const stmt = db.prepare('SELECT id, username, email, real_name, avatar, created_at, hand_replayer_access FROM users ORDER BY created_at DESC');
     const users = [];
     while (stmt.step()) users.push(stmt.getAsObject());
     stmt.free();
     res.json(users);
   } catch (error) {
     console.error('Admin users-list error:', error);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// Admin: toggle hand replayer access
+app.put('/api/admin/users/:id/replayer-access', authenticateToken, requireRegistered, (req, res) => {
+  if (!['ham', 'ham5'].includes((req.user.username || '').toLowerCase())) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const { enabled } = req.body;
+    db.run('UPDATE users SET hand_replayer_access = ? WHERE id = ?', [enabled ? 1 : 0, req.params.id]);
+    persist();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin replayer-access error:', error);
     res.status(500).json({ error: 'Internal error' });
   }
 });

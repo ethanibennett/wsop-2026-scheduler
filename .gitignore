@@ -65,6 +65,11 @@ _crosshair.png
 _crosshair.svg
 _satellite.svg
 
+# Capacitor build artifacts
+ios/App/Pods/
+android/.gradle/
+android/build/
+
 # Dev docs
 CLAUDE-CODE-HANDOFF.md
 PROJECT-OVERVIEW.md

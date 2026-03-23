@@ -159,8 +159,8 @@
     /* Cloudy theme — muted grey light variant */
     [data-theme="cloudy"] {
       --bg:        #cbcbcb;
-      --surface:   #c0c0c0;
-      --surface2:  #b4b4b4;
+      --surface:   #d6d6d6;
+      --surface2:  #c8c8c8;
       --border:    #a0a0a0;
       --accent:    #505050;
       --accent2:   #686868;
@@ -506,10 +506,11 @@
 
     /* ── Card row ── */
     .card-row { display:flex; gap:2px; align-items:center; min-height:32px; flex-wrap:wrap; }
+    .card-row.card-row-splay { gap:0; align-items:flex-end; }
     .card-row img { height:28px; border-radius:2px; }
     .card-row .card-unknown { width:20px; height:28px; background:var(--border); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:var(--text-muted); font-family:'Oswald',sans-serif; }
-    .card-row .card-placeholder { width:20px; height:28px; background:rgba(120,120,120,0.45); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:rgba(255,255,255,0.8); font-family:'Oswald',sans-serif; }
-    :is([data-theme="light"],[data-theme="cloudy"]) .card-row .card-placeholder { background:rgba(160,160,160,0.35); color:rgba(0,0,0,0.45); }
+    .card-row .card-placeholder { width:20px; height:28px; background: linear-gradient(135deg, #2d5a3d 25%, #1a4a2e 25%, #1a4a2e 50%, #2d5a3d 50%, #2d5a3d 75%, #1a4a2e 75%); background-size: 6px 6px; border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:0; color:transparent; border: 1px solid #3a7a50; }
+    :is([data-theme="light"],[data-theme="cloudy"]) .card-row .card-placeholder { background: linear-gradient(135deg, #4a8a60 25%, #3a7a50 25%, #3a7a50 50%, #4a8a60 50%, #4a8a60 75%, #3a7a50 75%); background-size: 6px 6px; border-color: #5a9a70; }
 
     /* ── Hand result (winner display) ── */
     .hand-result { font-size:0.68rem; font-family:'Oswald',sans-serif; padding:6px 8px; border-radius:4px; text-align:center; margin-top:2px; letter-spacing:0.3px; line-height:1.4; }
@@ -579,7 +580,8 @@
     }
     .replayer-player-row:last-child { border-bottom:none; }
     .replayer-player-name { font-size:0.75rem; font-weight:600; min-width:60px; }
-    .replayer-player-pos { font-size:0.62rem; color:var(--accent2); background:var(--surface2); padding:1px 5px; border-radius:4px; }
+    .replayer-player-pos { font-size:0.62rem; color:var(--accent2); background:var(--surface2); padding:1px 5px; border-radius:4px; min-width:32px; text-align:center; transition: background 0.15s, color 0.15s, border-color 0.15s; border: 1.5px solid transparent; }
+    .replayer-player-pos.hero { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
 
     /* Street entry */
     .replayer-street { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; margin-bottom:8px; }
@@ -619,6 +621,397 @@
     .replayer-action-btns button.action-call { border-color:rgba(96,165,250,0.4); color:#60a5fa; }
     .replayer-action-btns button.action-call:hover { background:rgba(96,165,250,0.1); }
 
+    /* ── GTO Entry View ── */
+    .gto-entry {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 6px;
+      padding-bottom: 80vh; /* enough room to scroll any card to the top */
+    }
+
+    /* Street header card */
+    .gto-street-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    /* Sticky wrapper for everything above the position cards —
+       mirrors .schedule-sticky-header: extends to content-area edges,
+       cards scroll behind it */
+    .gto-sticky-header {
+      position: sticky;
+      top: -12px;
+      z-index: 6;
+      background: var(--bg);
+      padding: 24px 12px 6px;
+      margin: -12px -12px 0;
+      box-shadow: 0 4px 0 0 var(--bg);
+    }
+    .gto-sticky-footer {
+      position: fixed;
+      bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+      left: 0;
+      right: 0;
+      z-index: 8;
+      background: var(--bg);
+      padding: 6px 12px;
+      box-shadow: none;
+    }
+    .gto-sticky-footer > * {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    @media (min-width: 640px) {
+      .gto-sticky-header { margin: -16px -20px 0; padding: 28px 20px 6px; top: -16px; }
+      .gto-sticky-footer { padding: 6px 20px; }
+    }
+    @media (min-width: 1024px) {
+      .gto-sticky-header { margin: -20px -32px 0; padding: 32px 32px 6px; top: -20px; }
+      .gto-sticky-footer { padding: 6px 32px; }
+    }
+    .gto-street-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+    }
+    .gto-street-name {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .gto-pot-label {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .gto-board-row {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      padding: 4px 12px 10px;
+    }
+    .gto-board-inline { display: inline-flex; flex: 1; justify-content: center; }
+    .gto-board-inline .card-row { gap: 3px; }
+    .gto-board-inline .card-img { height: 28px; width: auto; }
+
+    /* Position seat cards — mirrors cal-event-row */
+    .gto-seat {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-left: none;
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      overflow: hidden;
+      display: flex;
+      transition: border-color 0.2s, opacity 0.25s;
+      overflow-anchor: none;
+    }
+    .gto-seat.folded { opacity: 0.35; }
+    .gto-seat.active { border-color: var(--accent); }
+
+    /* Left color strip — mirrors cal-venue-strip */
+    .gto-seat-strip {
+      width: 22px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.48rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 4px 0;
+      white-space: nowrap;
+      overflow: hidden;
+      background: var(--border);
+      transition: background 0.2s;
+    }
+    .gto-seat.active .gto-seat-strip { background: var(--accent); color: var(--bg); }
+    .gto-seat.acted-fold .gto-seat-strip { background: #f87171; }
+    .gto-seat.acted-check .gto-seat-strip { background: #888888; }
+    .gto-seat.acted-call .gto-seat-strip { background: #60a5fa; }
+    .gto-seat.acted-raise .gto-seat-strip,
+    .gto-seat.acted-bet .gto-seat-strip { background: #4ade80; }
+    .gto-seat.acted-allin .gto-seat-strip { background: #facc15; }
+
+    .gto-seat-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Collapsed bar — mirrors cal-event-bar */
+    .gto-seat-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 10px 12px;
+      cursor: default;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .gto-seat-row1 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .gto-seat-pos {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .gto-seat.active .gto-seat-pos { color: var(--text); }
+    .gto-seat-stack {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+    .gto-seat-row2 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .gto-seat-name {
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 0.84rem;
+      font-weight: 400;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+      line-height: 1.3;
+    }
+    .gto-seat-hero-cards { display: inline-flex; margin-left: auto; }
+    .gto-seat-hero-cards .card-row { gap: 2px; }
+    .gto-seat-hero-cards .card-img { height: 28px; width: auto; }
+    .gto-seat-result-badge {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 1px 6px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .gto-seat-result-badge.fold { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+    .gto-seat-result-badge.call { background: rgba(96,165,250,0.12); color: #60a5fa; border: 1px solid rgba(96,165,250,0.25); }
+    .gto-seat-result-badge.check { background: rgba(136,136,136,0.12); color: var(--text-muted); border: 1px solid rgba(136,136,136,0.25); }
+    .gto-seat-result-badge.raise, .gto-seat-result-badge.bet { background: rgba(74,222,128,0.12); color: #4ade80; border: 1px solid rgba(74,222,128,0.25); }
+    .gto-seat-result-badge.allin { background: rgba(74,222,128,0.12); color: #4ade80; border: 1px solid rgba(74,222,128,0.25); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .gto-seat-result-badge.fold { color: #dc2626; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .gto-seat-result-badge.call { color: #2563eb; background: rgba(96,165,250,0.1); border-color: rgba(96,165,250,0.3); }
+    :is([data-theme="light"],[data-theme="cloudy"]) .gto-seat-result-badge.raise,
+    :is([data-theme="light"],[data-theme="cloudy"]) .gto-seat-result-badge.bet { color: #15803d; background: rgba(74,222,128,0.1); border-color: rgba(74,222,128,0.3); }
+
+    /* Expanded action panel — animated like cal-event-detail-wrap */
+    .gto-seat-detail-wrap {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.4s cubic-bezier(0.18, 1.8, 0.35, 1);
+      overflow-anchor: none;
+    }
+    .gto-seat.active .gto-seat-detail-wrap {
+      grid-template-rows: 1fr;
+    }
+    .gto-seat-detail-inner {
+      overflow: hidden;
+    }
+    .gto-seat-detail-inner > .gto-seat-detail {
+      opacity: 0;
+      transform: translateY(-14px);
+      transition: opacity 0.2s ease, transform 0.35s cubic-bezier(0.18, 1.8, 0.35, 1);
+    }
+    .gto-seat.active .gto-seat-detail-inner > .gto-seat-detail {
+      opacity: 1;
+      transform: translateY(0);
+      transition-delay: 0.06s;
+    }
+
+    /* Action row — mirrors cal-action-row */
+    .gto-action-row {
+      display: flex;
+      border-top: 1px solid var(--border);
+      margin: 0;
+      align-items: stretch;
+    }
+    .gto-action-btn {
+      flex: 1;
+      padding: 8px 4px 6px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      font-family: inherit;
+    }
+    .gto-action-btn + .gto-action-btn { border-left: 1px solid var(--border); }
+    .gto-action-btn:active { background: rgba(160,160,160,0.1); }
+    .gto-action-icon {
+      font-size: 1rem;
+      line-height: 1;
+      height: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gto-action-icon.fold { color: #f87171; }
+    .gto-action-icon.check { color: var(--text-muted); }
+    .gto-action-icon.call { color: #60a5fa; }
+    .gto-action-icon.raise { color: #4ade80; }
+    .gto-action-icon.allin { color: #facc15; }
+    .gto-action-label {
+      font-family: inherit;
+      font-size: 0.55rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    /* Sizing pills & raise input */
+    .gto-sizing-row {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+    }
+    .gto-sizing-pill {
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .gto-sizing-pill:active { border-color: var(--accent); color: var(--accent); }
+    .gto-raise-input-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 8px 12px;
+    }
+    .gto-raise-input-row input {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.82rem;
+    }
+    .gto-raise-input-row input:focus { outline: none; border-color: var(--accent); }
+
+    /* Footer & setup/phase cards */
+    .gto-footer {
+      display: flex;
+      gap: 6px;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-top: 1px solid var(--border);
+    }
+    .gto-phase-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .gto-phase-card .replayer-section {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+    }
+    .gto-street-label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .gto-undo-btn {
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .gto-undo-btn:active { border-color: var(--accent); color: var(--accent); }
+
+    /* Card picker grid */
+    .card-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(13, 1fr);
+      gap: 3px;
+      margin-top: 8px;
+    }
+    .card-picker-btn {
+      aspect-ratio: 2/3;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .card-picker-btn:active { transform: scale(0.92); }
+    .card-picker-btn.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .card-picker-btn.used {
+      opacity: 0.15;
+      pointer-events: none;
+    }
+    .card-picker-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .card-picker-suit-label {
+      grid-column: 1 / -1;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.55rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      padding: 4px 0 1px;
+    }
+    .card-picker-suit-label:first-child { padding-top: 0; }
+
     /* Draw discard section */
     .replayer-draw-section { margin-top:6px; padding:6px 8px; background:var(--surface2); border-radius:4px; }
     .replayer-draw-label { font-size:0.6rem; color:var(--text-muted); font-family:'Oswald',sans-serif; text-transform:uppercase; margin-bottom:4px; }
@@ -626,72 +1019,172 @@
     /* Replay mode */
     .replayer-replay { display:flex; flex-direction:column; gap:8px; }
     .replayer-table {
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 16px; position: relative; min-height: 200px;
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3 / 4.5;
+      margin-top: 30px;
+      margin-bottom: 0;
     }
     .replayer-table-felt {
-      background: linear-gradient(135deg, rgba(22,101,52,0.08), rgba(22,101,52,0.03));
-      border-radius: var(--radius-sm); padding: 12px; position: relative;
+      position: absolute;
+      inset: 6% 18%;
+      background: radial-gradient(ellipse at 50% 50%, #7b6ba5 0%, #6a5b96 60%, #564a80 100%);
+      border-radius: 999px;
+      border: 3px solid #9585bf;
+      box-shadow: 0 0 0 4px rgba(0,0,0,0.3), inset 0 2px 12px rgba(0,0,0,0.3);
     }
     :is([data-theme="light"],[data-theme="cloudy"]) .replayer-table-felt {
-      background: linear-gradient(135deg, rgba(22,101,52,0.06), rgba(22,101,52,0.02));
+      background: radial-gradient(ellipse at 50% 50%, #9080b8 0%, #8070a8 60%, #6e6098 100%);
+      border-color: #a595cf;
     }
 
     .replayer-pot-display {
-      text-align:center; font-size:0.82rem; font-weight:600; color:var(--text);
-      font-family:'Oswald',sans-serif; padding:6px 0; margin-bottom:8px;
+      position:absolute; left:50%; top:35%; transform:translate(-50%,-50%);
+      z-index:2; text-align:center; font-size:0.78rem; font-weight:600; color:#fff;
+      font-family:'Oswald',sans-serif; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     }
-    .replayer-pot-label { font-size:0.55rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+    .replayer-pot-label { font-size:0.5rem; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:0.5px; }
 
-    .replayer-board-area { display:flex; justify-content:center; gap:4px; margin:8px 0; min-height:36px; }
-    .replayer-board-area .card-row { justify-content:center; }
-    .replayer-board-area .card-row img { height:36px; }
-    .replayer-board-area .card-row .card-unknown { width:26px; height:36px; }
-    .replayer-board-area .card-row .card-placeholder { width:26px; height:36px; }
+    .replayer-board-area {
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      z-index:2; display:flex; flex-direction:column; align-items:center; gap:3px;
+    }
+    .replayer-board-area .card-row { justify-content:center; flex-wrap:nowrap; }
+    .replayer-board-area .card-row img { height:44px; }
+    .replayer-board-area .card-row .card-unknown { width:30px; height:44px; }
+    .replayer-board-area .card-row .card-placeholder { width:30px; height:44px; }
 
-    /* Player seats in replay */
-    .replayer-seats { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:8px; }
+    .replayer-street-label {
+      position:absolute; left:50%; top:28%; transform:translate(-50%,-50%);
+      z-index:2; font-size:0.55rem; color:rgba(255,255,255,0.6); font-family:'Oswald',sans-serif;
+      text-transform:uppercase; letter-spacing:0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+
+    /* Player seats around the oval */
     .replayer-seat {
-      background: var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm);
-      padding:6px 8px; min-width:90px; text-align:center; transition:border-color 0.2s, box-shadow 0.3s;
+      position: absolute;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      text-align:center;
     }
-    .replayer-seat.active-turn { border-color:var(--accent); }
-    .replayer-seat.folded { opacity:0.4; }
-    .replayer-seat.winner {
+    .replayer-seat.seat-left { transform: translate(0%, -50%); }
+    .replayer-seat.seat-right { transform: translate(-100%, -50%); }
+    .replayer-seat.folded .replayer-seat-info,
+    .replayer-seat.mucked .replayer-seat-info { opacity:0.5; }
+
+    .replayer-seat-cards {
+      position: absolute;
+      bottom: calc(100% - 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 0;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .replayer-seat.folded .replayer-seat-cards,
+    .replayer-seat.mucked .replayer-seat-cards { opacity:0; transform:translateX(-50%) scale(0.8) translateY(20px); }
+    .replayer-seat-cards .card-row { justify-content:center; flex-wrap:nowrap; }
+    .replayer-seat-cards .card-row img { height:44px; }
+    .replayer-seat-cards .card-row .card-unknown { width:30px; height:44px; }
+    .replayer-seat-cards .card-row .card-placeholder { width:30px; height:44px; }
+
+    .replayer-dealer-btn {
+      position: absolute;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: #fff;
+      color: #111;
+      font-family: 'Libre Baskerville', Georgia, serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 3;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      pointer-events: none;
+    }
+
+    .replayer-seat-info {
+      position: relative;
+      z-index: 1;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 8px;
+      min-width: 72px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      transition: border-color 0.2s, box-shadow 0.3s;
+    }
+    .replayer-seat.active-turn .replayer-seat-info { border-color:var(--accent); }
+    .replayer-seat.winner .replayer-seat-info {
       border-color: #4ade80;
       box-shadow: 0 0 8px rgba(74,222,128,0.4), 0 0 16px rgba(74,222,128,0.2);
     }
-    .replayer-seat.loser {
+    .replayer-seat.loser .replayer-seat-info {
       border-color: rgba(248,113,113,0.4);
       box-shadow: 0 0 4px rgba(248,113,113,0.2);
-      opacity: 0.7;
     }
-    .replayer-seat.split {
+    .replayer-seat.split .replayer-seat-info {
       border-color: #facc15;
       box-shadow: 0 0 8px rgba(250,204,21,0.35), 0 0 16px rgba(250,204,21,0.15);
     }
-    .replayer-seat.split .replayer-seat-hand-name { color:#facc15; }
-    .replayer-seat-name { font-size:0.68rem; font-weight:600; color:var(--text); font-family:'Oswald',sans-serif; }
-    .replayer-seat-pos { font-size:0.55rem; color:var(--accent2); }
-    .replayer-seat-stack { font-size:0.68rem; color:var(--text-muted); font-family:'Oswald',sans-serif; margin-top:2px; }
-    .replayer-seat-cards { margin-top:4px; }
-    .replayer-seat-cards .card-row { justify-content:center; }
-    .replayer-seat-cards .card-row img { height:26px; }
-    .replayer-seat-cards .card-row .card-unknown { width:18px; height:26px; }
-    .replayer-seat-cards .card-row .card-placeholder { width:18px; height:26px; }
+    .replayer-seat-name { font-size:0.62rem; font-weight:600; color:var(--text); font-family:'Oswald',sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; }
+    .replayer-seat-pos { font-size:0.5rem; color:var(--accent2); font-family:'Oswald',sans-serif; }
+    .replayer-seat-stack { font-size:0.62rem; font-weight:600; color:var(--text); font-family:'Oswald',sans-serif; }
     .replayer-seat-action {
-      font-size:0.6rem; color:var(--accent2); font-family:'Oswald',sans-serif;
-      margin-top:2px; min-height:14px;
+      font-size:0.52rem; color:var(--accent2); font-family:'Oswald',sans-serif;
+      min-height:12px;
       transition: opacity 0.2s;
     }
-    .replayer-seat-hand-name {
-      font-size:0.58rem; color:#4ade80; font-family:'Oswald',sans-serif; margin-top:2px;
+    .replayer-bet-chip {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-size: 0.55rem;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 600;
+      color: #fff;
+      background: rgba(0,0,0,0.5);
+      padding: 2px 6px;
+      border-radius: 8px;
+      white-space: nowrap;
+      z-index: 4;
+      pointer-events: none;
     }
-    .replayer-seat.loser .replayer-seat-hand-name { color:#f87171; }
+    .replayer-seat-hand-name {
+      position: absolute;
+      left: 50%;
+      top: 100%;
+      transform: translateX(-50%);
+      font-size:0.5rem; color:#4ade80; font-family:'Oswald',sans-serif;
+      background: var(--surface);
+      border: 1.5px solid rgba(74,222,128,0.4);
+      border-radius: 6px;
+      padding: 2px 6px;
+      margin-top: 2px;
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .replayer-seat.loser .replayer-seat-hand-name { color:#f87171; border-color:rgba(248,113,113,0.4); }
+    .replayer-seat.split .replayer-seat-hand-name { color:#facc15; border-color:rgba(250,204,21,0.4); }
 
     /* Replay controls */
+    .replayer-bottom-fixed {
+      position:fixed;
+      bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+      left:0; right:0;
+      z-index:8;
+      background:var(--bg);
+      display:flex; flex-direction:column; gap:2px;
+      padding: 4px 12px;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+    }
+    .replayer-bottom-fixed > * {
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+    }
     .replayer-controls {
-      display:flex; justify-content:center; align-items:center; gap:8px; padding:8px 0;
+      display:flex; justify-content:center; align-items:center; gap:8px; padding:4px 0;
     }
     .replayer-controls button {
       padding:6px 12px; border-radius:6px; border:1px solid var(--border);
@@ -716,8 +1209,8 @@
 
     /* Result display */
     .replayer-result {
-      text-align:center; padding:8px 12px; border-radius:var(--radius-sm);
-      font-family:'Oswald',sans-serif; font-size:0.78rem; font-weight:600;
+      text-align:center; padding:5px 10px; border-radius:var(--radius-sm);
+      font-family:'Oswald',sans-serif; font-size:0.72rem; font-weight:600;
     }
     .replayer-result-hero { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
     .replayer-result-opponent { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
@@ -910,6 +1403,7 @@
 
     .btn-primary { background: var(--accent); color: var(--bg-contrast); }
     .btn-primary:hover { opacity: 0.88; }
+    .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
 
     .btn-danger { background: var(--accent2); color: #fff; }
     .btn-danger:hover { opacity: 0.88; }
@@ -2200,11 +2694,11 @@
     }
     .table-scanner-felt {
       position: absolute;
-      inset: 22% 20%;
-      background: radial-gradient(ellipse, #1a6b3a 0%, #145a2f 60%, #0d4424 100%);
-      border-radius: 50%;
-      border: 2px solid #2a8a50;
-      box-shadow: 0 0 0 3px rgba(0,0,0,0.3), inset 0 2px 8px rgba(0,0,0,0.3);
+      inset: 18% 10%;
+      background: radial-gradient(ellipse at 50% 50%, #1a6b3a 0%, #145a2f 60%, #0d4424 100%);
+      border-radius: 999px;
+      border: 3px solid #2a8a50;
+      box-shadow: 0 0 0 4px rgba(0,0,0,0.3), inset 0 2px 8px rgba(0,0,0,0.3);
     }
     .table-scanner-seat {
       position: absolute;
@@ -5497,7 +5991,9 @@
     const RANK_VAL = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'T':10,'J':11,'Q':12,'K':13,'A':14 };
     const RANK_NAME = { 2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'8',9:'9',10:'T',11:'J',12:'Q',13:'K',14:'A' };
     const RANK_WORD = { 14:'Ace',13:'King',12:'Queen',11:'Jack',10:'Ten',9:'Nine',8:'Eight',7:'Seven',6:'Six',5:'Five',4:'Four',3:'Three',2:'Two' };
+    const RANK_SHORT = { 14:'A',13:'K',12:'Q',11:'J',10:'10',9:'9',8:'8',7:'7',6:'6',5:'5',4:'4',3:'3',2:'2' };
     const rankPlural = v => { const w = RANK_WORD[v]; return w.endsWith('x') ? w + 'es' : w + 's'; };
+    const rankShortPlural = v => RANK_SHORT[v] + 's';
 
     function combinations(arr, k) {
       const res = [];
@@ -5527,39 +6023,49 @@
       const P = 15;
       let cat, kickers, name;
 
+      let shortName;
       if (isStraight && isFlush) {
         cat = 9; kickers = [straightHigh, 0, 0, 0, 0];
         name = straightHigh === 14 ? 'Royal Flush' : 'Straight Flush, ' + RANK_WORD[straightHigh] + '-high';
+        shortName = straightHigh === 14 ? 'Royal Flush' : 'Str. Flush, ' + RANK_SHORT[straightHigh] + '-high';
       } else if (groups[0][0] === 4) {
         cat = 8; kickers = [groups[0][1], groups[1][1], 0, 0, 0];
         name = 'Four of a Kind, ' + rankPlural(groups[0][1]);
+        shortName = 'Quad ' + rankShortPlural(groups[0][1]);
       } else if (groups[0][0] === 3 && groups[1][0] === 2) {
         cat = 7; kickers = [groups[0][1], groups[1][1], 0, 0, 0];
         name = rankPlural(groups[0][1]) + ' full of ' + rankPlural(groups[1][1]);
+        shortName = rankShortPlural(groups[0][1]) + ' full of ' + rankShortPlural(groups[1][1]);
       } else if (isFlush) {
         cat = 6; kickers = vals;
         name = 'Flush, ' + RANK_WORD[vals[0]] + '-high';
+        shortName = 'Flush, ' + RANK_SHORT[vals[0]] + '-high';
       } else if (isStraight) {
         cat = 5; kickers = [straightHigh, 0, 0, 0, 0];
         name = straightHigh === 5 ? 'Wheel' : 'Straight, ' + RANK_WORD[straightHigh] + '-high';
+        shortName = straightHigh === 5 ? 'Wheel' : 'Straight, ' + RANK_SHORT[straightHigh] + '-high';
       } else if (groups[0][0] === 3) {
         cat = 4; const rest = vals.filter(v => v !== groups[0][1]);
         kickers = [groups[0][1], rest[0], rest[1], 0, 0];
         name = 'Three ' + rankPlural(groups[0][1]);
+        shortName = 'Trip ' + rankShortPlural(groups[0][1]);
       } else if (groups[0][0] === 2 && groups[1][0] === 2) {
         cat = 3; const kick = vals.find(v => v !== groups[0][1] && v !== groups[1][1]);
         kickers = [groups[0][1], groups[1][1], kick, 0, 0];
         name = 'Two Pair, ' + rankPlural(groups[0][1]) + ' and ' + rankPlural(groups[1][1]);
+        shortName = 'Two Pair, ' + rankShortPlural(groups[0][1]) + ' & ' + rankShortPlural(groups[1][1]);
       } else if (groups[0][0] === 2) {
         cat = 2; const rest = vals.filter(v => v !== groups[0][1]);
         kickers = [groups[0][1], rest[0], rest[1], rest[2], 0];
         name = 'Pair of ' + rankPlural(groups[0][1]);
+        shortName = 'Pair of ' + rankShortPlural(groups[0][1]);
       } else {
         cat = 1; kickers = vals;
         name = RANK_WORD[vals[0]] + '-high';
+        shortName = RANK_SHORT[vals[0]] + '-high';
       }
       const score = cat * Math.pow(P, 5) + kickers[0] * Math.pow(P, 4) + kickers[1] * Math.pow(P, 3) + kickers[2] * Math.pow(P, 2) + kickers[3] * P + (kickers[4] || 0);
-      return { cat, score, name };
+      return { cat, score, name, shortName };
     }
 
     // A-5 lowball: aces low, straights/flushes ignored. Lower score = better.
@@ -5675,6 +6181,114 @@
       let best = null;
       for (const c of combinations(cards, 4)) { const ev = evalBadugi(c); if (!best || ev.score < best.score) best = ev; }
       return best;
+    }
+
+    // Evaluate a multi-way showdown. Returns array of { playerIdx, split } winners.
+    // playerHands: [{ idx, cards: [{rank,suit},...] }], boardCards: [{rank,suit},...]
+    function evaluateShowdown(gameType, playerHands, boardCards) {
+      const cfg = GAME_EVAL[gameType];
+      if (!cfg || playerHands.length === 0) return [];
+
+      // Evaluate each player's best hand(s)
+      var evals = playerHands.map(function(ph) {
+        var cards = ph.cards;
+        var all = boardCards.length ? cards.concat(boardCards) : cards;
+        var hi = null, lo = null, bad = null;
+        if (cfg.type === 'high' || cfg.type === 'hilo') {
+          hi = cfg.method === 'omaha' ? bestOmahaHigh(cards, boardCards) : bestHighHand(all);
+        }
+        if (cfg.type === 'hilo') {
+          lo = cfg.method === 'omaha' ? bestOmahaLow(cards, boardCards) : bestLowA5Hand(all, true);
+        }
+        if (cfg.type === 'low') {
+          lo = cfg.lowType === 'a5' ? bestLowA5Hand(all, false) : bestLow27Hand(all);
+        }
+        if (cfg.type === 'badugi') {
+          bad = bestBadugiHand(cards);
+        }
+        if (cfg.type === 'split-badugi') {
+          bad = bestBadugiHand(cards);
+          lo = cfg.otherLow === '27' ? bestLow27Hand(cards) : bestLowA5Hand(cards, false);
+        }
+        return { idx: ph.idx, hi: hi, lo: lo, bad: bad };
+      });
+
+      if (cfg.type === 'high') {
+        var validHi = evals.filter(function(e) { return e.hi; });
+        if (!validHi.length) return [];
+        var bestScore = Math.max.apply(null, validHi.map(function(e) { return e.hi.score; }));
+        var hiWinners = validHi.filter(function(e) { return e.hi.score === bestScore; });
+        return hiWinners.map(function(e) { return { playerIdx: e.idx, split: hiWinners.length > 1 }; });
+      }
+
+      if (cfg.type === 'low') {
+        var validLo = evals.filter(function(e) { return e.lo; });
+        if (!validLo.length) return [];
+        var bestLoScore = Math.min.apply(null, validLo.map(function(e) { return e.lo.score; }));
+        var loWinners = validLo.filter(function(e) { return e.lo.score === bestLoScore; });
+        return loWinners.map(function(e) { return { playerIdx: e.idx, split: loWinners.length > 1 }; });
+      }
+
+      if (cfg.type === 'badugi') {
+        var validBad = evals.filter(function(e) { return e.bad; });
+        if (!validBad.length) return [];
+        var bestBadScore = Math.min.apply(null, validBad.map(function(e) { return e.bad.score; }));
+        var badWinners = validBad.filter(function(e) { return e.bad.score === bestBadScore; });
+        return badWinners.map(function(e) { return { playerIdx: e.idx, split: badWinners.length > 1 }; });
+      }
+
+      if (cfg.type === 'hilo') {
+        var winners = [];
+        // High half
+        var vHi = evals.filter(function(e) { return e.hi; });
+        if (vHi.length) {
+          var bHi = Math.max.apply(null, vHi.map(function(e) { return e.hi.score; }));
+          var hWin = vHi.filter(function(e) { return e.hi.score === bHi; });
+          // Check if there's a qualifying low
+          var vLo = evals.filter(function(e) { return e.lo && e.lo.qualified; });
+          if (vLo.length === 0) {
+            // No qualifying low — high scoops
+            return hWin.map(function(e) { return { playerIdx: e.idx, split: hWin.length > 1 }; });
+          }
+          // High winners get half
+          hWin.forEach(function(e) { winners.push({ playerIdx: e.idx, split: true }); });
+          // Low winners get half
+          var bLo = Math.min.apply(null, vLo.map(function(e) { return e.lo.score; }));
+          var lWin = vLo.filter(function(e) { return e.lo.score === bLo; });
+          lWin.forEach(function(e) {
+            if (!winners.some(function(w) { return w.playerIdx === e.idx; })) {
+              winners.push({ playerIdx: e.idx, split: true });
+            }
+          });
+          // If same player wins both, they scoop
+          if (winners.length === 1) winners[0].split = false;
+        }
+        return winners;
+      }
+
+      if (cfg.type === 'split-badugi') {
+        var sbWinners = [];
+        var vBad2 = evals.filter(function(e) { return e.bad; });
+        var vLo2 = evals.filter(function(e) { return e.lo; });
+        if (vBad2.length) {
+          var bBad2 = Math.min.apply(null, vBad2.map(function(e) { return e.bad.score; }));
+          vBad2.filter(function(e) { return e.bad.score === bBad2; }).forEach(function(e) {
+            sbWinners.push({ playerIdx: e.idx, split: true });
+          });
+        }
+        if (vLo2.length) {
+          var bLo2 = Math.min.apply(null, vLo2.map(function(e) { return e.lo.score; }));
+          vLo2.filter(function(e) { return e.lo.score === bLo2; }).forEach(function(e) {
+            if (!sbWinners.some(function(w) { return w.playerIdx === e.idx; })) {
+              sbWinners.push({ playerIdx: e.idx, split: true });
+            }
+          });
+        }
+        if (sbWinners.length === 1) sbWinners[0].split = false;
+        return sbWinners;
+      }
+
+      return [];
     }
 
     // Game variant evaluation config
@@ -5817,22 +6431,25 @@
       return assigned;
     }
 
-    function CardRow({ text, stud, max, placeholderCount }) {
+    function CardRow({ text, stud, max, placeholderCount, splay }) {
       let cards = parseCardNotation(text);
       if (!cards.length && placeholderCount > 0) {
-        return React.createElement('div', { className: 'card-row' },
-          Array.from({ length: placeholderCount }, (_, i) =>
-            React.createElement('div', { key: 'ph' + i, className: 'card-placeholder' }, '?')
-          )
+        return React.createElement('div', { className: 'card-row' + (splay ? ' card-row-splay' : '') },
+          Array.from({ length: placeholderCount }, (_, i) => {
+            var splayStyle = splay ? getSplayStyle(i, placeholderCount, splay) : undefined;
+            return React.createElement('div', { key: 'ph' + i, className: 'card-placeholder', style: splayStyle }, '?');
+          })
         );
       }
       if (!cards.length) return null;
       if (max && cards.length > max) cards = cards.slice(0, max);
       const downIdx = stud ? new Set([0, 1, 6]) : null;
-      return React.createElement('div', { className: 'card-row' },
+      return React.createElement('div', { className: 'card-row' + (splay ? ' card-row-splay' : '') },
         cards.map((c, i) => {
           const isDown = downIdx && downIdx.has(i);
-          const style = isDown ? { marginTop: 12 } : undefined;
+          var baseStyle = isDown ? { marginTop: 12 } : {};
+          if (splay) Object.assign(baseStyle, getSplayStyle(i, cards.length, splay));
+          const style = Object.keys(baseStyle).length ? baseStyle : undefined;
           const k = c.rank + c.suit + '_' + i;
           return c.suit === 'x'
             ? React.createElement('div', { key: k, className: 'card-unknown', style }, '?')
@@ -5844,6 +6461,18 @@
               });
         })
       );
+    }
+
+    function getSplayStyle(index, total, angle) {
+      if (total <= 1) return {};
+      // Spread cards evenly from -angle to +angle
+      var step = (2 * angle) / (total - 1);
+      var rot = -angle + step * index;
+      return {
+        transform: 'rotate(' + rot + 'deg)',
+        transformOrigin: 'bottom center',
+        marginLeft: index === 0 ? 0 : -10,
+      };
     }
 
     function ordinalSuffix(n) {
@@ -10822,7 +11451,7 @@
     function measureStickyStack(container) {
       const caTop = container.getBoundingClientRect().top;
       let bottom = 0;
-      const sticky = container.querySelector('.sticky-filters') || container.querySelector('.schedule-sticky-header');
+      const sticky = container.querySelector('.sticky-filters') || container.querySelector('.schedule-sticky-header') || container.querySelector('.gto-sticky-header');
       if (sticky) bottom = sticky.getBoundingClientRect().bottom - caTop;
       container.querySelectorAll('.schedule-date-break').forEach(db => {
         const dbTop = db.getBoundingClientRect().top - caTop;
@@ -10834,6 +11463,30 @@
       return bottom;
     }
 
+    // Scroll a row to just below all sticky headers (filters + date break)
+    function scrollBelowSticky(el, gap) {
+      const offset = gap != null ? gap : 2;
+      const container = el.closest('.content-area');
+      if (!container) return;
+      const savedScroll = container.scrollTop;
+      // Phase 1: jump to approximate target
+      const stickyBottom = measureStickyStack(container);
+      const elAbsTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+      container.scrollTop = elAbsTop - stickyBottom - offset;
+      // Phase 2: iteratively correct for sticky state changes
+      for (let i = 0; i < 4; i++) {
+        const sb = measureStickyStack(container);
+        const visualTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        const correction = visualTop - sb - offset;
+        if (Math.abs(correction) < 0.5) break;
+        container.scrollTop += correction;
+      }
+      // Phase 3: restore and smooth scroll to the converged-correct position
+      const target = container.scrollTop;
+      container.scrollTop = savedScroll;
+      container.scrollTo({ top: target, behavior: 'smooth' });
+    }
+
     // ── Calendar Event Row (collapsible) ──────────────────────
 
     function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap }) {
@@ -10842,35 +11495,6 @@
       const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
       const [travelNotes, setTravelNotes] = useState(tournament.notes || '');
       const rowRef = React.useRef(null);
-
-      // Scroll a row to just below all sticky headers (filters + date break)
-      function scrollBelowSticky(el) {
-        const container = el.closest('.content-area');
-        if (!container) return;
-        const savedScroll = container.scrollTop;
-
-        // Phase 1: jump to approximate target
-        const stickyBottom = measureStickyStack(container);
-        const elAbsTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-        container.scrollTop = elAbsTop - stickyBottom - 2;
-
-        // Phase 2: iteratively correct for sticky state changes at the target position
-        // Each correction may cause different date breaks to stick/unstick, so iterate
-        // until the position converges (typically 2-3 iterations for cross-day jumps)
-        for (let i = 0; i < 4; i++) {
-          const sb = measureStickyStack(container);
-          const visualTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top;
-          const correction = visualTop - sb - 2;
-          if (Math.abs(correction) < 0.5) break;
-          container.scrollTop += correction;
-        }
-
-        // Phase 3: restore and smooth scroll to the converged-correct position
-        // At this exact scrollTop the layout is verified correct — smooth scroll lands here
-        const target = container.scrollTop;
-        container.scrollTop = savedScroll;
-        container.scrollTo({ top: target, behavior: 'smooth' });
-      }
 
       // Auto-expand and scroll when this event is the focus target
       useEffect(() => {
@@ -17525,6 +18149,19 @@
 
       const sortArrow = (field) => sortField === field ? (sortAsc ? ' ▲' : ' ▼') : '';
 
+      const toggleReplayerAccess = async (userId, enabled) => {
+        try {
+          await fetch(`${API_URL}/admin/users/${userId}/replayer-access`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ enabled })
+          });
+          setUsers(prev => prev.map(u => u.id === userId ? { ...u, hand_replayer_access: enabled ? 1 : 0 } : u));
+        } catch (e) {
+          console.error('Toggle replayer access error:', e);
+        }
+      };
+
       if (loading) return React.createElement('div', { style: { padding: '40px', textAlign: 'center', color: 'var(--text-muted)' } }, 'Loading...');
 
       return (
@@ -17553,6 +18190,7 @@
                   <th style={{padding:'6px 8px',textAlign:'left',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',fontWeight:600,fontSize:'0.7rem',textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap'}} onClick={() => handleSort('username')}>Username{sortArrow('username')}</th>
                   <th style={{padding:'6px 8px',textAlign:'left',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',fontWeight:600,fontSize:'0.7rem',textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap'}} onClick={() => handleSort('real_name')}>Name{sortArrow('real_name')}</th>
                   <th style={{padding:'6px 8px',textAlign:'left',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',fontWeight:600,fontSize:'0.7rem',textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap'}} onClick={() => handleSort('email')}>Email{sortArrow('email')}</th>
+                  <th style={{padding:'6px 8px',textAlign:'center',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',fontWeight:600,fontSize:'0.7rem',textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>Replayer</th>
                   <th style={{padding:'6px 8px',textAlign:'right',color:'var(--text-muted)',fontFamily:'Oswald, sans-serif',fontWeight:600,fontSize:'0.7rem',textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap'}} onClick={() => handleSort('created_at')}>Joined{sortArrow('created_at')}</th>
                 </tr>
               </thead>
@@ -17571,6 +18209,12 @@
                     </td>
                     <td style={{padding:'8px',color:'var(--text-muted)'}}>{u.real_name || '—'}</td>
                     <td style={{padding:'8px',color:'var(--text-muted)',fontSize:'0.75rem'}}>{u.email}</td>
+                    <td style={{padding:'8px',textAlign:'center'}}>
+                      <button onClick={() => toggleReplayerAccess(u.id, !u.hand_replayer_access)}
+                        style={{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',padding:0}}>
+                        {u.hand_replayer_access ? '\u2705' : '\u274C'}
+                      </button>
+                    </td>
                     <td style={{padding:'8px',color:'var(--text-muted)',textAlign:'right',whiteSpace:'nowrap'}} title={u.created_at}>{timeAgo(u.created_at)}</td>
                   </tr>
                 ))}
@@ -17583,7 +18227,7 @@
     }
 
     // ── More View (settings, tracking, etc.) ─────────────────────
-    function MoreView({ onNavigate, onExport, hasSchedule, isAdmin }) {
+    function MoreView({ onNavigate, onExport, hasSchedule, isAdmin, handReplayerAccess }) {
       return (
         <div className="more-menu">
           <button className="more-menu-item" onClick={() => onNavigate('schedule')}>
@@ -17607,6 +18251,7 @@
               <div className="menu-item-desc">See your schedule day by day</div>
             </div>
           </button>
+          {(handReplayerAccess || isAdmin) && (
           <button className="more-menu-item" onClick={() => onNavigate('hands')}>
             <Icon.cards />
             <div>
@@ -17614,6 +18259,7 @@
               <div className="menu-item-desc">Record and replay poker hands</div>
             </div>
           </button>
+          )}
           <button className="more-menu-item" onClick={onExport} disabled={!hasSchedule} style={!hasSchedule ? {opacity:0.4, cursor:'default'} : undefined}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -17685,7 +18331,7 @@
 
     // ── Settings View ──────────────────────────────────────────
 
-    function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess }) {
+    function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess }) {
       const displayName = useDisplayName();
       const [debugInput, setDebugInput] = useState(_debugNow);
 
@@ -17840,6 +18486,18 @@
                   onClick={toggleContrast}
                 />
               </div>
+              <div className="settings-row">
+                <div>
+                  <span className="settings-row-label">Splay hole cards</span>
+                  <p style={{fontSize:'0.72rem',color:'var(--text-muted)',margin:'2px 0 0'}}>
+                    Fan out hole cards in the replayer
+                  </p>
+                </div>
+                <button
+                  className={`settings-toggle ${cardSplay ? 'on' : ''}`}
+                  onClick={toggleCardSplay}
+                />
+              </div>
             </div>
           </div>
 
@@ -17933,12 +18591,41 @@
     }
 
     // Position labels based on player count
+    // Standard poker seating: BTN, SB, BB, then early→late positions ending at CO
     function getPositionLabels(numPlayers) {
-      const allPos = ['BTN', 'SB', 'BB', 'UTG', 'UTG+1', 'MP', 'MP+1', 'HJ', 'CO'];
       if (numPlayers <= 2) return ['BTN/SB', 'BB'];
       if (numPlayers === 3) return ['BTN', 'SB', 'BB'];
-      if (numPlayers <= 6) return allPos.slice(0, numPlayers);
-      return allPos.slice(0, Math.min(numPlayers, 9));
+      // 4–10 players: always BTN/SB/BB, then fill middle seats from a fixed pool
+      // Pool ordered early→late: UTG, UTG+1, UTG+2, LJ, HJ, CO
+      var middle = ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO'];
+      var need = numPlayers - 3; // seats between BB and BTN
+      // Take the last `need` from the pool so CO is always present, then HJ, etc.
+      var picked = middle.slice(Math.max(0, middle.length - need));
+      return ['BTN', 'SB', 'BB'].concat(picked);
+    }
+
+    // Action order: preflop starts at UTG (index 3+), postflop starts at SB (index 1)
+    // Position layout from getPositionLabels: [BTN(0), SB(1), BB(2), UTG(3), ...]
+    // Heads-up: [BTN/SB(0), BB(1)] — preflop BTN/SB acts first
+    function getActionOrder(players, isPreflop) {
+      var n = players.length;
+      if (n <= 0) return [];
+      var indices = [];
+      if (n === 2) {
+        // Heads-up: preflop BTN/SB first, postflop BB first
+        indices = isPreflop ? [0, 1] : [1, 0];
+      } else if (isPreflop) {
+        // Preflop: UTG first (seat 3), then around to BB (seat 2)
+        for (var i = 3; i < n; i++) indices.push(i);
+        indices.push(0); // BTN
+        indices.push(1); // SB
+        indices.push(2); // BB
+      } else {
+        // Postflop: SB first (seat 1), then around to BTN (seat 0)
+        for (var i = 1; i < n; i++) indices.push(i);
+        indices.push(0);
+      }
+      return indices.filter(function(i) { return i < n; });
     }
 
     function formatChipAmount(val) {
@@ -17949,26 +18636,30 @@
       return String(n);
     }
 
-    function createEmptyHand(gameType) {
+    var DEFAULT_OPP_NAMES = ['Jason Blodgett', 'Keith McCormack', 'Alex Charron', 'Kevin DiPasquale', 'Cristian Gutierrez', 'Derek Nold', 'Anthony Hall', 'Aidan Long'];
+
+    function createEmptyHand(gameType, heroName) {
       const streetDef = getStreetDef(gameType);
       const gameCfg = HAND_CONFIG[gameType] || HAND_CONFIG_DEFAULT;
+      const numPlayers = 6;
+      const positions = getPositionLabels(numPlayers);
       return {
         gameType,
-        players: [
-          { name: 'Hero', position: 'BTN', startingStack: 50000 },
-          { name: 'Opp 1', position: 'BB', startingStack: 50000 },
-        ],
+        players: Array.from({ length: numPlayers }, function(_, i) {
+          return { name: i === 0 ? (heroName || 'Hero') : (DEFAULT_OPP_NAMES[i - 1] || 'Opp ' + i), position: positions[i] || '', startingStack: 50000 };
+        }),
         blinds: { sb: 100, bb: 200, ante: 0 },
         streets: streetDef.streets.map((name, i) => ({
           name,
           cards: {
             hero: '',
-            opponents: [''],
+            opponents: Array.from({ length: numPlayers - 1 }, function() { return ''; }),
             board: '',
           },
           actions: [],
           draws: [],
         })),
+        heroIdx: 0,
         result: null,
       };
     }
@@ -18282,7 +18973,7 @@
     }
 
     // ── Hand Replayer Replay Sub-component ──
-    function HandReplayerReplay({ hand, onEdit, onBack }) {
+    function HandReplayerReplay({ hand, onEdit, onBack, cardSplay }) {
       const [streetIdx, setStreetIdx] = useState(0);
       const [actionIdx, setActionIdx] = useState(-1); // -1 = show street cards only
       const [playing, setPlaying] = useState(false);
@@ -18321,16 +19012,22 @@
         return cards;
       }, [hand, streetIdx, category]);
 
+      const replayHeroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+
       const opponentCards = useMemo(() => {
-        return hand.players.slice(1).map((_, oi) => {
-          if (category !== 'stud') return hand.streets[0]?.cards.opponents?.[oi] || '';
+        // Build a card string for each player index (excluding hero)
+        // opponents array is indexed by "slot" = player index with hero removed
+        return hand.players.map((_, pi) => {
+          if (pi === replayHeroIdx) return null; // hero, skip
+          var oppSlot = pi > replayHeroIdx ? pi - 1 : pi;
+          if (category !== 'stud') return hand.streets[0]?.cards.opponents?.[oppSlot] || '';
           let cards = '';
           for (let si = 0; si <= streetIdx; si++) {
-            if (hand.streets[si]?.cards.opponents?.[oi]) cards += hand.streets[si].cards.opponents[oi];
+            if (hand.streets[si]?.cards.opponents?.[oppSlot]) cards += hand.streets[si].cards.opponents[oppSlot];
           }
           return cards;
         });
-      }, [hand, streetIdx, category]);
+      }, [hand, streetIdx, category, replayHeroIdx]);
 
       // Calculate current pot and stacks
       const { stacks, pot, folded } = useMemo(() => {
@@ -18377,9 +19074,11 @@
         hEval.forEach(c => { if (c.suit !== 'x') usedKeys.push(c.rank + c.suit); });
 
         const results = [];
-        for (let oi = 0; oi < opponentCards.length; oi++) {
-          if (folded.has(oi + 1)) continue;
-          const oRaw = parseCardNotation(opponentCards[oi]);
+        for (let pi = 0; pi < opponentCards.length; pi++) {
+          if (pi === replayHeroIdx) continue; // skip hero
+          if (folded.has(pi)) continue;
+          if (!opponentCards[pi]) continue;
+          const oRaw = parseCardNotation(opponentCards[pi]);
           if (oRaw.length < (gameCfg.isStud ? 5 : gameCfg.heroCards)) continue;
           let oEval;
           if (gameCfg.isStud) {
@@ -18388,7 +19087,7 @@
             oEval = assignNeutralSuits(oRaw, usedKeys, boardSuits);
           }
           const ev = evaluateHand(hand.gameType, hEval, oEval, bCards);
-          if (ev && ev.result) results.push({ index: oi, ...ev });
+          if (ev && ev.result) results.push({ index: pi, ...ev });
           oEval.forEach(c => { if (c.suit !== 'x') usedKeys.push(c.rank + c.suit); });
         }
         return results.length ? results : null;
@@ -18482,16 +19181,26 @@
         return '';
       };
 
-      const getPlayerHandName = (playerIdx) => {
-        if (!showResult || !evalResult) return null;
-        if (playerIdx === 0) {
-          const r = evalResult[0];
-          if (!r) return null;
-          return r.heroHigh?.name || r.heroLow?.name || r.heroBadugi?.name || null;
+      const getPlayerHandName = (playerIdx, useShort) => {
+        if (!showResult) return null;
+        if (folded.has(playerIdx)) return null;
+        const pCards = playerIdx === replayHeroIdx ? heroCards : (opponentCards[playerIdx] || '');
+        if (!pCards) return null;
+        const cfg = GAME_EVAL[hand.gameType];
+        if (!cfg) return null;
+        const parsed = parseCardNotation(pCards).filter(c => c.suit !== 'x');
+        if (parsed.length < (gameCfg.heroCards || 2)) return null;
+        const board = category === 'community' ? parseCardNotation(boardCards).filter(c => c.suit !== 'x') : [];
+        let ev = null;
+        if (cfg.type === 'high' || cfg.type === 'hilo') {
+          ev = cfg.method === 'omaha' ? bestOmahaHigh(parsed, board) : bestHighHand(parsed.concat(board));
+        } else if (cfg.type === 'low') {
+          ev = cfg.lowType === 'a5' ? bestLowA5Hand(parsed.concat(board), false) : bestLow27Hand(parsed.concat(board));
+        } else if (cfg.type === 'badugi') {
+          ev = bestBadugiHand(parsed);
         }
-        const r = evalResult.find(er => er.index === playerIdx - 1);
-        if (!r) return null;
-        return r.opponentHigh?.name || r.opponentLow?.name || r.opponentBadugi?.name || null;
+        if (!ev) return null;
+        return useShort ? (ev.shortName || ev.name) : ev.name;
       };
 
       // Share as image
@@ -18561,7 +19270,7 @@
           // Players
           const cw = 50, ch = 70;
           hand.players.forEach((p, pi) => {
-            const cards = pi === 0 ? heroCards : (opponentCards[pi - 1] || '');
+            const cards = pi === replayHeroIdx ? heroCards : (opponentCards[pi] || '');
             const parsed = parseCardNotation(cards);
             const isFolded = folded.has(pi);
             const seatClass = getPlayerSeatClass(pi);
@@ -18641,81 +19350,154 @@
 
       return (
         <div className="replayer-replay">
-          {/* Street indicators */}
-          <div className="replayer-street-indicator">
-            {hand.streets.map((s, i) => (
-              <div key={i} className={`replayer-street-dot ${i === streetIdx ? 'active' : i < streetIdx ? 'completed' : ''}`}
-                onClick={() => { setStreetIdx(i); setActionIdx(-1); setShowResult(false); setHiloAnimate(false); }}
-                style={{cursor:'pointer'}}
-                title={s.name} />
-            ))}
-          </div>
-
           {/* Table visualization */}
           <div className="replayer-table">
-            <div className="replayer-table-felt">
-              {/* Street name */}
-              <div style={{textAlign:'center',fontSize:'0.65rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>
-                {currentStreet?.name || 'Preflop'}
+            {/* Felt oval */}
+            <div className="replayer-table-felt" />
+
+            {/* Street + pot + board centered on table */}
+            <div className="replayer-street-label">{currentStreet?.name || 'Preflop'}</div>
+            <div className="replayer-pot-display">
+              <div className="replayer-pot-label">Pot</div>
+              {formatChipAmount(pot)}
+            </div>
+            {category === 'community' && (
+              <div className="replayer-board-area">
+                <CardRow text={boardCards} max={5} placeholderCount={boardCards ? 0 : 5} />
               </div>
+            )}
 
-              {/* Pot */}
-              <div className="replayer-pot-display">
-                <div className="replayer-pot-label">Pot</div>
-                {formatChipAmount(pot)}
-              </div>
+            {/* Player seats + dealer button positioned around the oval */}
+            {(() => {
+              const n = hand.players.length;
+              // Layouts: hero always alone at bottom center (index = Math.floor(n/2))
+              // Seats go clockwise: top → right → bottom (hero) → left
+              const layouts = {
+                2:  [[50,6],[50,94]],
+                3:  [[35,6],[50,94],[65,6]],
+                4:  [[50,6],[88,50],[50,94],[12,50]],
+                5:  [[35,6],[88,50],[50,94],[12,50],[65,6]],
+                6:  [[50,6],[88,32],[88,68],[50,94],[12,68],[12,32]],
+                7:  [[35,6],[88,32],[88,68],[50,94],[12,68],[12,32],[65,6]],
+                8:  [[50,6],[88,24],[88,50],[88,76],[50,94],[12,76],[12,50],[12,24]],
+                9:  [[35,6],[88,24],[88,50],[88,76],[50,94],[12,76],[12,50],[12,24],[65,6]],
+                10: [[30,6],[50,6],[88,24],[88,50],[88,76],[50,94],[12,76],[12,50],[12,24],[70,6]],
+              };
+              const rawSeats = layouts[Math.min(Math.max(n, 2), 10)] || layouts[6];
 
-              {/* Board (community games) */}
-              {category === 'community' && (
-                <div className="replayer-board-area">
-                  <CardRow text={boardCards} max={5} placeholderCount={boardCards ? 0 : 5} />
-                </div>
-              )}
+              // Rotate so hero is always at the bottom-center seat
+              const bottomIdx = Math.floor(n / 2);
+              const rotation = (bottomIdx - replayHeroIdx + n) % n;
+              const seats = rawSeats.map((_, i) => rawSeats[(i - rotation + n) % n]);
 
-              {/* Player seats */}
-              <div className="replayer-seats">
-                {hand.players.map((p, pi) => {
-                  const cards = pi === 0 ? heroCards : (opponentCards[pi - 1] || '');
-                  const seatClass = getPlayerSeatClass(pi);
-                  const lastAct = playerLastAction[pi];
-                  const handName = getPlayerHandName(pi);
+              const seatEls = hand.players.map((p, pi) => {
+                const pos = seats[pi] || [50, 50];
+                const rawCards = pi === replayHeroIdx ? heroCards : (opponentCards[pi] || '');
+                const cards = (pi === replayHeroIdx || showResult) ? (rawCards === 'MUCK' ? '' : rawCards) : '';
+                const seatClass = getPlayerSeatClass(pi);
+                const isMucked = showResult && rawCards === 'MUCK';
+                const lastAct = playerLastAction[pi];
+                const handName = getPlayerHandName(pi, true);
+                const align = '';
 
-                  return (
-                    <div key={pi} className={`replayer-seat ${seatClass}`}>
+                return (
+                  <div key={pi} className={`replayer-seat ${seatClass}${isMucked ? ' mucked' : ''}${align}`}
+                    style={{left: pos[0] + '%', top: pos[1] + '%'}}>
+                    <div className={`replayer-seat-cards ${isHiLo && showResult && !folded.has(pi) ? 'replayer-hilo-high' + (hiloAnimate ? ' animate' : '') : ''}`}>
+                      <CardRow text={cards} stud={gameCfg.isStud} max={gameCfg.heroCards}
+                        placeholderCount={!cards && !folded.has(pi) ? gameCfg.heroCards : 0}
+                        splay={cardSplay && category === 'community' ? (gameCfg.heroCards <= 2 ? 10 : 8) : 0} />
+                    </div>
+                    <div className="replayer-seat-info">
                       <div className="replayer-seat-name">{p.name}</div>
-                      <div className="replayer-seat-pos">{p.position}</div>
                       <div className="replayer-seat-stack">{formatChipAmount(stacks[pi])}</div>
-                      <div className={`replayer-seat-cards ${isHiLo && showResult && !folded.has(pi) ? 'replayer-hilo-high' + (hiloAnimate ? ' animate' : '') : ''}`}>
-                        <CardRow text={cards} stud={gameCfg.isStud} max={gameCfg.heroCards}
-                          placeholderCount={!cards && !folded.has(pi) ? gameCfg.heroCards : 0} />
-                      </div>
-                      {handName && (
-                        <div className="replayer-seat-hand-name">{handName}</div>
-                      )}
                       <div className="replayer-seat-action">
-                        {lastAct ? (lastAct.action + (lastAct.amount > 0 ? ' ' + formatChipAmount(lastAct.amount) : '')) : ''}
+                        {lastAct && !lastAct.amount ? lastAct.action : ''}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+                    {handName && (
+                      <div className="replayer-seat-hand-name">{handName}</div>
+                    )}
+                  </div>
+                );
+              });
 
-          {/* Result banner */}
-          {showResult && hand.result?.winners?.length > 0 && (
-            <div className={`replayer-result ${hand.result.winners.some(w => w.split) ? 'replayer-result-split' : 'replayer-result-hero'}`}>
-              {hand.result.winners.map(w => {
-                const name = hand.players[w.playerIdx]?.name || 'Player';
-                return w.split ? name + ' (split)' : name + ' wins';
-              }).join(' | ')}
-            </div>
-          )}
-          {showResult && !hand.result?.winners?.length && evalResult && evalResult.map((r, ri) => (
-            <div key={ri} className={`replayer-result replayer-result-${r.result.color === 'green' ? 'hero' : r.result.color === 'red' ? 'opponent' : 'split'}`}>
-              {r.result.text}
-            </div>
-          ))}
+              // Bet chips on the felt — positioned relative to each seat
+              // Bottom seats: above cards, centered. Top seats: below info box, centered.
+              // Side seats: toward middle of felt, vertically centered on cards.
+              const betChips = hand.players.map((p, pi) => {
+                const lastAct = playerLastAction[pi];
+                if (!lastAct || !lastAct.amount) return null;
+                const pos = seats[pi] || [50, 50];
+                const isBottom = pos[1] >= 70;
+                const isTop = pos[1] <= 15;
+                const isLeft = pos[0] <= 15;
+                const isRight = pos[0] >= 85;
+                var chipX, chipY;
+                if (isBottom) {
+                  // Above the cards, centered on seat
+                  chipX = pos[0];
+                  chipY = pos[1] - 14;
+                } else if (isTop) {
+                  // Below the info box, centered on seat
+                  chipX = pos[0];
+                  chipY = pos[1] + 10;
+                } else if (isLeft) {
+                  // To the right, vertically centered on cards area
+                  chipX = pos[0] + 25;
+                  chipY = pos[1] - 7;
+                } else if (isRight) {
+                  // To the left, vertically centered on cards area
+                  chipX = pos[0] - 25;
+                  chipY = pos[1] - 7;
+                } else {
+                  // Fallback: toward center
+                  chipX = pos[0] + (50 - pos[0]) * 0.35;
+                  chipY = pos[1] + (50 - pos[1]) * 0.35;
+                }
+                return (
+                  <div key={'bet-' + pi} className="replayer-bet-chip"
+                    style={{left: chipX + '%', top: chipY + '%'}}>
+                    {formatChipAmount(lastAct.amount)}
+                  </div>
+                );
+              }).filter(Boolean);
+
+              // Dealer button — inner corner of BTN seat box (except bottom seats)
+              const btnIdx = hand.players.findIndex(p => p.position === 'BTN' || p.position === 'D');
+              let dealerEl = null;
+              if (btnIdx >= 0) {
+                const btnPos = seats[btnIdx] || [50, 50];
+                const isBottom = btnPos[1] >= 70;
+                var dealerStyle;
+                if (isBottom) {
+                  // Bottom seats: offset toward center like before
+                  const dx = (50 - btnPos[0]) * 0.12;
+                  const dy = (50 - btnPos[1]) * 0.12;
+                  dealerStyle = {left: (btnPos[0] + dx) + '%', top: (btnPos[1] + dy) + '%', transform: 'translate(-50%, -50%)'};
+                } else {
+                  // Inner corner of the seat box
+                  const isTop = btnPos[1] <= 15;
+                  const isLeft = btnPos[0] <= 15;
+                  const isRight = btnPos[0] >= 85;
+                  var ox = 0, oy = 0;
+                  if (isTop && btnPos[0] < 50) { ox = 4; oy = 5; }
+                  else if (isTop && btnPos[0] >= 50) { ox = -4; oy = 5; }
+                  else if (isLeft) { ox = 5; oy = 4; }
+                  else if (isRight) { ox = -5; oy = 4; }
+                  else { ox = btnPos[0] < 50 ? 4 : -4; oy = 4; }
+                  dealerStyle = {left: (btnPos[0] + ox) + '%', top: (btnPos[1] + oy) + '%', transform: 'translate(-50%, -50%)'};
+                }
+                dealerEl = (
+                  <div key="dealer" className="replayer-dealer-btn" style={dealerStyle}>
+                    D
+                  </div>
+                );
+              }
+
+              return [...seatEls, ...betChips, dealerEl];
+            })()}
+          </div>
 
           {/* Draw info for draw games */}
           {(category === 'draw_triple' || category === 'draw_single') && currentStreet.draws && currentStreet.draws.length > 0 && (
@@ -18728,66 +19510,968 @@
             </div>
           )}
 
-          {/* Controls */}
-          <div className="replayer-controls">
-            <button onClick={goToStart} disabled={!canGoBack} title="Start">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="19 20 9 12 19 4"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
-            </button>
-            <button onClick={stepBack} disabled={!canGoBack} title="Back">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <button onClick={() => setPlaying(p => !p)} title={playing ? 'Pause' : 'Play'}>
-              {playing ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              )}
-            </button>
-            <button onClick={stepForward} disabled={!canGoForward} title="Forward">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-            <button onClick={goToEnd} title="End">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 4 15 12 5 20"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
-            </button>
-            <select value={speed} onChange={e => setSpeed(Number(e.target.value))} style={{
-              fontSize:'0.65rem',padding:'3px 6px',background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border)',
-              borderRadius:'4px',fontFamily:"'Oswald',sans-serif"
-            }}>
-              <option value={2000}>0.5x</option>
-              <option value={1000}>1x</option>
-              <option value={500}>2x</option>
-              <option value={250}>4x</option>
-            </select>
-          </div>
+          {(() => {
+            return (
+              <div className="replayer-bottom-fixed">
+                <div className="replayer-controls">
+                  <button onClick={goToStart} disabled={!canGoBack} title="Start">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="19 20 9 12 19 4"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+                  </button>
+                  <button onClick={stepBack} disabled={!canGoBack} title="Back">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <button onClick={() => setPlaying(p => !p)} title={playing ? 'Pause' : 'Play'}>
+                    {playing ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    )}
+                  </button>
+                  <button onClick={stepForward} disabled={!canGoForward} title="Forward">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                  <button onClick={goToEnd} title="End">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 4 15 12 5 20"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                  </button>
+                  <select value={speed} onChange={e => setSpeed(Number(e.target.value))} style={{
+                    fontSize:'0.65rem',padding:'3px 6px',background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border)',
+                    borderRadius:'4px',fontFamily:"'Oswald',sans-serif"
+                  }}>
+                    <option value={2000}>0.5x</option>
+                    <option value={1000}>1x</option>
+                    <option value={500}>2x</option>
+                    <option value={250}>4x</option>
+                  </select>
+                </div>
+                <div style={{display:'flex',gap:'6px',justifyContent:'center'}}>
+                  <button className="btn btn-ghost btn-sm" onClick={onBack}>Back</button>
+                  <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>
+                  <button className="btn btn-ghost btn-sm" onClick={shareReplayImage} title="Share as image">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'14px',height:'14px'}}>
+                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                    </svg>
+                  </button>
+                  <button className="btn btn-ghost btn-sm" disabled title="Video export (coming soon)"
+                    style={{opacity:0.3}}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:'14px',height:'14px'}}>
+                      <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+                      <line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/>
+                      <line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/>
+                      <line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/>
+                      <line x1="17" y1="7" x2="22" y2="7"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      );
+    }
 
-          {/* Action buttons */}
-          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}>
-            <button className="btn btn-ghost btn-sm" onClick={onBack}>Back</button>
-            <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>
-            <button className="btn btn-ghost btn-sm" onClick={shareReplayImage} title="Share as image">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'14px',height:'14px'}}>
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-              </svg>
-            </button>
-            <button className="btn btn-ghost btn-sm" disabled title="Video export (coming soon)"
-              style={{opacity:0.3}}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:'14px',height:'14px'}}>
-                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
-                <line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/>
-                <line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/>
-                <line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/>
-                <line x1="17" y1="7" x2="22" y2="7"/>
-              </svg>
-            </button>
+    // ── GTO-Style Entry View ──
+    function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
+      const [phase, setPhase] = useState('setup');
+      const [currentStreetIdx, setCurrentStreetIdx] = useState(0);
+      const [showRaiseInput, setShowRaiseInput] = useState(false);
+      const [betAmount, setBetAmount] = useState('');
+      const activeSeatRef = useRef(null);
+
+      var gameCfg = HAND_CONFIG[hand.gameType] || HAND_CONFIG_DEFAULT;
+      var streetDef = getStreetDef(hand.gameType);
+      var category = getGameCategory(hand.gameType);
+      var currentStreet = hand.streets[currentStreetIdx];
+      var isPreflop = currentStreetIdx === 0;
+
+      var potAndStacks = calcPotsAndStacks(hand, currentStreetIdx, (currentStreet.actions || []).length - 1);
+      var currentPot = potAndStacks.pot;
+      var currentStacks = potAndStacks.stacks;
+
+      var foldedSet = useMemo(function() {
+        var f = new Set();
+        for (var si = 0; si <= currentStreetIdx; si++) {
+          for (var ai = 0; ai < (hand.streets[si].actions || []).length; ai++) {
+            var act = hand.streets[si].actions[ai];
+            if (act.action === 'fold') f.add(act.player);
+          }
+        }
+        return f;
+      }, [hand.streets, currentStreetIdx]);
+
+      var allInSet = useMemo(function() {
+        var a = new Set();
+        currentStacks.forEach(function(s, i) { if (s <= 0 && !foldedSet.has(i)) a.add(i); });
+        return a;
+      }, [currentStacks, foldedSet]);
+
+      // All seats in position order (for rendering)
+      var seatOrder = useMemo(function() {
+        return getActionOrder(hand.players, isPreflop);
+      }, [hand.players, isPreflop]);
+
+      // Only seats that can still act (for determining whose turn it is)
+      var actionOrder = useMemo(function() {
+        return seatOrder.filter(function(i) { return !foldedSet.has(i) && !allInSet.has(i); });
+      }, [seatOrder, foldedSet, allInSet]);
+
+      var streetBets = useMemo(function() {
+        var contrib = new Array(hand.players.length).fill(0);
+        var maxBet = 0;
+        if (isPreflop && category !== 'stud') {
+          var sbIdx = hand.players.findIndex(function(p) { return p.position === 'SB' || p.position === 'BTN/SB'; });
+          var bbIdx = hand.players.findIndex(function(p) { return p.position === 'BB'; });
+          if (sbIdx >= 0) contrib[sbIdx] = hand.blinds.sb;
+          if (bbIdx >= 0) contrib[bbIdx] = hand.blinds.bb;
+          maxBet = hand.blinds.bb;
+        }
+        (currentStreet.actions || []).forEach(function(act) {
+          if (act.action === 'fold') return;
+          if (act.amount > 0) { contrib[act.player] += act.amount; if (contrib[act.player] > maxBet) maxBet = contrib[act.player]; }
+        });
+        return { contrib: contrib, maxBet: maxBet };
+      }, [currentStreet.actions, isPreflop, hand.players, hand.blinds, category]);
+
+      var currentActor = useMemo(function() {
+        var actions = currentStreet.actions || [];
+        if (actionOrder.length === 0) return -1;
+        // Find the last raise/bet and who made it
+        var lastRaiseIdx = -1;
+        var lastRaiserPlayer = -1;
+        for (var i = actions.length - 1; i >= 0; i--) {
+          if (actions[i].action === 'raise' || actions[i].action === 'bet') {
+            lastRaiseIdx = i;
+            lastRaiserPlayer = actions[i].player;
+            break;
+          }
+        }
+        // Start scanning from AFTER the raiser in position order (or from the beginning if no raise)
+        var startOi = 0;
+        if (lastRaiserPlayer >= 0) {
+          var raiserPos = actionOrder.indexOf(lastRaiserPlayer);
+          if (raiserPos >= 0) startOi = raiserPos + 1;
+        }
+        // Scan all players, wrapping around, starting after the raiser
+        for (var count = 0; count < actionOrder.length; count++) {
+          var oi = (startOi + count) % actionOrder.length;
+          var pidx = actionOrder[oi];
+          var lastActIdx = -1;
+          for (var j = actions.length - 1; j >= 0; j--) {
+            if (actions[j].player === pidx) { lastActIdx = j; break; }
+          }
+          if (lastActIdx < lastRaiseIdx) return pidx;
+          if (lastActIdx === -1) return pidx;
+        }
+        return -1;
+      }, [actionOrder, currentStreet.actions]);
+
+      var isBettingComplete = currentActor === -1;
+      var activePlayers = hand.players.filter(function(_, i) { return !foldedSet.has(i); });
+      var handOver = activePlayers.length <= 1;
+
+      useEffect(function() {
+        if (phase !== 'action') return;
+        if (handOver) { setPhase('result'); return; }
+        if (!isBettingComplete) return;
+        var nextStreet = currentStreetIdx + 1;
+        if (nextStreet >= hand.streets.length) { setPhase('showdown'); return; }
+        if (category === 'community') { setPhase('board_entry'); }
+        else { setCurrentStreetIdx(nextStreet); }
+      }, [isBettingComplete, phase, handOver]);
+
+      // Scroll to top when entering board_entry or result phase
+      useEffect(function() {
+        if (phase === 'board_entry' || phase === 'showdown' || phase === 'result') {
+          var container = document.querySelector('.content-area');
+          if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, [phase]);
+
+      // Scroll the active card into view whenever the current actor changes.
+      // This covers: initial action phase entry, after each action, after undo, after board entry.
+      var scrollGenRef = useRef(0);
+      useEffect(function() {
+        if (phase !== 'action' || currentActor < 0) return;
+        var gen = ++scrollGenRef.current;
+        var tid = setTimeout(function() {
+          if (gen !== scrollGenRef.current) return;
+          var el = activeSeatRef.current;
+          if (el) scrollBelowSticky(el, 8);
+        }, 180);
+        return function() { clearTimeout(tid); };
+      }, [currentActor, phase, currentStreetIdx]);
+
+      var addAction = function(action, amount) {
+        if (currentActor < 0) return;
+        var playerIdx = currentActor;
+        setHand(function(prev) {
+          var streets = prev.streets.map(function(s, si) {
+            if (si !== currentStreetIdx) return s;
+            return Object.assign({}, s, { actions: (s.actions || []).concat([{ player: playerIdx, action: action, amount: amount || 0 }]) });
+          });
+          return Object.assign({}, prev, { streets: streets });
+        });
+        setShowRaiseInput(false);
+        setBetAmount('');
+        // Scroll handled by useEffect on [currentActor]
+      };
+
+      var undoToPlayer = function(playerIdx) {
+        // Find this player's action in the current street and remove it + everything after
+        setHand(function(prev) {
+          // Search current street first, then earlier streets
+          for (var si = currentStreetIdx; si >= 0; si--) {
+            var acts = prev.streets[si].actions || [];
+            // Find the index of this player's action in this street
+            var targetIdx = -1;
+            for (var ai = 0; ai < acts.length; ai++) {
+              if (acts[ai].player === playerIdx) { targetIdx = ai; break; }
+            }
+            if (targetIdx >= 0) {
+              // Remove this action and everything after it on this street
+              var streets = prev.streets.map(function(s, i) {
+                if (i < si) return s;
+                if (i === si) return Object.assign({}, s, { actions: acts.slice(0, targetIdx) });
+                // Clear actions on later streets too
+                return Object.assign({}, s, { actions: [] });
+              });
+              if (si < currentStreetIdx) setCurrentStreetIdx(si);
+              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry') setPhase('action');
+              return Object.assign({}, prev, { streets: streets });
+            }
+          }
+          return prev;
+        });
+        setShowRaiseInput(false);
+        setBetAmount('');
+        // Scroll handled by useEffect on [currentActor]
+      };
+
+      var undoLastAction = function() {
+        setHand(function(prev) {
+          for (var si = currentStreetIdx; si >= 0; si--) {
+            var acts = prev.streets[si].actions || [];
+            if (acts.length > 0) {
+              var streets = prev.streets.map(function(s, i) {
+                if (i !== si) return s;
+                return Object.assign({}, s, { actions: acts.slice(0, -1) });
+              });
+              if (si < currentStreetIdx) setCurrentStreetIdx(si);
+              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry') setPhase('action');
+              return Object.assign({}, prev, { streets: streets });
+            }
+          }
+          return prev;
+        });
+      };
+
+      var updatePlayerField = function(idx, field, value) {
+        setHand(function(prev) {
+          return Object.assign({}, prev, {
+            players: prev.players.map(function(p, i) {
+              if (i !== idx) return p;
+              var upd = {}; upd[field] = field === 'startingStack' ? (Number(value) || 0) : value;
+              return Object.assign({}, p, upd);
+            })
+          });
+        });
+      };
+
+      var setNumPlayers = function(n) {
+        setHand(function(prev) {
+          var positions = getPositionLabels(n);
+          var players = Array.from({ length: n }, function(_, i) {
+            if (prev.players[i]) return Object.assign({}, prev.players[i], { position: positions[i] || '' });
+            return { name: i === 0 ? (prev.players[0] ? prev.players[0].name : 'Hero') : (DEFAULT_OPP_NAMES[i - 1] || 'Opp ' + i), position: positions[i] || '', startingStack: prev.players[0] ? prev.players[0].startingStack : 50000 };
+          });
+          var streets = prev.streets.map(function(s) {
+            return Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: Array.from({ length: n - 1 }, function(_, j) { return (s.cards.opponents && s.cards.opponents[j]) || ''; }) }) });
+          });
+          return Object.assign({}, prev, { players: players, streets: streets });
+        });
+      };
+
+      var heroIdx = hand.players.findIndex(function(p) { return p.name === (heroName || 'Hero'); });
+      if (heroIdx < 0) heroIdx = 0; // fallback to first player
+
+      var setHeroSeat = function(newIdx) {
+        if (newIdx === heroIdx) return;
+        setHand(function(prev) {
+          var players = prev.players.map(function(p, i) {
+            if (i === newIdx) {
+              // This seat becomes hero
+              return Object.assign({}, p, { name: heroName || 'Hero' });
+            }
+            if (i === heroIdx) {
+              // Old hero seat gets an opponent name
+              // Find the first unused opponent name
+              var usedNames = new Set(prev.players.map(function(pl) { return pl.name; }));
+              var oppName = 'Opp';
+              for (var oi = 0; oi < DEFAULT_OPP_NAMES.length; oi++) {
+                if (!usedNames.has(DEFAULT_OPP_NAMES[oi])) { oppName = DEFAULT_OPP_NAMES[oi]; break; }
+              }
+              return Object.assign({}, p, { name: oppName });
+            }
+            return p;
+          });
+          return Object.assign({}, prev, { players: players, heroIdx: newIdx });
+        });
+      };
+
+      var callAmount = currentActor >= 0 ? Math.min(streetBets.maxBet - streetBets.contrib[currentActor], currentStacks[currentActor]) : 0;
+      var canCheck = callAmount === 0;
+      var minRaise = Math.max(hand.blinds.bb, streetBets.maxBet * 2 - (currentActor >= 0 ? streetBets.contrib[currentActor] : 0));
+      var playerStack = currentActor >= 0 ? currentStacks[currentActor] : 0;
+
+      var cumulativeBoard = useMemo(function() {
+        var b = '';
+        for (var si = 0; si <= currentStreetIdx; si++) { b += (hand.streets[si].cards.board || ''); }
+        return b;
+      }, [hand.streets, currentStreetIdx]);
+
+      var playerActions = useMemo(function() {
+        var map = {};
+        (currentStreet.actions || []).forEach(function(act) { map[act.player] = act; });
+        return map;
+      }, [currentStreet.actions]);
+
+      // ── SETUP PHASE ──
+      if (phase === 'setup') {
+        return (
+          <div className="gto-entry">
+            <div className="gto-phase-card"><div className="replayer-section">
+              <div className="replayer-section-title">Players & Blinds</div>
+              <div className="replayer-row" style={{marginBottom:'8px'}}>
+                <div className="replayer-field" style={{flex:'0 0 70px'}}>
+                  <label>Players</label>
+                  <select value={hand.players.length} onChange={function(e) { setNumPlayers(Number(e.target.value)); }}>
+                    {[2,3,4,5,6,7,8,9,10].map(function(n) { return <option key={n} value={n}>{n}</option>; })}
+                  </select>
+                </div>
+                <div className="replayer-field">
+                  <label>SB</label>
+                  <input type="text" inputMode="decimal" value={hand.blinds.sb} onChange={function(e) { setHand(function(prev) { return Object.assign({}, prev, { blinds: Object.assign({}, prev.blinds, { sb: Number(e.target.value) || 0 }) }); }); }} />
+                </div>
+                <div className="replayer-field">
+                  <label>BB</label>
+                  <input type="text" inputMode="decimal" value={hand.blinds.bb} onChange={function(e) { setHand(function(prev) { return Object.assign({}, prev, { blinds: Object.assign({}, prev.blinds, { bb: Number(e.target.value) || 0 }) }); }); }} />
+                </div>
+                <div className="replayer-field">
+                  <label>Ante</label>
+                  <input type="text" inputMode="decimal" value={hand.blinds.ante || ''} onChange={function(e) { setHand(function(prev) { return Object.assign({}, prev, { blinds: Object.assign({}, prev.blinds, { ante: Number(e.target.value) || 0 }) }); }); }} />
+                </div>
+              </div>
+              {hand.players.map(function(p, i) {
+                var isHero = i === heroIdx;
+                return (
+                  <div key={i} className="replayer-player-row">
+                    <span className={'replayer-player-pos' + (isHero ? ' hero' : '')}
+                      style={{cursor:'pointer'}}
+                      onClick={function() { setHeroSeat(i); }}>{p.position}</span>
+                    <div className="replayer-field" style={{flex:'1 1 80px'}}>
+                      <input type="text" style={{textAlign:'left'}} value={p.name} onChange={function(e) { updatePlayerField(i, 'name', e.target.value); }} placeholder="Name" />
+                    </div>
+                    <div className="replayer-field" style={{flex:'0 0 80px'}}>
+                      <input type="text" inputMode="decimal" style={{textAlign:'right'}} value={p.startingStack} onChange={function(e) { updatePlayerField(i, 'startingStack', e.target.value); }} placeholder="Stack" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div></div>
+            <div className="gto-street-card">
+              <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+                <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+                <button className="btn btn-primary btn-sm" onClick={function() { setPhase('hero_cards'); }}>Next</button>
+              </div>
+            </div>
           </div>
+        );
+      }
+
+      // ── HERO CARDS PHASE ──
+      if (phase === 'hero_cards') {
+        var heroCards = (hand.streets[0] && hand.streets[0].cards.hero) || '';
+        var heroMaxCards = gameCfg.heroCards || 2;
+        var heroCurrentCards = parseCardNotation(heroCards).filter(function(c) { return c.suit !== 'x'; }).map(function(c) { return c.rank + c.suit; });
+        var heroCurrentSet = new Set(heroCurrentCards);
+        var heroAllRanks = 'AKQJT98765432'.split('');
+        var heroAllSuits = [
+          { key: 'h', label: '♥', color: '#ef4444' },
+          { key: 'd', label: '♦', color: '#3b82f6' },
+          { key: 'c', label: '♣', color: '#22c55e' },
+          { key: 's', label: '♠', color: 'var(--text)' }
+        ];
+        var toggleHeroCard = function(card) {
+          if (heroCurrentSet.has(card)) {
+            var remaining = heroCurrentCards.filter(function(c) { return c !== card; });
+            var newVal = remaining.join('');
+            setHand(function(prev) {
+              var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { hero: newVal }) }) : s; });
+              return Object.assign({}, prev, { streets: streets });
+            });
+          } else {
+            if (heroCurrentCards.length >= heroMaxCards) return;
+            var newVal = heroCards + card;
+            setHand(function(prev) {
+              var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { hero: newVal }) }) : s; });
+              return Object.assign({}, prev, { streets: streets });
+            });
+          }
+        };
+        return (
+          <div className="gto-entry">
+            <div className="gto-phase-card">
+              <div className="replayer-section">
+                <div className="replayer-section-title">Hero Cards</div>
+                <div className="replayer-field">
+                  <label>Your Cards</label>
+                  <input type="text" placeholder={gameCfg.heroPlaceholder || 'AhKd'}
+                    value={heroCards}
+                    onChange={function(e) {
+                      var val = e.target.value;
+                      setHand(function(prev) {
+                        var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { hero: val }) }) : s; });
+                        return Object.assign({}, prev, { streets: streets });
+                      });
+                    }} />
+                  <CardRow text={heroCards} stud={gameCfg.isStud} max={heroMaxCards} />
+                </div>
+                <div className="card-picker-grid">
+                  {heroAllSuits.map(function(suit) {
+                    return React.createElement(React.Fragment, { key: suit.key },
+                      heroAllRanks.map(function(rank) {
+                        var card = rank + suit.key;
+                        var isSelected = heroCurrentSet.has(card);
+                        var cls = 'card-picker-btn' + (isSelected ? ' selected' : '');
+                        return React.createElement('button', {
+                          key: card, className: cls,
+                          onClick: function() { toggleHeroCard(card); }
+                        }, React.createElement('img', {
+                          src: '/cards/cards_gui_' + rank + suit.key + '.svg',
+                          alt: card, loading: 'eager'
+                        }));
+                      })
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="gto-street-card">
+              <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+                <button className="btn btn-ghost btn-sm" onClick={function() { setPhase('setup'); }}>Back</button>
+                <button className="btn btn-primary btn-sm" onClick={function() { setPhase('action'); }}>Start Action</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── BOARD ENTRY PHASE ──
+      if (phase === 'board_entry') {
+        var nextStreet = currentStreetIdx + 1;
+        var streetName = (hand.streets[nextStreet] && hand.streets[nextStreet].name) || 'Next Street';
+        var boardVal = (hand.streets[nextStreet] && hand.streets[nextStreet].cards.board) || '';
+        var maxCards = streetDef.boardCards ? streetDef.boardCards[nextStreet] : 1;
+        // Collect all cards already dealt (hero, opponents, all board streets)
+        var usedCards = new Set();
+        hand.streets.forEach(function(s) {
+          parseCardNotation(s.cards.hero || '').forEach(function(c) { if (c.suit !== 'x') usedCards.add(c.rank + c.suit); });
+          parseCardNotation(s.cards.board || '').forEach(function(c) { if (c.suit !== 'x') usedCards.add(c.rank + c.suit); });
+          (s.cards.opponents || []).forEach(function(opp) {
+            parseCardNotation(opp || '').forEach(function(c) { if (c.suit !== 'x') usedCards.add(c.rank + c.suit); });
+          });
+        });
+        // Cards currently being entered for this street (so they show as selected, not used)
+        var currentBoardCards = parseCardNotation(boardVal).filter(function(c) { return c.suit !== 'x'; }).map(function(c) { return c.rank + c.suit; });
+        var currentBoardSet = new Set(currentBoardCards);
+        // Remove current board cards from used (they're "selected", not "used")
+        currentBoardCards.forEach(function(c) { usedCards.delete(c); });
+
+        var allRanks = 'AKQJT98765432'.split('');
+        var allSuits = [
+          { key: 'h', label: '♥', color: '#ef4444' },
+          { key: 'd', label: '♦', color: '#3b82f6' },
+          { key: 'c', label: '♣', color: '#22c55e' },
+          { key: 's', label: '♠', color: 'var(--text)' }
+        ];
+
+        var toggleCard = function(card) {
+          if (currentBoardSet.has(card)) {
+            // Remove this card
+            var remaining = currentBoardCards.filter(function(c) { return c !== card; });
+            var newVal = remaining.join('');
+            setHand(function(prev) {
+              var streets = prev.streets.map(function(s, i) { return i === nextStreet ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { board: newVal }) }) : s; });
+              return Object.assign({}, prev, { streets: streets });
+            });
+          } else {
+            // Add this card (respect max)
+            if (currentBoardCards.length >= maxCards) return;
+            var newVal = boardVal + card;
+            setHand(function(prev) {
+              var streets = prev.streets.map(function(s, i) { return i === nextStreet ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { board: newVal }) }) : s; });
+              return Object.assign({}, prev, { streets: streets });
+            });
+          }
+        };
+
+        return (
+          <div className="gto-entry">
+            <div className="gto-phase-card">
+              <div className="replayer-section" style={{textAlign:'center'}}>
+                <div className="gto-street-label">Deal the {streetName}</div>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'12px',margin:'8px 0'}}>
+                  {cumulativeBoard && <CardRow text={cumulativeBoard} max={5} />}
+                  {boardVal && <CardRow text={boardVal} max={maxCards} />}
+                </div>
+                <div className="replayer-field" style={{marginTop:'8px'}}>
+                  <label>{streetName} Cards</label>
+                  <input type="text" placeholder={nextStreet === 1 ? 'Qh7d2c' : 'Ts'}
+                    value={boardVal}
+                    onChange={function(e) {
+                      var val = e.target.value;
+                      setHand(function(prev) {
+                        var streets = prev.streets.map(function(s, i) { return i === nextStreet ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { board: val }) }) : s; });
+                        return Object.assign({}, prev, { streets: streets });
+                      });
+                    }} />
+                </div>
+                {/* Card picker grid */}
+                <div className="card-picker-grid">
+                  {allSuits.map(function(suit) {
+                    return React.createElement(React.Fragment, { key: suit.key },
+                      allRanks.map(function(rank) {
+                        var card = rank + suit.key;
+                        var isUsed = usedCards.has(card);
+                        var isSelected = currentBoardSet.has(card);
+                        var cls = 'card-picker-btn' + (isSelected ? ' selected' : '') + (isUsed ? ' used' : '');
+                        return React.createElement('button', {
+                          key: card, className: cls,
+                          onClick: function() { toggleCard(card); }
+                        }, React.createElement('img', {
+                          src: '/cards/cards_gui_' + rank + suit.key + '.svg',
+                          alt: card, loading: 'eager'
+                        }));
+                      })
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 0'}}>
+              <button className="gto-undo-btn" onClick={undoLastAction}>Undo</button>
+              <button className="btn btn-primary btn-sm"
+                disabled={parseCardNotation(boardVal).filter(function(c) { return c.suit !== 'x'; }).length < maxCards}
+                onClick={function() { setCurrentStreetIdx(nextStreet); setPhase('action'); }}>Continue</button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── SHOWDOWN PHASE ──
+      if (phase === 'showdown') {
+        // Collect used cards (hero, all board streets)
+        var sdUsedCards = new Set();
+        hand.streets.forEach(function(s) {
+          parseCardNotation(s.cards.hero || '').forEach(function(c) { if (c.suit !== 'x') sdUsedCards.add(c.rank + c.suit); });
+          parseCardNotation(s.cards.board || '').forEach(function(c) { if (c.suit !== 'x') sdUsedCards.add(c.rank + c.suit); });
+          (s.cards.opponents || []).forEach(function(opp) {
+            parseCardNotation(opp || '').forEach(function(c) { if (c.suit !== 'x') sdUsedCards.add(c.rank + c.suit); });
+          });
+        });
+        // Non-folded, non-hero opponents
+        var showdownPlayers = hand.players.map(function(p, i) { return { player: p, idx: i }; })
+          .filter(function(o) { return o.idx !== heroIdx && !foldedSet.has(o.idx); });
+
+        var sdAllRanks = 'AKQJT98765432'.split('');
+        var sdAllSuits = [
+          { key: 'h', label: '♥' },
+          { key: 'd', label: '♦' },
+          { key: 'c', label: '♣' },
+          { key: 's', label: '♠' }
+        ];
+        var sdMaxCards = gameCfg.heroCards || 2;
+
+        // Track which opponent we're entering cards for
+        var sdActiveIdx = -1;
+        for (var sdi = 0; sdi < showdownPlayers.length; sdi++) {
+          var oppIdx = showdownPlayers[sdi].idx;
+          var oppCardStr = (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppIdx > heroIdx ? oppIdx - 1 : oppIdx]) || '';
+          var oppCards = parseCardNotation(oppCardStr).filter(function(c) { return c.suit !== 'x'; });
+          if (oppCardStr !== 'MUCK' && oppCards.length < sdMaxCards) { sdActiveIdx = sdi; break; }
+        }
+
+        return (
+          <div className="gto-entry">
+            <div className="gto-phase-card">
+              <div className="replayer-section" style={{textAlign:'center'}}>
+                <div className="gto-street-label">Showdown</div>
+                {cumulativeBoard && <div style={{margin:'8px 0'}}><CardRow text={cumulativeBoard} max={5} /></div>}
+              </div>
+            </div>
+            {showdownPlayers.map(function(o, si) {
+              var oppSlot = o.idx > heroIdx ? o.idx - 1 : o.idx;
+              var oppCardStr = (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppSlot]) || '';
+              var isMucked = oppCardStr === 'MUCK';
+              var oppParsed = isMucked ? [] : parseCardNotation(oppCardStr).filter(function(c) { return c.suit !== 'x'; });
+              var oppCardSet = new Set(oppParsed.map(function(c) { return c.rank + c.suit; }));
+              var isComplete = isMucked || oppParsed.length >= sdMaxCards;
+              var isActiveOpp = si === sdActiveIdx;
+
+              // Build used set excluding this opponent's own cards
+              var thisUsed = new Set(sdUsedCards);
+              // Add other opponents' cards
+              showdownPlayers.forEach(function(other) {
+                if (other.idx === o.idx) return;
+                var otherSlot = other.idx > heroIdx ? other.idx - 1 : other.idx;
+                var otherStr = (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[otherSlot]) || '';
+                if (otherStr !== 'MUCK') {
+                  parseCardNotation(otherStr).forEach(function(c) { if (c.suit !== 'x') thisUsed.add(c.rank + c.suit); });
+                }
+              });
+              oppParsed.forEach(function(c) { thisUsed.delete(c.rank + c.suit); });
+
+              var toggleSdCard = function(card) {
+                if (oppCardSet.has(card)) {
+                  var remaining = oppParsed.map(function(c) { return c.rank + c.suit; }).filter(function(c) { return c !== card; });
+                  var newVal = remaining.join('');
+                  setHand(function(prev) {
+                    var opps = (prev.streets[0].cards.opponents || []).slice();
+                    opps[oppSlot] = newVal;
+                    var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
+                    return Object.assign({}, prev, { streets: streets });
+                  });
+                } else {
+                  if (oppParsed.length >= sdMaxCards) return;
+                  var newVal = oppCardStr + card;
+                  setHand(function(prev) {
+                    var opps = (prev.streets[0].cards.opponents || []).slice();
+                    opps[oppSlot] = newVal;
+                    var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
+                    return Object.assign({}, prev, { streets: streets });
+                  });
+                }
+              };
+
+              var setMuck = function() {
+                setHand(function(prev) {
+                  var opps = (prev.streets[0].cards.opponents || []).slice();
+                  opps[oppSlot] = 'MUCK';
+                  var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
+                  return Object.assign({}, prev, { streets: streets });
+                });
+              };
+
+              var clearOppCards = function() {
+                setHand(function(prev) {
+                  var opps = (prev.streets[0].cards.opponents || []).slice();
+                  opps[oppSlot] = '';
+                  var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
+                  return Object.assign({}, prev, { streets: streets });
+                });
+              };
+
+              return (
+                <div key={o.idx} className="gto-phase-card" style={{marginTop:'6px', opacity: isComplete && !isActiveOpp ? 0.6 : 1}}>
+                  <div className="replayer-section">
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+                      <div>
+                        <span className="replayer-player-pos" style={{marginRight:'6px'}}>{o.player.position}</span>
+                        <span style={{fontFamily:"'Oswald',sans-serif",fontSize:'0.8rem',fontWeight:600,color:'var(--text)'}}>{o.player.name}</span>
+                      </div>
+                      {isMucked ? (
+                        <button className="gto-undo-btn" onClick={clearOppCards} style={{fontSize:'0.6rem'}}>Undo Muck</button>
+                      ) : isComplete ? (
+                        <button className="gto-undo-btn" onClick={clearOppCards} style={{fontSize:'0.6rem'}}>Clear</button>
+                      ) : (
+                        <button className="gto-undo-btn" onClick={setMuck} style={{fontSize:'0.6rem'}}>Muck</button>
+                      )}
+                    </div>
+                    {isMucked ? (
+                      <div style={{textAlign:'center',padding:'8px 0',fontFamily:"'Oswald',sans-serif",fontSize:'0.75rem',color:'var(--text-muted)',fontStyle:'italic'}}>Mucked</div>
+                    ) : (
+                      <React.Fragment>
+                        {oppParsed.length > 0 && <div style={{margin:'4px 0'}}><CardRow text={oppCardStr} max={sdMaxCards} /></div>}
+                        {!isComplete && (
+                          <div className="card-picker-grid">
+                            {sdAllSuits.map(function(suit) {
+                              return React.createElement(React.Fragment, { key: suit.key },
+                                sdAllRanks.map(function(rank) {
+                                  var card = rank + suit.key;
+                                  var isUsedByOther = thisUsed.has(card);
+                                  var isSelected = oppCardSet.has(card);
+                                  var cls = 'card-picker-btn' + (isSelected ? ' selected' : '') + (isUsedByOther ? ' used' : '');
+                                  return React.createElement('button', {
+                                    key: card, className: cls,
+                                    onClick: function() { toggleSdCard(card); }
+                                  }, React.createElement('img', {
+                                    src: '/cards/cards_gui_' + rank + suit.key + '.svg',
+                                    alt: card, loading: 'eager'
+                                  }));
+                                })
+                              );
+                            })}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 0'}}>
+              <button className="gto-undo-btn" onClick={undoLastAction}>Undo</button>
+              <button className="btn btn-primary btn-sm" onClick={function() {
+                // Auto-evaluate showdown winners
+                var playerHands = [];
+                // Hero
+                var heroCardStr = (hand.streets[0].cards.hero || '');
+                var heroParsed = parseCardNotation(heroCardStr).filter(function(c) { return c.suit !== 'x'; });
+                if (heroParsed.length > 0) {
+                  playerHands.push({ idx: heroIdx, cards: heroParsed });
+                }
+                // Opponents
+                showdownPlayers.forEach(function(o) {
+                  var oppSlot = o.idx > heroIdx ? o.idx - 1 : o.idx;
+                  var oppStr = (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppSlot]) || '';
+                  if (oppStr === 'MUCK' || !oppStr) return;
+                  var oppParsed = parseCardNotation(oppStr).filter(function(c) { return c.suit !== 'x'; });
+                  if (oppParsed.length > 0) {
+                    playerHands.push({ idx: o.idx, cards: oppParsed });
+                  }
+                });
+                // Build full board as parsed card objects
+                var fullBoardStr = '';
+                hand.streets.forEach(function(s) {
+                  if (s.cards.board) fullBoardStr += s.cards.board;
+                });
+                var boardParsed = parseCardNotation(fullBoardStr).filter(function(c) { return c.suit !== 'x'; });
+                // Only one non-mucked player = auto-win
+                if (playerHands.length === 1) {
+                  setHand(function(prev) {
+                    return Object.assign({}, prev, { result: Object.assign({}, prev.result, { winners: [{ playerIdx: playerHands[0].idx, split: false }] }) });
+                  });
+                } else if (playerHands.length > 1) {
+                  var winners = evaluateShowdown(hand.gameType, playerHands, boardParsed);
+                  if (winners.length > 0) {
+                    setHand(function(prev) {
+                      return Object.assign({}, prev, { result: Object.assign({}, prev.result, { winners: winners }) });
+                    });
+                  }
+                }
+                setPhase('result');
+              }}>Continue to Result</button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── RESULT PHASE ──
+      if (phase === 'result') {
+        var autoWinner = handOver && activePlayers.length === 1 ? hand.players.indexOf(activePlayers[0]) : -1;
+        return (
+          <div className="gto-entry">
+            <div className="gto-phase-card">
+              <div className="replayer-section">
+                <div className="replayer-section-title">Result</div>
+                {autoWinner >= 0 ? (
+                  <div style={{textAlign:'center',padding:'12px',fontFamily:"'Oswald',sans-serif"}}>
+                    <div style={{fontSize:'0.9rem',color:'#4ade80',fontWeight:700}}>{hand.players[autoWinner].name} wins</div>
+                    <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginTop:'4px'}}>All opponents folded</div>
+                  </div>
+                ) : (
+                  <React.Fragment>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
+                      {hand.players.filter(function(_, i) { return !foldedSet.has(i); }).map(function(p) {
+                        var pi = hand.players.indexOf(p);
+                        var winners = (hand.result && hand.result.winners) || [];
+                        var isWinner = winners.some(function(w) { return w.playerIdx === pi && !w.split; });
+                        var isSplit = winners.some(function(w) { return w.playerIdx === pi && w.split; });
+                        return (
+                          <button key={pi} style={{
+                            flex:'1 1 0',padding:'8px 14px',borderRadius:'6px',border:'1.5px solid',cursor:'pointer',
+                            fontFamily:"'Oswald',sans-serif",fontSize:'0.75rem',fontWeight:600,transition:'all 0.15s',
+                            background: isWinner ? 'rgba(74,222,128,0.15)' : isSplit ? 'rgba(250,204,21,0.15)' : 'transparent',
+                            borderColor: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--border)',
+                            color: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--text-muted)',
+                          }} onClick={function() {
+                            setHand(function(prev) {
+                              var prevWinners = (prev.result && prev.result.winners) || [];
+                              var existing = prevWinners.find(function(w) { return w.playerIdx === pi; });
+                              var newWinners;
+                              if (!existing) newWinners = prevWinners.concat([{ playerIdx: pi, split: false, label: '' }]);
+                              else if (!existing.split) newWinners = prevWinners.map(function(w) { return w.playerIdx === pi ? Object.assign({}, w, { split: true }) : w; });
+                              else newWinners = prevWinners.filter(function(w) { return w.playerIdx !== pi; });
+                              return Object.assign({}, prev, { result: Object.assign({}, prev.result, { winners: newWinners }) });
+                            });
+                          }}>
+                            {p.name} {isWinner ? '(Win)' : isSplit ? '(Split)' : ''}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{fontSize:'0.55rem',color:'var(--text-muted)',marginTop:'4px',fontFamily:"'Oswald',sans-serif"}}>
+                      {(hand.result && hand.result.winners && hand.result.winners.length) ? 'Auto-evaluated • ' : ''}Tap to cycle: none → win → split → none
+                    </div>
+                  </React.Fragment>
+                )}
+              </div>
+            </div>
+            <div className="gto-street-card">
+              <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+                <button className="gto-undo-btn" onClick={undoLastAction}>Undo</button>
+                <button className="btn btn-primary btn-sm" onClick={function() {
+                  var savedHand = Object.assign({}, hand, { heroIdx: heroIdx });
+                  if (autoWinner >= 0 && !(hand.result && hand.result.winners && hand.result.winners.length)) {
+                    onDone(Object.assign(savedHand, { result: { winners: [{ playerIdx: autoWinner, split: false, label: '' }] } }));
+                  } else { onDone(savedHand); }
+                }}>Save & Replay</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── ACTION PHASE ──
+      // Portal the street bar into the parent's sticky header slot
+      var stickySlot = document.getElementById('gto-sticky-slot');
+      var streetCardEl = React.createElement('div', { className: 'gto-street-card', style: { marginTop: '6px' } },
+        React.createElement('div', { className: 'gto-street-bar' },
+          React.createElement('span', { className: 'gto-street-name' }, currentStreet.name),
+          category === 'community' && cumulativeBoard ? React.createElement('span', { className: 'gto-board-inline' },
+            React.createElement(CardRow, { text: cumulativeBoard, max: 5 })
+          ) : null,
+          React.createElement('span', { className: 'gto-pot-label' }, formatChipAmount(currentPot))
+        )
+      );
+
+      return (
+        <div className="gto-entry">
+          {stickySlot && ReactDOM.createPortal(streetCardEl, stickySlot)}
+
+          {/* Position cards */}
+          {seatOrder.map(function(i) {
+            var p = hand.players[i];
+            var isActive = i === currentActor;
+            var act = playerActions[i];
+            var isFolded = foldedSet.has(i);
+            // Hide players who folded on a previous street; show those who folded this street (dimmed)
+            var foldedOnPriorStreet = isFolded && !(currentStreet.actions || []).some(function(a) { return a.player === i && a.action === 'fold'; });
+            if (foldedOnPriorStreet && !isPreflop) return null;
+            var seatClass = 'gto-seat' + (isActive ? ' active' : '') + (isFolded ? ' folded' : (act && !isActive) ? ' acted-' + act.action : '');
+            var actionLabel = act ? (act.action.charAt(0).toUpperCase() + act.action.slice(1) + (act.amount > 0 ? ' ' + formatChipAmount(act.amount) : '')) : '';
+            return (
+              <div key={i} ref={isActive ? activeSeatRef : null} className={seatClass}
+                onClick={!isActive && act ? function() { undoToPlayer(i); } : undefined}
+                style={!isActive && act ? {cursor:'pointer'} : undefined}>
+                <div className="gto-seat-strip">{p.position}</div>
+                <div className="gto-seat-content">
+                  <div className="gto-seat-bar">
+                    <div className="gto-seat-row1">
+                      <span className="gto-seat-pos">{p.position}</span>
+                      <span className="gto-seat-stack">{formatChipAmount(currentStacks[i])}</span>
+                    </div>
+                    <div className="gto-seat-row2">
+                      <span className="gto-seat-name">{p.name}</span>
+                      {i === heroIdx && hand.streets[0] && hand.streets[0].cards.hero && (
+                        <span className="gto-seat-hero-cards"><CardRow text={hand.streets[0].cards.hero} max={gameCfg.heroCards || 2} /></span>
+                      )}
+                      {act && !isActive && <span className={'gto-seat-result-badge ' + act.action}>{actionLabel}</span>}
+                    </div>
+                  </div>
+
+                  {/* Animated expand for active seat */}
+                  <div className="gto-seat-detail-wrap">
+                    <div className="gto-seat-detail-inner">
+                      <div className="gto-seat-detail">
+                        {!showRaiseInput && (
+                          <div className="gto-action-row">
+                            {!canCheck && <button className="gto-action-btn" onClick={function() { addAction('fold'); }}>
+                              <span className="gto-action-icon fold">✕</span>
+                              <span className="gto-action-label">Fold</span>
+                            </button>}
+                            {canCheck
+                              ? <button className="gto-action-btn" onClick={function() { addAction('check'); }}>
+                                  <span className="gto-action-icon check">✓</span>
+                                  <span className="gto-action-label">Check</span>
+                                </button>
+                              : <button className="gto-action-btn" onClick={function() { addAction('call', Math.min(callAmount, playerStack)); }}>
+                                  <span className="gto-action-icon call">⬤</span>
+                                  <span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span>
+                                </button>
+                            }
+                            <button className="gto-action-btn" onClick={function() {
+                              var container = document.querySelector('.content-area');
+                              if (container) {
+                                var savedTop = container.scrollTop;
+                                var lock = function() { container.scrollTop = savedTop; };
+                                container.addEventListener('scroll', lock);
+                                setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
+                              }
+                              setShowRaiseInput(true);
+                              setBetAmount(String(canCheck ? hand.blinds.bb : minRaise));
+                            }}>
+                              <span className="gto-action-icon raise">▲</span>
+                              <span className="gto-action-label">{canCheck ? 'Bet' : 'Raise'}</span>
+                            </button>
+                            <button className="gto-action-btn" onClick={function() { addAction(canCheck ? 'bet' : 'raise', playerStack); }}>
+                              <span className="gto-action-icon allin">★</span>
+                              <span className="gto-action-label">All-in</span>
+                            </button>
+                          </div>
+                        )}
+                        {showRaiseInput && (
+                          <React.Fragment>
+                            <div className="gto-sizing-row">
+                              {[{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(function(s) {
+                                return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(Math.min(Math.round(currentPot * s.mult), playerStack))); }}>{s.label}</button>;
+                              })}
+                              <button className="gto-sizing-pill" onClick={function() { setBetAmount(String(playerStack)); }}>All-In</button>
+                            </div>
+                            <div className="gto-raise-input-row">
+                              <input type="text" inputMode="decimal" value={betAmount} onChange={function(e) { setBetAmount(e.target.value); }} autoFocus />
+                              <button className="btn btn-primary btn-sm" onClick={function() { var amt = Math.min(Number(betAmount) || 0, playerStack); if (amt > 0) addAction(canCheck ? 'bet' : 'raise', amt); }}>Confirm</button>
+                              <button className="btn btn-ghost btn-sm" onClick={function() {
+                                var container = document.querySelector('.content-area');
+                                if (container) {
+                                  var savedTop = container.scrollTop;
+                                  var lock = function() { container.scrollTop = savedTop; };
+                                  container.addEventListener('scroll', lock);
+                                  setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
+                                }
+                                setShowRaiseInput(false);
+                              }}>Cancel</button>
+                            </div>
+                          </React.Fragment>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Fixed footer — portalled to body so it's truly pinned above the tab bar */}
+          {ReactDOM.createPortal(
+            <div className="gto-sticky-footer">
+              <div className="gto-street-card">
+                <div style={{display:'flex',gap:'6px',justifyContent:'space-between',alignItems:'center',padding:'10px 12px'}}>
+                  <button className="gto-undo-btn" onClick={undoLastAction}>Undo</button>
+                  <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel Hand</button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
         </div>
       );
     }
 
     // ── Main Hand Replayer View ──
-    function HandReplayerView({ token }) {
+    function HandReplayerView({ token, heroName, cardSplay }) {
       const [mode, setMode] = useState('list'); // 'list' | 'entry' | 'replay'
+      const [entryMode, setEntryMode] = useState('gto'); // 'gto' | 'classic'
       const [savedHands, setSavedHands] = useState([]);
       const [currentHand, setCurrentHand] = useState(null);
       const [currentHandId, setCurrentHandId] = useState(null);
@@ -18801,6 +20485,21 @@
       const [customHeroCards, setCustomHeroCards] = useState(2);
       const [customCategory, setCustomCategory] = useState('community'); // community | stud | draw_triple | draw_single
       const [customStreetNames, setCustomStreetNames] = useState('');
+      const [bettingStructure, setBettingStructure] = useState('No Limit');
+      const [selectedGame, setSelectedGame] = useState("Hold'em");
+
+      const variantDisplayName = useMemo(() => {
+        const overrides = {
+          "Pot Limit|Omaha 8/b": 'PLO8', "Pot Limit|Omaha": 'Pot Limit Omaha', "Pot Limit|Big O": 'Big O',
+          "No Limit|Omaha": 'No Limit Omaha', "No Limit|Omaha 8/b": 'No Limit Omaha 8/b', "No Limit|Big O": 'No Limit Big O',
+          "Limit|Omaha": 'Limit Omaha Hi', "Limit|Omaha 8/b": 'O8', "Limit|Big O": 'Limit Big O',
+        };
+        var key = bettingStructure + '|' + selectedGame;
+        if (overrides[key]) return overrides[key];
+        var typicallyLimit = ['Stud Hi', 'Stud 8', 'Razz', '2-7 Triple Draw', 'A-5 Triple Draw', 'Badugi', 'Badeucy', 'Badacey', 'Archie', 'Ari'];
+        if (typicallyLimit.indexOf(selectedGame) >= 0 && bettingStructure === 'Limit') return selectedGame;
+        return bettingStructure + ' ' + selectedGame;
+      }, [bettingStructure, selectedGame]);
 
       const gameTypes = Object.keys(HAND_CONFIG).filter(k => k !== 'OFC Pineapple');
 
@@ -18815,6 +20514,39 @@
       };
 
       useEffect(() => { fetchHands(); }, [token]);
+
+      // Game selection config
+      var structureGameMap = {
+        'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi' },
+        'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': 'PL 2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi' },
+        'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE', 'Omaha': 'O8', 'Omaha 8/b': 'O8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi' },
+      };
+      var defaultStructure = {
+        "Hold'em": 'No Limit', 'Pineapple': 'No Limit', 'Short Deck': 'No Limit',
+        'Omaha': 'Pot Limit', 'Omaha 8/b': 'Pot Limit', 'Big O': 'Pot Limit',
+        'Stud Hi': 'Limit', 'Stud 8': 'Limit', 'Razz': 'Limit',
+        '2-7 Triple Draw': 'Limit', '2-7 Single Draw': 'No Limit',
+        'A-5 Triple Draw': 'Limit', 'A-5 Single Draw': 'No Limit',
+        'Badugi': 'Limit', 'Badeucy': 'Limit', 'Badacey': 'Limit',
+        'Archie': 'Limit', 'Ari': 'Limit', '5-Card Draw': 'No Limit',
+      };
+      var handleGameSelect = function(game) {
+        setSelectedGame(game);
+        if (defaultStructure[game]) setBettingStructure(defaultStructure[game]);
+        var map = structureGameMap[defaultStructure[game] || 'No Limit'];
+        if (map && map[game]) setSelectedGameType(map[game]);
+      };
+      var gameGroups = [
+        { label: "Hold'em", games: ["Hold'em", 'Pineapple', 'Short Deck'] },
+        { label: 'Omaha', games: ['Omaha', 'Omaha 8/b', 'Big O'] },
+        { label: 'Stud', games: ['Stud Hi', 'Stud 8', 'Razz'] },
+        { label: 'Draw', games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw', 'Badugi', 'Badeucy', 'Badacey', 'Archie', 'Ari', '5-Card Draw'] },
+      ];
+      var handleStructureChange = function(s) {
+        setBettingStructure(s);
+        var map = structureGameMap[s];
+        if (map && map[selectedGame]) setSelectedGameType(map[selectedGame]);
+      };
 
       const startNewHand = () => {
         if (selectedGameType === 'Custom') {
@@ -18866,7 +20598,7 @@
           };
           setCurrentHand(hand);
         } else {
-          setCurrentHand(createEmptyHand(selectedGameType));
+          setCurrentHand(createEmptyHand(selectedGameType, heroName));
         }
         setCurrentHandId(null);
         setTitle('');
@@ -19005,21 +20737,38 @@
       if (mode === 'entry' && currentHand) {
         return (
           <div className="replayer-view">
-            <div className="replayer-header">
-              <h2>New Hand</h2>
-            </div>
-            <div className="replayer-row" style={{marginBottom:'8px'}}>
-              <div className="replayer-field">
-                <label>Title</label>
-                <input type="text" placeholder="e.g. Huge pot with AA" value={title} onChange={e => setTitle(e.target.value)} />
+            <div className="gto-sticky-header" ref={node => { if (node) node._gtoStickyNode = node; }}>
+              <div className="replayer-header">
+                <h2>New Hand</h2>
               </div>
+              <div className="live-update-tabs" style={{marginBottom:'8px'}}>
+                <button className={entryMode === 'gto' ? 'active' : ''} onClick={() => setEntryMode('gto')}>GTO Style</button>
+                <button className={entryMode === 'classic' ? 'active' : ''} onClick={() => setEntryMode('classic')}>Classic</button>
+              </div>
+              <div className="replayer-row" style={{marginBottom:'8px'}}>
+                <div className="replayer-field">
+                  <label>Title</label>
+                  <input type="text" placeholder="e.g. Huge pot with AA" value={title} onChange={e => setTitle(e.target.value)} />
+                </div>
+              </div>
+              <div id="gto-sticky-slot"></div>
             </div>
-            <HandReplayerEntry
-              hand={currentHand}
-              setHand={setCurrentHand}
-              onDone={handleEntryDone}
-              onCancel={() => setMode('list')}
-            />
+            {entryMode === 'gto' ? (
+              <GTOEntryView
+                hand={currentHand}
+                setHand={setCurrentHand}
+                onDone={handleEntryDone}
+                onCancel={() => setMode('list')}
+                heroName={heroName}
+              />
+            ) : (
+              <HandReplayerEntry
+                hand={currentHand}
+                setHand={setCurrentHand}
+                onDone={handleEntryDone}
+                onCancel={() => setMode('list')}
+              />
+            )}
           </div>
         );
       }
@@ -19029,13 +20778,14 @@
           <div className="replayer-view">
             <div className="replayer-header">
               <h2>{title || currentHand.gameType + ' Hand'}</h2>
-              <span className="replayer-hand-card-game">{currentHand.gameType}</span>
+              <span className="replayer-hand-card-game">{currentHand.gameType + (currentHand.blinds ? ' ' + formatChipAmount(currentHand.blinds.sb) + '/' + formatChipAmount(currentHand.blinds.bb) + (currentHand.blinds.ante ? '/' + formatChipAmount(currentHand.blinds.ante) : '') : '')}</span>
             </div>
             {notes && <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginBottom:'8px'}}>{notes}</div>}
             <HandReplayerReplay
               hand={currentHand}
               onEdit={() => setMode('entry')}
               onBack={() => { setMode('list'); fetchHands(); }}
+              cardSplay={cardSplay}
             />
           </div>
         );
@@ -19050,42 +20800,50 @@
 
           {/* New hand creation */}
           <div className="replayer-section" style={{marginBottom:'12px'}}>
-            <div className="replayer-section-title">New Hand</div>
-            <div className="hand-game-pills">
-              {renderGamePills()}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+              <div className="replayer-section-title">New Hand</div>
+              <span style={{fontSize:'0.7rem',color:'var(--accent2)',fontFamily:"'Oswald',sans-serif",fontWeight:600}}>{variantDisplayName}</span>
             </div>
-            {selectedGameType === 'Custom' && (
-              <div style={{marginTop:'8px',display:'flex',flexDirection:'column',gap:'6px',padding:'8px 10px',background:'var(--surface2)',borderRadius:'var(--radius-sm)'}}>
-                <div className="replayer-row">
-                  <div className="replayer-field" style={{flex:'1 1 120px'}}>
-                    <label>Game Name</label>
-                    <input type="text" placeholder="e.g. Double Board PLO" value={customGameName} onChange={e => setCustomGameName(e.target.value)} />
-                  </div>
-                  <div className="replayer-field" style={{flex:'0 0 70px'}}>
-                    <label>Hole Cards</label>
-                    <input type="number" min="1" max="13" value={customHeroCards} onChange={e => setCustomHeroCards(Number(e.target.value) || 2)} />
+            {/* Quick pills */}
+            {[
+              [{label:'NLH',struct:'No Limit',game:"Hold'em"},{label:'LHE',struct:'Limit',game:"Hold'em"}],
+              [{label:'PLO',struct:'Pot Limit',game:'Omaha'},{label:'O8',struct:'Limit',game:'Omaha 8/b'},{label:'PLO8',struct:'Pot Limit',game:'Omaha 8/b'},{label:'Big O',struct:'Pot Limit',game:'Big O'}],
+              [{label:'Stud Hi',struct:'Limit',game:'Stud Hi'},{label:'Stud 8',struct:'Limit',game:'Stud 8'},{label:'Razz',struct:'Limit',game:'Razz'}],
+              [{label:'2-7 TD',struct:'Limit',game:'2-7 Triple Draw'},{label:'NL 2-7 SD',struct:'No Limit',game:'2-7 Single Draw'},{label:'Badugi',struct:'Limit',game:'Badugi'}],
+            ].map((row, i) => (
+              <div key={i} className="hand-game-pill-row" style={{marginBottom:'4px'}}>
+                {row.map(q => (
+                  <button key={q.label}
+                    className={selectedGame === q.game && bettingStructure === q.struct ? 'active' : ''}
+                    onClick={() => { setBettingStructure(q.struct); setSelectedGame(q.game); handleStructureChange(q.struct); setSelectedGame(q.game); var m = structureGameMap[q.struct]; if (m && m[q.game]) setSelectedGameType(m[q.game]); }}
+                  >{q.label}</button>
+                ))}
+              </div>
+            ))}
+            {/* Full game selection */}
+            <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'8px'}}>
+              {gameGroups.map(g => (
+                <div key={g.label}>
+                  <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>{g.label}</div>
+                  <div className="hand-game-pill-row" style={{flexWrap:'wrap'}}>
+                    {g.games.map(game => (
+                      <button key={game} className={selectedGame === game ? 'active' : ''} onClick={() => handleGameSelect(game)}>{game}</button>
+                    ))}
                   </div>
                 </div>
-                <div className="replayer-row">
-                  <div className="replayer-field">
-                    <label>Structure</label>
-                    <select value={customCategory} onChange={e => setCustomCategory(e.target.value)}>
-                      <option value="community">Community Board</option>
-                      <option value="stud">Stud (no board)</option>
-                      <option value="draw_triple">Triple Draw</option>
-                      <option value="draw_single">Single Draw</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="replayer-field">
-                  <label>Street Names (comma-separated, leave blank for defaults)</label>
-                  <input type="text" placeholder="e.g. Preflop, Flop, Turn, River, Extra" value={customStreetNames} onChange={e => setCustomStreetNames(e.target.value)} />
+              ))}
+              <div>
+                <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>Betting Structure</div>
+                <div className="hand-game-pill-row">
+                  {['No Limit', 'Pot Limit', 'Limit'].map(s => (
+                    <button key={s} className={bettingStructure === s ? 'active' : ''} onClick={() => handleStructureChange(s)}>{s}</button>
+                  ))}
                 </div>
               </div>
-            )}
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:'8px'}}>
+            </div>
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:'10px'}}>
               <button className="btn btn-primary btn-sm" onClick={startNewHand}>
-                Create {selectedGameType === 'Custom' ? (customGameName.trim() || 'Custom') : selectedGameType} Hand
+                Create {variantDisplayName} Hand
               </button>
             </div>
           </div>
@@ -19151,6 +20909,9 @@
       // ── Avatar state ──
       const [avatar, setAvatar] = useState(localStorage.getItem('avatar') || null);
 
+      // ── Hand replayer access ──
+      const [handReplayerAccess, setHandReplayerAccess] = useState(localStorage.getItem('handReplayerAccess') === 'true');
+
       // ── Real name / display name state ──
       const [realName, setRealName] = useState(localStorage.getItem('realName') || null);
       const [showRealNamePrompt, setShowRealNamePrompt] = useState(false);
@@ -19197,6 +20958,7 @@
       // ── Theme ──
       const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
       const [contrast, setContrast] = useState(localStorage.getItem('contrast') || 'normal');
+      const [cardSplay, setCardSplay] = useState(localStorage.getItem('cardSplay') !== 'off');
 
       useEffect(() => {
         document.documentElement.dataset.theme = theme;
@@ -19324,7 +21086,7 @@
       // ── Push notifications (admin only) ──
       useEffect(() => {
         if (window.Capacitor && window.Capacitor.isNativePlatform()) return;
-        if (!token || isGuest || (username || '').toLowerCase() !== 'ham') return;
+        if (!token || isGuest || !['ham', 'ham5'].includes((username || '').toLowerCase())) return;
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
         (async () => {
@@ -19703,11 +21465,13 @@
             else store.removeItem('avatar');
             if (data.realName) store.setItem('realName', data.realName);
             else store.removeItem('realName');
+            store.setItem('handReplayerAccess', data.handReplayerAccess ? 'true' : 'false');
             if (!keepSignedIn) localStorage.setItem('sessionOnly', 'true');
             setToken(data.token);
             setUsername(data.username);
             setAvatar(data.avatar || null);
             setRealName(data.realName || null);
+            setHandReplayerAccess(!!data.handReplayerAccess);
             if (!data.realName) setShowRealNamePrompt(true);
           }
         } catch { setError('Network error. Please try again.'); }
@@ -20089,8 +21853,8 @@
             )}
 
             {currentView === 'hands' && (
-              (username || '').toLowerCase() === 'ham'
-                ? <HandReplayerView token={token} />
+              ['ham', 'ham5'].includes((username || '').toLowerCase())
+                ? <HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} />
                 : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
                     <div style={{fontSize:'2.5rem',marginBottom:'12px'}}>🃏</div>
                     <h2 style={{fontFamily:"'Oswald', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Hand Replayer</h2>
@@ -20111,6 +21875,8 @@
                 toggleTheme={toggleTheme}
                 contrast={contrast}
                 toggleContrast={toggleContrast}
+                cardSplay={cardSplay}
+                toggleCardSplay={() => { setCardSplay(s => { var next = !s; localStorage.setItem('cardSplay', next ? 'on' : 'off'); return next; }); }}
                 onLogout={handleLogout}
                 onDebugTimeChange={(val) => setDebugTimeKey(k => k + 1)}
                 onUpload={handleFileUpload}
@@ -20131,7 +21897,7 @@
               />
             )}
 
-            {currentView === 'admin' && (username || '').toLowerCase() === 'ham' && (
+            {currentView === 'admin' && ['ham', 'ham5'].includes((username || '').toLowerCase()) && (
               <AdminView token={token} onNavigate={(v) => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }} />
             )}
 
@@ -20169,7 +21935,8 @@
               }}
               onExport={() => setShowExportFromMore(true)}
               hasSchedule={mySchedule && mySchedule.length > 0}
-              isAdmin={(username || '').toLowerCase() === 'ham'}
+              isAdmin={['ham', 'ham5'].includes((username || '').toLowerCase())}
+              handReplayerAccess={handReplayerAccess}
               />
             )}
 
