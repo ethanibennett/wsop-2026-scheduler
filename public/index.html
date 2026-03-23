@@ -2261,6 +2261,32 @@
       background: rgba(239,68,68,0.1);
       border-color: rgba(239,68,68,0.3);
     }
+    /* ── If I Bust dropdown ── */
+    .bust-list { border-top: 1px solid var(--border); }
+    .bust-list-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; padding: 10px 12px; border: none; background: none;
+      color: var(--text-muted); font-family: 'Oswald', sans-serif; font-size: 0.78rem;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer;
+    }
+    .bust-list-toggle:hover { color: var(--text); }
+    .bust-list-items { padding: 0 12px 10px; display: flex; flex-direction: column; gap: 6px; }
+    .bust-list-item {
+      display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+    }
+    .bust-list-time { color: var(--text-muted); font-weight: 600; white-space: nowrap; min-width: 60px; }
+    .bust-list-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bust-list-buyin { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+    .bust-list-add {
+      width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--accent);
+      background: none; color: var(--accent); font-size: 1rem; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; padding: 0; line-height: 1;
+    }
+    .bust-list-add:hover { background: var(--accent); color: var(--bg); }
+
     .condition-picker {
       border-top: 1px solid var(--border);
       padding: 12px;
@@ -5064,6 +5090,70 @@
       return 2; // Bust-A-Play-B etc: treat as 1 re-entry
     }
 
+    // ── Venue Timezone Mapping ─────────────────────────────
+    var VENUE_TIMEZONES = {
+      'Horseshoe / Paris Las Vegas': 'America/Los_Angeles',
+      'Caesars Palace': 'America/Los_Angeles',
+      'Irish Poker Open': 'Europe/Dublin',
+      'WSOP Europe': 'Europe/Prague',
+      'Seminole Hard Rock': 'America/New_York',
+      'Texas Card House': 'America/Chicago',
+      'Turning Stone Casino': 'America/New_York',
+    };
+
+    function getVenueTimezone(venue) {
+      return VENUE_TIMEZONES[venue] || 'America/Los_Angeles';
+    }
+
+    function getVenueTzAbbr(venue) {
+      var tz = getVenueTimezone(venue);
+      try {
+        var parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(new Date());
+        var tzPart = parts.find(function(p) { return p.type === 'timeZoneName'; });
+        return tzPart ? tzPart.value : '';
+      } catch(e) { return ''; }
+    }
+
+    // Parse a date+time in the venue's timezone, returning a UTC ms timestamp
+    function parseDateTimeInTz(date, time, venue) {
+      if (!date) return NaN;
+      var t = (time && time !== 'TBD') ? time : '12:00 AM';
+      var tz = getVenueTimezone(venue);
+      // Normalize date to ISO
+      var isoDate = normaliseDate(date);
+      if (!isoDate) return NaN;
+      // Parse 12h time to 24h
+      var m = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      var h, min;
+      if (m) {
+        h = parseInt(m[1]);
+        if (m[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+        if (m[3].toUpperCase() === 'AM' && h === 12) h = 0;
+        min = m[2];
+      } else {
+        var m24 = t.match(/^(\d{1,2}):(\d{2})$/);
+        h = m24 ? parseInt(m24[1]) : 12;
+        min = m24 ? m24[2] : '00';
+      }
+      // Use Intl to find the UTC offset for this timezone at this date/time
+      // Create a date string and parse in the venue TZ
+      var dtStr = isoDate + 'T' + String(h).padStart(2, '0') + ':' + min + ':00';
+      // Use a trick: format the date in the target TZ and compare to UTC
+      try {
+        // Create date assuming UTC, then adjust
+        var naive = new Date(dtStr + 'Z');
+        var utcStr = naive.toLocaleString('en-US', { timeZone: 'UTC' });
+        var tzStr = naive.toLocaleString('en-US', { timeZone: tz });
+        var utcMs = new Date(utcStr).getTime();
+        var tzMs = new Date(tzStr).getTime();
+        var offset = utcMs - tzMs; // offset in ms from TZ to UTC
+        // The actual UTC time is: naive + offset
+        return naive.getTime() + offset;
+      } catch(e) {
+        return new Date(dtStr).getTime();
+      }
+    }
+
     // ── Helpers ──────────────────────────────────────────────
 
     function normaliseDate(d) {
@@ -5130,13 +5220,37 @@
       return withTime[withTime.length - 1];
     }
 
+    // Returns earlier events on the user's schedule that may still be running
+    // when this event starts — i.e. events the user could bust from to play this one.
+    function getIfIBustEvents(event, allTournaments, scheduleIds) {
+      if (!event || !allTournaments || !scheduleIds) return [];
+      var eventStart = parseDateTime(event.date, event.time);
+      if (isNaN(eventStart)) return [];
+      var sameDate = normaliseDate(event.date);
+      return allTournaments.filter(function(t) {
+        if (t.id === event.id) return false;
+        if (t.venue !== event.venue) return false;
+        // Must be on the user's schedule
+        if (!scheduleIds.has(t.id)) return false;
+        var tDate = normaliseDate(t.date);
+        if (tDate !== sameDate) return false;
+        var tStart = parseDateTime(t.date, t.time);
+        if (isNaN(tStart)) return false;
+        // Must start before this event (earlier in the day)
+        if (tStart >= eventStart) return false;
+        return true;
+      }).sort(function(a, b) {
+        return parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time);
+      });
+    }
+
     function formatBuyin(val, venue) {
       if (!val && val !== 0) return '—';
       return currencySymbol(venue || '') + Number(val).toLocaleString();
     }
 
-    function calculateCountdown(date, time) {
-      const d = parseDateTime(date, time);
+    function calculateCountdown(date, time, venue) {
+      const d = venue ? parseDateTimeInTz(date, time, venue) : parseDateTime(date, time);
       const diff = d - getNow();
       if (diff < 0) return null;
       const days = Math.floor(diff / 86400000);
@@ -5559,7 +5673,7 @@
 
     // ── Late Reg Bar ───────────────────────────────────────────
 
-    function LateRegBar({ lateRegEnd, date, time, venueAbbr }) {
+    function LateRegBar({ lateRegEnd, date, time, venueAbbr, venue }) {
       const [now, setNow] = React.useState(getNow());
 
       // Tick every 30 seconds
@@ -5570,8 +5684,7 @@
 
       // ── Pre-start countdown ──────────────────────────────────
       if (date) {
-        // date is "May 26, 2026", time is "2:00 PM" — parse together
-        const startMs = new Date(`${date} ${time || '12:00 AM'}`).getTime();
+        const startMs = venue ? parseDateTimeInTz(date, time, venue) : new Date(`${date} ${time || '12:00 AM'}`).getTime();
         if (now < startMs) {
           const totalSec = Math.floor((startMs - now) / 1000);
           const d = Math.floor(totalSec / 86400);
@@ -5654,7 +5767,7 @@
 
     // ── Mini Late Reg Bar (collapsed calendar row) ────────────
 
-    function MiniLateRegBar({ lateRegEnd, date, time, venueAbbr, openOnly }) {
+    function MiniLateRegBar({ lateRegEnd, date, time, venueAbbr, openOnly, venue }) {
       const [now, setNow] = React.useState(getNow());
       useEffect(() => {
         const id = setInterval(() => setNow(getNow()), 30000);
@@ -5663,7 +5776,7 @@
 
       // Before start — show countdown to start (hidden in openOnly mode)
       if (date) {
-        const startMs = new Date(`${date} ${time || '12:00 AM'}`).getTime();
+        const startMs = venue ? parseDateTimeInTz(date, time, venue) : new Date(`${date} ${time || '12:00 AM'}`).getTime();
         if (now < startMs) {
           if (openOnly) return null;
           const totalSec = Math.floor((startMs - now) / 1000);
@@ -5722,10 +5835,11 @@
 
     // ── Condition Picker (inline in expanded card) ─────────────
 
-    function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemove, onClose }) {
+    function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemove, onClose, scheduleIds, onToggle }) {
       // Parse existing conditions to initialize state
       const existingSat = conditions.find(c => c.type === 'IF_WIN_SEAT' || c.type === 'IF_NO_SEAT');
       const existingProfit = conditions.find(c => c.type === 'PROFIT_THRESHOLD');
+      const existingBust = conditions.find(c => c.type === 'IF_BUST');
 
       const [satEnabled, setSatEnabled] = useState(!!existingSat);
       const [satType, setSatType] = useState(existingSat ? existingSat.type : 'IF_WIN_SEAT');
@@ -5733,6 +5847,12 @@
       const [satSearch, setSatSearch] = useState('');
       const [profitEnabled, setProfitEnabled] = useState(!!existingProfit);
       const [profitAmount, setProfitAmount] = useState(existingProfit ? existingProfit.profitThreshold : '');
+      const [bustEnabled, setBustEnabled] = useState(!!existingBust);
+      const [selectedBustId, setSelectedBustId] = useState(existingBust ? existingBust.dependsOnId : null);
+
+      const bustEvents = useMemo(function() {
+        return getIfIBustEvents(tournament, allTournaments, scheduleIds);
+      }, [tournament, allTournaments, scheduleIds]);
       const [isPublic, setIsPublic] = useState(
         tournament.condition_is_public !== undefined && tournament.condition_is_public !== null
           ? !!tournament.condition_is_public
@@ -5753,7 +5873,7 @@
         ).slice(0, 8);
       }, [allTournaments, satSearch, tournament.id]);
 
-      const canSubmit = (satEnabled && selectedSatId) || (profitEnabled && profitAmount && parseInt(profitAmount) !== 0);
+      const canSubmit = (satEnabled && selectedSatId) || (profitEnabled && profitAmount && parseInt(profitAmount) !== 0) || (bustEnabled && selectedBustId);
 
       const handleSubmit = () => {
         if (!canSubmit) return;
@@ -5763,6 +5883,9 @@
         }
         if (profitEnabled && profitAmount && parseInt(profitAmount) !== 0) {
           result.push({ type: 'PROFIT_THRESHOLD', profitThreshold: parseInt(profitAmount) });
+        }
+        if (bustEnabled && selectedBustId) {
+          result.push({ type: 'IF_BUST', dependsOnId: selectedBustId });
         }
         onSet(result, isPublic);
       };
@@ -5857,6 +5980,37 @@
                 I'll play this event if I'm up at least this amount
               </span>
             </div>
+          )}
+
+          {/* If I Bust checkbox */}
+          {bustEvents.length > 0 && (
+            <>
+            <label style={{...sectionLabelStyle, marginBottom: bustEnabled ? '8px' : '12px'}}>
+              <input type="checkbox" checked={bustEnabled} onChange={e => setBustEnabled(e.target.checked)} style={checkboxStyle} />
+              If I Bust
+            </label>
+
+            {bustEnabled && (
+              <div style={{paddingLeft:'24px',marginBottom:'12px'}}>
+                <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
+                  I'll play this if I bust from:
+                </div>
+                <div className="condition-sat-list">
+                  {bustEvents.map(t => (
+                    <div
+                      key={t.id}
+                      className={`condition-sat-item ${selectedBustId === t.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedBustId(t.id === selectedBustId ? null : t.id)}
+                    >
+                      <span style={{fontWeight:600,flexShrink:0,fontSize:'0.72rem',color:'var(--text-muted)'}}>{t.time}</span>
+                      <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.event_name}</span>
+                      <span style={{flexShrink:0,color:'var(--text-muted)',fontSize:'0.72rem'}}>{currencySymbol(t.venue)}{Number(t.buyin).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            </>
           )}
 
           {/* Public toggle */}
@@ -11489,7 +11643,7 @@
 
     // ── Calendar Event Row (collapsible) ──────────────────────
 
-    function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap }) {
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, scheduleIds }) {
       const [open, setOpen] = useState(false);
       const [showConditionUI, setShowConditionUI] = useState(false);
       const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
@@ -11512,8 +11666,8 @@
         }
       }, [open]);
 
-      // Format time nicely: "2:00 PM" → "2:00 PM"
-      const timeLabel = tournament.time || '—';
+      const tzAbbr = getVenueTzAbbr(tournament.venue);
+      const timeLabel = (tournament.time || '—') + (tzAbbr ? ' ' + tzAbbr : '');
       const variantColor = getVariantColor(tournament.game_variant);
       const bracelet   = isBraceletEvent(tournament);
       const venueClass = getVenueClass(tournament);
@@ -11574,7 +11728,7 @@
                 </>
               )}
             </div>
-            {showMiniLateReg && !open && <MiniLateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} openOnly />}
+            {showMiniLateReg && !open && <MiniLateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} venue={tournament.venue} openOnly />}
             <div className={`cal-event-chevron ${open ? 'open' : ''}`} onClick={() => setOpen(o => !o)}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="6 9 12 15 18 9"/>
@@ -11713,7 +11867,7 @@
                     </p>
                   )}
 
-                  <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />
+                  <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} venue={tournament.venue} />
 
                   {buddyEvents && buddyEvents[tournament.id] && buddyEvents[tournament.id].length > 0 && (
                     <BuddyAvatarRow buddies={buddyEvents[tournament.id]} liveUpdates={buddyLiveUpdates}
@@ -11797,6 +11951,8 @@
                       onSet={(conditionsArr, pub) => { onSetCondition(tournament.id, conditionsArr, pub); setShowConditionUI(false); }}
                       onRemove={() => { onRemoveCondition(tournament.id); setShowConditionUI(false); }}
                       onClose={() => setShowConditionUI(false)}
+                      scheduleIds={scheduleIds}
+                      onToggle={onToggle}
                     />
                   )}
                   </>
@@ -11812,7 +11968,7 @@
     // ── Tournament Card ────────────────────────────────────────
 
     function TournamentCard({ tournament, isInSchedule, onToggle, showCountdown, hasConflict, isPast }) {
-      const countdown = showCountdown ? calculateCountdown(tournament.date, tournament.time) : null;
+      const countdown = showCountdown ? calculateCountdown(tournament.date, tournament.time, tournament.venue) : null;
       const bracelet   = isBraceletEvent(tournament);
       const venueClass = getVenueClass(tournament);
       const venue      = getVenueInfo(tournament.venue);
@@ -11854,7 +12010,7 @@
               </div>
               <div className="t-meta-item">
                 <span className="t-meta-label">Time</span>
-                <span className="t-meta-value">{tournament.time || '—'}</span>
+                <span className="t-meta-value">{(tournament.time || '—') + (tournament.venue ? ' ' + getVenueTzAbbr(tournament.venue) : '')}</span>
               </div>
               {tournament.starting_chips && (
                 <div className="t-meta-item">
@@ -11899,7 +12055,7 @@
               </div>
             )}
 
-            <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} />
+            <LateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} venue={tournament.venue} />
           </div>
 
           <div className="t-card-footer">
@@ -12834,6 +12990,7 @@
                           buddyEvents={buddyEvents}
                           buddyLiveUpdates={buddyLiveUpdates}
                           onBuddySwap={onBuddySwap}
+                          scheduleIds={scheduleIds}
                         />
                       ))}
                     </div>
@@ -12949,6 +13106,7 @@
     function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap }) {
       const displayName = useDisplayName();
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
+      const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
       const todayRef = React.useRef(null);
       const hasScrolled = React.useRef(false);
       const dayOffDateRef = React.useRef(null);
@@ -13179,6 +13337,7 @@
                           buddyEvents={buddyEvents}
                           buddyLiveUpdates={buddyLiveUpdates}
                           onBuddySwap={onBuddySwap}
+                          scheduleIds={scheduleIds}
                         />
                       </div>
                     ))}
@@ -13373,6 +13532,7 @@
           onSetPlannedEntries={onSetPlannedEntries}
           buddyEvents={buddyEvents}
           buddyLiveUpdates={buddyLiveUpdates}
+          scheduleIds={scheduleIds}
         />
       );
 
@@ -15199,7 +15359,7 @@
               </div>
               {event._type !== 'bagged' && !isBustedDone && !(isConditionalOnPlaying && regClosed) && (
                 (bustedEventMap[event.id] || isConditionalOnPlaying) ? (
-                  <MiniLateRegBar lateRegEnd={event.late_reg_end} date={event.date} time={event.time} venueAbbr={getVenueInfo(event.venue).abbr} openOnly />
+                  <MiniLateRegBar lateRegEnd={event.late_reg_end} date={event.date} time={event.time} venueAbbr={getVenueInfo(event.venue).abbr} venue={event.venue} openOnly />
                 ) : null
               )}
             </div>
