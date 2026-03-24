@@ -4536,7 +4536,7 @@
             }
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
-            if (filters.hideSideEvents && t.is_deepstack) return false;
+            if (filters.hideSideEvents && (t.category === 'side' || t.is_deepstack)) return false;
             if (filters.hiddenMonths && filters.hiddenMonths.length > 0) {
               const m = new Date(t.date).getMonth();
               if (filters.hiddenMonths.includes(m)) return false;
@@ -5201,7 +5201,7 @@
             }
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
-            if (filters.hideSideEvents && t.is_deepstack) return false;
+            if (filters.hideSideEvents && (t.category === 'side' || t.is_deepstack)) return false;
             return true;
           })
           .sort((a, b) => {
