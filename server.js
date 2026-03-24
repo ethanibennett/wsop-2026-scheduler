@@ -1969,6 +1969,10 @@ async function initDatabase() {
         db.run("UPDATE tournaments SET level_duration = '20' WHERE stable_id = 'IPO-6L-April 5, 2026'");
         db.run("UPDATE tournaments SET level_duration = '20' WHERE stable_id = 'IPO-6M-April 5, 2026'");
         console.log('Fixed 4 remaining IPO level mismatches');
+        // Fix TCH Deepstack events - should be side events
+        db.run("UPDATE tournaments SET category = 'side' WHERE stable_id = 'WSOPC-TCH-NLH-DEEPSTACK-April 26, 2026'");
+        db.run("UPDATE tournaments SET category = 'side' WHERE stable_id = 'WSOPC-TCH-NLH-DEEPSTACK-May 2, 2026'");
+        console.log('Fixed TCH Deepstack categories to side');
       }
     },
   ];
