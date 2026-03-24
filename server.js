@@ -136,6 +136,8 @@ app.use(express.static(path.join(__dirname, 'public'), {
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
       res.set('Surrogate-Control', 'no-store');
+    } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.set('Cache-Control', 'no-cache'); // always revalidate
     }
   }
 }));
@@ -1727,6 +1729,91 @@ async function initDatabase() {
         console.log(`Renamed Triathlon Championship: ${db.getRowsModified()} rows`);
       }
     },
+    {
+      name: 'add-stable-id-2026-03',
+      fn: () => {
+        // Add column if not exists
+        try { db.run(`ALTER TABLE tournaments ADD COLUMN stable_id TEXT`); } catch (e) { /* already exists */ }
+
+        // Build venue abbreviation map (server-side copy)
+        const VENUE_ABBR = {
+          'Horseshoe / Paris Las Vegas': 'WSOP',
+          'Horseshoe Las Vegas': 'WSOP',
+          'Paris Las Vegas': 'PRS',
+          'Wynn Las Vegas': 'WYNN',
+          'Wynn': 'WYNN',
+          'Aria': 'ARIA',
+          'Aria Resort & Casino': 'ARIA',
+          'Resorts World': 'RW',
+          'Venetian': 'VEN',
+          'Golden Nugget': 'GN',
+          'South Point': 'SP',
+          'Orleans': 'ORL',
+          'MGM Grand': 'MGM',
+          'MGM National Harbor': 'MGMNH',
+          'Irish Poker Open': 'IPO',
+          'Personal': 'PERSONAL',
+          'Turning Stone Casino': 'WSOPC-TS',
+          'Texas Card House': 'WSOPC-TCH',
+          'Caesars Palace': 'CAESARS',
+          'Seminole Hard Rock': 'SHR',
+          'WSOP Europe': 'WSOPE',
+        };
+
+        function generateStableId(row) {
+          const abbr = VENUE_ABBR[row.venue] || row.venue.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
+          const date = row.date; // already YYYY-MM-DD
+
+          // Extract event number
+          let evNum = (row.event_number || '').replace(/^(IPO-|WSOP-|#)/i, '').trim();
+
+          // Extract flight letter from event name
+          const flightMatch = row.event_name.match(/Flight\s+([A-Z])\b/i) || row.event_name.match(/- ([A-Z])$/);
+          const flight = flightMatch ? flightMatch[1].toUpperCase() : '';
+
+          // Extract Day number for restarts
+          const dayMatch = row.event_name.match(/Day\s+(\d+)/i);
+          const day = dayMatch ? 'D' + dayMatch[1] : '';
+
+          if (evNum) {
+            return `${abbr}-${evNum}${flight}${day}-${date}`;
+          }
+
+          // No event number — use sanitized event name
+          const namePart = row.event_name
+            .replace(/[^a-zA-Z0-9 ]/g, '')
+            .trim()
+            .replace(/\s+/g, '-')
+            .slice(0, 40)
+            .toUpperCase();
+          return `${abbr}-${namePart}${flight}${day}-${date}`;
+        }
+
+        // Backfill all tournaments
+        const stmt = db.prepare('SELECT id, event_number, event_name, date, venue FROM tournaments WHERE stable_id IS NULL');
+        const rows = [];
+        while (stmt.step()) rows.push(stmt.getAsObject());
+        stmt.free();
+
+        const update = db.prepare('UPDATE tournaments SET stable_id = ? WHERE id = ?');
+        const usedIds = new Set();
+        let count = 0;
+        for (const row of rows) {
+          let sid = generateStableId(row);
+          // Ensure uniqueness — append row id if collision
+          if (usedIds.has(sid)) sid = sid + '-' + row.id;
+          usedIds.add(sid);
+          update.run([sid, row.id]);
+          count++;
+        }
+        update.free();
+
+        // Create unique index
+        try { db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tournaments_stable_id ON tournaments(stable_id)`); } catch (e) { console.log('stable_id index:', e.message); }
+
+        console.log(`Backfilled stable_id for ${count} tournaments`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -1837,6 +1924,9 @@ async function initDatabase() {
     console.log('WSOP 2026 schedule seeded successfully');
   }
 
+  // Enable foreign key enforcement
+  db.run('PRAGMA foreign_keys = ON');
+
   console.log('Database initialized');
 }
 
@@ -1845,6 +1935,51 @@ async function saveDatabase() {
   const data = db.export();
   const buffer = Buffer.from(data);
   await fs.writeFile(DB_PATH, buffer);
+}
+
+// ── Stable ID generation (server-side) ──
+const VENUE_ABBR_MAP = {
+  'Horseshoe / Paris Las Vegas': 'WSOP', 'Horseshoe Las Vegas': 'WSOP',
+  'Paris Las Vegas': 'PRS', 'Wynn Las Vegas': 'WYNN', 'Wynn': 'WYNN',
+  'Aria': 'ARIA', 'Aria Resort & Casino': 'ARIA', 'Resorts World': 'RW',
+  'Venetian': 'VEN', 'Golden Nugget': 'GN', 'South Point': 'SP',
+  'Orleans': 'ORL', 'MGM Grand': 'MGM', 'MGM National Harbor': 'MGMNH',
+  'Irish Poker Open': 'IPO', 'Personal': 'PERSONAL',
+  'Turning Stone Casino': 'WSOPC-TS', 'Texas Card House': 'WSOPC-TCH',
+  'Caesars Palace': 'CAESARS', 'Seminole Hard Rock': 'SHR', 'WSOP Europe': 'WSOPE',
+};
+
+function generateStableId(venue, eventNumber, eventName, date) {
+  const abbr = VENUE_ABBR_MAP[venue] || (venue || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
+  let evNum = (eventNumber || '').replace(/^(IPO-|WSOP-|#)/i, '').trim();
+  const flightMatch = eventName.match(/Flight\s+([A-Z])\b/i) || eventName.match(/- ([A-Z])$/);
+  const flight = flightMatch ? flightMatch[1].toUpperCase() : '';
+  const dayMatch = eventName.match(/Day\s+(\d+)/i);
+  const day = dayMatch ? 'D' + dayMatch[1] : '';
+  if (evNum) return `${abbr}-${evNum}${flight}${day}-${date}`;
+  const namePart = eventName.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '-').slice(0, 40).toUpperCase();
+  return `${abbr}-${namePart}${flight}${day}-${date}`;
+}
+
+// ── Upsert tournament (safe update — never deletes, preserves id) ──
+function upsertTournament(data) {
+  const sid = data.stable_id || generateStableId(data.venue, data.event_number, data.event_name, data.date);
+  db.run(`INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, late_reg_end, game_variant, venue, notes, category, is_satellite, target_event, is_restart, parent_event, day_length)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(stable_id) DO UPDATE SET
+      event_number=excluded.event_number, event_name=excluded.event_name,
+      date=excluded.date, time=excluded.time, buyin=excluded.buyin,
+      starting_chips=excluded.starting_chips, level_duration=excluded.level_duration,
+      reentry=excluded.reentry, late_reg=excluded.late_reg, late_reg_end=excluded.late_reg_end,
+      game_variant=excluded.game_variant, venue=excluded.venue, notes=excluded.notes,
+      category=excluded.category, is_satellite=excluded.is_satellite, target_event=excluded.target_event,
+      is_restart=excluded.is_restart, parent_event=excluded.parent_event, day_length=excluded.day_length`,
+    [sid, data.event_number || null, data.event_name, data.date, data.time || '', data.buyin || 0,
+     data.starting_chips || null, data.level_duration || null, data.reentry || null,
+     data.late_reg || null, data.late_reg_end || null, data.game_variant, data.venue,
+     data.notes || null, data.category || null, data.is_satellite || 0, data.target_event || null,
+     data.is_restart || 0, data.parent_event || null, data.day_length || null]);
+  return sid;
 }
 
 // Authentication middleware
@@ -2192,12 +2327,22 @@ app.post('/api/upload-schedule', authenticateToken, requireRegistered, upload.si
 
     // Insert tournaments into database
     for (const tournament of tournaments) {
+      const evName = normalizeEventName(tournament.eventName || 'Unknown Event', tournament.gameVariant);
+      const evVenue = tournament.venue || 'Horseshoe / Paris Las Vegas';
+      const sid = generateStableId(evVenue, tournament.eventNumber, evName, tournament.date);
       db.run(
-        `INSERT INTO tournaments (event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, prize_pool, house_fee, opt_add_on, rake_pct, rake_dollars, uploaded_by, source_pdf, is_deepstack)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, prize_pool, house_fee, opt_add_on, rake_pct, rake_dollars, uploaded_by, source_pdf, is_deepstack)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(stable_id) DO UPDATE SET
+           event_name=excluded.event_name, date=excluded.date, time=excluded.time,
+           buyin=excluded.buyin, starting_chips=excluded.starting_chips, level_duration=excluded.level_duration,
+           reentry=excluded.reentry, late_reg=excluded.late_reg, game_variant=excluded.game_variant,
+           venue=excluded.venue, notes=excluded.notes, is_satellite=excluded.is_satellite,
+           target_event=excluded.target_event, is_restart=excluded.is_restart, parent_event=excluded.parent_event`,
         [
+          sid,
           tournament.eventNumber || '',
-          normalizeEventName(tournament.eventName || 'Unknown Event', tournament.gameVariant),
+          evName,
           tournament.date,
           tournament.time || '12:00PM',
           tournament.buyin,
@@ -2206,7 +2351,7 @@ app.post('/api/upload-schedule', authenticateToken, requireRegistered, upload.si
           normalizeReentry(tournament.reentry) || null,
           tournament.lateReg || null,
           tournament.gameVariant,
-          tournament.venue || 'Horseshoe / Paris Las Vegas',
+          evVenue,
           tournament.notes || null,
           tournament.isSatellite ? 1 : 0,
           tournament.targetEvent || null,
@@ -2460,10 +2605,11 @@ app.post('/api/personal-event', authenticateToken, requireRegistered, async (req
     }
 
     // Insert synthetic tournament
+    const personalSid = `PERSONAL-${req.user.id}-${Date.now()}`;
     db.run(
-      `INSERT INTO tournaments (event_number, event_name, date, time, buyin, game_variant, venue, notes, uploaded_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['', type, humanDate, '12:00 AM', 0, 'Personal', 'Personal', notes || '', req.user.id]
+      `INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, game_variant, venue, notes, uploaded_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [personalSid, '', type, humanDate, '12:00 AM', 0, 'Personal', 'Personal', notes || '', req.user.id]
     );
 
     const idStmt = db.prepare('SELECT last_insert_rowid() as id');
