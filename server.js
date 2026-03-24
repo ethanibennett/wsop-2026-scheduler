@@ -1961,6 +1961,16 @@ async function initDatabase() {
         console.log(`Fixed IPO chips/levels for ${count} events`);
       }
     },
+    {
+      name: 'ipo-chips-levels-fix2-2026-03',
+      fn: () => {
+        db.run("UPDATE tournaments SET level_duration = '40' WHERE stable_id = 'IPO-1C-March 28, 2026'");
+        db.run("UPDATE tournaments SET level_duration = '40' WHERE stable_id = 'IPO-26D-April 3, 2026'");
+        db.run("UPDATE tournaments SET level_duration = '20' WHERE stable_id = 'IPO-6L-April 5, 2026'");
+        db.run("UPDATE tournaments SET level_duration = '20' WHERE stable_id = 'IPO-6M-April 5, 2026'");
+        console.log('Fixed 4 remaining IPO level mismatches');
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
