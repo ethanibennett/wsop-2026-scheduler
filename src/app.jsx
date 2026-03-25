@@ -6901,7 +6901,7 @@
         const today = todayISO;
         return (mySchedule || [])
           .filter(t => normaliseDate(t.date) > today && t.venue !== 'Personal' && !t.is_restart)
-          .sort((a, b) => (a.date + (a.time || '')) < (b.date + (b.time || '')) ? -1 : 1)[0] || null;
+          .sort((a, b) => parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time))[0] || null;
       }, [whatsNextEvents, mySchedule, todayISO]);
 
       // ── Parse level duration from tournament data ──
