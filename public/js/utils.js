@@ -95,31 +95,34 @@
       return [pillName(gameVariant)];
     }
 
-    const HAND_CONFIG_DEFAULT = { heroCards: 2, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' };
+    const HAND_CONFIG_DEFAULT = { heroCards: 2, hasBoard: true, boardMax: 5, betting: 'nl', heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' };
+    // betting: 'nl' = no-limit, 'pl' = pot-limit, 'fl' = fixed-limit
+    // flSmallStreets: which street indices use the small bet (rest use big bet)
+    // raiseCap: max raises per street (0 = uncapped)
     const HAND_CONFIG = {
-      'NLH':      { heroCards: 2, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' },
-      'LHE':      { heroCards: 2, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' },
-      'PLO':      { heroCards: 4, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKQ9hdcs', boardPlaceholder: 'J72hds' },
-      'PLO8':     { heroCards: 4, hasBoard: true, boardMax: 5, heroPlaceholder: 'A2KQhdcs', boardPlaceholder: 'J72hds' },
-      'O8':       { heroCards: 4, hasBoard: true, boardMax: 5, heroPlaceholder: 'A2KQhdcs', boardPlaceholder: 'J72hds' },
-      'Big O':    { heroCards: 5, hasBoard: true, boardMax: 5, heroPlaceholder: 'AK2Q9hdcsd', boardPlaceholder: 'J72hds' },
-      'Razz':     { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A23x4567xhdscx' },
-      'Stud Hi':  { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A9xxAKQJThdcsx' },
-      'Stud 8':    { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A234567hdcshds' },
-      '2-7 TD':   { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
-      'NL 2-7 SD':{ heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
-      'Badugi':   { heroCards: 4, hasBoard: false, boardMax: 0, heroPlaceholder: 'A234hdcs' },
-      'A-5 TD':   { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: 'A2345hdcss' },
-      'OFC Pineapple': { heroCards: 13, hasBoard: false, boardMax: 0, heroPlaceholder: 'AKQ...' },
-      'PLH':      { heroCards: 2, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' },
-      'Stud Hi-Lo': { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: 'A234567hdcshds' },
-      'LO Hi':    { heroCards: 4, hasBoard: true, boardMax: 5, heroPlaceholder: 'AKQ9hdcs', boardPlaceholder: 'J72hds' },
-      'PL 2-7 TD':{ heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
-      'L 2-7 TD': { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
-      'Badeucy':  { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: '23457hdcss' },
-      'Badacy':   { heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: 'A2345hdcss' },
-      'PL 5CD Hi':{ heroCards: 5, hasBoard: false, boardMax: 0, heroPlaceholder: 'AKQJT hdcss' },
-      '2-7 Razz': { heroCards: 7, hasBoard: false, boardMax: 0, isStud: true, heroPlaceholder: '23x45x7TKhdscx' },
+      'NLH':      { heroCards: 2, hasBoard: true, boardMax: 5, betting: 'nl', heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' },
+      'LHE':      { heroCards: 2, hasBoard: true, boardMax: 5, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' },
+      'PLO':      { heroCards: 4, hasBoard: true, boardMax: 5, betting: 'pl', heroPlaceholder: 'AKQ9hdcs', boardPlaceholder: 'J72hds' },
+      'PLO8':     { heroCards: 4, hasBoard: true, boardMax: 5, betting: 'pl', heroPlaceholder: 'A2KQhdcs', boardPlaceholder: 'J72hds' },
+      'O8':       { heroCards: 4, hasBoard: true, boardMax: 5, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, heroPlaceholder: 'A2KQhdcs', boardPlaceholder: 'J72hds' },
+      'Big O':    { heroCards: 5, hasBoard: true, boardMax: 5, betting: 'pl', heroPlaceholder: 'AK2Q9hdcsd', boardPlaceholder: 'J72hds' },
+      'Razz':     { heroCards: 7, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, isStud: true, heroPlaceholder: 'A23x4567xhdscx' },
+      'Stud Hi':  { heroCards: 7, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, isStud: true, heroPlaceholder: 'A9xxAKQJThdcsx' },
+      'Stud 8':   { heroCards: 7, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, isStud: true, heroPlaceholder: 'A234567hdcshds' },
+      '2-7 TD':   { heroCards: 5, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, heroPlaceholder: '23457hdcss' },
+      'NL 2-7 SD':{ heroCards: 5, hasBoard: false, boardMax: 0, betting: 'nl', heroPlaceholder: '23457hdcss' },
+      'Badugi':   { heroCards: 4, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, heroPlaceholder: 'A234hdcs' },
+      'A-5 TD':   { heroCards: 5, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, heroPlaceholder: 'A2345hdcss' },
+      'OFC Pineapple': { heroCards: 13, hasBoard: false, boardMax: 0, betting: 'nl', heroPlaceholder: 'AKQ...' },
+      'PLH':      { heroCards: 2, hasBoard: true, boardMax: 5, betting: 'pl', heroPlaceholder: 'AKhd', boardPlaceholder: 'QJ6hch' },
+      'Stud Hi-Lo': { heroCards: 7, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, isStud: true, heroPlaceholder: 'A234567hdcshds' },
+      'LO Hi':    { heroCards: 4, hasBoard: true, boardMax: 5, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, heroPlaceholder: 'AKQ9hdcs', boardPlaceholder: 'J72hds' },
+      'PL 2-7 TD':{ heroCards: 5, hasBoard: false, boardMax: 0, betting: 'pl', heroPlaceholder: '23457hdcss' },
+      'L 2-7 TD': { heroCards: 5, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, heroPlaceholder: '23457hdcss' },
+      'Badeucy':  { heroCards: 5, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, heroPlaceholder: '23457hdcss' },
+      'Badacy':   { heroCards: 5, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, heroPlaceholder: 'A2345hdcss' },
+      'PL 5CD Hi':{ heroCards: 5, hasBoard: false, boardMax: 0, betting: 'pl', heroPlaceholder: 'AKQJT hdcss' },
+      '2-7 Razz': { heroCards: 7, hasBoard: false, boardMax: 0, betting: 'fl', flSmallStreets: [0, 1], raiseCap: 4, isStud: true, heroPlaceholder: '23x45x7TKhdscx' },
     };
 
     // ── Venue Color + Abbreviation Map ───────────────────────

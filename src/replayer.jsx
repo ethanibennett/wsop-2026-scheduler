@@ -198,17 +198,113 @@
         });
       };
 
-      const addAction = (action) => {
-        const amount = ['bet', 'raise', 'call'].includes(action) ? (Number(actionAmount) || 0) : 0;
-        // Determine which player is next
+      // Compute betting context for current street
+      const bettingContext = useMemo(() => {
         const street = hand.streets[currentStreetIdx];
-        const actionsLen = street.actions ? street.actions.length : 0;
-        const foldedPlayers = new Set((street.actions || []).filter(a => a.action === 'fold').map(a => a.player));
-        let activePlayers = hand.players.map((_, i) => i).filter(i => !foldedPlayers.has(i));
-        let nextPlayer = activePlayers[actionsLen % activePlayers.length] || 0;
+        const actions = street ? (street.actions || []) : [];
+        const betting = gameCfg.betting || 'nl';
+        const blinds = hand.blinds || {};
+        const sb = blinds.sb || 0;
+        const bb = blinds.bb || 0;
+        const ante = blinds.ante || 0;
+
+        // Fixed limit: small bet = bb, big bet = 2*bb
+        const isSmallBetStreet = (gameCfg.flSmallStreets || []).includes(currentStreetIdx);
+        const fixedBet = betting === 'fl' ? (isSmallBetStreet ? (bb || 100) : (bb || 100) * 2) : 0;
+        const raiseCap = gameCfg.raiseCap || 4;
+
+        // Track current bet level and raise count
+        var currentBet = 0;
+        var raiseCount = 0;
+        var totalPot = ante * hand.players.length;
+        var playerInvested = {};
+
+        // On preflop, SB and BB are implicit
+        if (currentStreetIdx === 0 && (gameCfg.hasBoard || !gameCfg.isStud)) {
+          playerInvested[0] = sb; // SB
+          playerInvested[1] = bb; // BB
+          currentBet = bb;
+          totalPot += sb + bb;
+          raiseCount = 0; // BB counts as the opening "bet", first raise is raise #1
+        }
+
+        for (var i = 0; i < actions.length; i++) {
+          var act = actions[i];
+          var prevInvested = playerInvested[act.player] || 0;
+          if (act.action === 'bet') {
+            currentBet = act.amount;
+            playerInvested[act.player] = act.amount;
+            totalPot += act.amount - prevInvested;
+            raiseCount = 1;
+          } else if (act.action === 'raise') {
+            currentBet = act.amount;
+            playerInvested[act.player] = act.amount;
+            totalPot += act.amount - prevInvested;
+            raiseCount++;
+          } else if (act.action === 'call') {
+            playerInvested[act.player] = currentBet;
+            totalPot += currentBet - prevInvested;
+          } else if (act.action === 'all-in') {
+            playerInvested[act.player] = act.amount;
+            totalPot += act.amount - prevInvested;
+            if (act.amount > currentBet) {
+              currentBet = act.amount;
+              raiseCount++;
+            }
+          }
+        }
+
+        // Determine which player is next
+        const foldedPlayers = new Set(actions.filter(a => a.action === 'fold').map(a => a.player));
+        const activePlayers = hand.players.map((_, i) => i).filter(i => !foldedPlayers.has(i));
+        const nextPlayer = activePlayers[actions.length % activePlayers.length] || 0;
+        const nextPlayerInvested = playerInvested[nextPlayer] || 0;
+        const facingBet = currentBet > nextPlayerInvested;
+        const callAmount = currentBet - nextPlayerInvested;
+
+        // Limit: fixed raise amount
+        var raiseToAmount = 0;
+        var betAmount = 0;
+        var potRaiseAmount = 0;
+        var canRaise = true;
+
+        if (betting === 'fl') {
+          betAmount = fixedBet;
+          raiseToAmount = currentBet + fixedBet;
+          canRaise = raiseCount < raiseCap;
+        } else if (betting === 'pl') {
+          // Pot-limit: max raise = pot after calling
+          var potAfterCall = totalPot + callAmount;
+          potRaiseAmount = potAfterCall + currentBet; // raise TO this amount
+          betAmount = totalPot; // opening bet can be up to pot
+          raiseToAmount = potRaiseAmount;
+        } else {
+          // No-limit: any amount
+          betAmount = 0;
+          raiseToAmount = 0;
+        }
+
+        return {
+          betting, facingBet, currentBet, callAmount, raiseCount, raiseCap,
+          fixedBet, betAmount, raiseToAmount, potRaiseAmount, canRaise,
+          nextPlayer, totalPot, nextPlayerInvested
+        };
+      }, [hand, currentStreetIdx, gameCfg]);
+
+      const addAction = (action) => {
+        var ctx = bettingContext;
+        var amount = 0;
+
+        if (action === 'bet') {
+          amount = ctx.betting === 'fl' ? ctx.fixedBet : (Number(actionAmount) || 0);
+        } else if (action === 'raise') {
+          amount = ctx.betting === 'fl' ? ctx.raiseToAmount : (Number(actionAmount) || 0);
+        } else if (action === 'call') {
+          amount = ctx.currentBet;
+        }
 
         updateStreet(currentStreetIdx, s => {
-          const actions = [...(s.actions || []), { player: nextPlayer, action, amount }];
+          const actions = [...(s.actions || []), { player: ctx.nextPlayer, action, amount }];
           return { ...s, actions };
         });
         setActionAmount('');
@@ -389,18 +485,46 @@
               ))}
             </div>
 
-            <div className="replayer-row" style={{marginTop:'6px',gap:'4px'}}>
-              <div className="replayer-field" style={{flex:'0 0 80px'}}>
-                <input type="text" inputMode="decimal" placeholder="Amount" value={actionAmount}
-                  onChange={e => setActionAmount(e.target.value)} />
+            {/* Amount input — only for NL and PL when betting/raising */}
+            {bettingContext.betting !== 'fl' && (
+              <div className="replayer-row" style={{marginTop:'6px',gap:'4px'}}>
+                <div className="replayer-field" style={{flex:'0 0 80px'}}>
+                  <input type="text" inputMode="decimal"
+                    placeholder={bettingContext.betting === 'pl' ? 'Amount (max pot)' : 'Amount'}
+                    value={actionAmount}
+                    onChange={e => setActionAmount(e.target.value)} />
+                </div>
+                {bettingContext.betting === 'pl' && bettingContext.facingBet && (
+                  <button style={{fontSize:'0.6rem',padding:'2px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}
+                    onClick={() => setActionAmount(String(bettingContext.potRaiseAmount))}>Pot</button>
+                )}
               </div>
-            </div>
+            )}
             <div className="replayer-action-btns">
-              <button className="action-fold" onClick={() => addAction('fold')}>Fold</button>
-              <button onClick={() => addAction('check')}>Check</button>
-              <button className="action-call" onClick={() => addAction('call')}>Call</button>
-              <button className="action-bet" onClick={() => addAction('bet')}>Bet</button>
-              <button className="action-raise" onClick={() => addAction('raise')}>Raise</button>
+              {bettingContext.facingBet ? (
+                <>
+                  <button className="action-fold" onClick={() => addAction('fold')}>Fold</button>
+                  <button className="action-call" onClick={() => addAction('call')}>
+                    Call {formatChipAmount(bettingContext.callAmount)}
+                  </button>
+                  {bettingContext.canRaise && (
+                    <button className="action-raise" onClick={() => addAction('raise')}>
+                      {bettingContext.betting === 'fl'
+                        ? 'Raise to ' + formatChipAmount(bettingContext.raiseToAmount)
+                        : 'Raise'}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button onClick={() => addAction('check')}>Check</button>
+                  <button className="action-bet" onClick={() => addAction('bet')}>
+                    {bettingContext.betting === 'fl'
+                      ? 'Bet ' + formatChipAmount(bettingContext.fixedBet)
+                      : 'Bet'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -2169,6 +2293,29 @@
       var minRaise = Math.max((hand.blinds || {}).bb || 0, streetBets.maxBet * 2 - (currentActor >= 0 ? streetBets.contrib[currentActor] : 0));
       var playerStack = currentActor >= 0 ? currentStacks[currentActor] : 0;
 
+      // Betting structure awareness
+      var bettingType = gameCfg.betting || 'nl';
+      var isLimitGame = bettingType === 'fl';
+      var isPotLimit = bettingType === 'pl';
+      var flSmallStreets = gameCfg.flSmallStreets || [0, 1];
+      var flRaiseCap = gameCfg.raiseCap || 4;
+
+      // Count raises on current street
+      var streetRaiseCountGTO = 0;
+      (currentStreet.actions || []).forEach(function(a) {
+        if (a.action === 'raise' || a.action === 'bet') streetRaiseCountGTO++;
+      });
+
+      // Fixed limit bet size
+      var flIsSmall = flSmallStreets.includes(currentStreetIdx);
+      var flBetSize = flIsSmall ? ((hand.blinds || {}).bb || 100) : ((hand.blinds || {}).bb || 100) * 2;
+      var flRaiseToAmount = streetBets.maxBet + flBetSize;
+      var flCanRaise = streetRaiseCountGTO < flRaiseCap;
+
+      // Pot-limit max raise
+      var plPotAfterCall = currentPot + callAmount;
+      var plMaxRaise = plPotAfterCall + streetBets.maxBet;
+
       var cumulativeBoard = useMemo(function() {
         var b = '';
         for (var si = 0; si <= currentStreetIdx; si++) { b += (hand.streets[si].cards.board || ''); }
@@ -2728,7 +2875,8 @@
                   <div className="gto-seat-detail-wrap">
                     <div className="gto-seat-detail-inner">
                       <div className="gto-seat-detail">
-                        {!showRaiseInput && (
+                        {isLimitGame ? (
+                          /* ── Fixed Limit: no amount input, fixed bet/raise sizes ── */
                           <div className="gto-action-row">
                             {!canCheck && <button className="gto-action-btn" onClick={function() { addAction('fold'); }}>
                               <span className="gto-action-icon fold">✕</span>
@@ -2744,49 +2892,144 @@
                                   <span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span>
                                 </button>
                             }
-                            <button className="gto-action-btn" onClick={function() {
-                              var container = document.querySelector('.content-area');
-                              if (container) {
-                                var savedTop = container.scrollTop;
-                                var lock = function() { container.scrollTop = savedTop; };
-                                container.addEventListener('scroll', lock);
-                                setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
-                              }
-                              setShowRaiseInput(true);
-                              setBetAmount(String(canCheck ? ((hand.blinds || {}).bb || 0) : minRaise));
-                            }}>
-                              <span className="gto-action-icon raise">▲</span>
-                              <span className="gto-action-label">{canCheck ? 'Bet' : 'Raise'}</span>
-                            </button>
-                            <button className="gto-action-btn" onClick={function() { addAction(canCheck ? 'bet' : 'raise', playerStack); }}>
-                              <span className="gto-action-icon allin">★</span>
-                              <span className="gto-action-label">All-in</span>
-                            </button>
+                            {flCanRaise && (canCheck
+                              ? <button className="gto-action-btn" onClick={function() { addAction('bet', Math.min(flBetSize, playerStack)); }}>
+                                  <span className="gto-action-icon raise">▲</span>
+                                  <span className="gto-action-label">Bet {formatChipAmount(Math.min(flBetSize, playerStack))}</span>
+                                </button>
+                              : <button className="gto-action-btn" onClick={function() { addAction('raise', Math.min(flRaiseToAmount, playerStack)); }}>
+                                  <span className="gto-action-icon raise">▲</span>
+                                  <span className="gto-action-label">Raise to {formatChipAmount(Math.min(flRaiseToAmount, playerStack))}</span>
+                                </button>
+                            )}
                           </div>
-                        )}
-                        {showRaiseInput && (
-                          <React.Fragment>
-                            <div className="gto-sizing-row">
-                              {[{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(function(s) {
-                                return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(Math.min(Math.round(currentPot * s.mult), playerStack))); }}>{s.label}</button>;
-                              })}
-                              <button className="gto-sizing-pill" onClick={function() { setBetAmount(String(playerStack)); }}>All-In</button>
-                            </div>
-                            <div className="gto-raise-input-row">
-                              <input type="text" inputMode="decimal" value={betAmount} onChange={function(e) { setBetAmount(e.target.value); }} autoFocus />
-                              <button className="btn btn-primary btn-sm" onClick={function() { var amt = Math.min(Number(betAmount) || 0, playerStack); if (amt > 0) addAction(canCheck ? 'bet' : 'raise', amt); }}>Confirm</button>
-                              <button className="btn btn-ghost btn-sm" onClick={function() {
-                                var container = document.querySelector('.content-area');
-                                if (container) {
-                                  var savedTop = container.scrollTop;
-                                  var lock = function() { container.scrollTop = savedTop; };
-                                  container.addEventListener('scroll', lock);
-                                  setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
+                        ) : isPotLimit ? (
+                          /* ── Pot Limit: sizing capped at pot ── */
+                          <>
+                            {!showRaiseInput && (
+                              <div className="gto-action-row">
+                                {!canCheck && <button className="gto-action-btn" onClick={function() { addAction('fold'); }}>
+                                  <span className="gto-action-icon fold">✕</span>
+                                  <span className="gto-action-label">Fold</span>
+                                </button>}
+                                {canCheck
+                                  ? <button className="gto-action-btn" onClick={function() { addAction('check'); }}>
+                                      <span className="gto-action-icon check">✓</span>
+                                      <span className="gto-action-label">Check</span>
+                                    </button>
+                                  : <button className="gto-action-btn" onClick={function() { addAction('call', Math.min(callAmount, playerStack)); }}>
+                                      <span className="gto-action-icon call">⬤</span>
+                                      <span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span>
+                                    </button>
                                 }
-                                setShowRaiseInput(false);
-                              }}>Cancel</button>
-                            </div>
-                          </React.Fragment>
+                                <button className="gto-action-btn" onClick={function() {
+                                  var container = document.querySelector('.content-area');
+                                  if (container) {
+                                    var savedTop = container.scrollTop;
+                                    var lock = function() { container.scrollTop = savedTop; };
+                                    container.addEventListener('scroll', lock);
+                                    setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
+                                  }
+                                  setShowRaiseInput(true);
+                                  setBetAmount(String(canCheck ? Math.min((hand.blinds || {}).bb || 0, playerStack) : Math.min(minRaise, playerStack)));
+                                }}>
+                                  <span className="gto-action-icon raise">▲</span>
+                                  <span className="gto-action-label">{canCheck ? 'Bet' : 'Raise'}</span>
+                                </button>
+                                <button className="gto-action-btn" onClick={function() { addAction(canCheck ? 'bet' : 'raise', Math.min(canCheck ? currentPot : plMaxRaise, playerStack)); }}>
+                                  <span className="gto-action-icon raise">▲</span>
+                                  <span className="gto-action-label">Pot</span>
+                                </button>
+                              </div>
+                            )}
+                            {showRaiseInput && (
+                              <React.Fragment>
+                                <div className="gto-sizing-row">
+                                  {[{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(function(s) {
+                                    return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(Math.min(Math.round(currentPot * s.mult), playerStack))); }}>{s.label}</button>;
+                                  })}
+                                </div>
+                                <div className="gto-raise-input-row">
+                                  <input type="text" inputMode="decimal" value={betAmount} onChange={function(e) { setBetAmount(e.target.value); }} autoFocus />
+                                  <button className="btn btn-primary btn-sm" onClick={function() { var amt = Math.min(Number(betAmount) || 0, canCheck ? currentPot : plMaxRaise, playerStack); if (amt > 0) addAction(canCheck ? 'bet' : 'raise', amt); }}>Confirm</button>
+                                  <button className="btn btn-ghost btn-sm" onClick={function() {
+                                    var container = document.querySelector('.content-area');
+                                    if (container) {
+                                      var savedTop = container.scrollTop;
+                                      var lock = function() { container.scrollTop = savedTop; };
+                                      container.addEventListener('scroll', lock);
+                                      setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
+                                    }
+                                    setShowRaiseInput(false);
+                                  }}>Cancel</button>
+                                </div>
+                              </React.Fragment>
+                            )}
+                          </>
+                        ) : (
+                          /* ── No Limit: original behavior ── */
+                          <>
+                            {!showRaiseInput && (
+                              <div className="gto-action-row">
+                                {!canCheck && <button className="gto-action-btn" onClick={function() { addAction('fold'); }}>
+                                  <span className="gto-action-icon fold">✕</span>
+                                  <span className="gto-action-label">Fold</span>
+                                </button>}
+                                {canCheck
+                                  ? <button className="gto-action-btn" onClick={function() { addAction('check'); }}>
+                                      <span className="gto-action-icon check">✓</span>
+                                      <span className="gto-action-label">Check</span>
+                                    </button>
+                                  : <button className="gto-action-btn" onClick={function() { addAction('call', Math.min(callAmount, playerStack)); }}>
+                                      <span className="gto-action-icon call">⬤</span>
+                                      <span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span>
+                                    </button>
+                                }
+                                <button className="gto-action-btn" onClick={function() {
+                                  var container = document.querySelector('.content-area');
+                                  if (container) {
+                                    var savedTop = container.scrollTop;
+                                    var lock = function() { container.scrollTop = savedTop; };
+                                    container.addEventListener('scroll', lock);
+                                    setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
+                                  }
+                                  setShowRaiseInput(true);
+                                  setBetAmount(String(canCheck ? ((hand.blinds || {}).bb || 0) : minRaise));
+                                }}>
+                                  <span className="gto-action-icon raise">▲</span>
+                                  <span className="gto-action-label">{canCheck ? 'Bet' : 'Raise'}</span>
+                                </button>
+                                <button className="gto-action-btn" onClick={function() { addAction(canCheck ? 'bet' : 'raise', playerStack); }}>
+                                  <span className="gto-action-icon allin">★</span>
+                                  <span className="gto-action-label">All-in</span>
+                                </button>
+                              </div>
+                            )}
+                            {showRaiseInput && (
+                              <React.Fragment>
+                                <div className="gto-sizing-row">
+                                  {[{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(function(s) {
+                                    return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(Math.min(Math.round(currentPot * s.mult), playerStack))); }}>{s.label}</button>;
+                                  })}
+                                  <button className="gto-sizing-pill" onClick={function() { setBetAmount(String(playerStack)); }}>All-In</button>
+                                </div>
+                                <div className="gto-raise-input-row">
+                                  <input type="text" inputMode="decimal" value={betAmount} onChange={function(e) { setBetAmount(e.target.value); }} autoFocus />
+                                  <button className="btn btn-primary btn-sm" onClick={function() { var amt = Math.min(Number(betAmount) || 0, playerStack); if (amt > 0) addAction(canCheck ? 'bet' : 'raise', amt); }}>Confirm</button>
+                                  <button className="btn btn-ghost btn-sm" onClick={function() {
+                                    var container = document.querySelector('.content-area');
+                                    if (container) {
+                                      var savedTop = container.scrollTop;
+                                      var lock = function() { container.scrollTop = savedTop; };
+                                      container.addEventListener('scroll', lock);
+                                      setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
+                                    }
+                                    setShowRaiseInput(false);
+                                  }}>Cancel</button>
+                                </div>
+                              </React.Fragment>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>

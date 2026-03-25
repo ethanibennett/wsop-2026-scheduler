@@ -3254,6 +3254,20 @@
     // ── Currency helper ─────────────────────────────────────────
     function currencySymbol(venue) { return (venue === 'Irish Poker Open' || venue === 'WSOP Europe') ? '€' : '$'; }
 
+    function formatEventName(name) {
+      if (!name) return name;
+      // Match " - Flight X", " - Day N", " - Final", " - Round N", " - Quarter-Final", " - Semi-Final"
+      var match = name.match(/^(.+?)\s*-\s*(Flight\s+\w+|Day\s+\d+|Final(?:\s+Day)?|Round\s+\d+|Quarter-?Final|Semi-?Final)$/i);
+      if (match) {
+        return React.createElement(React.Fragment, null,
+          match[1].trim(),
+          React.createElement('br'),
+          React.createElement('span', { style: { fontSize: '0.78em', opacity: 0.7 } }, match[2])
+        );
+      }
+      return name;
+    }
+
     // Measure combined height of sticky elements (filters + stuck date break)
     function measureStickyStack(container) {
       const caTop = container.getBoundingClientRect().top;
@@ -3371,7 +3385,7 @@
                     <span className="cal-event-buyin">{currencySymbol(tournament.venue)}{Number(tournament.buyin).toLocaleString()}</span>
                   </div>
                   <div className="cal-bar-row2">
-                    <span className="cal-event-name">{tournament.event_name}</span>
+                    <span className="cal-event-name">{formatEventName(tournament.event_name)}</span>
                     {isBounty && !isSat && <span className="cal-bounty-icon"><Icon.crosshairs /></span>}
                     {isSat && <span className="cal-bounty-icon"><Icon.satellite /></span>}
                     {isRestart && <span className="cal-bounty-icon"><Icon.restart /></span>}
@@ -3654,7 +3668,7 @@
               <span className="t-buyin">{formatBuyin(tournament.buyin)}</span>
             </div>
 
-            <div className="t-name">{tournament.event_name}</div>
+            <div className="t-name">{formatEventName(tournament.event_name)}</div>
 
             <div className="t-meta">
               <div className="t-meta-item">
@@ -4472,7 +4486,7 @@
             }
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
-            if (filters.hideSideEvents && (t.category === 'side' || t.is_deepstack)) return false;
+            if (filters.hideSideEvents && t.category === 'side') return false;
             if (filters.hiddenMonths && filters.hiddenMonths.length > 0) {
               const m = new Date(t.date).getMonth();
               if (filters.hiddenMonths.includes(m)) return false;
@@ -5137,7 +5151,7 @@
             }
             if (filters.hideSatellites && t.is_satellite) return false;
             if (filters.hideRestarts && t.is_restart) return false;
-            if (filters.hideSideEvents && (t.category === 'side' || t.is_deepstack)) return false;
+            if (filters.hideSideEvents && t.category === 'side') return false;
             return true;
           })
           .sort((a, b) => {
