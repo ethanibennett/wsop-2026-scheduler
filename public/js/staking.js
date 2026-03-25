@@ -108,7 +108,7 @@
           <div className="section-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 16px 8px'}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
               <button className="btn btn-ghost btn-sm" onClick={onBack} style={{fontSize:16,padding:'4px 8px'}}>←</button>
-              <h2 style={{fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:1,fontSize:14,margin:0,color:'var(--text-muted)'}}>Sell & Markup Settings</h2>
+              <h2 style={{fontFamily:'Univers Condensed, Univers, sans-serif',textTransform:'uppercase',letterSpacing:1,fontSize:14,margin:0,color:'var(--text-muted)'}}>Sell & Markup Settings</h2>
             </div>
             <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px'}} onClick={handleSave} disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
@@ -286,7 +286,7 @@
       return (
         <div style={{padding:'0 0 20px'}}>
           <div className="section-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 16px 8px'}}>
-            <h2 style={{fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:1,fontSize:14,margin:0,color:'var(--text-muted)'}}>Staking</h2>
+            <h2 style={{fontFamily:'Univers Condensed, Univers, sans-serif',textTransform:'uppercase',letterSpacing:1,fontSize:14,margin:0,color:'var(--text-muted)'}}>Staking</h2>
             <div style={{display:'flex',gap:8}}>
               <button className="btn btn-ghost btn-sm" style={{fontSize:12,padding:'6px 10px',color:'var(--text-muted)'}} onClick={onSettings} title="Sell & Markup Settings">⚙</button>
               <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px',background:'transparent',color:'var(--accent)',border:'1px solid var(--accent)'}} onClick={onBackers}>Backers</button>

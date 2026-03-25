@@ -80,3 +80,6 @@ setup.sh
 !.claude/hooks/
 .claude/hooks/*
 !.claude/hooks/session-start.sh
+
+# Build output
+public/dist/

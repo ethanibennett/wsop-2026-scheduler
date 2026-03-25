@@ -1,3 +1,39 @@
+    @font-face {
+      font-family: 'Univers';
+      src: url('/fonts/univers-light.ttf') format('truetype');
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Univers';
+      src: url('/fonts/univers-regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Univers';
+      src: url('/fonts/univers-bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Univers Condensed';
+      src: url('/fonts/univers-condensed.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Univers Condensed';
+      src: url('/fonts/univers-bold-condensed.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
     :root {
       --bg:        #111111;
       --surface:   #1a1a1a;
@@ -196,7 +232,7 @@
     }
 
     body {
-      font-family: 'Oswald', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Univers Condensed', 'Univers', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       font-size: 16px;
@@ -307,7 +343,7 @@
       border-radius: var(--radius-sm);
       background: var(--bg);
       color: var(--text);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.8rem;
       width: 100%;
       box-sizing: border-box;
@@ -340,7 +376,7 @@
     .live-update-field label {
       font-size: 0.6rem;
       color: var(--text-muted);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -349,7 +385,7 @@
       align-items: center;
       gap: 5px;
       font-size: 0.72rem;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       color: var(--text);
       cursor: pointer;
       user-select: none;
@@ -373,7 +409,7 @@
       padding: 4px 8px;
       background: var(--surface2, var(--surface));
       border-radius: 4px;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
     }
 
     .live-update-empty {
@@ -398,16 +434,16 @@
       position:absolute; bottom:60px; left:0; right:0;
       background:rgba(0,0,0,0.6); padding:10px 16px; backdrop-filter:blur(4px);
     }
-    .camera-overlay .camera-stats-bar .tournament-name { font-size:0.75rem; color:#fff; opacity:0.8; font-family:'Oswald',sans-serif; }
-    .camera-overlay .camera-stats-bar .stats-line { font-size:1.1rem; color:#22c55e; font-weight:600; font-family:'Oswald',sans-serif; margin-top:2px; }
-    .camera-overlay .camera-watermark { position:absolute; top:12px; left:16px; font-size:0.6rem; color:rgba(255,255,255,0.5); font-family:'Oswald',sans-serif; letter-spacing:0.5px; }
+    .camera-overlay .camera-stats-bar .tournament-name { font-size:0.75rem; color:#fff; opacity:0.8; font-family:'Univers Condensed','Univers',sans-serif; }
+    .camera-overlay .camera-stats-bar .stats-line { font-size:1.1rem; color:#22c55e; font-weight:600; font-family:'Univers Condensed','Univers',sans-serif; margin-top:2px; }
+    .camera-overlay .camera-watermark { position:absolute; top:12px; left:16px; font-size:0.6rem; color:rgba(255,255,255,0.5); font-family:'Univers Condensed','Univers',sans-serif; letter-spacing:0.5px; }
     .camera-overlay .camera-actions {
       position:absolute; bottom:0; left:0; right:0;
       display:flex; justify-content:center; gap:20px; padding:14px; background:rgba(0,0,0,0.8);
     }
     .camera-overlay .camera-actions button {
       padding:10px 24px; border-radius:24px; border:none;
-      font-family:'Oswald',sans-serif; font-size:0.85rem; cursor:pointer;
+      font-family:'Univers Condensed','Univers',sans-serif; font-size:0.85rem; cursor:pointer;
     }
     .camera-overlay .camera-btn-capture { background:#fff; color:#000; }
     .camera-overlay .camera-btn-close { background:rgba(255,255,255,0.15); color:#fff; }
@@ -416,11 +452,11 @@
     .camera-overlay .camera-btn-gallery { background:rgba(255,255,255,0.15); color:#fff; display:inline-flex; align-items:center; gap:6px; }
     .camera-overlay .camera-preview { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
     .camera-overlay .camera-preview img { max-width:100%; max-height:100%; object-fit:contain; }
-    .camera-overlay .camera-error { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Oswald',sans-serif; text-align:center; padding:20px; }
-    .camera-step-indicator { position:absolute; top:14px; left:0; right:0; text-align:center; font-size:0.72rem; color:rgba(255,255,255,0.75); font-family:'Oswald',sans-serif; letter-spacing:0.5px; pointer-events:none; z-index:1; }
+    .camera-overlay .camera-error { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Univers Condensed','Univers',sans-serif; text-align:center; padding:20px; }
+    .camera-step-indicator { position:absolute; top:14px; left:0; right:0; text-align:center; font-size:0.72rem; color:rgba(255,255,255,0.75); font-family:'Univers Condensed','Univers',sans-serif; letter-spacing:0.5px; pointer-events:none; z-index:1; }
     .camera-btn-next { background:#3b82f6; color:#fff; font-weight:600; }
     .camera-overlay-picker { position:absolute; top:40px; left:0; right:0; display:flex; justify-content:center; gap:6px; padding:0 12px; z-index:2; }
-    .camera-overlay-picker button { padding:4px 10px; border-radius:12px; border:1px solid rgba(255,255,255,0.3); background:rgba(0,0,0,0.5); color:rgba(255,255,255,0.7); font-family:'Oswald',sans-serif; font-size:0.65rem; cursor:pointer; backdrop-filter:blur(4px); white-space:nowrap; }
+    .camera-overlay-picker button { padding:4px 10px; border-radius:12px; border:1px solid rgba(255,255,255,0.3); background:rgba(0,0,0,0.5); color:rgba(255,255,255,0.7); font-family:'Univers Condensed','Univers',sans-serif; font-size:0.65rem; line-height:1; cursor:pointer; backdrop-filter:blur(4px); white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; }
     .camera-overlay-picker button.active { background:#22c55e; color:#000; border-color:#22c55e; font-weight:600; }
     .camera-overlay-picker button:disabled { opacity:0.3; cursor:default; }
 
@@ -433,7 +469,8 @@
     .live-update-tabs button {
       flex: 1; padding: 5px 0; border: none;
       background: transparent; color: var(--text-muted);
-      font-family: 'Oswald', sans-serif; font-size: 0.68rem;
+      font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.68rem;
+      line-height: 1;
       cursor: pointer; border-right: 1px solid var(--border);
       transition: background 0.15s, color 0.15s;
     }
@@ -452,9 +489,9 @@
     /* ── Hand game pills ── */
     .hand-game-pills { display:flex; flex-direction:column; gap:4px; }
     .hand-game-pill-row { display:flex; gap:4px; }
-    .hand-game-pill-row button { flex:1; padding:3px 6px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text-muted); font-family:'Oswald',sans-serif; font-size:0.62rem; cursor:pointer; white-space:nowrap; transition:background 0.15s,color 0.15s; text-align:center; }
+    .hand-game-pill-row button { flex:1; padding:3px 6px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; font-size:0.62rem; line-height:1; cursor:pointer; white-space:nowrap; transition:background 0.15s,color 0.15s; text-align:center; display:inline-flex; align-items:center; justify-content:center; }
     .hand-game-pill-row button.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
-    .hand-game-label { font-size:0.62rem; color:var(--text-muted); font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+    .hand-game-label { font-size:0.62rem; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
 
     /* ── Card row ── */
     .card-row { display:flex; gap:2px; align-items:center; min-height:32px; flex-wrap:wrap; }
@@ -491,7 +528,7 @@
     }
 
     /* ── Hand result (winner display) ── */
-    .hand-result { font-size:0.68rem; font-family:'Oswald',sans-serif; padding:6px 8px; border-radius:4px; text-align:center; margin-top:2px; letter-spacing:0.3px; line-height:1.4; }
+    .hand-result { font-size:0.68rem; font-family:'Univers Condensed','Univers',sans-serif; padding:6px 8px; border-radius:4px; text-align:center; margin-top:2px; letter-spacing:0.3px; line-height:1.4; }
     .hand-result-hero { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
     .hand-result-opponent { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
     .hand-result-split { background:rgba(250,204,21,0.12); color:#facc15; border:1px solid rgba(250,204,21,0.25); }
@@ -503,14 +540,14 @@
     .live-update-next-event {
       font-size: 0.7rem; color: var(--text-muted);
       padding: 6px 8px; background: var(--surface2, var(--surface));
-      border-radius: 4px; font-family: 'Oswald', sans-serif;
+      border-radius: 4px; font-family: 'Univers Condensed', 'Univers', sans-serif;
       line-height: 1.4;
     }
     .live-update-next-event strong { color: var(--text); }
     .live-update-hand-placeholder {
       font-size: 0.7rem; color: var(--text-muted);
       text-align: center; padding: 12px 8px;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-style: italic;
     }
 
@@ -536,15 +573,15 @@
 
     /* Entry mode */
     .replayer-entry { display:flex; flex-direction:column; gap:10px; }
-    .replayer-step-label { font-size:0.65rem; color:var(--accent2); font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px; }
+    .replayer-step-label { font-size:0.65rem; color:var(--accent2); font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px; }
     .replayer-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; }
-    .replayer-section-title { font-size:0.72rem; font-weight:600; color:var(--text); margin-bottom:8px; font-family:'Oswald',sans-serif; }
+    .replayer-section-title { font-size:0.72rem; font-weight:600; color:var(--text); margin-bottom:8px; font-family:'Univers Condensed','Univers',sans-serif; }
 
     .replayer-field { display:flex; flex-direction:column; gap:2px; flex:1; }
-    .replayer-field label { font-size:0.6rem; color:var(--text-muted); font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+    .replayer-field label { font-size:0.6rem; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
     .replayer-field input, .replayer-field select {
       padding:6px 8px; border:1.5px solid var(--border); border-radius:var(--radius-sm);
-      background:var(--bg); color:var(--text); font-family:'Oswald',sans-serif; font-size:0.8rem;
+      background:var(--bg); color:var(--text); font-family:'Univers Condensed','Univers',sans-serif; font-size:0.8rem;
       width:100%; box-sizing:border-box;
     }
     .replayer-field input:focus, .replayer-field select:focus { outline:none; border-color:var(--accent); }
@@ -558,18 +595,18 @@
     }
     .replayer-player-row:last-child { border-bottom:none; }
     .replayer-player-name { font-size:0.75rem; font-weight:600; min-width:60px; }
-    .replayer-player-pos { font-size:0.62rem; color:var(--accent2); background:var(--surface2); padding:1px 5px; border-radius:4px; min-width:32px; text-align:center; transition: background 0.15s, color 0.15s, border-color 0.15s; border: 1.5px solid transparent; }
+    .replayer-player-pos { display:inline-flex; align-items:center; justify-content:center; font-size:0.62rem; line-height:1; color:var(--accent2); background:var(--surface2); padding:2px 5px; border-radius:4px; min-width:32px; text-align:center; transition: background 0.15s, color 0.15s, border-color 0.15s; border: 1.5px solid transparent; }
     .replayer-player-pos.hero { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
 
     /* Street entry */
     .replayer-street { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; margin-bottom:8px; }
     .replayer-street-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-    .replayer-street-name { font-size:0.75rem; font-weight:600; color:var(--text); font-family:'Oswald',sans-serif; }
-    .replayer-street-pot { font-size:0.68rem; color:var(--accent2); font-family:'Oswald',sans-serif; }
+    .replayer-street-name { font-size:0.75rem; font-weight:600; color:var(--text); font-family:'Univers Condensed','Univers',sans-serif; }
+    .replayer-street-pot { font-size:0.68rem; color:var(--accent2); font-family:'Univers Condensed','Univers',sans-serif; }
 
     .replayer-action-list { display:flex; flex-direction:column; gap:3px; margin-top:6px; }
     .replayer-action-item {
-      display:flex; align-items:center; gap:6px; font-size:0.7rem; font-family:'Oswald',sans-serif;
+      display:flex; align-items:center; gap:6px; font-size:0.7rem; font-family:'Univers Condensed','Univers',sans-serif;
       padding:3px 6px; background:var(--surface2); border-radius:4px;
     }
     .replayer-action-player { font-weight:600; color:var(--text); min-width:50px; }
@@ -586,7 +623,7 @@
     .replayer-action-btns { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
     .replayer-action-btns button {
       padding:4px 10px; border-radius:6px; border:1px solid var(--border);
-      background:transparent; color:var(--text-muted); font-family:'Oswald',sans-serif;
+      background:transparent; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif;
       font-size:0.68rem; cursor:pointer; transition:background 0.15s,color 0.15s;
     }
     .replayer-action-btns button:hover { border-color:var(--accent); color:var(--accent); }
@@ -656,7 +693,7 @@
       padding: 10px 12px;
     }
     .gto-street-name {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.78rem;
       font-weight: 700;
       color: var(--text);
@@ -701,10 +738,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      align-content: center;
       writing-mode: vertical-rl;
       text-orientation: mixed;
       transform: rotate(180deg);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.48rem;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -716,6 +754,8 @@
       overflow: hidden;
       background: var(--border);
       transition: background 0.2s;
+      line-height: 22px;
+      text-align: center;
     }
     .gto-seat.active .gto-seat-strip { background: var(--accent); color: var(--bg); }
     .gto-seat.acted-fold .gto-seat-strip { background: #f87171; }
@@ -778,7 +818,7 @@
     .gto-seat-hero-cards .card-row { gap: 2px; }
     .gto-seat-hero-cards .card-img { height: 28px; width: auto; }
     .gto-seat-result-badge {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.62rem;
       font-weight: 700;
       letter-spacing: 0.06em;
@@ -879,7 +919,7 @@
       border: 1px solid var(--border);
       background: transparent;
       color: var(--text-muted);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.65rem;
       font-weight: 600;
       cursor: pointer;
@@ -899,7 +939,7 @@
       border-radius: var(--radius-sm);
       background: var(--bg);
       color: var(--text);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.82rem;
     }
     .gto-raise-input-row input:focus { outline: none; border-color: var(--accent); }
@@ -925,7 +965,7 @@
       background: transparent;
     }
     .gto-street-label {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.85rem;
       font-weight: 700;
       color: var(--text);
@@ -938,7 +978,7 @@
       border: 1px solid var(--border);
       background: transparent;
       color: var(--text-muted);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.68rem;
       font-weight: 600;
       cursor: pointer;
@@ -980,7 +1020,7 @@
     }
     .card-picker-suit-label {
       grid-column: 1 / -1;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.55rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -992,7 +1032,7 @@
 
     /* Draw discard section */
     .replayer-draw-section { margin-top:6px; padding:6px 8px; background:var(--surface2); border-radius:4px; }
-    .replayer-draw-label { font-size:0.6rem; color:var(--text-muted); font-family:'Oswald',sans-serif; text-transform:uppercase; margin-bottom:4px; }
+    .replayer-draw-label { font-size:0.6rem; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; margin-bottom:4px; }
 
     /* Replay mode */
     .replayer-replay { display:flex; flex-direction:column; gap:8px; }
@@ -1106,7 +1146,7 @@
     .replayer-pot-display {
       position:absolute; left:50%; top:35%; transform:translate(-50%,-50%);
       z-index:2; text-align:center; font-size:0.78rem; font-weight:600; color:#fff;
-      font-family:'Oswald',sans-serif; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      font-family:'Univers Condensed','Univers',sans-serif; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     }
     .replayer-pot-label { font-size:0.5rem; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:0.5px; }
     .replayer-split-circles { display:flex; justify-content:center; align-items:center; }
@@ -1114,7 +1154,7 @@
       width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
       background: radial-gradient(ellipse, rgba(234,179,8,0.35) 0%, rgba(234,179,8,0.15) 100%);
       border: 1.5px solid rgba(234,179,8,0.6);
-      font-size:0.48rem; font-weight:700; color:#facc15; font-family:'Oswald',sans-serif;
+      font-size:0.48rem; font-weight:700; line-height:1; color:#facc15; font-family:'Univers Condensed','Univers',sans-serif;
       position:relative;
     }
 
@@ -1129,7 +1169,7 @@
 
     .replayer-street-label {
       position:absolute; left:50%; top:28%; transform:translate(-50%,-50%);
-      z-index:2; font-size:0.55rem; color:rgba(255,255,255,0.6); font-family:'Oswald',sans-serif;
+      z-index:2; font-size:0.55rem; color:rgba(255,255,255,0.6); font-family:'Univers Condensed','Univers',sans-serif;
       text-transform:uppercase; letter-spacing:0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.4);
     }
 
@@ -1172,6 +1212,7 @@
       font-size: 0.65rem;
       font-weight: 900;
       letter-spacing: -0.5px;
+      line-height: 1;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1206,11 +1247,11 @@
       border-color: #facc15;
       box-shadow: 0 0 8px rgba(250,204,21,0.35), 0 0 16px rgba(250,204,21,0.15);
     }
-    .replayer-seat-name { font-size:0.62rem; font-weight:600; color:var(--text); font-family:'Oswald',sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; }
-    .replayer-seat-pos { font-size:0.5rem; color:var(--accent2); font-family:'Oswald',sans-serif; }
-    .replayer-seat-stack { font-size:0.62rem; font-weight:600; color:var(--text); font-family:'Oswald',sans-serif; }
+    .replayer-seat-name { font-size:0.62rem; font-weight:600; color:var(--text); font-family:'Univers Condensed','Univers',sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; }
+    .replayer-seat-pos { font-size:0.5rem; color:var(--accent2); font-family:'Univers Condensed','Univers',sans-serif; }
+    .replayer-seat-stack { font-size:0.62rem; font-weight:600; color:var(--text); font-family:'Univers Condensed','Univers',sans-serif; }
     .replayer-seat-action {
-      font-size:0.52rem; color:var(--accent2); font-family:'Oswald',sans-serif;
+      font-size:0.52rem; color:var(--accent2); font-family:'Univers Condensed','Univers',sans-serif;
       min-height:12px;
       transition: opacity 0.2s;
     }
@@ -1218,7 +1259,7 @@
       position: absolute;
       transform: translate(-50%, -50%);
       font-size: 0.55rem;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-weight: 600;
       color: #fff;
       background: none;
@@ -1237,7 +1278,7 @@
       left: 50%;
       top: 100%;
       transform: translateX(-50%);
-      font-size:0.5rem; color:#eab308; font-family:'Oswald',sans-serif;
+      font-size:0.5rem; color:#eab308; font-family:'Univers Condensed','Univers',sans-serif;
       background: var(--surface);
       border: 1.5px solid rgba(234,179,8,0.4);
       border-radius: 6px;
@@ -1255,7 +1296,7 @@
       padding: 4px 0; flex-wrap: wrap;
     }
     .replayer-option-label {
-      font-size: 0.5rem; color: var(--text-muted); font-family: 'Oswald', sans-serif;
+      font-size: 0.5rem; color: var(--text-muted); font-family: 'Univers Condensed', 'Univers', sans-serif;
       text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px;
     }
     .replayer-felt-picker { display: flex; align-items: center; gap: 4px; }
@@ -1271,27 +1312,29 @@
     .felt-picker-popup { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 18px; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,0.4); }
     .replayer-card-theme-picker { display: flex; align-items: center; gap: 3px; }
     .replayer-theme-btn {
-      font-size: 0.5rem; font-family: 'Oswald', sans-serif; padding: 2px 8px;
+      font-size: 0.5rem; font-family: 'Univers Condensed', 'Univers', sans-serif; padding: 2px 8px;
       border: 1px solid var(--border); border-radius: 4px; background: var(--surface);
       color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+      line-height: 1; display: inline-flex; align-items: center; justify-content: center;
     }
     .replayer-theme-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
     .replayer-theme-btn:hover { border-color: var(--accent); }
 
     /* Action badges */
     .replayer-action-badge {
-      display: inline-block; font-size: 0.42rem; font-family: 'Oswald', sans-serif;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 0.42rem; font-family: 'Univers Condensed', 'Univers', sans-serif;
       padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px;
-      font-weight: 600; line-height: 1.2; margin-top: 1px;
+      font-weight: 600; line-height: 1; margin-top: 1px;
     }
     .replayer-action-badge-outer {
       position: absolute;
       top: calc(100% + 2px);
       left: 50%;
       transform: translateX(-50%);
-      font-size: 0.42rem; font-family: 'Oswald', sans-serif;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.42rem; font-family: 'Univers Condensed', 'Univers', sans-serif;
       padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px;
-      font-weight: 600; line-height: 1.2; white-space: nowrap;
+      font-weight: 600; line-height: 1; white-space: nowrap;
       pointer-events: none;
     }
     .replayer-action-badge.action-fold, .replayer-action-badge-outer.action-fold { background: rgba(239,68,68,0.2); color: #ef4444; }
@@ -1349,14 +1392,15 @@
     }
     .replayer-controls button {
       padding:6px 12px; border-radius:6px; border:1px solid var(--border);
-      background:transparent; color:var(--text); font-family:'Oswald',sans-serif;
+      background:transparent; color:var(--text); font-family:'Univers Condensed','Univers',sans-serif;
       font-size:0.75rem; cursor:pointer; transition:background 0.15s;
-      display:flex; align-items:center; gap:4px;
+      display:flex; align-items:center; justify-content:center; gap:4px;
+      line-height:1;
     }
     .replayer-controls button:hover { background:var(--surface2); border-color:var(--accent); }
     .replayer-controls button:disabled { opacity:0.3; cursor:default; }
     .replayer-controls button:disabled:hover { background:transparent; border-color:var(--border); }
-    .replayer-speed-label { font-size:0.6rem; color:var(--text-muted); font-family:'Oswald',sans-serif; }
+    .replayer-speed-label { font-size:0.6rem; line-height:1; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; }
 
     .replayer-street-indicator {
       display:flex; gap:4px; justify-content:center; margin-bottom:6px;
@@ -1371,7 +1415,7 @@
     /* Result display */
     .replayer-result {
       text-align:center; padding:5px 10px; border-radius:var(--radius-sm);
-      font-family:'Oswald',sans-serif; font-size:0.72rem; font-weight:600;
+      font-family:'Univers Condensed','Univers',sans-serif; font-size:0.72rem; font-weight:600;
     }
     .replayer-result-hero { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
     .replayer-result-opponent { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.25); }
@@ -1413,7 +1457,7 @@
     @keyframes settingsSlideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
     .replayer-settings-header {
       display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;
-      font-family:'Oswald',sans-serif; font-size:0.85rem; font-weight:600; color:var(--text);
+      font-family:'Univers Condensed','Univers',sans-serif; font-size:0.85rem; font-weight:600; color:var(--text);
     }
     .replayer-settings-close {
       background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem; padding:4px;
@@ -1423,14 +1467,14 @@
     }
     .replayer-settings-group:last-child { border-bottom:none; }
     .replayer-settings-group-title {
-      font-family:'Oswald',sans-serif; font-size:0.65rem; font-weight:600; color:var(--accent2);
+      font-family:'Univers Condensed','Univers',sans-serif; font-size:0.65rem; font-weight:600; color:var(--accent2);
       text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;
     }
     .replayer-settings-row {
       display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
     }
     .replayer-settings-label {
-      font-size:0.72rem; color:var(--text); font-family:'Oswald',sans-serif;
+      font-size:0.72rem; color:var(--text); font-family:'Univers Condensed','Univers',sans-serif;
     }
     .replayer-settings-sublabel {
       font-size:0.58rem; color:var(--text-muted);
@@ -1441,7 +1485,7 @@
     .replayer-settings-pill {
       padding:4px 10px; border-radius:12px; border:1px solid var(--border);
       background:transparent; color:var(--text-muted); font-size:0.62rem;
-      font-family:'Oswald',sans-serif; cursor:pointer; transition:all 0.15s;
+      font-family:'Univers Condensed','Univers',sans-serif; cursor:pointer; transition:all 0.15s;
     }
     .replayer-settings-pill:hover { border-color:var(--accent); color:var(--text); }
     .replayer-settings-pill.active {
@@ -1589,7 +1633,7 @@
       background:var(--surface); border:1px solid var(--border); border-radius:6px;
     }
     .replayer-hand-strength-label {
-      font-size:0.58rem; color:var(--text-muted); font-family:'Oswald',sans-serif;
+      font-size:0.58rem; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif;
       text-transform:uppercase; letter-spacing:0.3px; white-space:nowrap;
     }
     .replayer-hand-strength-bar {
@@ -1597,7 +1641,7 @@
     }
     .replayer-hand-strength-fill { height:100%; border-radius:3px; transition:width 0.4s ease-out; }
     .replayer-hand-strength-pct {
-      font-size:0.62rem; font-weight:600; font-family:'Oswald',sans-serif;
+      font-size:0.62rem; font-weight:600; font-family:'Univers Condensed','Univers',sans-serif;
       min-width:32px; text-align:right;
     }
 
@@ -1606,13 +1650,13 @@
       display:inline-flex; align-items:center; gap:4px; padding:2px 8px;
       background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.25);
       border-radius:4px; font-size:0.58rem; color:#60a5fa;
-      font-family:'Oswald',sans-serif; margin-top:4px;
+      font-family:'Univers Condensed','Univers',sans-serif; margin-top:4px;
     }
 
     /* ── SPR Badge (on felt, near pot) ── */
     .replayer-spr-badge {
       position:absolute; left:50%; top:29%; transform:translate(-50%,-50%);
-      z-index:2; font-size:0.44rem; font-family:'Oswald',sans-serif;
+      z-index:2; font-size:0.44rem; font-family:'Univers Condensed','Univers',sans-serif;
       color:rgba(255,255,255,0.7); background:rgba(0,0,0,0.35);
       padding:1px 6px; border-radius:8px; white-space:nowrap;
       letter-spacing:0.3px;
@@ -1620,21 +1664,21 @@
     /* ── Pot Odds Badge (on felt, near pot) ── */
     .replayer-pot-odds-badge {
       position:absolute; right:15%; top:35%; transform:translate(50%,-50%);
-      z-index:3; font-size:0.44rem; font-family:'Oswald',sans-serif; font-weight:600;
+      z-index:3; font-size:0.44rem; font-family:'Univers Condensed','Univers',sans-serif; font-weight:600;
       color:#60a5fa; background:rgba(59,130,246,0.15);
       border:1px solid rgba(59,130,246,0.3);
       padding:1px 6px; border-radius:8px; white-space:nowrap;
     }
     /* ── Bet Sizing Label ── */
     .replayer-bet-sizing {
-      font-size:0.38rem; font-family:'Oswald',sans-serif; color:rgba(255,255,255,0.6);
+      font-size:0.38rem; font-family:'Univers Condensed','Univers',sans-serif; color:rgba(255,255,255,0.6);
       text-transform:uppercase; letter-spacing:0.3px; margin-top:1px;
       text-align:center; white-space:nowrap;
     }
     /* ── Range Estimation Dot/Label ── */
     .replayer-range-label {
-      font-size:0.36rem; font-family:'Oswald',sans-serif; font-weight:600;
-      padding:0px 4px; border-radius:3px; display:inline-block;
+      font-size:0.36rem; font-family:'Univers Condensed','Univers',sans-serif; font-weight:600;
+      line-height:1; padding:1px 4px; border-radius:3px; display:inline-flex; align-items:center; justify-content:center;
       margin-top:1px; text-transform:uppercase; letter-spacing:0.2px;
     }
     .replayer-range-strong { background:rgba(239,68,68,0.2); color:#f87171; }
@@ -1643,7 +1687,7 @@
     .replayer-range-passive { background:rgba(34,197,94,0.2); color:#4ade80; }
     /* ── Running Chip Count ── */
     .replayer-chip-delta {
-      font-size:0.42rem; font-family:'Oswald',sans-serif; font-weight:600;
+      font-size:0.42rem; font-family:'Univers Condensed','Univers',sans-serif; font-weight:600;
       margin-top:0px; text-align:center;
     }
     .replayer-chip-delta.positive { color:#4ade80; }
@@ -1659,7 +1703,7 @@
     }
     .replayer-equity-fill { height:100%; border-radius:2px; transition:width 0.4s ease-out; }
     .replayer-equity-pct {
-      font-size:0.38rem; font-family:'Oswald',sans-serif; font-weight:600; white-space:nowrap;
+      font-size:0.38rem; font-family:'Univers Condensed','Univers',sans-serif; font-weight:600; white-space:nowrap;
     }
     /* ── Hand Notes ── */
     .replayer-notes-area {
@@ -1667,18 +1711,18 @@
       border:1px solid var(--border); border-radius:6px;
     }
     .replayer-notes-area label {
-      font-size:0.55rem; font-family:'Oswald',sans-serif; color:var(--text-muted);
+      font-size:0.55rem; font-family:'Univers Condensed','Univers',sans-serif; color:var(--text-muted);
       text-transform:uppercase; letter-spacing:0.4px; display:block; margin-bottom:3px;
     }
     .replayer-notes-area textarea {
       width:100%; min-height:48px; resize:vertical; background:var(--bg); color:var(--text);
       border:1px solid var(--border); border-radius:4px; padding:4px 6px;
-      font-size:0.65rem; font-family:'Oswald',sans-serif; line-height:1.4;
+      font-size:0.65rem; font-family:'Univers Condensed','Univers',sans-serif; line-height:1.4;
     }
     .replayer-notes-area textarea:focus { outline:none; border-color:var(--accent); }
     /* ── Enhanced Timeline with street color segments ── */
     .replayer-timeline-street-label {
-      font-size:0.36rem; font-family:'Oswald',sans-serif; text-transform:uppercase;
+      font-size:0.36rem; font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase;
       letter-spacing:0.3px; padding:0 2px; flex-shrink:0; opacity:0.7;
     }
     .replayer-timeline-dot.street-preflop { background:#9ca3af; }
@@ -1832,7 +1876,7 @@
     /* ── Player stats overlay ── */
     .replayer-player-stats {
       position:absolute; top:-2px; right:-2px;
-      font-size:0.42rem; font-family:'Oswald',sans-serif; color:var(--text-muted);
+      font-size:0.42rem; font-family:'Univers Condensed','Univers',sans-serif; color:var(--text-muted);
       background:var(--surface2); padding:1px 4px; border-radius:3px;
       border:1px solid var(--border); white-space:nowrap; z-index:5;
     }
@@ -1935,9 +1979,10 @@
       background: none;
       border: none;
       color: var(--text-muted);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.65rem;
       font-weight: 600;
+      line-height: 1;
       cursor: pointer;
       transition: color 0.2s;
       padding: 6px 0;
@@ -1992,7 +2037,7 @@
       border-radius: var(--radius-sm);
       background: var(--bg);
       color: var(--text);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 1rem;
       transition: border-color 0.2s;
     }
@@ -2011,7 +2056,7 @@
       padding: 13px 20px;
       border: none;
       border-radius: var(--radius-sm);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
@@ -2072,7 +2117,7 @@
       pointer-events: auto;
       padding: 10px 16px;
       border-radius: var(--radius-sm);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.8rem;
       font-weight: 500;
       letter-spacing: 0.02em;
@@ -2171,7 +2216,7 @@
       margin-bottom: 24px;
     }
     .settings-section-label {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -2252,7 +2297,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       color: var(--text);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.82rem;
       padding: 6px 10px;
       width: 100%;
@@ -2306,7 +2351,7 @@
       background: none;
       border: none;
       color: var(--text);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.95rem;
       padding: 12px 0;
       min-width: 0;
@@ -2325,6 +2370,7 @@
     .filter-chip {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
       padding: 7px 12px;
       background: var(--surface);
@@ -2332,6 +2378,7 @@
       border-radius: 20px;
       font-size: 0.82rem;
       font-weight: 600;
+      line-height: 1;
       color: var(--text-muted);
       cursor: pointer;
       white-space: nowrap;
@@ -2366,7 +2413,7 @@
       border-radius: var(--radius-sm);
       background: var(--bg);
       color: var(--text);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.9rem;
       width: 100%;
     }
@@ -2409,7 +2456,7 @@
     .date-slider-labels {
       display: flex; justify-content: space-between; align-items: center;
       font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;
-      font-family: 'Oswald', sans-serif; font-weight: 400;
+      font-family: 'Univers Condensed', 'Univers', sans-serif; font-weight: 400;
     }
     .date-slider-labels span { min-width: 50px; }
     .date-slider-labels span:last-child { text-align: right; }
@@ -2482,11 +2529,15 @@
     .t-card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
     .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       font-size: 0.72rem;
       font-weight: 700;
       padding: 3px 9px;
       border-radius: 20px;
       letter-spacing: 0.03em;
+      line-height: 1;
     }
 
     .badge-event { background: rgba(136,136,136,0.2); color: #999999; }
@@ -2572,12 +2623,14 @@
     .countdown-pill {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 4px;
       background: rgba(160,160,160,0.1);
       border: 1px solid rgba(160,160,160,0.25);
       color: var(--accent);
       font-size: 0.78rem;
       font-weight: 700;
+      line-height: 1;
       padding: 3px 10px;
       border-radius: 20px;
       margin-top: 8px;
@@ -2663,7 +2716,7 @@
     .cal-date-btn.has-events { border-color: rgba(160,160,160,0.5); }
 
     .cal-date-btn .dow {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.65rem;
       font-weight: 700;
       text-transform: uppercase;
@@ -2674,7 +2727,7 @@
     .cal-date-btn.active .dow { color: var(--bg-contrast); }
 
     .cal-date-btn .dom {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 1.1rem;
       font-weight: 800;
       color: var(--text);
@@ -2767,10 +2820,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      align-content: center;
       writing-mode: vertical-rl;
       text-orientation: mixed;
       transform: rotate(180deg);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.48rem;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -2779,9 +2833,12 @@
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
       position: relative;
       user-select: none;
-      padding: 4px 0;
+      padding: 0 2px 0 0;
       white-space: nowrap;
       overflow: hidden;
+      text-align: center;
+      line-height: 22px;
+      box-sizing: border-box;
     }
 
     .cal-event-row.open .cal-venue-strip {
@@ -2833,13 +2890,17 @@
 
     /* conditional saved border color applied inline via venue brand color */
     .cal-condition-label {
-      font-family: 'Oswald', sans-serif;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.6rem;
       font-weight: 600;
+      line-height: 1;
       color: var(--text-muted);
       background: rgba(136,136,136,0.12);
       border: 1px solid rgba(136,136,136,0.25);
-      padding: 1px 6px;
+      padding: 2px 6px;
       border-radius: 3px;
       white-space: nowrap;
       letter-spacing: 0.02em;
@@ -2887,7 +2948,7 @@
     .bust-list-toggle {
       display: flex; align-items: center; justify-content: space-between;
       width: 100%; padding: 10px 12px; border: none; background: none;
-      color: var(--text-muted); font-family: 'Oswald', sans-serif; font-size: 0.78rem;
+      color: var(--text-muted); font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.78rem;
       font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer;
     }
     .bust-list-toggle:hover { color: var(--text); }
@@ -2932,7 +2993,7 @@
       border-radius: var(--radius-sm);
       background: var(--bg);
       color: var(--text-muted);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.78rem;
       font-weight: 600;
       cursor: pointer;
@@ -2977,7 +3038,7 @@
       border-radius: var(--radius-sm);
       background: var(--bg);
       color: var(--text);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.82rem;
       width: 100%;
       box-sizing: border-box;
@@ -3101,7 +3162,7 @@
     }
 
     .cal-venue-chip {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.62rem;
       font-weight: 700;
       letter-spacing: 0.06em;
@@ -3327,7 +3388,7 @@
       font-weight: 600;
       cursor: pointer;
       padding: 2px 6px;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       text-transform: uppercase;
       letter-spacing: 0.03em;
     }
@@ -3554,7 +3615,7 @@
       top: -5px;
     }
     .mini-late-reg-time {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.58rem;
       font-weight: 600;
       letter-spacing: 0.03em;
@@ -3656,7 +3717,7 @@
     }
 
     .dashboard-section-title {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.85rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -3694,7 +3755,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.45rem;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -3702,6 +3763,8 @@
       color: rgba(255,255,255,0.85);
       user-select: none;
       overflow: hidden;
+      line-height: 1;
+      text-align: center;
     }
 
     .dash-event-card.playing .dash-venue-strip,
@@ -3755,7 +3818,7 @@
       flex-shrink: 0;
     }
     .dash-collapsed-time {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.72rem;
       font-weight: 600;
       color: var(--text-muted);
@@ -3763,7 +3826,7 @@
       flex-shrink: 0;
     }
     .dash-collapsed-name {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.78rem;
       font-weight: 500;
       color: var(--text);
@@ -3773,7 +3836,7 @@
       white-space: nowrap;
     }
     .dash-collapsed-buyin {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.72rem;
       font-weight: 600;
       color: var(--text-muted);
@@ -3788,7 +3851,7 @@
       flex-shrink: 0;
     }
     .dash-collapsed-countdown {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.68rem;
       font-weight: 500;
       color: var(--text-muted);
@@ -3814,7 +3877,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.82rem;
       color: var(--text);
       padding: 4px 0;
@@ -3929,7 +3992,7 @@
     }
 
     .dash-stat-value {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.9rem;
       font-weight: 600;
       color: var(--text);
@@ -3995,7 +4058,7 @@
       border-radius: var(--radius-sm);
       background: var(--surface2);
       color: var(--text);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.78rem;
       font-weight: 600;
       cursor: pointer;
@@ -4025,7 +4088,7 @@
       border-radius: var(--radius-sm);
       background: color-mix(in srgb, var(--accent) 8%, transparent);
       color: var(--accent);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.78rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -4076,7 +4139,7 @@
     .dash-bag-btn, .dash-bust-btn, .dash-update-btn {
       padding: 8px 14px;
       border-radius: var(--radius-sm);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.72rem;
       font-weight: 600;
       cursor: pointer;
@@ -4108,7 +4171,7 @@
     .dash-rebuy-btn {
       padding: 8px 14px;
       border-radius: var(--radius-sm);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.72rem;
       font-weight: 600;
       cursor: pointer;
@@ -4122,7 +4185,7 @@
 
     .dash-no-rebuy {
       padding: 8px 10px;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.65rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -4142,7 +4205,7 @@
       border-radius: var(--radius-sm);
       background: var(--surface2);
       color: var(--text-muted);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.78rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -4160,7 +4223,7 @@
       border-radius: var(--radius-sm);
       background: color-mix(in srgb, #22c55e 8%, transparent);
       color: #22c55e;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.78rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -4235,7 +4298,7 @@
     }
 
     .dash-pl-value {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.95rem;
       font-weight: 700;
       color: var(--text);
@@ -4281,7 +4344,7 @@
       justify-content: space-between;
       align-items: center;
       padding: 5px 12px;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.75rem;
     }
     .dash-pl-dropdown-venue {
@@ -4344,7 +4407,7 @@
     .dash-conn-avatar:hover { background: var(--hover-overlay); }
     .dash-conn-avatar .conn-name {
       font-size: 0.55rem;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       color: var(--text-muted);
       text-align: center;
       max-width: 44px;
@@ -4371,7 +4434,7 @@
       border: none;
       background: none;
       color: var(--text-muted);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.65rem;
       flex-shrink: 0;
     }
@@ -4409,7 +4472,7 @@
       min-width: 0;
     }
     .dash-friend-chip .friend-name {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.75rem;
       font-weight: 600;
       color: var(--text);
@@ -4418,7 +4481,7 @@
       text-overflow: ellipsis;
     }
     .dash-friend-chip .friend-event {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.65rem;
       color: var(--text-muted);
       white-space: nowrap;
@@ -4426,7 +4489,7 @@
       text-overflow: ellipsis;
     }
     .dash-friend-chip .friend-stack {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.65rem;
       color: #22c55e;
       white-space: nowrap;
@@ -4449,7 +4512,7 @@
     .dash-conn-dropdown.above { bottom: calc(100% + 4px); }
     .dash-conn-dropdown.below { top: calc(100% + 4px); }
     .dash-conn-dropdown-name {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-weight: 600;
       font-size: 0.8rem;
       color: var(--text);
@@ -4509,7 +4572,7 @@
     }
 
     .social-buddy-name {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-weight: 600;
       font-size: 0.88rem;
     }
@@ -4561,7 +4624,7 @@
     .social-detail-label {
       color: var(--text-muted);
       text-transform: uppercase;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-weight: 500;
       letter-spacing: 0.04em;
       font-size: 0.65rem;
@@ -4598,7 +4661,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-weight: 700;
       font-size: 16px;
       flex-shrink: 0;
@@ -4654,7 +4717,7 @@
       background: none;
       border: none;
       color: var(--text-secondary);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       font-size: 12px;
@@ -4705,7 +4768,7 @@
     }
 
     .group-feed-item-name {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-weight: 600;
       font-size: 0.82rem;
     }
@@ -4753,7 +4816,7 @@
       border: none;
       border-radius: var(--radius);
       padding: 8px 16px;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       text-transform: uppercase;
       font-weight: 600;
       font-size: 12px;
@@ -4832,7 +4895,7 @@
 
     .create-group-label {
       display: block;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       font-size: 0.7rem;
@@ -4890,7 +4953,7 @@
       border: none;
       border-radius: var(--radius);
       padding: 10px 0;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       text-transform: uppercase;
       font-weight: 700;
       font-size: 14px;
@@ -5121,7 +5184,7 @@
       border-bottom: 1px solid var(--border);
     }
     .notif-panel-title {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       text-transform: uppercase;
       font-size: 0.85rem;
       font-weight: 600;
@@ -5131,7 +5194,7 @@
     .notif-section { padding: 8px 0; border-bottom: 1px solid var(--border); }
     .notif-section:last-child { border-bottom: none; }
     .notif-section-title {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       text-transform: uppercase;
       font-size: 0.6rem;
       font-weight: 600;
@@ -5157,6 +5220,7 @@
     .btn-xs {
       padding: 3px 10px !important;
       font-size: 11px !important;
+      line-height: 1 !important;
       border-radius: 6px !important;
     }
     .notif-item-info { opacity: 0.75; }
@@ -5193,7 +5257,7 @@
       border-right: 1px solid var(--border);
       background: transparent;
       color: var(--text-muted);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.62rem;
       font-weight: 500;
       cursor: pointer;
@@ -5231,7 +5295,7 @@
     }
 
     .placeholder-view h2 {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 1.1rem;
       font-weight: 600;
       color: var(--text);
@@ -5263,7 +5327,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       color: var(--text);
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.85rem;
       font-weight: 600;
       cursor: pointer;
@@ -5320,7 +5384,7 @@
       max-height: 70vh; overflow-y: auto;
     }
     .share-menu-panel h3 {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 1.1rem; font-weight: 600;
       color: var(--text); margin: 0 0 14px;
     }
@@ -5344,7 +5408,7 @@
       font-size: 1.5rem; line-height: 1;
     }
     .share-menu-item .share-label {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.78rem; font-weight: 500;
       color: var(--text);
     }
@@ -5374,7 +5438,7 @@
       font-size: 3rem; margin-bottom: 12px;
     }
     .milestone-modal .milestone-title {
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 1.3rem; font-weight: 700;
       color: #fbbf24; margin-bottom: 8px;
     }
@@ -5394,13 +5458,17 @@
     .wrapup-slide-picker button {
       flex: 0 0 auto;
       padding: 6px 14px;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.75rem; font-weight: 500;
+      line-height: 1;
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
       background: var(--surface2);
       color: var(--text-muted);
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     .wrapup-slide-picker button.active {
       border-color: #22c55e; color: #22c55e;
@@ -5408,10 +5476,11 @@
 
     /* Share button style */
     .btn-share-overlay {
-      display: inline-flex; align-items: center; gap: 6px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       padding: 8px 14px;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.8rem; font-weight: 500;
+      line-height: 1;
       background: var(--surface2);
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);

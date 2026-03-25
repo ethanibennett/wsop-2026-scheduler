@@ -127,12 +127,12 @@
             style={{
               width:'100%',boxSizing:'border-box',padding:'8px 12px',
               border:'1.5px solid var(--border)',borderRadius:'var(--radius-sm)',
-              background:'var(--bg)',color:'var(--text)',fontFamily:"'Oswald',sans-serif",
+              background:'var(--bg)',color:'var(--text)',fontFamily:"'Univers Condensed','Univers',sans-serif",
               fontSize:'0.82rem',outline:'none',
             }}
           />
           {searchMsg && (
-            <div style={{fontSize:'0.7rem',color:'var(--accent)',fontFamily:"'Oswald',sans-serif",marginTop:'4px'}}>{searchMsg}</div>
+            <div style={{fontSize:'0.7rem',color:'var(--accent)',fontFamily:"'Univers Condensed','Univers',sans-serif",marginTop:'4px'}}>{searchMsg}</div>
           )}
           {(searchResults.length > 0 || searchLoading) && searchQuery.trim().length >= 2 && (
             <div style={{
@@ -143,7 +143,7 @@
               boxShadow:'0 4px 16px rgba(0,0,0,0.3)',
             }}>
               {searchLoading && !searchResults.length && (
-                <div style={{padding:'10px 12px',fontSize:'0.75rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif"}}>Searching...</div>
+                <div style={{padding:'10px 12px',fontSize:'0.75rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>Searching...</div>
               )}
               {searchResults.map(u => (
                 <div key={u.id} style={{
@@ -152,25 +152,25 @@
                 }}>
                   <Avatar src={u.avatar} username={u.username} size={28} />
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:'0.78rem',fontWeight:600,color:'var(--text)',fontFamily:"'Oswald',sans-serif",overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    <div style={{fontSize:'0.78rem',fontWeight:600,color:'var(--text)',fontFamily:"'Univers Condensed','Univers',sans-serif",overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                       {u.real_name || u.username}
                     </div>
                     {u.real_name && (
-                      <div style={{fontSize:'0.62rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif"}}>@{u.username}</div>
+                      <div style={{fontSize:'0.62rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>@{u.username}</div>
                     )}
                   </div>
                   <button
                     onClick={() => handleSendRequest(u.username)}
                     style={{
                       padding:'3px 10px',borderRadius:'6px',border:'1px solid var(--accent)',
-                      background:'transparent',color:'var(--accent)',fontFamily:"'Oswald',sans-serif",
+                      background:'transparent',color:'var(--accent)',fontFamily:"'Univers Condensed','Univers',sans-serif",
                       fontSize:'0.65rem',cursor:'pointer',whiteSpace:'nowrap',
                     }}
                   >Connect</button>
                 </div>
               ))}
               {!searchLoading && searchResults.length === 0 && searchQuery.trim().length >= 2 && (
-                <div style={{padding:'10px 12px',fontSize:'0.75rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif"}}>No users found</div>
+                <div style={{padding:'10px 12px',fontSize:'0.75rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>No users found</div>
               )}
             </div>
           )}
@@ -347,7 +347,7 @@
                       }
                       return (
                         <div style={{borderTop:'1px solid var(--border)',marginTop:'4px',paddingTop:'4px'}}>
-                          <div style={{padding:'6px 12px 4px',fontSize:'0.72rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',fontFamily:'Oswald, sans-serif'}}>
+                          <div style={{padding:'6px 12px 4px',fontSize:'0.72rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',fontFamily:'Univers Condensed, Univers, sans-serif'}}>
                             Upcoming Schedule ({upcoming.length} event{upcoming.length !== 1 ? 's' : ''})
                           </div>
                           <div style={{display:'grid',gridTemplateColumns:'auto auto auto auto 1fr auto',gap:'0 6px',padding:'0 12px',fontSize:'0.8rem',alignItems:'center'}}>
@@ -383,7 +383,7 @@
                         {myGroups && myGroups.length > 0 && (
                           addToGroupBuddyId === buddy.id ? (
                             <div>
-                              <div style={{fontSize:'0.72rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',fontFamily:'Oswald, sans-serif',marginBottom:'6px'}}>
+                              <div style={{fontSize:'0.72rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',fontFamily:'Univers Condensed, Univers, sans-serif',marginBottom:'6px'}}>
                                 Add to Group
                               </div>
                               {myGroups.map(g => {
@@ -415,7 +415,7 @@
                               onClick={(e) => { e.stopPropagation(); setAddToGroupBuddyId(buddy.id); }}
                               style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',
                                 color:'var(--text)',cursor:'pointer',fontSize:'0.8rem',padding:'6px 12px',width:'100%',
-                                fontFamily:'Oswald, sans-serif'}}
+                                fontFamily:'Univers Condensed, Univers, sans-serif'}}
                             >+ Add to Group</button>
                           )
                         )}
@@ -440,7 +440,7 @@
                             onClick={(e) => { e.stopPropagation(); setConfirmRemoveId(buddy.id); }}
                             style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',
                               color:'#b91c1c',cursor:'pointer',fontSize:'0.8rem',padding:'6px 12px',width:'100%',
-                              fontFamily:'Oswald, sans-serif'}}
+                              fontFamily:'Univers Condensed, Univers, sans-serif'}}
                           >Remove Connection</button>
                         )}
                       </div>
@@ -523,7 +523,7 @@
         <div className="create-group-modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
           <div className="create-group-panel">
             <div className="create-group-header">
-              <h3 style={{margin:0,fontFamily:'Oswald, sans-serif',textTransform:'uppercase',letterSpacing:1}}>Create Group</h3>
+              <h3 style={{margin:0,fontFamily:'Univers Condensed, Univers, sans-serif',textTransform:'uppercase',letterSpacing:1}}>Create Group</h3>
               <button onClick={onClose} style={{background:'none',border:'none',color:'var(--text)',fontSize:20,cursor:'pointer',padding:4}}>✕</button>
             </div>
 
@@ -916,7 +916,7 @@
                 )}
               </div>
 
-              <div style={{fontSize:11,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontFamily:'Oswald, sans-serif',marginBottom:6}}>
+              <div style={{fontSize:11,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontFamily:'Univers Condensed, Univers, sans-serif',marginBottom:6}}>
                 Members ({members.length || group.member_count})
               </div>
               {members.map(m => (
@@ -935,7 +935,7 @@
               {/* Pending invites */}
               {pendingInvites.length > 0 && (
                 <div style={{marginBottom:12}}>
-                  <div style={{fontSize:11,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontFamily:'Oswald, sans-serif',marginBottom:6}}>
+                  <div style={{fontSize:11,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontFamily:'Univers Condensed, Univers, sans-serif',marginBottom:6}}>
                     Pending Invites
                   </div>
                   {pendingInvites.map(inv => (
@@ -954,7 +954,7 @@
               {/* Owner settings */}
               {isOwner && (
                 <div className="leaderboard-toggle-section">
-                  <div style={{fontSize:11,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontFamily:'Oswald, sans-serif',marginBottom:8}}>
+                  <div style={{fontSize:11,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,fontFamily:'Univers Condensed, Univers, sans-serif',marginBottom:8}}>
                     Owner Settings
                   </div>
                   <div className="leaderboard-toggle-row">

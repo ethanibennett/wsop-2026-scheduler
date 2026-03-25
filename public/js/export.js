@@ -13,13 +13,13 @@
 
       // Tournament name
       const nameS = Math.round(h * 0.018);
-      ctx.font = nameS + 'px Oswald, sans-serif';
+      ctx.font = nameS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.75)';
       ctx.fillText(data.tournamentName || '', padX, barY + Math.round(barH * 0.10));
 
       // Position: "152nd of 8,000"
       const posS = Math.round(h * 0.032);
-      ctx.font = '600 ' + posS + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + posS + 'px Univers Condensed, Univers, sans-serif';
       const posNum = data.placesLeft ? Number(data.placesLeft) : '?';
       const totalNum = data.totalEntries ? Number(data.totalEntries).toLocaleString() : '?';
       ctx.fillStyle = '#ffffff';
@@ -27,13 +27,13 @@
       const posWidth = ctx.measureText(posText).width;
       ctx.fillText(posText, padX, barY + Math.round(barH * 0.24));
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.font = Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.022) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillText(' of ' + totalNum, padX + posWidth, barY + Math.round(barH * 0.24));
 
       // Stack display
       if (data.stack) {
         ctx.fillStyle = '#22c55e';
-        ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.022) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillText(formatChips(data.stack) + ' chips', padX, barY + Math.round(barH * 0.34));
       }
 
@@ -80,7 +80,7 @@
           ctx.beginPath(); ctx.moveTo(padX, ssY); ctx.lineTo(padR, ssY); ctx.stroke();
           ctx.setLineDash([]);
           ctx.fillStyle = 'rgba(255,255,255,0.35)';
-          ctx.font = Math.round(h * 0.012) + 'px Oswald, sans-serif';
+          ctx.font = Math.round(h * 0.012) + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillText('start', padR - ctx.measureText('start').width, ssY - 3);
         }
 
@@ -116,20 +116,20 @@
 
         // Y-axis labels (min/max)
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.font = Math.round(h * 0.011) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.011) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillText(formatChips(maxS), padX, chartY - 3);
         ctx.fillText(formatChips(minS), padX, chartY + chartH + Math.round(h * 0.013));
       } else {
         // No history — show placeholder
         const phY = barY + Math.round(barH * 0.65);
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillText('Post more updates to see your stack graph', padX, phY);
       }
 
       // Watermark
       const wms = Math.round(h * 0.014);
-      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.font = wms + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
     }
@@ -150,20 +150,20 @@
 
       // "FINAL TABLE" header
       const headerS = Math.round(h * 0.030);
-      ctx.font = '600 ' + headerS + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + headerS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#f59e0b';
       ctx.fillText('\u{1F3C6} FINAL TABLE', padX, barY + Math.round(barH * 0.20));
 
       // Event name + buyin
       const nameS = Math.round(h * 0.022);
-      ctx.font = '600 ' + nameS + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + nameS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       const buyinStr = data.buyin ? '$' + Number(data.buyin).toLocaleString() + ' ' : '';
       ctx.fillText(buyinStr + (data.tournamentName || ''), padX, barY + Math.round(barH * 0.40));
 
       // Players remaining
       const plS = Math.round(h * 0.020);
-      ctx.font = plS + 'px Oswald, sans-serif';
+      ctx.font = plS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       const plText = data.placesLeft ? data.placesLeft + ' players remain' : '';
       const entText = data.totalEntries ? ' of ' + Number(data.totalEntries).toLocaleString() + ' entries' : '';
@@ -171,7 +171,7 @@
 
       // Stack + 1st place prize
       const statsS = Math.round(h * 0.024);
-      ctx.font = '600 ' + statsS + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + statsS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       const parts = [];
       if (data.stack) parts.push(formatChips(data.stack) + ' chips');
@@ -182,13 +182,13 @@
       if (data.stack && data.bb) {
         const bbCount = (Number(data.stack) / Number(data.bb)).toFixed(1).replace(/\.0$/, '');
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillText('(' + bbCount + 'bb)', padX, barY + Math.round(barH * 0.90));
       }
 
       // Watermark
       const wms = Math.round(h * 0.014);
-      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.font = wms + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
     }
@@ -205,7 +205,7 @@
 
       // "NEXT UP" label
       const labelS = Math.round(h * 0.016);
-      ctx.font = '600 ' + labelS + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + labelS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '2px';
       ctx.fillText('NEXT UP', padX, barY + Math.round(barH * 0.18));
@@ -213,26 +213,26 @@
 
       // Event name + buyin
       const nameS = Math.round(h * 0.026);
-      ctx.font = '600 ' + nameS + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + nameS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       const buyinStr = data.buyin ? '$' + Number(data.buyin).toLocaleString() + ' ' : '';
       ctx.fillText(buyinStr + (data.tournamentName || ''), padX, barY + Math.round(barH * 0.42));
 
       // Venue
       const venueS = Math.round(h * 0.018);
-      ctx.font = venueS + 'px Oswald, sans-serif';
+      ctx.font = venueS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       ctx.fillText(data.venue || '', padX, barY + Math.round(barH * 0.60));
 
       // Countdown
       const countS = Math.round(h * 0.030);
-      ctx.font = '600 ' + countS + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + countS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.fillText('in ' + (data.timeUntil || '—'), padX, barY + Math.round(barH * 0.85));
 
       // Watermark
       const wms = Math.round(h * 0.014);
-      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.font = wms + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
     }
@@ -259,7 +259,7 @@
     // Shared helper: draw futurega.me watermark
     function drawWatermark(ctx, w, h, pos) {
       const wms = Math.round(h * 0.016);
-      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.font = wms + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       if (pos === 'bottom-center') {
         ctx.textAlign = 'center';
@@ -333,13 +333,13 @@
         return btoa(bin);
       }
       const base = 'https://cdn.jsdelivr.net/fontsource/fonts/';
-      const [lbReg, lbBold, osReg, osBold] = await Promise.all([
+      const [lbReg, lbBold, ucReg, ucBold] = await Promise.all([
         fetchFont(base + 'libre-baskerville@latest/latin-400-normal.ttf'),
         fetchFont(base + 'libre-baskerville@latest/latin-700-normal.ttf'),
-        fetchFont(base + 'oswald@latest/latin-400-normal.ttf'),
-        fetchFont(base + 'oswald@latest/latin-700-normal.ttf'),
+        fetchFont('/fonts/univers-condensed.ttf'),
+        fetchFont('/fonts/univers-bold-condensed.ttf'),
       ]);
-      _pdfFontCache = { lbReg, lbBold, osReg, osBold };
+      _pdfFontCache = { lbReg, lbBold, ucReg, ucBold };
       return _pdfFontCache;
     }
 
@@ -361,12 +361,12 @@
         doc.addFont('LibreBaskerville-Regular.ttf', 'LibreBaskerville', 'normal');
         doc.addFileToVFS('LibreBaskerville-Bold.ttf', fonts.lbBold);
         doc.addFont('LibreBaskerville-Bold.ttf', 'LibreBaskerville', 'bold');
-        doc.addFileToVFS('Oswald-Regular.ttf', fonts.osReg);
-        doc.addFont('Oswald-Regular.ttf', 'Oswald', 'normal');
-        doc.addFileToVFS('Oswald-Bold.ttf', fonts.osBold);
-        doc.addFont('Oswald-Bold.ttf', 'Oswald', 'bold');
+        doc.addFileToVFS('UniversCondensed-Regular.ttf', fonts.ucReg);
+        doc.addFont('UniversCondensed-Regular.ttf', 'UniversCondensed', 'normal');
+        doc.addFileToVFS('UniversCondensed-Bold.ttf', fonts.ucBold);
+        doc.addFont('UniversCondensed-Bold.ttf', 'UniversCondensed', 'bold');
         FONT_DATE = 'LibreBaskerville';
-        FONT_BODY = 'Oswald';
+        FONT_BODY = 'UniversCondensed';
       } catch (e) {
         console.warn('PDF custom fonts unavailable, using fallback:', e.message);
       }
@@ -745,7 +745,7 @@
 
       // ── Title area ──
       ctx.textAlign = 'left';
-      ctx.font = '700 42px Oswald, sans-serif';
+      ctx.font = '700 42px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = cTEXT;
       ctx.fillText(title || 'MY SCHEDULE', pad, 80);
 
@@ -756,7 +756,7 @@
         return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       };
       const rangeStr = fmtD(allDates[0]) + ' \u2013 ' + fmtD(allDates[allDates.length - 1]);
-      ctx.font = '400 24px Oswald, sans-serif';
+      ctx.font = '400 24px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = cTEXT_MUT;
       ctx.fillText(rangeStr, pad, 112);
 
@@ -772,7 +772,7 @@
 
       // ── Column header row ──
       const headerY = 155;
-      ctx.font = '700 20px Oswald, sans-serif';
+      ctx.font = '700 20px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = cTEXT_MUT;
       ctx.textAlign = 'left';
       ctx.fillText('DATE', colDate, headerY);
@@ -832,7 +832,7 @@
         }
 
         // TIME column
-        ctx.font = '400 22px Oswald, sans-serif';
+        ctx.font = '400 22px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = cTEXT;
         ctx.textAlign = 'right';
         ctx.fillText(ev.time || 'TBD', colTime + 110, textY);
@@ -840,7 +840,7 @@
         // VENUE column — brand color
         const venue = getVenueInfo(ev.venue);
         const venueColor = getCanvasVenueColor(ev.venue);
-        ctx.font = '400 20px Oswald, sans-serif';
+        ctx.font = '400 20px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = venueColor;
         ctx.textAlign = 'center';
         const venueName = venue.longName || venue.abbr;
@@ -853,7 +853,7 @@
         ctx.fillText(venueDisplay, colVenue + 85, textY);
 
         // EVENT column — primary text, truncate with ellipsis
-        ctx.font = '400 22px Oswald, sans-serif';
+        ctx.font = '400 22px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = cEVENT;
         ctx.textAlign = 'left';
         let eventName = ev.event_name || '';
@@ -865,7 +865,7 @@
 
         // BUY-IN column — right-aligned, accent
         const buyinText = ev.buyin ? formatBuyin(ev.buyin, ev.venue) : '\u2014';
-        ctx.font = '700 22px Oswald, sans-serif';
+        ctx.font = '700 22px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = cTEXT_ACC;
         ctx.textAlign = 'right';
         ctx.fillText(buyinText, colBuyin + 100, textY);
@@ -873,7 +873,7 @@
         // ENTRIES column — centered, muted
         const planned = ev.planned_entries || 1;
         const entriesStr = planned + (planned === 1 ? ' Entry' : ' Entries');
-        ctx.font = '400 20px Oswald, sans-serif';
+        ctx.font = '400 20px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = cTEXT_MUT;
         ctx.textAlign = 'center';
         ctx.fillText(entriesStr, colEntries + 50, textY);
@@ -882,7 +882,7 @@
       }
 
       // ── Footer ──
-      ctx.font = '400 20px Oswald, sans-serif';
+      ctx.font = '400 20px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = cTEXT_MUT;
       ctx.textAlign = 'left';
       ctx.fillText('Generated by futurega.me', pad, h - 50);
@@ -932,13 +932,13 @@
 
       // Title section
       const titleY = Math.round(h * 0.06);
-      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '3px';
       ctx.fillText('STACK TRACKER', padX, titleY);
       ctx.letterSpacing = '0px';
 
-      ctx.font = '600 ' + Math.round(h * 0.024) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.024) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(data.tournamentName || '', padX, titleY + Math.round(h * 0.035));
 
@@ -948,7 +948,7 @@
 
       if (history.length < 2) {
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.018) + 'px Univers Condensed, Univers, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('Need 2+ updates for stack graph', w / 2, h / 2);
         ctx.textAlign = 'left';
@@ -980,7 +980,7 @@
         ctx.beginPath(); ctx.moveTo(padX, gy); ctx.lineTo(padR, gy); ctx.stroke();
 
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
-        ctx.font = Math.round(h * 0.012) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.012) + 'px Univers Condensed, Univers, sans-serif';
         ctx.textAlign = 'right';
         ctx.fillText(formatChips(Math.round(val)), padX - 8, gy + 4);
 
@@ -1002,7 +1002,7 @@
           ctx.beginPath(); ctx.moveTo(padX, ssY); ctx.lineTo(padR, ssY); ctx.stroke();
           ctx.setLineDash([]);
           ctx.fillStyle = 'rgba(255,255,255,0.3)';
-          ctx.font = Math.round(h * 0.011) + 'px Oswald, sans-serif';
+          ctx.font = Math.round(h * 0.011) + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillText('Starting Stack', padX, ssY - 6);
         }
       }
@@ -1053,7 +1053,7 @@
         if (entry.is_busted) { label = 'BUST'; color = '#f87171'; }
 
         if (label) {
-          ctx.font = '600 ' + labelSize + 'px Oswald, sans-serif';
+          ctx.font = '600 ' + labelSize + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = color;
           ctx.textAlign = 'center';
           ctx.fillText(label, p.x, p.y - 12);
@@ -1063,7 +1063,7 @@
 
       // Time axis (X)
       const xLabelSize = Math.round(h * 0.010);
-      ctx.font = xLabelSize + 'px Oswald, sans-serif';
+      ctx.font = xLabelSize + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
       const showIndices = [0, Math.floor(history.length / 2), history.length - 1].filter((v, i, a) => a.indexOf(v) === i);
       showIndices.forEach(i => {
@@ -1079,13 +1079,13 @@
       // Current stack display at bottom
       const currentStack = stacks[stacks.length - 1];
       const statY = Math.round(h * 0.85);
-      ctx.font = '600 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.040) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.textAlign = 'center';
       ctx.fillText(formatChips(currentStack), w / 2, statY);
 
       if (bb) {
-        ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.018) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.fillText((currentStack / bb).toFixed(1).replace(/\.0$/, '') + ' BB', w / 2, statY + Math.round(h * 0.03));
       }
@@ -1093,7 +1093,7 @@
       // Blinds level
       const lastEntry = history[history.length - 1];
       if (lastEntry.sb && lastEntry.bb) {
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.fillText('Blinds: ' + formatChips(lastEntry.sb) + '/' + formatChips(lastEntry.bb), w / 2, statY + Math.round(h * 0.055));
       }
@@ -1111,18 +1111,18 @@
       const padR = w - padX;
 
       // Header
-      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '3px';
       ctx.fillText('SERIES SCORECARD', padX, Math.round(h * 0.07));
       ctx.letterSpacing = '0px';
 
-      ctx.font = '600 ' + Math.round(h * 0.032) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.032) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(data.venueName || 'My Results', padX, Math.round(h * 0.12));
 
       if (data.dateRange) {
-        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.fillText(data.dateRange, padX, Math.round(h * 0.155));
       }
@@ -1137,12 +1137,12 @@
       const colW = Math.round((padR - padX) / 2);
 
       const drawStat = (label, value, x, y, color) => {
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.45)';
         ctx.letterSpacing = '1px';
         ctx.fillText(label.toUpperCase(), x, y);
         ctx.letterSpacing = '0px';
-        ctx.font = '600 ' + Math.round(h * 0.030) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.030) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = color || '#ffffff';
         ctx.fillText(value, x, y + Math.round(h * 0.038));
       };
@@ -1157,20 +1157,20 @@
 
       // Row 3: Net P&L (big, centered)
       const plY = statStartY + statRowH * 2 + Math.round(h * 0.02);
-      ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.45)';
       ctx.letterSpacing = '1px';
       ctx.textAlign = 'center';
       ctx.fillText('NET PROFIT / LOSS', w / 2, plY);
       ctx.letterSpacing = '0px';
       const pl = data.netPL || 0;
-      ctx.font = '700 ' + Math.round(h * 0.055) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.055) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = pl >= 0 ? '#22c55e' : '#f87171';
       ctx.fillText((pl >= 0 ? '+' : '') + formatBuyin(pl), w / 2, plY + Math.round(h * 0.06));
 
       // ROI
       const roi = data.roi || 0;
-      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = roi >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(248,113,113,0.7)';
       ctx.fillText((roi >= 0 ? '+' : '') + roi.toFixed(1) + '% ROI', w / 2, plY + Math.round(h * 0.095));
       ctx.textAlign = 'left';
@@ -1183,12 +1183,12 @@
       // Streak
       const streakY = div2Y + Math.round(h * 0.04);
       if (data.currentStreak) {
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.45)';
         ctx.letterSpacing = '1px';
         ctx.fillText('CURRENT STREAK', padX, streakY);
         ctx.letterSpacing = '0px';
-        ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.022) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#fbbf24';
         ctx.fillText(data.currentStreak, padX, streakY + Math.round(h * 0.035));
       }
@@ -1196,16 +1196,16 @@
       // Biggest cash
       if (data.biggestCash) {
         const bcY = streakY + (data.currentStreak ? Math.round(h * 0.08) : 0);
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.45)';
         ctx.letterSpacing = '1px';
         ctx.fillText('BIGGEST CASH', padX, bcY);
         ctx.letterSpacing = '0px';
-        ctx.font = '600 ' + Math.round(h * 0.026) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.026) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#fbbf24';
         ctx.fillText(formatBuyin(data.biggestCash), padX, bcY + Math.round(h * 0.035));
         if (data.biggestCashEvent) {
-          ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+          ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.4)';
           ctx.fillText(data.biggestCashEvent, padX, bcY + Math.round(h * 0.06));
         }
@@ -1223,13 +1223,13 @@
       const padR = w - padX;
 
       // Header
-      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '3px';
       ctx.fillText('DEEP RUN', padX, Math.round(h * 0.08));
       ctx.letterSpacing = '0px';
 
-      ctx.font = '600 ' + Math.round(h * 0.028) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.028) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       const buyinStr = data.buyin ? '$' + Number(data.buyin).toLocaleString() + ' ' : '';
       ctx.fillText(buyinStr + (data.tournamentName || ''), padX, Math.round(h * 0.12));
@@ -1245,16 +1245,16 @@
       // Big position display
       const posY = Math.round(h * 0.28);
       ctx.textAlign = 'center';
-      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       const posText = left + (typeof left === 'number' ? ordinalSuffix(left) : '');
       ctx.fillText(posText, w / 2, posY);
 
-      ctx.font = Math.round(h * 0.024) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.024) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
       ctx.fillText('of ' + total.toLocaleString() + ' entries', w / 2, posY + Math.round(h * 0.04));
 
-      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.fillText('Top ' + topPct + '%', w / 2, posY + Math.round(h * 0.08));
       ctx.textAlign = 'left';
@@ -1287,7 +1287,7 @@
       ctx.fill();
 
       // Labels on bar
-      ctx.font = Math.round(h * 0.013) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.013) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.fillText('1st', padR - ctx.measureText('1st').width, barY - 8);
       ctx.fillText(total.toLocaleString() + 'th', padX, barY - 8);
@@ -1296,12 +1296,12 @@
       if (data.stack) {
         const stackY = Math.round(h * 0.62);
         ctx.textAlign = 'center';
-        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.45)';
         ctx.letterSpacing = '1px';
         ctx.fillText('STACK', w / 2, stackY);
         ctx.letterSpacing = '0px';
-        ctx.font = '600 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.040) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#22c55e';
         ctx.fillText(formatChips(data.stack), w / 2, stackY + Math.round(h * 0.05));
         ctx.textAlign = 'left';
@@ -1333,7 +1333,7 @@
       const padX = Math.round(w * 0.10);
 
       // "NEXT UP" at top
-      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '4px';
       ctx.textAlign = 'center';
@@ -1347,11 +1347,11 @@
 
       // Big countdown
       const countY = Math.round(h * 0.32);
-      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(data.timeUntil || '--', w / 2, countY);
 
-      ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.018) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.fillText('until cards are in the air', w / 2, countY + Math.round(h * 0.04));
 
@@ -1362,12 +1362,12 @@
       // Event details
       const detailY = Math.round(h * 0.50);
       if (data.buyin) {
-        ctx.font = '700 ' + Math.round(h * 0.035) + 'px Oswald, sans-serif';
+        ctx.font = '700 ' + Math.round(h * 0.035) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#22c55e';
         ctx.fillText('$' + Number(data.buyin).toLocaleString(), w / 2, detailY);
       }
 
-      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       const nameLines = wrapText(ctx, data.tournamentName || '', w - padX * 2);
       nameLines.forEach((line, i) => {
@@ -1376,12 +1376,12 @@
 
       const infoY = detailY + Math.round(h * 0.045) + nameLines.length * Math.round(h * 0.028) + Math.round(h * 0.02);
       if (data.venue) {
-        ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.018) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.fillText(data.venue, w / 2, infoY);
       }
       if (data.gameType) {
-        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
         ctx.fillText(data.gameType, w / 2, infoY + Math.round(h * 0.028));
       }
@@ -1442,7 +1442,7 @@
       goldGrad.addColorStop(0.5, '#f59e0b');
       goldGrad.addColorStop(1, '#d97706');
 
-      ctx.font = '700 ' + Math.round(h * 0.050) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.050) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = goldGrad;
       ctx.fillText('FINAL TABLE', w / 2, headerY);
 
@@ -1452,7 +1452,7 @@
       ctx.fillRect((w - lineW) / 2, headerY + Math.round(h * 0.02), lineW, 2);
 
       // Event name
-      ctx.font = '600 ' + Math.round(h * 0.026) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.026) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       const buyStr = data.buyin ? '$' + Number(data.buyin).toLocaleString() + ' ' : '';
       const eventText = buyStr + (data.tournamentName || '');
@@ -1467,16 +1467,16 @@
 
       // Players remaining
       if (data.placesLeft) {
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.letterSpacing = '2px';
         ctx.fillText('PLAYERS REMAINING', w / 2, statsY);
         ctx.letterSpacing = '0px';
-        ctx.font = '700 ' + Math.round(h * 0.055) + 'px Oswald, sans-serif';
+        ctx.font = '700 ' + Math.round(h * 0.055) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.fillText(String(data.placesLeft), w / 2, statsY + Math.round(h * 0.06));
         if (data.totalEntries) {
-          ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+          ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.4)';
           ctx.fillText('of ' + Number(data.totalEntries).toLocaleString() + ' entries', w / 2, statsY + Math.round(h * 0.085));
         }
@@ -1485,16 +1485,16 @@
       // Stack
       if (data.stack) {
         const sY = statsY + statGap;
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.letterSpacing = '2px';
         ctx.fillText('MY STACK', w / 2, sY);
         ctx.letterSpacing = '0px';
-        ctx.font = '700 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+        ctx.font = '700 ' + Math.round(h * 0.040) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#22c55e';
         ctx.fillText(formatChips(data.stack), w / 2, sY + Math.round(h * 0.05));
         if (data.bb) {
-          ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+          ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.4)';
           ctx.fillText((Number(data.stack) / Number(data.bb)).toFixed(1).replace(/\.0$/, '') + ' BB', w / 2, sY + Math.round(h * 0.075));
         }
@@ -1503,12 +1503,12 @@
       // 1st place prize
       if (data.firstPlacePrize) {
         const pY = statsY + statGap * 2;
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.letterSpacing = '2px';
         ctx.fillText('FIRST PLACE', w / 2, pY);
         ctx.letterSpacing = '0px';
-        ctx.font = '700 ' + Math.round(h * 0.045) + 'px Oswald, sans-serif';
+        ctx.font = '700 ' + Math.round(h * 0.045) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#fbbf24';
         ctx.fillText('$' + Number(data.firstPlacePrize).toLocaleString(), w / 2, pY + Math.round(h * 0.055));
       }
@@ -1517,7 +1517,7 @@
 
       // Watermark
       const wms = Math.round(h * 0.016);
-      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.font = wms + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(251,191,36,0.3)';
       ctx.textAlign = 'center';
       ctx.fillText('futurega.me', w / 2, Math.round(h * 0.95));
@@ -1535,14 +1535,14 @@
       ctx.textAlign = 'center';
 
       // Top accent
-      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '4px';
       ctx.fillText('SERIES WRAP', w / 2, Math.round(h * 0.10));
       ctx.letterSpacing = '0px';
 
       // Venue name big
-      ctx.font = '700 ' + Math.round(h * 0.045) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.045) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       const venueLines = wrapText(ctx, data.venueName || 'Your Series', w - padX * 2);
       venueLines.forEach((line, i) => {
@@ -1550,17 +1550,17 @@
       });
 
       // Big number: events played
-      ctx.font = '700 ' + Math.round(h * 0.14) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.14) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.fillText(String(data.eventsPlayed || 0), w / 2, Math.round(h * 0.52));
 
-      ctx.font = '600 ' + Math.round(h * 0.024) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.024) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
       ctx.fillText('events played', w / 2, Math.round(h * 0.57));
 
       // Date range
       if (data.dateRange) {
-        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
         ctx.fillText(data.dateRange, w / 2, Math.round(h * 0.63));
       }
@@ -1574,7 +1574,7 @@
       drawShareBackground(ctx, w, h);
 
       ctx.textAlign = 'center';
-      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '4px';
       ctx.fillText('THE NUMBERS', w / 2, Math.round(h * 0.10));
@@ -1582,19 +1582,19 @@
 
       // Invested
       const row1Y = Math.round(h * 0.20);
-      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.fillText('INVESTED', w / 2, row1Y);
-      ctx.font = '700 ' + Math.round(h * 0.035) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.035) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(formatBuyin(data.totalInvested || 0), w / 2, row1Y + Math.round(h * 0.045));
 
       // Cashed
       const row2Y = Math.round(h * 0.32);
-      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.fillText('CASHED', w / 2, row2Y);
-      ctx.font = '700 ' + Math.round(h * 0.035) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.035) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(formatBuyin(data.totalCashed || 0), w / 2, row2Y + Math.round(h * 0.045));
 
@@ -1606,15 +1606,15 @@
       // P&L (big)
       const plY = Math.round(h * 0.50);
       const pl = data.netPL || 0;
-      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.fillText('NET P&L', w / 2, plY);
-      ctx.font = '700 ' + Math.round(h * 0.07) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.07) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = pl >= 0 ? '#22c55e' : '#f87171';
       ctx.fillText((pl >= 0 ? '+' : '') + formatBuyin(pl), w / 2, plY + Math.round(h * 0.07));
 
       // ROI + cash rate
-      ctx.font = '600 ' + Math.round(h * 0.020) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.020) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       const roiStr = (data.roi || 0).toFixed(1) + '% ROI';
       const cashStr = (data.cashCount || 0) + '/' + (data.eventsPlayed || 0) + ' cashes (' + (data.cashRate || 0).toFixed(0) + '%)';
@@ -1629,7 +1629,7 @@
       drawShareBackground(ctx, w, h);
 
       ctx.textAlign = 'center';
-      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#fbbf24';
       ctx.letterSpacing = '4px';
       ctx.fillText('BEST MOMENT', w / 2, Math.round(h * 0.10));
@@ -1640,17 +1640,17 @@
       ctx.fillText('*', w / 2, Math.round(h * 0.22));
 
       // Biggest cash amount
-      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#fbbf24';
       ctx.fillText(formatBuyin(data.biggestCash || 0), w / 2, Math.round(h * 0.38));
 
-      ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.018) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.fillText('BIGGEST CASH', w / 2, Math.round(h * 0.42));
 
       // Event name
       if (data.biggestCashEvent) {
-        ctx.font = '600 ' + Math.round(h * 0.020) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.020) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         const lines = wrapText(ctx, data.biggestCashEvent, w * 0.7);
         lines.forEach((line, i) => {
@@ -1660,7 +1660,7 @@
 
       // Finish place
       if (data.biggestCashPlace) {
-        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
         ctx.fillText('Finished ' + data.biggestCashPlace + ordinalSuffix(data.biggestCashPlace), w / 2, Math.round(h * 0.56));
       }
@@ -1674,7 +1674,7 @@
       drawShareBackground(ctx, w, h);
 
       ctx.textAlign = 'center';
-      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '4px';
       ctx.fillText('GAME MIX', w / 2, Math.round(h * 0.10));
@@ -1682,7 +1682,7 @@
 
       const variants = data.gameBreakdown || []; // [{ name, count, profit }]
       if (variants.length === 0) {
-        ctx.font = Math.round(h * 0.018) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.018) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.fillText('No game data', w / 2, h / 2);
         ctx.textAlign = 'left';
@@ -1714,10 +1714,10 @@
       ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.font = '700 ' + Math.round(h * 0.030) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.030) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(String(total), cx, cy + Math.round(h * 0.01));
-      ctx.font = Math.round(h * 0.012) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.012) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.fillText('events', cx, cy + Math.round(h * 0.03));
 
@@ -1737,14 +1737,14 @@
         ctx.fill();
 
         // Name
-        ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'left';
         ctx.fillText(v.name, padX + 18, y + 5);
 
         // Count + profit
         ctx.textAlign = 'right';
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.fillText(v.count + 'x', w - padX - 80, y + 5);
 
@@ -1757,10 +1757,10 @@
       if (sorted.length > 0 && sorted[0].profit > 0) {
         const bestY = Math.round(h * 0.82);
         ctx.textAlign = 'center';
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.fillText('BEST GAME', w / 2, bestY);
-        ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.022) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#22c55e';
         ctx.fillText(sorted[0].name + ' (+' + formatBuyin(sorted[0].profit) + ')', w / 2, bestY + Math.round(h * 0.03));
       }
@@ -1774,7 +1774,7 @@
       drawShareBackground(ctx, w, h);
 
       ctx.textAlign = 'center';
-      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '4px';
       ctx.fillText('FUN FACTS', w / 2, Math.round(h * 0.10));
@@ -1786,10 +1786,10 @@
       // Estimated total hours
       const estHours = (data.eventsPlayed || 0) * 5;
       const hoursY = Math.round(h * 0.20);
-      ctx.font = '700 ' + Math.round(h * 0.06) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.06) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText('~' + estHours + 'h', w / 2, hoursY);
-      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.fillText('estimated hours at the felt', w / 2, hoursY + Math.round(h * 0.035));
 
@@ -1804,7 +1804,7 @@
       const barW = Math.round((padR - padX) / dayNames.length * 0.6);
       const barGap = Math.round((padR - padX) / dayNames.length);
 
-      ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.fillText('EVENTS BY DAY', w / 2, chartY - Math.round(h * 0.02));
 
@@ -1821,23 +1821,23 @@
         // Value on top
         if (v > 0) {
           ctx.fillStyle = '#ffffff';
-          ctx.font = '600 ' + Math.round(h * 0.013) + 'px Oswald, sans-serif';
+          ctx.font = '600 ' + Math.round(h * 0.013) + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillText(String(v), bx + barW / 2, by - 8);
         }
 
         // Day label
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.font = Math.round(h * 0.012) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.012) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillText(dayNames[i], bx + barW / 2, chartY + chartH + Math.round(h * 0.025));
       });
 
       // Multi-entry stat
       if (data.multiEntryCount) {
         const meY = Math.round(h * 0.72);
-        ctx.font = '700 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+        ctx.font = '700 ' + Math.round(h * 0.040) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#f59e0b';
         ctx.fillText(String(data.multiEntryCount), w / 2, meY);
-        ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.fillText('re-entries used', w / 2, meY + Math.round(h * 0.03));
       }
@@ -1880,7 +1880,7 @@
       ctx.fillText(icons[data.type] || '*', w / 2, Math.round(h * 0.22));
 
       // Title
-      ctx.font = '700 ' + Math.round(h * 0.040) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.040) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#fbbf24';
       const titleLines = wrapText(ctx, data.title || 'MILESTONE', w * 0.7);
       titleLines.forEach((line, i) => {
@@ -1888,7 +1888,7 @@
       });
 
       // Description
-      ctx.font = Math.round(h * 0.020) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.020) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       const descLines = wrapText(ctx, data.description || '', w * 0.7);
       const descY = Math.round(h * 0.38) + titleLines.length * Math.round(h * 0.05) + Math.round(h * 0.04);
@@ -1899,7 +1899,7 @@
       // Value (if any)
       if (data.value) {
         const valY = Math.round(h * 0.68);
-        ctx.font = '700 ' + Math.round(h * 0.06) + 'px Oswald, sans-serif';
+        ctx.font = '700 ' + Math.round(h * 0.06) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#22c55e';
         ctx.fillText(data.value, w / 2, valY);
       }
@@ -1908,7 +1908,7 @@
 
       // Gold watermark
       const wms = Math.round(h * 0.016);
-      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.font = wms + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(251,191,36,0.3)';
       ctx.textAlign = 'center';
       ctx.fillText('futurega.me', w / 2, Math.round(h * 0.95));
@@ -1924,13 +1924,13 @@
       const padX = Math.round(w * 0.08);
 
       ctx.textAlign = 'center';
-      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '3px';
       ctx.fillText('HELP ME DECIDE', w / 2, Math.round(h * 0.08));
       ctx.letterSpacing = '0px';
 
-      ctx.font = '600 ' + Math.round(h * 0.026) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.026) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText('Which event should I play?', w / 2, Math.round(h * 0.12));
 
@@ -1945,31 +1945,31 @@
       ctx.fillStyle = '#22c55e';
       ctx.fillRect(padX, card1Y + 10, 4, cardH - 20);
 
-      ctx.font = '700 ' + Math.round(h * 0.04) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.04) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.fillText('A', w / 2, card1Y + Math.round(cardH * 0.25));
 
       const e1 = data.event1 || {};
       if (e1.buyin) {
-        ctx.font = '600 ' + Math.round(h * 0.024) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.024) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.fillText('$' + Number(e1.buyin).toLocaleString(), w / 2, card1Y + Math.round(cardH * 0.48));
       }
-      ctx.font = '600 ' + Math.round(h * 0.018) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.018) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       const name1Lines = wrapText(ctx, e1.name || 'Event 1', cardW * 0.8);
       name1Lines.forEach((line, i) => {
         ctx.fillText(line, w / 2, card1Y + Math.round(cardH * 0.65) + i * Math.round(h * 0.024));
       });
       if (e1.time) {
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.fillText(e1.time, w / 2, card1Y + Math.round(cardH * 0.88));
       }
 
       // "VS" divider
       const vsY = card1Y + cardH + Math.round(h * 0.03);
-      ctx.font = '700 ' + Math.round(h * 0.030) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.030) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
       ctx.fillText('VS', w / 2, vsY);
 
@@ -1981,30 +1981,30 @@
       ctx.fillStyle = '#3b82f6';
       ctx.fillRect(padX, card2Y + 10, 4, cardH - 20);
 
-      ctx.font = '700 ' + Math.round(h * 0.04) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.04) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#3b82f6';
       ctx.fillText('B', w / 2, card2Y + Math.round(cardH * 0.25));
 
       const e2 = data.event2 || {};
       if (e2.buyin) {
-        ctx.font = '600 ' + Math.round(h * 0.024) + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + Math.round(h * 0.024) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.fillText('$' + Number(e2.buyin).toLocaleString(), w / 2, card2Y + Math.round(cardH * 0.48));
       }
-      ctx.font = '600 ' + Math.round(h * 0.018) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.018) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       const name2Lines = wrapText(ctx, e2.name || 'Event 2', cardW * 0.8);
       name2Lines.forEach((line, i) => {
         ctx.fillText(line, w / 2, card2Y + Math.round(cardH * 0.65) + i * Math.round(h * 0.024));
       });
       if (e2.time) {
-        ctx.font = Math.round(h * 0.014) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.014) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.fillText(e2.time, w / 2, card2Y + Math.round(cardH * 0.88));
       }
 
       // Poll instruction
-      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.fillText('Vote in poll above!', w / 2, Math.round(h * 0.82));
 
@@ -2017,44 +2017,44 @@
       drawShareBackground(ctx, w, h);
 
       ctx.textAlign = 'center';
-      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.letterSpacing = '3px';
       ctx.fillText('OVER / UNDER', w / 2, Math.round(h * 0.10));
       ctx.letterSpacing = '0px';
 
-      ctx.font = '600 ' + Math.round(h * 0.020) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.020) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
       ctx.fillText(data.tournamentName || '', w / 2, Math.round(h * 0.15));
 
       // Current stack display
-      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.fillText('CURRENT STACK', w / 2, Math.round(h * 0.30));
 
-      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.08) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.fillText(formatChips(data.currentStack || 0), w / 2, Math.round(h * 0.40));
 
       if (data.bb) {
-        ctx.font = Math.round(h * 0.020) + 'px Oswald, sans-serif';
+        ctx.font = Math.round(h * 0.020) + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.fillText((Number(data.currentStack) / Number(data.bb)).toFixed(1) + ' BB', w / 2, Math.round(h * 0.44));
       }
 
-      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + Math.round(h * 0.022) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText('End of day stack prediction?', w / 2, Math.round(h * 0.56));
 
       // Over/Under arrows
       const arrowY = Math.round(h * 0.66);
-      ctx.font = '700 ' + Math.round(h * 0.04) + 'px Oswald, sans-serif';
+      ctx.font = '700 ' + Math.round(h * 0.04) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = '#22c55e';
       ctx.fillText('OVER', w * 0.3, arrowY);
       ctx.fillStyle = '#f87171';
       ctx.fillText('UNDER', w * 0.7, arrowY);
 
-      ctx.font = Math.round(h * 0.016) + 'px Oswald, sans-serif';
+      ctx.font = Math.round(h * 0.016) + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.fillText('Use the poll sticker!', w / 2, Math.round(h * 0.78));
 
@@ -2298,7 +2298,7 @@
         ctx.lineWidth = 2;
         ctx.stroke();
         const qs = Math.round(ch * 0.35);
-        ctx.font = '600 ' + qs + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + qs + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.textAlign = 'center';
         ctx.fillText('?', x + cw / 2, y + ch / 2 + qs * 0.35);
@@ -2370,7 +2370,7 @@
         let curY = contentTop;
 
         // HERO
-        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.letterSpacing = '1px';
         ctx.fillText('HERO', padX, curY + Math.round(perRowLabel * 0.7));
@@ -2382,7 +2382,7 @@
         // OPPONENTS
         let lastOppBottomY = heroCardY + finalHVCardH;
         oppWithCards.forEach((oCards, idx) => {
-          ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+          ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.55)';
           ctx.letterSpacing = '1px';
           ctx.fillText(oppWithCards.length > 1 ? 'OPP ' + (idx + 1) : 'OPP', padX, curY + Math.round(perRowLabel * 0.7));
@@ -2393,7 +2393,7 @@
         });
 
         // BOARD
-        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.letterSpacing = '1px';
         ctx.fillText('BOARD', dividerX, contentTop + Math.round(perRowLabel * 0.7));
@@ -2421,7 +2421,7 @@
         // Hero centered
         const heroTotalW = heroCards.length * cardW + Math.max(0, heroCards.length - 1) * gap;
         const heroX = Math.round((w - heroTotalW) / 2);
-        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.textAlign = 'center';
         ctx.letterSpacing = '1px';
@@ -2435,7 +2435,7 @@
         oppWithCards.forEach((oCards, idx) => {
           const oppTotalW = oCards.length * cardW + Math.max(0, oCards.length - 1) * gap;
           const oppX = Math.round((w - oppTotalW) / 2);
-          ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+          ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.55)';
           ctx.textAlign = 'center';
           ctx.letterSpacing = '1px';
@@ -2450,7 +2450,7 @@
       // Result text(s)
       if (results.length > 0) {
         const resS = Math.round(h * (results.length > 1 ? 0.015 : 0.020));
-        ctx.font = '600 ' + resS + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + resS + 'px Univers Condensed, Univers, sans-serif';
         ctx.textAlign = 'center';
         const lineH = Math.round(resS * 1.3);
         const startY = barY + barH - Math.round(barH * 0.04) - (results.length * lineH);
@@ -2465,7 +2465,7 @@
 
       // Game label top-right of bar
       const gameS = Math.round(h * 0.016);
-      ctx.font = gameS + 'px Oswald, sans-serif';
+      ctx.font = gameS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.45)';
       ctx.textAlign = 'right';
       ctx.fillText(handData.activeGame, w - padX, barY + Math.round(barH * 0.07));
@@ -2473,7 +2473,7 @@
 
       // Watermark
       const wms = Math.round(h * 0.014);
-      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.font = wms + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.fillText('snbwsop.com', Math.round(w * 0.03), Math.round(h * 0.03));
     }
@@ -2492,13 +2492,13 @@
 
       // Tournament name at top
       const nameS = Math.round(h * 0.022);
-      ctx.font = nameS + 'px Oswald, sans-serif';
+      ctx.font = nameS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.textAlign = 'center';
       ctx.fillText(tournamentName || '', w / 2, Math.round(h * 0.06));
 
       const gameS = Math.round(h * 0.028);
-      ctx.font = '600 ' + gameS + 'px Oswald, sans-serif';
+      ctx.font = '600 ' + gameS + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       ctx.fillText(handData.activeGame, w / 2, Math.round(h * 0.10));
       ctx.textAlign = 'left';
@@ -2527,7 +2527,7 @@
         if (bCardH > Math.round(h * 0.22)) { bCardH = Math.round(h * 0.22); bCardW = Math.round(bCardH * cardRatio); }
 
         // HERO
-        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.letterSpacing = '2px';
         ctx.fillText('HERO', padX, contentTop);
@@ -2539,7 +2539,7 @@
         let curY = heroCardY + hvCardH + oppGap;
         let lastOppBottom = heroCardY + hvCardH;
         oppWithCards.forEach((oCards, idx) => {
-          ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+          ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.5)';
           ctx.letterSpacing = '2px';
           ctx.fillText(oppWithCards.length > 1 ? 'OPP ' + (idx + 1) : 'OPP', padX, curY);
@@ -2550,7 +2550,7 @@
         });
 
         // BOARD
-        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.letterSpacing = '2px';
         ctx.fillText('BOARD', rightX, contentTop);
@@ -2575,7 +2575,7 @@
         // HERO centered
         const heroTotalW = heroCards.length * cardW + Math.max(0, heroCards.length - 1) * gap;
         const heroX = Math.round((w - heroTotalW) / 2);
-        ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.textAlign = 'center';
         ctx.letterSpacing = '2px';
@@ -2589,7 +2589,7 @@
         oppWithCards.forEach((oCards, idx) => {
           const oppTotalW = oCards.length * cardW + Math.max(0, oCards.length - 1) * gap;
           const oppX = Math.round((w - oppTotalW) / 2);
-          ctx.font = '600 ' + lblS + 'px Oswald, sans-serif';
+          ctx.font = '600 ' + lblS + 'px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.5)';
           ctx.textAlign = 'center';
           ctx.letterSpacing = '2px';
@@ -2604,7 +2604,7 @@
       // Result text(s)
       if (results.length > 0) {
         const resS = Math.round(h * (results.length > 1 ? 0.022 : 0.028));
-        ctx.font = '600 ' + resS + 'px Oswald, sans-serif';
+        ctx.font = '600 ' + resS + 'px Univers Condensed, Univers, sans-serif';
         ctx.textAlign = 'center';
         const lineH = Math.round(resS * 1.3);
         const startY = Math.round(h * 0.88) - Math.max(0, results.length - 1) * lineH / 2;
@@ -2619,7 +2619,7 @@
 
       // Watermark bottom
       const wms = Math.round(h * 0.016);
-      ctx.font = wms + 'px Oswald, sans-serif';
+      ctx.font = wms + 'px Univers Condensed, Univers, sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.textAlign = 'center';
       ctx.fillText('snbwsop.com', w / 2, Math.round(h * 0.95));

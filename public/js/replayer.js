@@ -415,7 +415,7 @@
                 return (
                   <button key={pi} style={{
                     padding:'4px 10px',borderRadius:'6px',border:'1px solid',cursor:'pointer',
-                    fontFamily:"'Oswald',sans-serif",fontSize:'0.68rem',transition:'all 0.15s',
+                    fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.68rem',transition:'all 0.15s',
                     background: isWinner ? 'rgba(74,222,128,0.15)' : isSplit ? 'rgba(250,204,21,0.15)' : 'transparent',
                     borderColor: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--border)',
                     color: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--text-muted)',
@@ -442,7 +442,7 @@
                 );
               })}
             </div>
-            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',marginTop:'4px',fontFamily:"'Oswald',sans-serif"}}>
+            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',marginTop:'4px',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
               Tap to cycle: none → win → split → none
             </div>
           </div>
@@ -1380,12 +1380,12 @@
 
           // Title
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 36px Oswald, sans-serif';
+          ctx.font = 'bold 36px Univers Condensed, Univers, sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText(hand.gameType + ' Hand', outW / 2, 60);
 
           // Blinds
-          ctx.font = '22px Oswald, sans-serif';
+          ctx.font = '22px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = '#888888';
           var _bl = hand.blinds || {};
           ctx.fillText('Blinds ' + formatChipAmount(_bl.sb || 0) + '/' + formatChipAmount(_bl.bb || 0) + (_bl.ante ? ' (' + formatChipAmount(_bl.ante) + ')' : ''), outW / 2, 95);
@@ -1397,7 +1397,7 @@
             const cw = 70, ch = 98, gap = 8;
             const totalW = bCards.length * cw + (bCards.length - 1) * gap;
             let cx = (outW - totalW) / 2;
-            ctx.font = '16px Oswald, sans-serif';
+            ctx.font = '16px Univers Condensed, Univers, sans-serif';
             ctx.fillStyle = '#666666';
             ctx.fillText('BOARD', outW / 2, yPos);
             yPos += 14;
@@ -1405,7 +1405,7 @@
               const key = c.rank + c.suit;
               const img = images.get(key);
               if (img) { ctx.drawImage(img, cx, yPos, cw, ch); }
-              else { ctx.fillStyle = '#333'; ctx.fillRect(cx, yPos, cw, ch); ctx.fillStyle = '#666'; ctx.font = '24px Oswald'; ctx.textAlign = 'center'; ctx.fillText('?', cx + cw/2, yPos + ch/2 + 8); }
+              else { ctx.fillStyle = '#333'; ctx.fillRect(cx, yPos, cw, ch); ctx.fillStyle = '#666'; ctx.font = '24px Univers Condensed'; ctx.textAlign = 'center'; ctx.fillText('?', cx + cw/2, yPos + ch/2 + 8); }
               cx += cw + gap;
             }
             yPos += ch + 20;
@@ -1413,7 +1413,7 @@
 
           // Pot
           ctx.textAlign = 'center';
-          ctx.font = 'bold 28px Oswald, sans-serif';
+          ctx.font = 'bold 28px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = '#facc15';
           ctx.fillText('POT: ' + formatChipAmount(pot), outW / 2, yPos + 10);
           yPos += 50;
@@ -1430,12 +1430,12 @@
             ctx.globalAlpha = isFolded ? 0.3 : 1;
 
             // Player name + stack
-            ctx.font = 'bold 20px Oswald, sans-serif';
+            ctx.font = 'bold 20px Univers Condensed, Univers, sans-serif';
             ctx.fillStyle = seatClass === 'winner' ? '#4ade80' : seatClass === 'loser' ? '#f87171' : '#ffffff';
             ctx.textAlign = 'left';
             const px = 80;
             ctx.fillText(p.name + ' (' + p.position + ')', px, yPos);
-            ctx.font = '16px Oswald, sans-serif';
+            ctx.font = '16px Univers Condensed, Univers, sans-serif';
             ctx.fillStyle = '#888888';
             ctx.fillText(formatChipAmount(stacks[pi]), px + 300, yPos);
 
@@ -1449,7 +1449,7 @@
                 ctx.fillStyle = '#444';
                 ctx.fillRect(cardX, yPos, cw, ch);
                 ctx.fillStyle = '#888';
-                ctx.font = '20px Oswald';
+                ctx.font = '20px Univers Condensed';
                 ctx.textAlign = 'center';
                 ctx.fillText('?', cardX + cw/2, yPos + ch/2 + 6);
                 ctx.textAlign = 'left';
@@ -1461,7 +1461,7 @@
 
             // Hand name
             if (handName) {
-              ctx.font = '16px Oswald, sans-serif';
+              ctx.font = '16px Univers Condensed, Univers, sans-serif';
               ctx.fillStyle = seatClass === 'winner' ? '#4ade80' : '#f87171';
               ctx.textAlign = 'left';
               ctx.fillText(handName, cardX + 12, yPos + ch / 2 + 4);
@@ -1473,7 +1473,7 @@
 
           // Result
           if (showResult && evalResult) {
-            ctx.font = 'bold 24px Oswald, sans-serif';
+            ctx.font = 'bold 24px Univers Condensed, Univers, sans-serif';
             ctx.textAlign = 'center';
             const rText = evalResult.map(r => r.result.text).join(' | ');
             const rColor = evalResult[0]?.result.color === 'green' ? '#4ade80' : evalResult[0]?.result.color === 'red' ? '#f87171' : '#facc15';
@@ -1482,7 +1482,7 @@
           }
 
           // Watermark
-          ctx.font = '14px Oswald, sans-serif';
+          ctx.font = '14px Univers Condensed, Univers, sans-serif';
           ctx.fillStyle = 'rgba(255,255,255,0.3)';
           ctx.textAlign = 'right';
           ctx.fillText('futurega.me', outW - 20, outH - 20);
@@ -1531,7 +1531,7 @@
             />
             {showFeltPicker && <div className="felt-picker-overlay" onClick={function() { setShowFeltPicker(false); }}>
               <div className="felt-picker-popup" onClick={function(e) { e.stopPropagation(); }}>
-                <div style={{fontSize:'0.7rem',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'8px',color:'var(--text-muted)'}}>Felt Color</div>
+                <div style={{fontSize:'0.7rem',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'8px',color:'var(--text-muted)'}}>Felt Color</div>
                 <div style={{display:'flex',gap:'8px',flexWrap:'wrap',justifyContent:'center'}}>
                   {[{c:'#2d5a27',n:'Green'},{c:'#1a3a5c',n:'Blue'},{c:'#5a1a1a',n:'Red'},{c:'#6b5b8a',n:'Purple'},{c:'#1a1a2e',n:'Navy'},{c:'#3d3d3d',n:'Charcoal'}].map(function(fc) {
                     return <div key={fc.c} title={fc.n} onClick={function() { rSetters.feltColor(fc.c); }}
@@ -1794,7 +1794,7 @@
 
           {/* Draw info for draw games */}
           {(category === 'draw_triple' || category === 'draw_single') && currentStreet.draws && currentStreet.draws.length > 0 && (
-            <div style={{textAlign:'center',fontSize:'0.68rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif"}}>
+            <div style={{textAlign:'center',fontSize:'0.68rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
               {currentStreet.draws.map(d => (
                 <span key={d.player} style={{marginRight:'8px'}}>
                   {hand.players[d.player]?.name}: drew {d.discarded}
@@ -1876,7 +1876,7 @@
                   </button>
                   <select value={speed} onChange={e => setSpeed(Number(e.target.value))} style={{
                     fontSize:'0.65rem',padding:'3px 6px',background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border)',
-                    borderRadius:'4px',fontFamily:"'Oswald',sans-serif"
+                    borderRadius:'4px',fontFamily:"'Univers Condensed','Univers',sans-serif"
                   }}>
                     <option value={2000}>0.5x</option>
                     <option value={1000}>1x</option>
@@ -2521,7 +2521,7 @@
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
                       <div>
                         <span className="replayer-player-pos" style={{marginRight:'6px'}}>{o.player.position}</span>
-                        <span style={{fontFamily:"'Oswald',sans-serif",fontSize:'0.8rem',fontWeight:600,color:'var(--text)'}}>{o.player.name}</span>
+                        <span style={{fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.8rem',fontWeight:600,color:'var(--text)'}}>{o.player.name}</span>
                       </div>
                       {isMucked ? (
                         <button className="gto-undo-btn" onClick={clearOppCards} style={{fontSize:'0.6rem'}}>Undo Muck</button>
@@ -2532,7 +2532,7 @@
                       )}
                     </div>
                     {isMucked ? (
-                      <div style={{textAlign:'center',padding:'8px 0',fontFamily:"'Oswald',sans-serif",fontSize:'0.75rem',color:'var(--text-muted)',fontStyle:'italic'}}>Mucked</div>
+                      <div style={{textAlign:'center',padding:'8px 0',fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.75rem',color:'var(--text-muted)',fontStyle:'italic'}}>Mucked</div>
                     ) : (
                       <React.Fragment>
                         {oppParsed.length > 0 && <div style={{margin:'4px 0'}}><CardRow text={oppCardStr} max={sdMaxCards} /></div>}
@@ -2619,7 +2619,7 @@
               <div className="replayer-section">
                 <div className="replayer-section-title">Result</div>
                 {autoWinner >= 0 ? (
-                  <div style={{textAlign:'center',padding:'12px',fontFamily:"'Oswald',sans-serif"}}>
+                  <div style={{textAlign:'center',padding:'12px',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
                     <div style={{fontSize:'0.9rem',color:'#4ade80',fontWeight:700}}>{hand.players[autoWinner].name} wins</div>
                     <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginTop:'4px'}}>All opponents folded</div>
                   </div>
@@ -2634,7 +2634,7 @@
                         return (
                           <button key={pi} style={{
                             flex:'1 1 0',padding:'8px 14px',borderRadius:'6px',border:'1.5px solid',cursor:'pointer',
-                            fontFamily:"'Oswald',sans-serif",fontSize:'0.75rem',fontWeight:600,transition:'all 0.15s',
+                            fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.75rem',fontWeight:600,transition:'all 0.15s',
                             background: isWinner ? 'rgba(74,222,128,0.15)' : isSplit ? 'rgba(250,204,21,0.15)' : 'transparent',
                             borderColor: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--border)',
                             color: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--text-muted)',
@@ -2654,7 +2654,7 @@
                         );
                       })}
                     </div>
-                    <div style={{fontSize:'0.55rem',color:'var(--text-muted)',marginTop:'4px',fontFamily:"'Oswald',sans-serif"}}>
+                    <div style={{fontSize:'0.55rem',color:'var(--text-muted)',marginTop:'4px',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
                       {(hand.result && hand.result.winners && hand.result.winners.length) ? 'Auto-evaluated • ' : ''}Tap to cycle: none → win → split → none
                     </div>
                   </React.Fragment>
@@ -3061,7 +3061,7 @@
         return React.createElement(React.Fragment, null,
           groups.map(g => (
             <div key={g.label} style={{marginBottom:'6px'}}>
-              <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>{g.label}</div>
+              <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>{g.label}</div>
               <div className="hand-game-pill-row" style={{flexWrap:'wrap'}}>
                 {g.games.map(game => (
                   <button key={game} className={selectedGameType === game ? 'active' : ''} onClick={() => setSelectedGameType(game)}>{game}</button>
@@ -3070,7 +3070,7 @@
             </div>
           )),
           <div key="custom" style={{marginBottom:'6px'}}>
-            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>Custom</div>
+            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>Custom</div>
             <div className="hand-game-pill-row" style={{flexWrap:'wrap'}}>
               <button className={selectedGameType === 'Custom' ? 'active' : ''} onClick={() => setSelectedGameType('Custom')}>Custom Game</button>
             </div>
@@ -3146,7 +3146,7 @@
           <div className="replayer-section" style={{marginBottom:'12px'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
               <div className="replayer-section-title">New Hand</div>
-              <span style={{fontSize:'0.7rem',color:'var(--accent2)',fontFamily:"'Oswald',sans-serif",fontWeight:600}}>{variantDisplayName}</span>
+              <span style={{fontSize:'0.7rem',color:'var(--accent2)',fontFamily:"'Univers Condensed','Univers',sans-serif",fontWeight:600}}>{variantDisplayName}</span>
             </div>
             {/* Quick pills */}
             {[
@@ -3168,7 +3168,7 @@
             <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'8px'}}>
               {gameGroups.map(g => (
                 <div key={g.label}>
-                  <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>{g.label}</div>
+                  <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>{g.label}</div>
                   <div className="hand-game-pill-row" style={{flexWrap:'wrap'}}>
                     {g.games.map(game => (
                       <button key={game} className={selectedGame === game ? 'active' : ''} onClick={() => handleGameSelect(game)}>{game}</button>
@@ -3177,7 +3177,7 @@
                 </div>
               ))}
               <div>
-                <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Oswald',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>Betting Structure</div>
+                <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>Betting Structure</div>
                 <div className="hand-game-pill-row">
                   {['No Limit', 'Pot Limit', 'Limit'].map(s => (
                     <button key={s} className={bettingStructure === s ? 'active' : ''} onClick={() => handleStructureChange(s)}>{s}</button>
