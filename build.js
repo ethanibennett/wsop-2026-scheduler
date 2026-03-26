@@ -19,6 +19,7 @@ const commonOptions = {
   jsxFragment: 'React.Fragment',
   target: 'es2020',
   charset: 'utf8',
+  keepNames: true,
 };
 
 async function build() {
@@ -45,6 +46,18 @@ async function build() {
         outfile: path.join(outdir, f + '.js'),
       })
     ));
+    // Post-process: fix esbuild variable renaming bug (appends "2" to var declarations but not references)
+    for (const f of files) {
+      const fpath = path.join(outdir, f + '.js');
+      if (fs.existsSync(fpath)) {
+        let code = fs.readFileSync(fpath, 'utf8');
+        // Find all "var someVar2 = useState(" and rename to "var someVar = useState("
+        code = code.replace(/\bvar (\w+?)2 = useState\(/g, 'var $1 = useState(');
+        // Also fix "const [x2, y2] = useState(" pattern
+        code = code.replace(/\bconst \[(\w+?)2, (\w+?)2\] = useState\(/g, 'const [$1, $2] = useState(');
+        fs.writeFileSync(fpath, code);
+      }
+    }
     console.log(`[esbuild] Built ${files.length} files in ${Date.now() - start}ms`);
   }
 }

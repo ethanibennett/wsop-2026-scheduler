@@ -1,6 +1,6 @@
 {
-  "name": "WSOP Scheduler | Summer 2026",
-  "short_name": "WSOP",
+  "name": "futurega.me | Spring/Summer 2026",
+  "short_name": "futurega.me",
   "description": "Poker tournament scheduler for WSOP 2026 and beyond",
   "start_url": "/",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

@@ -43,10 +43,25 @@
     // Action order: preflop starts at UTG (index 3+), postflop starts at SB (index 1)
     // Position layout from getPositionLabels: [BTN(0), SB(1), BB(2), UTG(3), ...]
     // Heads-up: [BTN/SB(0), BB(1)] — preflop BTN/SB acts first
-    function getActionOrder(players, isPreflop) {
+    function getActionOrder(players, isPreflop, studInfo) {
       var n = players.length;
       if (n <= 0) return [];
       var indices = [];
+
+      // Stud games: action order determined by visible cards
+      if (studInfo && studInfo.isStud) {
+        var startIdx = studInfo.is3rdStreet ? studInfo.bringInIdx : studInfo.bestBoardIdx;
+        if (startIdx >= 0) {
+          for (var i = 0; i < n; i++) {
+            indices.push((startIdx + i) % n);
+          }
+          return indices;
+        }
+        // Fallback: seat order
+        for (var i = 0; i < n; i++) indices.push(i);
+        return indices;
+      }
+
       if (n === 2) {
         // Heads-up: preflop BTN/SB first, postflop BB first
         indices = isPreflop ? [0, 1] : [1, 0];
@@ -62,6 +77,131 @@
         indices.push(0);
       }
       return indices.filter(function(i) { return i < n; });
+    }
+
+    // Find bring-in player for stud 3rd street (lowest/highest door card)
+    function findStudBringIn(hand, isRazz) {
+      var heroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+      var oppCards = (hand.streets[0] && hand.streets[0].cards.opponents) || [];
+      var heroCards = parseCardNotation((hand.streets[0] && hand.streets[0].cards.hero) || '');
+      // Bring-in goes to the WORST door card:
+      // Stud Hi/8: lowest rank = worst (2♣ brings it in). Suit tiebreak: clubs < diamonds < hearts < spades
+      // Razz: highest rank = worst (K♠ brings it in). Suit tiebreak: spades > hearts > diamonds > clubs
+      // We assign each card a "badness" score — higher = more likely to bring in
+      var rankBadness = isRazz
+        ? { 'A': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, 'T': 9, 'J': 10, 'Q': 11, 'K': 12 }
+        : { 'A': 0, 'K': 1, 'Q': 2, 'J': 3, 'T': 4, '9': 5, '8': 6, '7': 7, '6': 8, '5': 9, '4': 10, '3': 11, '2': 12 };
+      var suitBadness = isRazz
+        ? { 'c': 0, 'd': 1, 'h': 2, 's': 3 }  // spades worst for razz
+        : { 's': 0, 'h': 1, 'd': 2, 'c': 3 };  // clubs worst for stud hi
+
+      var worstIdx = -1;
+      var worstRank = -1;
+      var worstSuit = -1;
+      for (var pi = 0; pi < hand.players.length; pi++) {
+        var doorCard;
+        if (pi === heroIdx) {
+          doorCard = heroCards.length >= 3 ? heroCards[2] : null;
+        } else {
+          var oppSlot = pi < heroIdx ? pi : pi - 1;
+          var oCards = parseCardNotation(oppCards[oppSlot] || '');
+          doorCard = oCards.length ? oCards[0] : null;
+        }
+        if (!doorCard || doorCard.suit === 'x') continue;
+        var rv = rankBadness[doorCard.rank] || 0;
+        var sv = suitBadness[doorCard.suit] || 0;
+        // Higher badness = worse card = more likely to bring in
+        if (worstIdx === -1 || rv > worstRank || (rv === worstRank && sv > worstSuit)) {
+          worstIdx = pi;
+          worstRank = rv;
+          worstSuit = sv;
+        }
+      }
+      return worstIdx;
+    }
+
+    // Score a visible stud board by poker hand ranking
+    // Returns a comparable number: higher = better high hand, lower = better low hand
+    function scoreStudBoard(cards) {
+      var rankValues = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'T': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+      if (!cards.length) return 0;
+
+      // Count rank frequencies
+      var counts = {};
+      cards.forEach(function(c) {
+        var r = rankValues[c.rank] || 0;
+        counts[r] = (counts[r] || 0) + 1;
+      });
+
+      var pairs = [], trips = [], quads = [], kickers = [];
+      Object.keys(counts).forEach(function(r) {
+        var rv = parseInt(r);
+        if (counts[r] === 4) quads.push(rv);
+        else if (counts[r] === 3) trips.push(rv);
+        else if (counts[r] === 2) pairs.push(rv);
+        else kickers.push(rv);
+      });
+      pairs.sort(function(a, b) { return b - a; });
+      trips.sort(function(a, b) { return b - a; });
+      kickers.sort(function(a, b) { return b - a; });
+
+      // Score: hand_category * 1000000 + tiebreaker
+      // Categories: 7=quads, 6=full house, 5=trips, 4=two pair, 3=one pair, 1=high card
+      // (Straights/flushes not relevant for visible board ranking in stud)
+      var score = 0;
+      if (quads.length) {
+        score = 7000000 + quads[0] * 100;
+      } else if (trips.length && pairs.length) {
+        score = 6000000 + trips[0] * 100 + pairs[0];
+      } else if (trips.length) {
+        score = 5000000 + trips[0] * 100;
+      } else if (pairs.length >= 2) {
+        score = 4000000 + pairs[0] * 100 + pairs[1];
+      } else if (pairs.length === 1) {
+        score = 3000000 + pairs[0] * 100 + (kickers[0] || 0);
+      } else {
+        // High card: sort descending
+        var allRanks = Object.keys(counts).map(Number).sort(function(a, b) { return b - a; });
+        score = 1000000;
+        for (var i = 0; i < allRanks.length; i++) {
+          score += allRanks[i] * Math.pow(100, 4 - i);
+        }
+      }
+      return score;
+    }
+
+    // Find best visible board for stud streets 4-7 (only upcards: door card + 4th-6th street)
+    function findStudBestBoard(hand, streetIdx, foldedSet, isLowGame) {
+      var heroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+      // Only consider upcards: street 0 door card + streets 1-3 (4th-6th).
+      // Street 4 (7th) is face-down, never included.
+      var maxVisibleStreet = Math.min(streetIdx, 3);
+
+      var bestIdx = -1;
+      var bestScore = isLowGame ? Infinity : -Infinity;
+      for (var pi = 0; pi < hand.players.length; pi++) {
+        if (foldedSet.has(pi)) continue;
+        var visible = [];
+        for (var si = 0; si <= maxVisibleStreet; si++) {
+          if (pi === heroIdx) {
+            var hCards = parseCardNotation((hand.streets[si] && hand.streets[si].cards.hero) || '');
+            // Street 0: only the door card (index 2) is face-up
+            if (si === 0 && hCards.length >= 3) visible.push(hCards[2]);
+            // Streets 1-3 (4th-6th): all cards are face-up
+            if (si > 0) hCards.forEach(function(c) { if (c.suit !== 'x') visible.push(c); });
+          } else {
+            var oppSlot = pi < heroIdx ? pi : pi - 1;
+            var oCards = parseCardNotation(((hand.streets[si] && hand.streets[si].cards.opponents) || [])[oppSlot] || '');
+            oCards.forEach(function(c) { if (c.suit !== 'x') visible.push(c); });
+          }
+        }
+        var score = scoreStudBoard(visible);
+        if (isLowGame ? score < bestScore : score > bestScore) {
+          bestIdx = pi;
+          bestScore = score;
+        }
+      }
+      return bestIdx;
     }
 
     function formatChipAmount(val) {
@@ -121,11 +261,15 @@
 
     var DEFAULT_OPP_NAMES = ['Jason Blodgett', 'Keith McCormack', 'Alex Charron', 'Kevin DiPasquale', 'Cristian Gutierrez', 'Derek Nold', 'Anthony Hall', 'Aidan Long'];
 
+    function getStudPositionLabels(numPlayers) {
+      return Array.from({ length: numPlayers }, function(_, i) { return 'Seat ' + (i + 1); });
+    }
+
     function createEmptyHand(gameType, heroName) {
       const streetDef = getStreetDef(gameType);
       const gameCfg = HAND_CONFIG[gameType] || HAND_CONFIG_DEFAULT;
-      const numPlayers = 6;
-      const positions = getPositionLabels(numPlayers);
+      const numPlayers = gameCfg.isStud ? 8 : 6;
+      const positions = gameCfg.isStud ? getStudPositionLabels(numPlayers) : getPositionLabels(numPlayers);
       return {
         gameType,
         players: Array.from({ length: numPlayers }, function(_, i) {
@@ -1465,8 +1609,35 @@
         const parsed = parseCardNotation(pCards).filter(c => c.suit !== 'x');
         if (parsed.length < (gameCfg.heroCards || 2)) return null;
         const board = category === 'community' ? parseCardNotation(boardCards).filter(c => c.suit !== 'x') : [];
+
+        if (cfg.type === 'hilo') {
+          // Evaluate both high and low
+          var hiEv = cfg.method === 'omaha' ? bestOmahaHigh(parsed, board) : bestHighHand(parsed.concat(board));
+          var loEv = bestLowA5Hand(
+            cfg.method === 'omaha' ? parsed.concat(board) : parsed.concat(board),
+            cfg.method === 'omaha',
+            cfg.method === 'omaha' ? { hand: parsed, board: board } : null
+          );
+          // For Omaha hi/lo, use bestOmahaLow if available
+          if (cfg.method === 'omaha' && typeof bestOmahaLow === 'function') {
+            loEv = bestOmahaLow(parsed, board);
+          }
+          var parts = [];
+          if (hiEv) parts.push('Hi: ' + (useShort ? (hiEv.shortName || hiEv.name) : hiEv.name));
+          if (loEv && loEv.qualified !== false) {
+            // Format low as card ranks descending
+            var loCards = loEv.cards || loEv.hand || [];
+            var loStr = loCards.length ? loCards.map(function(c) {
+              var r = typeof c === 'string' ? c : (c.rank || '');
+              return r === '1' || r === 'A' || r === '14' ? 'A' : r === 'T' || r === '10' ? 'T' : r;
+            }).join('') : (loEv.shortName || loEv.name || '');
+            parts.push('Lo: ' + loStr);
+          }
+          return parts.length ? parts.join('\n') : null;
+        }
+
         let ev = null;
-        if (cfg.type === 'high' || cfg.type === 'hilo') {
+        if (cfg.type === 'high') {
           ev = cfg.method === 'omaha' ? bestOmahaHigh(parsed, board) : bestHighHand(parsed.concat(board));
         } else if (cfg.type === 'low') {
           ev = cfg.lowType === 'a5' ? bestLowA5Hand(parsed.concat(board), false) : bestLow27Hand(parsed.concat(board));
@@ -2046,6 +2217,7 @@
       const [currentStreetIdx, setCurrentStreetIdx] = useState(0);
       const [showRaiseInput, setShowRaiseInput] = useState(false);
       const [betAmount, setBetAmount] = useState('');
+      var studDealTargetState = useState(0);
       const activeSeatRef = useRef(null);
 
       var gameCfg = HAND_CONFIG[hand.gameType] || HAND_CONFIG_DEFAULT;
@@ -2076,14 +2248,27 @@
       }, [currentStacks, foldedSet]);
 
       // All seats in position order (for rendering)
+      var isRazz = hand.gameType === 'Razz' || hand.gameType === '2-7 Razz';
+      var isStudLow = isRazz;
+      var studInfo = useMemo(function() {
+        if (!gameCfg.isStud) return null;
+        var is3rdStreet = currentStreetIdx === 0;
+        var bringInIdx = is3rdStreet ? findStudBringIn(hand, isStudLow) : -1;
+        var bestBoardIdx = !is3rdStreet ? findStudBestBoard(hand, currentStreetIdx, foldedSet, isStudLow) : -1;
+        return { isStud: true, is3rdStreet: is3rdStreet, bringInIdx: bringInIdx, bestBoardIdx: bestBoardIdx };
+      }, [gameCfg.isStud, currentStreetIdx, hand, isStudLow, foldedSet]);
+
       var seatOrder = useMemo(function() {
-        return getActionOrder(hand.players, isPreflop);
-      }, [hand.players, isPreflop]);
+        return getActionOrder(hand.players, isPreflop, studInfo);
+      }, [hand.players, isPreflop, studInfo]);
 
       // Only seats that can still act (for determining whose turn it is)
       var actionOrder = useMemo(function() {
         return seatOrder.filter(function(i) { return !foldedSet.has(i) && !allInSet.has(i); });
       }, [seatOrder, foldedSet, allInSet]);
+
+      // Bring-in amount for stud (typically half the small bet, or the ante)
+      var bringInAmount = gameCfg.isStud ? Math.floor(((hand.blinds || {}).sb || (hand.blinds || {}).bb || 100) / 2) : 0;
 
       var streetBets = useMemo(function() {
         var contrib = new Array(hand.players.length).fill(0);
@@ -2095,8 +2280,22 @@
           if (bbIdx >= 0) contrib[bbIdx] = (hand.blinds || {}).bb || 0;
           maxBet = (hand.blinds || {}).bb || 0;
         }
+        // Stud 3rd street: bring-in is a forced partial bet (no blinds)
+        if (category === 'stud' && currentStreetIdx === 0 && studInfo && studInfo.bringInIdx >= 0) {
+          var biIdx = studInfo.bringInIdx;
+          // Only apply bring-in if no actions yet (it's the forced bet before voluntary action)
+          if (!(currentStreet.actions || []).length) {
+            contrib[biIdx] = bringInAmount;
+            maxBet = bringInAmount;
+          }
+        }
         (currentStreet.actions || []).forEach(function(act) {
           if (act.action === 'fold') return;
+          if (act.action === 'bring-in') {
+            contrib[act.player] = act.amount || bringInAmount;
+            if (contrib[act.player] > maxBet) maxBet = contrib[act.player];
+            return;
+          }
           if (act.amount > 0) { contrib[act.player] += act.amount; if (contrib[act.player] > maxBet) maxBet = contrib[act.player]; }
         });
         return { contrib: contrib, maxBet: maxBet };
@@ -2146,12 +2345,13 @@
         var nextStreet = currentStreetIdx + 1;
         if (nextStreet >= hand.streets.length) { setPhase('showdown'); return; }
         if (category === 'community') { setPhase('board_entry'); }
+        else if (category === 'stud') { setPhase('stud_deal'); }
         else { setCurrentStreetIdx(nextStreet); }
       }, [isBettingComplete, phase, handOver]);
 
       // Scroll to top when entering board_entry or result phase
       useEffect(function() {
-        if (phase === 'board_entry' || phase === 'showdown' || phase === 'result') {
+        if (phase === 'board_entry' || phase === 'stud_deal' || phase === 'showdown' || phase === 'result') {
           var container = document.querySelector('.content-area');
           if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -2450,7 +2650,262 @@
             <div className="gto-street-card">
               <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
                 <button className="btn btn-ghost btn-sm" onClick={function() { setPhase('setup'); }}>Back</button>
+                <button className="btn btn-primary btn-sm" onClick={function() { setPhase(gameCfg.isStud ? 'door_cards' : 'action'); }}>
+                  {gameCfg.isStud ? 'Enter Door Cards' : 'Start Action'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── STUD DOOR CARDS PHASE ──
+      if (phase === 'door_cards') {
+        var numOpps = hand.players.length - 1;
+        var heroIdxDC = hand.heroIdx != null ? hand.heroIdx : 0;
+        // Collect used cards (hero's cards)
+        var usedCardsDC = new Set();
+        parseCardNotation((hand.streets[0] && hand.streets[0].cards.hero) || '').forEach(function(c) { if (c.suit !== 'x') usedCardsDC.add(c.rank + c.suit); });
+        // Also collect already-entered opponent door cards
+        var oppCards0 = (hand.streets[0] && hand.streets[0].cards.opponents) || [];
+        oppCards0.forEach(function(opp) {
+          parseCardNotation(opp || '').forEach(function(c) { if (c.suit !== 'x') usedCardsDC.add(c.rank + c.suit); });
+        });
+
+        var dcAllRanks = 'AKQJT98765432'.split('');
+        var dcAllSuits = [
+          { key: 'h', label: '♥', color: '#ef4444' },
+          { key: 'd', label: '♦', color: '#3b82f6' },
+          { key: 'c', label: '♣', color: '#22c55e' },
+          { key: 's', label: '♠', color: 'var(--text)' }
+        ];
+
+        var setOppDoorCard = function(oppIdx, card) {
+          setHand(function(prev) {
+            var streets = prev.streets.map(function(s, si) {
+              if (si !== 0) return s;
+              var opponents = [...(s.cards.opponents || [])];
+              var current = opponents[oppIdx] || '';
+              if (current === card) {
+                opponents[oppIdx] = ''; // toggle off
+              } else {
+                opponents[oppIdx] = card; // set single door card
+              }
+              return Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opponents }) });
+            });
+            return Object.assign({}, prev, { streets: streets });
+          });
+        };
+
+        return (
+          <div className="gto-entry">
+            <div className="gto-phase-card">
+              <div className="replayer-section">
+                <div className="replayer-section-title">Opponent Door Cards</div>
+                <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'8px'}}>
+                  Enter each opponent's face-up 3rd street card. Leave blank if unknown.
+                </p>
+                {hand.players.map(function(p, pi) {
+                  if (pi === heroIdxDC) return null;
+                  var oppSlot = pi < heroIdxDC ? pi : pi - 1;
+                  var currentCard = oppCards0[oppSlot] || '';
+                  var parsedCurrent = parseCardNotation(currentCard).filter(function(c) { return c.suit !== 'x'; });
+                  var selectedCard = parsedCurrent.length ? parsedCurrent[0].rank + parsedCurrent[0].suit : '';
+
+                  return (
+                    <div key={pi} style={{marginBottom:'12px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
+                        <span style={{fontWeight:700,fontSize:'0.8rem'}}>{p.name}</span>
+                        <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>{p.position}</span>
+                        {selectedCard && <CardRow text={selectedCard} max={1} />}
+                        {!selectedCard && <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontStyle:'italic'}}>? unknown</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="card-picker-grid">
+                  {dcAllSuits.map(function(suit) {
+                    return React.createElement(React.Fragment, { key: suit.key },
+                      dcAllRanks.map(function(rank) {
+                        var card = rank + suit.key;
+                        var isUsed = usedCardsDC.has(card);
+                        // Check if this card is selected for any opponent
+                        var selectedForOpp = -1;
+                        oppCards0.forEach(function(opp, oi) {
+                          if (opp === card) selectedForOpp = oi;
+                        });
+                        var cls = 'card-picker-btn' + (selectedForOpp >= 0 ? ' selected' : '') + (isUsed && selectedForOpp < 0 ? ' used' : '');
+                        return React.createElement('button', {
+                          key: card, className: cls,
+                          disabled: isUsed && selectedForOpp < 0,
+                          onClick: function() {
+                            // Find first opponent without a door card, or toggle existing
+                            if (selectedForOpp >= 0) {
+                              setOppDoorCard(selectedForOpp, '');
+                            } else {
+                              for (var oi = 0; oi < numOpps; oi++) {
+                                if (!oppCards0[oi]) {
+                                  setOppDoorCard(oi, card);
+                                  return;
+                                }
+                              }
+                            }
+                          }
+                        }, React.createElement('img', {
+                          src: '/cards/cards_gui_' + rank + suit.key + '.svg',
+                          alt: card, loading: 'eager'
+                        }));
+                      })
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="gto-street-card">
+              <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+                <button className="btn btn-ghost btn-sm" onClick={function() { setPhase('hero_cards'); }}>Back</button>
                 <button className="btn btn-primary btn-sm" onClick={function() { setPhase('action'); }}>Start Action</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── STUD DEAL PHASE ──
+      if (phase === 'stud_deal') {
+        var nextStudStreet = currentStreetIdx + 1;
+        var studStreetName = (hand.streets[nextStudStreet] && hand.streets[nextStudStreet].name) || 'Next Street';
+        var heroIdxSD = hand.heroIdx != null ? hand.heroIdx : 0;
+        var isLastStudStreet = nextStudStreet === 4; // 7th street (index 4 for 5 streets: 3rd,4th,5th,6th,7th)
+
+        // Collect all used cards
+        var usedCardsSD = new Set();
+        hand.streets.forEach(function(s) {
+          parseCardNotation(s.cards.hero || '').forEach(function(c) { if (c.suit !== 'x') usedCardsSD.add(c.rank + c.suit); });
+          (s.cards.opponents || []).forEach(function(opp) {
+            parseCardNotation(opp || '').forEach(function(c) { if (c.suit !== 'x') usedCardsSD.add(c.rank + c.suit); });
+          });
+        });
+
+        // Get cards already entered for this next street
+        var nextStreetData = hand.streets[nextStudStreet] || { cards: { hero: '', opponents: [] } };
+        var heroNextCard = nextStreetData.cards.hero || '';
+        var oppNextCards = nextStreetData.cards.opponents || [];
+
+        var sdAllRanks = 'AKQJT98765432'.split('');
+        var sdAllSuits = [
+          { key: 'h', label: '♥', color: '#ef4444' },
+          { key: 'd', label: '♦', color: '#3b82f6' },
+          { key: 'c', label: '♣', color: '#22c55e' },
+          { key: 's', label: '♠', color: 'var(--text)' }
+        ];
+
+        // studDealTargetState[0] is declared at the top level
+
+        // Active (non-folded) players
+        var activePlayers = hand.players.map(function(p, pi) { return pi; }).filter(function(pi) { return !foldedSet.has(pi); });
+
+        var setStudCard = function(playerIdx, card) {
+          setHand(function(prev) {
+            var streets = prev.streets.map(function(s, si) {
+              if (si !== nextStudStreet) return s;
+              var newCards = Object.assign({}, s.cards);
+              if (playerIdx === heroIdxSD) {
+                newCards.hero = newCards.hero === card ? '' : card;
+              } else {
+                var oppSlot = playerIdx < heroIdxSD ? playerIdx : playerIdx - 1;
+                var opponents = [...(newCards.opponents || [])];
+                opponents[oppSlot] = opponents[oppSlot] === card ? '' : card;
+                newCards.opponents = opponents;
+              }
+              return Object.assign({}, s, { cards: newCards });
+            });
+            return Object.assign({}, prev, { streets: streets });
+          });
+        };
+
+        var getStudCardForPlayer = function(pi) {
+          if (pi === heroIdxSD) return heroNextCard;
+          var oppSlot = pi < heroIdxSD ? pi : pi - 1;
+          return oppNextCards[oppSlot] || '';
+        };
+
+        // Count entered cards for continue button
+        var enteredCount = activePlayers.filter(function(pi) { return getStudCardForPlayer(pi); }).length;
+
+        return (
+          <div className="gto-entry">
+            <div className="gto-phase-card">
+              <div className="replayer-section">
+                <div className="replayer-section-title">Deal {studStreetName}</div>
+                <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'8px'}}>
+                  {isLastStudStreet ? 'Enter each player\'s 7th street card (face down).' : 'Enter each player\'s next card.'}
+                  {' Tap a player name to select them, then tap a card.'}
+                </p>
+                {activePlayers.map(function(pi) {
+                  var p = hand.players[pi];
+                  var isHero = pi === heroIdxSD;
+                  var cardStr = getStudCardForPlayer(pi);
+                  var isTarget = studDealTargetState[0] === pi;
+                  return (
+                    <div key={pi} style={{
+                      display:'flex', alignItems:'center', gap:'8px', marginBottom:'6px', padding:'6px 8px',
+                      borderRadius:'6px', cursor:'pointer',
+                      background: isTarget ? 'var(--accent-bg, rgba(34,197,94,0.1))' : 'transparent',
+                      border: isTarget ? '1.5px solid var(--accent)' : '1.5px solid transparent'
+                    }} onClick={function() { studDealTargetState[1](pi); }}>
+                      <span style={{fontWeight:700,fontSize:'0.8rem',minWidth:'100px'}}>{p.name}</span>
+                      <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>{p.position}</span>
+                      {cardStr ? <CardRow text={cardStr} max={1} /> : <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontStyle:'italic'}}>—</span>}
+                    </div>
+                  );
+                })}
+                <div className="card-picker-grid">
+                  {sdAllSuits.map(function(suit) {
+                    return React.createElement(React.Fragment, { key: suit.key },
+                      sdAllRanks.map(function(rank) {
+                        var card = rank + suit.key;
+                        var isUsed = usedCardsSD.has(card);
+                        // Check if selected for any player on this street
+                        var selectedFor = -1;
+                        activePlayers.forEach(function(pi) {
+                          if (getStudCardForPlayer(pi) === card) selectedFor = pi;
+                        });
+                        var cls = 'card-picker-btn' + (selectedFor >= 0 ? ' selected' : '') + (isUsed && selectedFor < 0 ? ' used' : '');
+                        return React.createElement('button', {
+                          key: card, className: cls,
+                          disabled: isUsed && selectedFor < 0,
+                          onClick: function() {
+                            if (selectedFor >= 0) {
+                              // Toggle off
+                              setStudCard(selectedFor, '');
+                            } else if (studDealTargetState[0] >= 0) {
+                              setStudCard(studDealTargetState[0], card);
+                              // Auto-advance to next player without a card
+                              var nextTarget = activePlayers.find(function(pi) {
+                                return pi !== studDealTargetState[0] && !getStudCardForPlayer(pi);
+                              });
+                              if (nextTarget !== undefined) studDealTargetState[1](nextTarget);
+                            }
+                          }
+                        }, React.createElement('img', {
+                          src: '/cards/cards_gui_' + rank + suit.key + '.svg',
+                          alt: card, loading: 'eager'
+                        }));
+                      })
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="gto-street-card">
+              <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+                <button className="btn btn-ghost btn-sm" onClick={function() { setPhase('action'); }}>Back</button>
+                <button className="btn btn-primary btn-sm"
+                  disabled={enteredCount < activePlayers.length}
+                  onClick={function() { setCurrentStreetIdx(nextStudStreet); setPhase('action'); }}>
+                  Continue
+                </button>
               </div>
             </div>
           </div>
@@ -2864,7 +3319,41 @@
                     </div>
                     <div className="gto-seat-row2">
                       <span className="gto-seat-name">{p.name}</span>
-                      {i === heroIdx && hand.streets[0] && hand.streets[0].cards.hero && (
+                      {category === 'stud' ? (function() {
+                        /* Stud: show accumulated board cards for each player */
+                        var isHero = i === heroIdx;
+                        var oppSlot = i < heroIdx ? i : i - 1;
+                        var accumulated = '';
+                        for (var si = 0; si <= currentStreetIdx; si++) {
+                          var st = hand.streets[si];
+                          if (!st) break;
+                          if (isHero) {
+                            accumulated += (st.cards.hero || '');
+                          } else {
+                            accumulated += ((st.cards.opponents || [])[oppSlot] || '');
+                          }
+                        }
+                        /* For opponents: show 2 face-down hole cards + their visible cards + 7th street face-down if applicable */
+                        if (!isHero) {
+                          var oppVisible = parseCardNotation(accumulated).filter(function(c) { return c.suit !== 'x'; });
+                          var downAfter = currentStreetIdx >= 4 ? 1 : 0; // 7th street
+                          return (
+                            <span className="gto-seat-hero-cards">
+                              <div className="card-row" style={{gap:'2px',flexWrap:'nowrap'}}>
+                                <div className="card-unknown" style={{marginTop:8}} />
+                                <div className="card-unknown" style={{marginTop:8}} />
+                                {oppVisible.map(function(c, ci) {
+                                  return <img key={ci} className="card-img" src={'/cards/cards_gui_' + c.rank + c.suit + '.svg'} alt={c.rank+c.suit} loading="eager" />;
+                                })}
+                                {downAfter > 0 && <div className="card-unknown" style={{marginTop:8}} />}
+                              </div>
+                            </span>
+                          );
+                        }
+                        if (!accumulated) return null;
+                        return <span className="gto-seat-hero-cards"><CardRow text={accumulated} stud={true} max={7} /></span>;
+                      })()
+                      : i === heroIdx && hand.streets[0] && hand.streets[0].cards.hero && (
                         <span className="gto-seat-hero-cards"><CardRow text={hand.streets[0].cards.hero} max={gameCfg.heroCards || 2} /></span>
                       )}
                       {act && !isActive && <span className={'gto-seat-result-badge ' + act.action}>{actionLabel}</span>}
@@ -2875,7 +3364,19 @@
                   <div className="gto-seat-detail-wrap">
                     <div className="gto-seat-detail-inner">
                       <div className="gto-seat-detail">
-                        {isLimitGame ? (
+                        {/* Stud bring-in: first action on 3rd street for the bring-in player */}
+                        {gameCfg.isStud && currentStreetIdx === 0 && studInfo && studInfo.bringInIdx === currentActor && !(currentStreet.actions || []).length ? (
+                          <div className="gto-action-row">
+                            <button className="gto-action-btn" onClick={function() { addAction('bring-in', bringInAmount); }}>
+                              <span className="gto-action-icon call">⬤</span>
+                              <span className="gto-action-label">Bring In {formatChipAmount(bringInAmount)}</span>
+                            </button>
+                            <button className="gto-action-btn" onClick={function() { addAction('bet', Math.min(flBetSize, playerStack)); }}>
+                              <span className="gto-action-icon raise">▲</span>
+                              <span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack))}</span>
+                            </button>
+                          </div>
+                        ) : isLimitGame ? (
                           /* ── Fixed Limit: no amount input, fixed bet/raise sizes ── */
                           <div className="gto-action-row">
                             {!canCheck && <button className="gto-action-btn" onClick={function() { addAction('fold'); }}>
