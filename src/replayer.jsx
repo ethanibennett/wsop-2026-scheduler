@@ -2280,15 +2280,9 @@
           if (bbIdx >= 0) contrib[bbIdx] = (hand.blinds || {}).bb || 0;
           maxBet = (hand.blinds || {}).bb || 0;
         }
-        // Stud 3rd street: bring-in is a forced partial bet (no blinds)
-        if (category === 'stud' && currentStreetIdx === 0 && studInfo && studInfo.bringInIdx >= 0) {
-          var biIdx = studInfo.bringInIdx;
-          // Only apply bring-in if no actions yet (it's the forced bet before voluntary action)
-          if (!(currentStreet.actions || []).length) {
-            contrib[biIdx] = bringInAmount;
-            maxBet = bringInAmount;
-          }
-        }
+        // Stud 3rd street: the bring-in amount is posted via an explicit 'bring-in' action
+        // (handled in the action loop below). No implicit forced amount is set here —
+        // the bring-in player's first action (bring-in or complete) determines the amount.
         (currentStreet.actions || []).forEach(function(act) {
           if (act.action === 'fold') return;
           if (act.action === 'bring-in') {
@@ -2536,20 +2530,7 @@
       var plMaxBet = currentPot;
 
       // NL/PL min-raise: at least the size of the last raise/bet, minimum BB
-      // Track the previous maxBet level to compute the last raise size
-      var prevMaxBet = 0;
-      var lastAggressiveSize = (hand.blinds || {}).bb || 0; // default to BB
-      (currentStreet.actions || []).forEach(function(a) {
-        if (a.action === 'raise' || a.action === 'bet') {
-          // The new level is prevMaxBet + a.amount for bet, or we need to track differently
-          // Since contrib accumulates: after this action, the aggressor's total = their prior contrib + a.amount
-          // The new maxBet level = aggressor's new total
-          // The raise size = new level - previous maxBet level
-          var newLevel = streetBets.maxBet; // We can't easily compute per-action, use final maxBet for last action
-          lastAggressiveSize = Math.max(a.amount, (hand.blinds || {}).bb || 0);
-        }
-      });
-      // Actually, simpler: track raise sizes by replaying the maxBet progression
+      // Track raise sizes by replaying the maxBet progression through street actions
       var _prevMax = 0;
       var _lastRaiseSize = (hand.blinds || {}).bb || 0;
       var _runContrib = new Array(hand.players.length).fill(0);
@@ -2560,10 +2541,7 @@
         if (_bbIdx >= 0) _runContrib[_bbIdx] = (hand.blinds || {}).bb || 0;
         _prevMax = (hand.blinds || {}).bb || 0;
       }
-      if (category === 'stud' && currentStreetIdx === 0 && studInfo && studInfo.bringInIdx >= 0) {
-        _runContrib[studInfo.bringInIdx] = bringInAmount;
-        _prevMax = bringInAmount;
-      }
+      // Stud bring-in is handled via explicit 'bring-in' action in the loop below
       (currentStreet.actions || []).forEach(function(a) {
         if (a.action === 'fold') return;
         if (a.action === 'bring-in') {
@@ -3438,9 +3416,9 @@
                               <span className="gto-action-icon call">⬤</span>
                               <span className="gto-action-label">Bring In {formatChipAmount(bringInAmount)}</span>
                             </button>
-                            <button className="gto-action-btn" onClick={function() { var completeAmt = Math.min(flBetSize - playerContrib, playerStack); addAction('bet', completeAmt); }}>
+                            <button className="gto-action-btn" onClick={function() { addAction('bet', Math.min(flBetSize, playerStack)); }}>
                               <span className="gto-action-icon raise">▲</span>
-                              <span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack + playerContrib))}</span>
+                              <span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack))}</span>
                             </button>
                           </div>
                         ) : isLimitGame && gameCfg.isStud && currentStreetIdx === 0 && (currentStreet.actions || []).length > 0 && streetBets.maxBet <= bringInAmount && streetBetRaiseCount === 0 ? (
@@ -3534,23 +3512,20 @@
                             {showRaiseInput && (
                               <React.Fragment>
                                 <div className="gto-sizing-row">
-                                  {(canCheck
-                                    ? [{label:'Min',mult:0},{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}]
-                                    : [{label:'Min',mult:0},{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}]
-                                  ).map(function(s) {
+                                  {[{label:'Min',mult:0},{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(function(s) {
                                     var pillAmt;
                                     if (canCheck) {
-                                      // Opening bet: pills are fractions of current pot
+                                      // Opening bet: pills are fractions of current pot (max bet = pot)
                                       pillAmt = s.mult === 0 ? Math.min((hand.blinds || {}).bb || 0, playerStack) : Math.min(Math.round(plMaxBet * s.mult), playerStack);
                                     } else {
-                                      // Facing a bet: pills are fractions of pot-size raise increment
+                                      // Facing a bet: "1/3 pot" means raise by 1/3 of pot-after-calling
+                                      // Raise increment = call + raise_size, where raise_size = fraction * plPotAfterCall
                                       if (s.mult === 0) {
                                         pillAmt = Math.min(minRaiseIncrement, playerStack);
                                       } else {
-                                        // Scale between min raise and pot raise
-                                        var minR = minRaiseIncrement;
-                                        var maxR = plMaxRaiseIncrement;
-                                        pillAmt = Math.min(Math.round(minR + (maxR - minR) * s.mult), playerStack);
+                                        var raiseSize = Math.round(plPotAfterCall * s.mult);
+                                        var totalIncrement = callAmount + raiseSize;
+                                        pillAmt = Math.max(Math.min(totalIncrement, plMaxRaiseIncrement, playerStack), Math.min(minRaiseIncrement, playerStack));
                                       }
                                     }
                                     return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(pillAmt)); }}>{s.label}</button>;
