@@ -65,8 +65,15 @@
   <script src="/dist/app.js?v=20260328"></script>
   <script>
     // Register service worker for PWA offline support
-    if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform()) {
+    if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNativePlatform())) {
       window.addEventListener('load', function() {
+        // Force unregister stale service workers, then re-register fresh
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(r) { r.unregister(); });
+        });
+        caches.keys().then(function(names) {
+          names.forEach(function(n) { caches.delete(n); });
+        });
         navigator.serviceWorker.register('/sw.js').then(function(reg) {
           console.log('SW registered, scope:', reg.scope);
         }).catch(function(err) {

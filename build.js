@@ -17,7 +17,7 @@ const commonOptions = {
   jsx: 'transform',
   jsxFactory: 'React.createElement',
   jsxFragment: 'React.Fragment',
-  target: 'es2020',
+  target: 'es2017',
   charset: 'utf8',
   keepNames: true,
 };

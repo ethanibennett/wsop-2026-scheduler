@@ -1,5 +1,35 @@
 var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
+var __objRest = (source, exclude) => {
+  var target = {};
+  for (var prop in source)
+    if (__hasOwnProp.call(source, prop) && exclude.indexOf(prop) < 0)
+      target[prop] = source[prop];
+  if (source != null && __getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(source)) {
+      if (exclude.indexOf(prop) < 0 && __propIsEnum.call(source, prop))
+        target[prop] = source[prop];
+    }
+  return target;
+};
 var { useState, useEffect, useMemo, useCallback, useRef, createContext, useContext } = React;
 const DisplayNameContext = createContext((u) => u.username);
 function useDisplayName() {
@@ -18,12 +48,12 @@ function ToastProvider({ children }) {
     const id = ++toastIdCounter;
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
-      setToasts((prev) => prev.map((t) => t.id === id ? { ...t, exiting: true } : t));
+      setToasts((prev) => prev.map((t) => t.id === id ? __spreadProps(__spreadValues({}, t), { exiting: true }) : t));
       setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 200);
     }, duration);
   }, []);
   const dismiss = useCallback((id) => {
-    setToasts((prev) => prev.map((t) => t.id === id ? { ...t, exiting: true } : t));
+    setToasts((prev) => prev.map((t) => t.id === id ? __spreadProps(__spreadValues({}, t), { exiting: true }) : t));
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 200);
   }, []);
   const ctx = useMemo(() => ({
@@ -333,7 +363,7 @@ function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemo
     alignItems: "center",
     gap: "8px"
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "condition-picker" }, /* @__PURE__ */ React.createElement("div", { className: "condition-picker-title" }, "Set Conditions"), /* @__PURE__ */ React.createElement("label", { style: { ...sectionLabelStyle, marginBottom: satEnabled ? "8px" : "12px" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: satEnabled, onChange: (e) => setSatEnabled(e.target.checked), style: checkboxStyle }), "Satellites"), satEnabled && /* @__PURE__ */ React.createElement("div", { style: { paddingLeft: "24px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { className: "condition-type-row", style: { marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("button", { className: `condition-type-btn ${satType === "IF_WIN_SEAT" ? "active" : ""}`, onClick: () => setSatType("IF_WIN_SEAT") }, "If I win a seat"), /* @__PURE__ */ React.createElement("button", { className: `condition-type-btn ${satType === "IF_NO_SEAT" ? "active" : ""}`, onClick: () => setSatType("IF_NO_SEAT") }, "If I don't win a seat")), suggestedSatellites.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" } }, "Related Satellites"), /* @__PURE__ */ React.createElement("div", { className: "condition-sat-list" }, suggestedSatellites.map(renderItem))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" } }, suggestedSatellites.length > 0 ? "Or search any event" : "Search for an event"), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "condition-picker" }, /* @__PURE__ */ React.createElement("div", { className: "condition-picker-title" }, "Set Conditions"), /* @__PURE__ */ React.createElement("label", { style: __spreadProps(__spreadValues({}, sectionLabelStyle), { marginBottom: satEnabled ? "8px" : "12px" }) }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: satEnabled, onChange: (e) => setSatEnabled(e.target.checked), style: checkboxStyle }), "Satellites"), satEnabled && /* @__PURE__ */ React.createElement("div", { style: { paddingLeft: "24px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { className: "condition-type-row", style: { marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("button", { className: `condition-type-btn ${satType === "IF_WIN_SEAT" ? "active" : ""}`, onClick: () => setSatType("IF_WIN_SEAT") }, "If I win a seat"), /* @__PURE__ */ React.createElement("button", { className: `condition-type-btn ${satType === "IF_NO_SEAT" ? "active" : ""}`, onClick: () => setSatType("IF_NO_SEAT") }, "If I don't win a seat")), suggestedSatellites.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" } }, "Related Satellites"), /* @__PURE__ */ React.createElement("div", { className: "condition-sat-list" }, suggestedSatellites.map(renderItem))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" } }, suggestedSatellites.length > 0 ? "Or search any event" : "Search for an event"), /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "condition-search",
@@ -341,7 +371,7 @@ function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemo
       value: satSearch,
       onChange: (e) => setSatSearch(e.target.value)
     }
-  ), searchResults.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "condition-sat-list" }, searchResults.map(renderItem))), /* @__PURE__ */ React.createElement("label", { style: { ...sectionLabelStyle, marginBottom: profitEnabled ? "8px" : "12px" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: profitEnabled, onChange: (e) => setProfitEnabled(e.target.checked), style: checkboxStyle }), "Profit / Loss"), profitEnabled && /* @__PURE__ */ React.createElement("div", { style: { paddingLeft: "24px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" } }, "Profit threshold ($)"), /* @__PURE__ */ React.createElement(
+  ), searchResults.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "condition-sat-list" }, searchResults.map(renderItem))), /* @__PURE__ */ React.createElement("label", { style: __spreadProps(__spreadValues({}, sectionLabelStyle), { marginBottom: profitEnabled ? "8px" : "12px" }) }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: profitEnabled, onChange: (e) => setProfitEnabled(e.target.checked), style: checkboxStyle }), "Profit / Loss"), profitEnabled && /* @__PURE__ */ React.createElement("div", { style: { paddingLeft: "24px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" } }, "Profit threshold ($)"), /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "condition-search",
@@ -350,7 +380,7 @@ function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemo
       value: profitAmount,
       onChange: (e) => setProfitAmount(e.target.value)
     }
-  ), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", display: "block", marginTop: "2px" } }, "I'll play this event if I'm up at least this amount")), bustEvents.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: { ...sectionLabelStyle, marginBottom: bustEnabled ? "8px" : "12px" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: bustEnabled, onChange: (e) => setBustEnabled(e.target.checked), style: checkboxStyle }), "If I Bust"), bustEnabled && /* @__PURE__ */ React.createElement("div", { style: { paddingLeft: "24px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" } }, "I'll play this if I bust from:"), /* @__PURE__ */ React.createElement("div", { className: "condition-sat-list" }, bustEvents.map((t) => /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", display: "block", marginTop: "2px" } }, "I'll play this event if I'm up at least this amount")), bustEvents.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: __spreadProps(__spreadValues({}, sectionLabelStyle), { marginBottom: bustEnabled ? "8px" : "12px" }) }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: bustEnabled, onChange: (e) => setBustEnabled(e.target.checked), style: checkboxStyle }), "If I Bust"), bustEnabled && /* @__PURE__ */ React.createElement("div", { style: { paddingLeft: "24px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" } }, "I'll play this if I bust from:"), /* @__PURE__ */ React.createElement("div", { className: "condition-sat-list" }, bustEvents.map((t) => /* @__PURE__ */ React.createElement(
     "div",
     {
       key: t.id,
@@ -612,6 +642,7 @@ function formatLiveUpdate(u) {
 }
 __name(formatLiveUpdate, "formatLiveUpdate");
 function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }) {
+  var _a;
   const containerRef = useRef(null);
   const panelRef = useRef(null);
   const toggleRef = useRef(null);
@@ -710,36 +741,36 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
   }, [todayTournaments, previousActive]);
   const isRegPastClose = /* @__PURE__ */ __name((tournamentId) => {
     const t = todayTournaments.find((x) => x.id === tournamentId);
-    if (!t?.late_reg_end) return false;
+    if (!(t == null ? void 0 : t.late_reg_end)) return false;
     const now = /* @__PURE__ */ new Date();
     const [h, m] = t.late_reg_end.split(":").map(Number);
     const closeTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
     return now >= closeTime;
   }, "isRegPastClose");
   const resetFields = /* @__PURE__ */ __name((prefill, tournamentId) => {
-    setStack(prefill?.stack || "");
-    setSb(prefill?.sb || "");
-    setBb(prefill?.bb || "");
-    setBbAnte(prefill?.bb_ante || "");
+    setStack((prefill == null ? void 0 : prefill.stack) || "");
+    setSb((prefill == null ? void 0 : prefill.sb) || "");
+    setBb((prefill == null ? void 0 : prefill.bb) || "");
+    setBbAnte((prefill == null ? void 0 : prefill.bb_ante) || "");
     setIsRegClosed(prefill ? !!prefill.is_reg_closed : isRegPastClose(tournamentId));
-    setBubble(prefill?.bubble || "");
-    setIsItm(!!prefill?.is_itm);
-    setLockedAmount(prefill?.locked_amount || "");
-    setIsFinalTable(!!prefill?.is_final_table);
-    setPlacesLeft(prefill?.places_left || "");
-    setFirstPlacePrize(prefill?.first_place_prize || "");
-    setIsDeal(!!prefill?.is_deal);
-    setDealPlace(prefill?.deal_place || "");
-    setDealPayout(prefill?.deal_payout || "");
-    setIsBusted(!!prefill?.is_busted);
-    setTotalEntries(prefill?.total_entries || "");
+    setBubble((prefill == null ? void 0 : prefill.bubble) || "");
+    setIsItm(!!(prefill == null ? void 0 : prefill.is_itm));
+    setLockedAmount((prefill == null ? void 0 : prefill.locked_amount) || "");
+    setIsFinalTable(!!(prefill == null ? void 0 : prefill.is_final_table));
+    setPlacesLeft((prefill == null ? void 0 : prefill.places_left) || "");
+    setFirstPlacePrize((prefill == null ? void 0 : prefill.first_place_prize) || "");
+    setIsDeal(!!(prefill == null ? void 0 : prefill.is_deal));
+    setDealPlace((prefill == null ? void 0 : prefill.deal_place) || "");
+    setDealPayout((prefill == null ? void 0 : prefill.deal_payout) || "");
+    setIsBusted(!!(prefill == null ? void 0 : prefill.is_busted));
+    setTotalEntries((prefill == null ? void 0 : prefill.total_entries) || "");
     if (externalBagRef.current) {
       setIsBagged(true);
       setBagDay(String(externalBagRef.current));
       externalBagRef.current = null;
     } else {
-      setIsBagged(!!prefill?.is_bagged);
-      setBagDay(prefill?.bag_day || "");
+      setIsBagged(!!(prefill == null ? void 0 : prefill.is_bagged));
+      setBagDay((prefill == null ? void 0 : prefill.bag_day) || "");
     }
     setBustPlace("");
     setBustPayout("");
@@ -788,8 +819,7 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
   const buildUpdateData = /* @__PURE__ */ __name(() => {
     const base = { tournamentId: selectedTournamentId, updateType };
     if (updateType === "finish") {
-      return {
-        ...base,
+      return __spreadProps(__spreadValues({}, base), {
         stack: stack ? ps(stack) : 0,
         sb: sb ? ps(sb) : null,
         bb: bb ? ps(bb) : null,
@@ -799,7 +829,7 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
         dealPayout: bustPayout ? Number(bustPayout) : null,
         updateText: bustNote || null,
         totalEntries: totalEntries ? Number(totalEntries) : null
-      };
+      });
     }
     if (updateType === "hand") {
       const handPayload = {
@@ -810,21 +840,23 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
         note: handNote || null
       };
       if (handResult && handResult.length > 0) {
-        handPayload.results = handResult.map((r) => ({
-          oppIndex: r.index,
-          outcome: r.result.outcome,
-          text: r.result.text,
-          heroHand: r.heroHigh?.name || r.heroLow?.name || r.heroBadugi?.name || null,
-          opponentHand: r.opponentHigh?.name || r.opponentLow?.name || r.opponentBadugi?.name || null
-        }));
+        handPayload.results = handResult.map((r) => {
+          var _a2, _b, _c, _d, _e, _f;
+          return {
+            oppIndex: r.index,
+            outcome: r.result.outcome,
+            text: r.result.text,
+            heroHand: ((_a2 = r.heroHigh) == null ? void 0 : _a2.name) || ((_b = r.heroLow) == null ? void 0 : _b.name) || ((_c = r.heroBadugi) == null ? void 0 : _c.name) || null,
+            opponentHand: ((_d = r.opponentHigh) == null ? void 0 : _d.name) || ((_e = r.opponentLow) == null ? void 0 : _e.name) || ((_f = r.opponentBadugi) == null ? void 0 : _f.name) || null
+          };
+        });
       }
-      return { ...base, updateText: JSON.stringify(handPayload) };
+      return __spreadProps(__spreadValues({}, base), { updateText: JSON.stringify(handPayload) });
     }
     if (updateType === "register") {
-      return { ...base, isRegistered: true };
+      return __spreadProps(__spreadValues({}, base), { isRegistered: true });
     }
-    return {
-      ...base,
+    return __spreadProps(__spreadValues({}, base), {
       stack: ps(stack),
       sb: sb ? ps(sb) : null,
       bb: bb ? ps(bb) : null,
@@ -843,9 +875,10 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
       totalEntries: totalEntries ? Number(totalEntries) : null,
       isBagged,
       bagDay: isBagged && bagDay ? Number(bagDay) : null
-    };
+    });
   }, "buildUpdateData");
   const handleSubmit = /* @__PURE__ */ __name(() => {
+    var _a2;
     if (!selectedTournamentId) return;
     if (updateType === "update" && !isBusted && !stack) return;
     if (updateType === "hand" && !parseCardNotation(heroHand).length) return;
@@ -853,7 +886,7 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
     const data = buildUpdateData();
     onPost(data);
     if ((updateType === "finish" || updateType === "update" && data.isBusted) && onAddTracking) {
-      const bc = activeUpdateMap[selectedTournamentId]?.bust_count || 0;
+      const bc = ((_a2 = activeUpdateMap[selectedTournamentId]) == null ? void 0 : _a2.bust_count) || 0;
       const payout = data.dealPayout || 0;
       onAddTracking({
         tournamentId: selectedTournamentId,
@@ -876,7 +909,8 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
     [mySchedule, selectedTournamentId]
   );
   const entryLabel = useMemo(() => {
-    const bc = activeUpdateMap[selectedTournamentId]?.bust_count || 0;
+    var _a2;
+    const bc = ((_a2 = activeUpdateMap[selectedTournamentId]) == null ? void 0 : _a2.bust_count) || 0;
     if (bc === 0) return "Register";
     const n = bc + 1;
     return n + ordinalSuffix(n) + " Entry";
@@ -933,7 +967,7 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
         oCards = assignNeutralSuits(oRaw, usedKeys, boardSuits);
       }
       const ev = evaluateHand(activeGame, hCards, oCards, bCards);
-      if (ev && ev.result) results.push({ index: i, ...ev });
+      if (ev && ev.result) results.push(__spreadValues({ index: i }, ev));
       oCards.forEach((c) => {
         if (c.suit !== "x") usedKeys.push(c.rank + c.suit);
       });
@@ -1000,7 +1034,7 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
       });
       if (resp.ok) setStackHistory(await resp.json());
       else setStackHistory([]);
-    } catch {
+    } catch (e) {
       setStackHistory([]);
     }
     setCameraOpen(true);
@@ -1019,7 +1053,8 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
     document.body
   ), open && !cameraOpen && !registrationOpen && ReactDOM.createPortal(
     /* @__PURE__ */ React.createElement("div", { ref: panelRef, className: "live-update-panel", style: (() => {
-      const r = toggleRef.current?.getBoundingClientRect();
+      var _a2;
+      const r = (_a2 = toggleRef.current) == null ? void 0 : _a2.getBoundingClientRect();
       if (!r) return { top: 68, left: "50%", transform: "translateX(-50%)" };
       const vw = window.innerWidth || document.documentElement.clientWidth || 375;
       const vh = window.innerHeight || document.documentElement.clientHeight || 700;
@@ -1279,7 +1314,7 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
         joiningSb,
         joiningBb,
         joiningAnte,
-        entryNumber: (activeUpdateMap[selectedTournamentId]?.bust_count || 0) + 1,
+        entryNumber: (((_a = activeUpdateMap[selectedTournamentId]) == null ? void 0 : _a.bust_count) || 0) + 1,
         onClose: () => {
           setRegistrationOpen(false);
           setOpen(true);
@@ -1405,7 +1440,7 @@ function usePullToRefresh(scrollRef, onRefresh) {
       }
       try {
         await onRefresh();
-      } catch {
+      } catch (e) {
       }
       setRefreshing(false);
     }
@@ -1564,7 +1599,7 @@ function CameraOverlay({ updateData, tournamentName, tournament, stackHistory, d
         drawChipStackStory(ctx, outW, outH, {
           tournamentName,
           stackHistory: stackHistory || [],
-          startingStack: tournament?.starting_chips,
+          startingStack: tournament == null ? void 0 : tournament.starting_chips,
           bb: updateData.bb
         });
       } else if (overlayType === "hand" && handData) {
@@ -1582,12 +1617,12 @@ function CameraOverlay({ updateData, tournamentName, tournament, stackHistory, d
           totalEntries: updateData.totalEntries,
           placesLeft: updateData.placesLeft || updateData.totalEntries,
           stackHistory: stackHistory || [],
-          startingStack: tournament?.starting_chips
+          startingStack: tournament == null ? void 0 : tournament.starting_chips
         });
       } else if (overlayType === "finaltable") {
         drawFinalTableOverlay(ctx, outW, outH, {
           tournamentName,
-          buyin: tournament?.buyin,
+          buyin: tournament == null ? void 0 : tournament.buyin,
           placesLeft: updateData.placesLeft,
           stack: updateData.stack,
           firstPlacePrize: updateData.firstPlacePrize,
@@ -1597,8 +1632,8 @@ function CameraOverlay({ updateData, tournamentName, tournament, stackHistory, d
       } else if (overlayType === "countdown") {
         drawCountdownOverlay(ctx, outW, outH, {
           tournamentName,
-          buyin: tournament?.buyin,
-          venue: tournament?.venue,
+          buyin: tournament == null ? void 0 : tournament.buyin,
+          venue: tournament == null ? void 0 : tournament.venue,
           timeUntil: countdownText
         });
       } else {
@@ -1639,7 +1674,8 @@ function CameraOverlay({ updateData, tournamentName, tournament, stackHistory, d
     stopStream();
   }, "handleCapture");
   const handleGalleryPick = /* @__PURE__ */ __name((e) => {
-    const file = e.target.files?.[0];
+    var _a;
+    const file = (_a = e.target.files) == null ? void 0 : _a[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -1702,7 +1738,10 @@ function CameraOverlay({ updateData, tournamentName, tournament, stackHistory, d
   }, "handleClose");
   const statsText = formatLiveUpdate(updateData);
   if (error) {
-    return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("div", { className: "camera-error" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2rem", marginBottom: "12px" } }, "📷"), /* @__PURE__ */ React.createElement("div", null, error))), /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, style: { display: "none" }, onChange: handleGalleryPick }), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-close", onClick: handleClose }, "Close"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-gallery", onClick: () => fileInputRef.current?.click() }, "Choose Photo")));
+    return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("div", { className: "camera-error" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2rem", marginBottom: "12px" } }, "📷"), /* @__PURE__ */ React.createElement("div", null, error))), /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, style: { display: "none" }, onChange: handleGalleryPick }), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-close", onClick: handleClose }, "Close"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-gallery", onClick: () => {
+      var _a;
+      return (_a = fileInputRef.current) == null ? void 0 : _a.click();
+    } }, "Choose Photo")));
   }
   if (captured) {
     return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("div", { className: "camera-preview" }, /* @__PURE__ */ React.createElement("img", { src: captured, alt: "Captured" })), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-retake", onClick: handleRetake }, "Retake"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-share", onClick: handleShare }, "Share")));
@@ -1749,14 +1788,17 @@ function CameraOverlay({ updateData, tournamentName, tournament, stackHistory, d
       return /* @__PURE__ */ React.createElement("div", { className: "camera-stats-bar" }, /* @__PURE__ */ React.createElement("div", { className: "tournament-name" }, tournamentName), /* @__PURE__ */ React.createElement("div", { className: "stats-line" }, posNum, typeof posNum === "number" ? ordinalSuffix(posNum) : "", " of ", totalNum), /* @__PURE__ */ React.createElement("div", { style: { marginTop: "4px", height: "6px", borderRadius: "3px", background: "rgba(255,255,255,0.15)", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: pct + "%", background: "#22c55e", borderRadius: "3px" } })), updateData.stack && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "2px", fontSize: "0.7rem", color: "#22c55e", fontFamily: "'Univers Condensed','Univers',sans-serif" } }, formatChips(updateData.stack), " chips"));
     }
     if (overlayType === "finaltable") {
-      return /* @__PURE__ */ React.createElement("div", { className: "camera-stats-bar" }, /* @__PURE__ */ React.createElement("div", { style: { color: "#f59e0b", fontWeight: 600, fontFamily: "'Univers Condensed','Univers',sans-serif", fontSize: "0.9rem" } }, "🏆 FINAL TABLE"), /* @__PURE__ */ React.createElement("div", { className: "tournament-name" }, tournament?.buyin ? "$" + Number(tournament.buyin).toLocaleString() + " " : "", tournamentName), /* @__PURE__ */ React.createElement("div", { className: "stats-line" }, updateData.placesLeft ? updateData.placesLeft + " remain" : "", updateData.stack ? "  ·  " + formatChips(updateData.stack) : "", updateData.firstPlacePrize ? "  ·  1st: $" + Number(updateData.firstPlacePrize).toLocaleString() : ""));
+      return /* @__PURE__ */ React.createElement("div", { className: "camera-stats-bar" }, /* @__PURE__ */ React.createElement("div", { style: { color: "#f59e0b", fontWeight: 600, fontFamily: "'Univers Condensed','Univers',sans-serif", fontSize: "0.9rem" } }, "🏆 FINAL TABLE"), /* @__PURE__ */ React.createElement("div", { className: "tournament-name" }, (tournament == null ? void 0 : tournament.buyin) ? "$" + Number(tournament.buyin).toLocaleString() + " " : "", tournamentName), /* @__PURE__ */ React.createElement("div", { className: "stats-line" }, updateData.placesLeft ? updateData.placesLeft + " remain" : "", updateData.stack ? "  ·  " + formatChips(updateData.stack) : "", updateData.firstPlacePrize ? "  ·  1st: $" + Number(updateData.firstPlacePrize).toLocaleString() : ""));
     }
     if (overlayType === "countdown") {
-      return /* @__PURE__ */ React.createElement("div", { className: "camera-stats-bar" }, /* @__PURE__ */ React.createElement("div", { style: { color: "#22c55e", fontWeight: 600, fontFamily: "'Univers Condensed','Univers',sans-serif", fontSize: "0.65rem", letterSpacing: "1px" } }, "NEXT UP"), /* @__PURE__ */ React.createElement("div", { className: "tournament-name" }, tournament?.buyin ? "$" + Number(tournament.buyin).toLocaleString() + " " : "", tournamentName), /* @__PURE__ */ React.createElement("div", { className: "stats-line" }, "in ", countdownText));
+      return /* @__PURE__ */ React.createElement("div", { className: "camera-stats-bar" }, /* @__PURE__ */ React.createElement("div", { style: { color: "#22c55e", fontWeight: 600, fontFamily: "'Univers Condensed','Univers',sans-serif", fontSize: "0.65rem", letterSpacing: "1px" } }, "NEXT UP"), /* @__PURE__ */ React.createElement("div", { className: "tournament-name" }, (tournament == null ? void 0 : tournament.buyin) ? "$" + Number(tournament.buyin).toLocaleString() + " " : "", tournamentName), /* @__PURE__ */ React.createElement("div", { className: "stats-line" }, "in ", countdownText));
     }
     return /* @__PURE__ */ React.createElement("div", { className: "camera-stats-bar" }, /* @__PURE__ */ React.createElement("div", { className: "tournament-name" }, tournamentName), /* @__PURE__ */ React.createElement("div", { className: "stats-line" }, statsText));
   }, "renderPreviewBar");
-  return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("video", { ref: videoRef, autoPlay: true, playsInline: true, muted: true }), /* @__PURE__ */ React.createElement("canvas", { ref: canvasRef, style: { display: "none" } }), /* @__PURE__ */ React.createElement("div", { className: "camera-watermark" }, "snbwsop.com"), /* @__PURE__ */ React.createElement("div", { className: "camera-overlay-picker" }, /* @__PURE__ */ React.createElement("button", { className: overlayType === "stats" ? "active" : "", onClick: () => setOverlayType("stats") }, "Stats"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "deeprun" ? "active" : "", onClick: () => setOverlayType("deeprun"), disabled: !canDeepRun }, "Deep Run"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "finaltable" ? "active" : "", onClick: () => setOverlayType("finaltable"), disabled: !canFinalTable }, "Final Table"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "countdown" ? "active" : "", onClick: () => setOverlayType("countdown") }, "Countdown"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "hand" ? "active" : "", onClick: () => setOverlayType("hand"), disabled: !handData }, "Hand"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "stackgraph" ? "active" : "", onClick: () => setOverlayType("stackgraph"), disabled: !canStackGraph }, "Graph")), renderPreviewBar(), /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, style: { display: "none" }, onChange: handleGalleryPick }), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-close", onClick: handleClose }, "✕"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-capture", onClick: handleCapture }, "Capture"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-gallery", onClick: () => fileInputRef.current?.click(), title: "Choose from gallery" }, /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "3", width: "18", height: "18", rx: "2" }), /* @__PURE__ */ React.createElement("circle", { cx: "8.5", cy: "8.5", r: "1.5" }), /* @__PURE__ */ React.createElement("path", { d: "m21 15-5-5L5 21" })))));
+  return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("video", { ref: videoRef, autoPlay: true, playsInline: true, muted: true }), /* @__PURE__ */ React.createElement("canvas", { ref: canvasRef, style: { display: "none" } }), /* @__PURE__ */ React.createElement("div", { className: "camera-watermark" }, "snbwsop.com"), /* @__PURE__ */ React.createElement("div", { className: "camera-overlay-picker" }, /* @__PURE__ */ React.createElement("button", { className: overlayType === "stats" ? "active" : "", onClick: () => setOverlayType("stats") }, "Stats"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "deeprun" ? "active" : "", onClick: () => setOverlayType("deeprun"), disabled: !canDeepRun }, "Deep Run"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "finaltable" ? "active" : "", onClick: () => setOverlayType("finaltable"), disabled: !canFinalTable }, "Final Table"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "countdown" ? "active" : "", onClick: () => setOverlayType("countdown") }, "Countdown"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "hand" ? "active" : "", onClick: () => setOverlayType("hand"), disabled: !handData }, "Hand"), /* @__PURE__ */ React.createElement("button", { className: overlayType === "stackgraph" ? "active" : "", onClick: () => setOverlayType("stackgraph"), disabled: !canStackGraph }, "Graph")), renderPreviewBar(), /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, style: { display: "none" }, onChange: handleGalleryPick }), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-close", onClick: handleClose }, "✕"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-capture", onClick: handleCapture }, "Capture"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-gallery", onClick: () => {
+    var _a;
+    return (_a = fileInputRef.current) == null ? void 0 : _a.click();
+  }, title: "Choose from gallery" }, /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "3", width: "18", height: "18", rx: "2" }), /* @__PURE__ */ React.createElement("circle", { cx: "8.5", cy: "8.5", r: "1.5" }), /* @__PURE__ */ React.createElement("path", { d: "m21 15-5-5L5 21" })))));
 }
 __name(CameraOverlay, "CameraOverlay");
 function RegistrationCameraFlow({ tournament, guarantee, joiningSb, joiningBb, joiningAnte, entryNumber, onClose }) {
@@ -1858,7 +1900,8 @@ function RegistrationCameraFlow({ tournament, guarantee, joiningSb, joiningBb, j
     stopStream();
   }, "handleCapture");
   const handleGalleryPick = /* @__PURE__ */ __name((e) => {
-    const file = e.target.files?.[0];
+    var _a;
+    const file = (_a = e.target.files) == null ? void 0 : _a[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -1922,12 +1965,18 @@ function RegistrationCameraFlow({ tournament, guarantee, joiningSb, joiningBb, j
   const overlayLine1 = registrationData.seriesName;
   const overlayLine2 = (registrationData.eventNumber ? "#" + registrationData.eventNumber + " · " : "") + (registrationData.startingChips ? formatChips(registrationData.startingChips) + " ss" : "") + (registrationData.levelDuration ? " / " + registrationData.levelDuration + "m lvls" : "");
   if (error) {
-    return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("div", { className: "camera-error" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2rem", marginBottom: "12px" } }, "📷"), /* @__PURE__ */ React.createElement("div", null, error))), /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, style: { display: "none" }, onChange: handleGalleryPick }), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-close", onClick: handleClose }, "Close"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-gallery", onClick: () => fileInputRef.current?.click() }, "Choose Photo")));
+    return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("div", { className: "camera-error" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2rem", marginBottom: "12px" } }, "📷"), /* @__PURE__ */ React.createElement("div", null, error))), /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, style: { display: "none" }, onChange: handleGalleryPick }), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-close", onClick: handleClose }, "Close"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-gallery", onClick: () => {
+      var _a;
+      return (_a = fileInputRef.current) == null ? void 0 : _a.click();
+    } }, "Choose Photo")));
   }
   if (captured) {
     return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("div", { className: "camera-preview" }, /* @__PURE__ */ React.createElement("img", { src: captured, alt: "Captured" })), /* @__PURE__ */ React.createElement("div", { className: "camera-step-indicator" }, "Step ", step, " of 2"), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-retake", onClick: handleRetake }, "Retake"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-share", onClick: handleShare }, "Save"), step === 1 && /* @__PURE__ */ React.createElement("button", { className: "camera-btn-next", onClick: () => setStep(2) }, "Next →"), step === 2 && /* @__PURE__ */ React.createElement("button", { className: "camera-btn-close", onClick: handleClose }, "Done")));
   }
-  return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("video", { ref: videoRef, autoPlay: true, playsInline: true, muted: true }), /* @__PURE__ */ React.createElement("canvas", { ref: canvasRef, style: { display: "none" } }), /* @__PURE__ */ React.createElement("div", { className: "camera-watermark" }, "snbwsop.com"), /* @__PURE__ */ React.createElement("div", { className: "camera-step-indicator" }, step === 1 ? "Step 1 of 2 — Receipt" : "Step 2 of 2 — Starting Stack"), step === 2 && /* @__PURE__ */ React.createElement("div", { className: "camera-stats-bar" }, /* @__PURE__ */ React.createElement("div", { className: "tournament-name" }, overlayLine1), /* @__PURE__ */ React.createElement("div", { className: "stats-line" }, overlayLine2)), /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, style: { display: "none" }, onChange: handleGalleryPick }), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-close", onClick: handleClose }, "✕"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-capture", onClick: handleCapture }, "Capture"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-gallery", onClick: () => fileInputRef.current?.click(), title: "Choose from gallery" }, /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "3", width: "18", height: "18", rx: "2" }), /* @__PURE__ */ React.createElement("circle", { cx: "8.5", cy: "8.5", r: "1.5" }), /* @__PURE__ */ React.createElement("path", { d: "m21 15-5-5L5 21" })))));
+  return /* @__PURE__ */ React.createElement("div", { className: "camera-overlay" }, /* @__PURE__ */ React.createElement("video", { ref: videoRef, autoPlay: true, playsInline: true, muted: true }), /* @__PURE__ */ React.createElement("canvas", { ref: canvasRef, style: { display: "none" } }), /* @__PURE__ */ React.createElement("div", { className: "camera-watermark" }, "snbwsop.com"), /* @__PURE__ */ React.createElement("div", { className: "camera-step-indicator" }, step === 1 ? "Step 1 of 2 — Receipt" : "Step 2 of 2 — Starting Stack"), step === 2 && /* @__PURE__ */ React.createElement("div", { className: "camera-stats-bar" }, /* @__PURE__ */ React.createElement("div", { className: "tournament-name" }, overlayLine1), /* @__PURE__ */ React.createElement("div", { className: "stats-line" }, overlayLine2)), /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, style: { display: "none" }, onChange: handleGalleryPick }), /* @__PURE__ */ React.createElement("div", { className: "camera-actions" }, /* @__PURE__ */ React.createElement("button", { className: "camera-btn-close", onClick: handleClose }, "✕"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-capture", onClick: handleCapture }, "Capture"), /* @__PURE__ */ React.createElement("button", { className: "camera-btn-gallery", onClick: () => {
+    var _a;
+    return (_a = fileInputRef.current) == null ? void 0 : _a.click();
+  }, title: "Choose from gallery" }, /* @__PURE__ */ React.createElement("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "3", width: "18", height: "18", rx: "2" }), /* @__PURE__ */ React.createElement("circle", { cx: "8.5", cy: "8.5", r: "1.5" }), /* @__PURE__ */ React.createElement("path", { d: "m21 15-5-5L5 21" })))));
 }
 __name(RegistrationCameraFlow, "RegistrationCameraFlow");
 const COMMON_FIRST_NAMES = /* @__PURE__ */ new Set([
@@ -2944,7 +2993,8 @@ function TableScanner() {
   const [error, setError] = useState("");
   const fileRef = useRef(null);
   const handleFile = /* @__PURE__ */ __name(async (e) => {
-    const file = e.target.files?.[0];
+    var _a;
+    const file = (_a = e.target.files) == null ? void 0 : _a[0];
     if (!file) return;
     setState("processing");
     setProgress(0);
@@ -3001,7 +3051,7 @@ function TableScanner() {
             const { data: headerData } = await worker.recognize(headerBlob);
             const title = extractEventTitle(headerData.text);
             if (title) setEventTitle(title);
-          } catch {
+          } catch (e2) {
           }
         }
         await worker.terminate();
@@ -3034,7 +3084,10 @@ function TableScanner() {
     "button",
     {
       className: "cal-structure-link",
-      onClick: () => fileRef.current?.click(),
+      onClick: () => {
+        var _a;
+        return (_a = fileRef.current) == null ? void 0 : _a.click();
+      },
       style: { display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "none", border: "1px solid var(--accent)", borderRadius: "6px", padding: "10px 12px", cursor: "pointer", color: "var(--accent)", font: "inherit", fontSize: "0.78rem", width: "100%" }
     },
     /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "13", r: "4" })),
@@ -3046,13 +3099,14 @@ function TableScanner() {
   } }, "Rescan")), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-oval" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-felt" }), (() => {
     const hasSeatData = players.some((p) => p.seat);
     const sorted = [...players].sort((a, b) => {
+      var _a, _b, _c, _d;
       if (hasSeatData) {
         const seatA = a.seat ? parseInt(a.seat.split("-")[1]) || 0 : a.position || 99;
         const seatB = b.seat ? parseInt(b.seat.split("-")[1]) || 0 : b.position || 99;
         return seatA - seatB;
       }
-      const angA = Math.atan2((a.px ?? 50) - 50, 50 - (a.py ?? 50));
-      const angB = Math.atan2((b.px ?? 50) - 50, 50 - (b.py ?? 50));
+      const angA = Math.atan2(((_a = a.px) != null ? _a : 50) - 50, 50 - ((_b = a.py) != null ? _b : 50));
+      const angB = Math.atan2(((_c = b.px) != null ? _c : 50) - 50, 50 - ((_d = b.py) != null ? _d : 50));
       return (angA < 0 ? angA + 2 * Math.PI : angA) - (angB < 0 ? angB + 2 * Math.PI : angB);
     });
     const layouts = {
@@ -3120,7 +3174,7 @@ function SwapModal({ buddy, tournament, token, onClose }) {
       }
       setMsg("Sent!");
       setTimeout(onClose, 800);
-    } catch {
+    } catch (e) {
       setMsg("Failed to send");
       setSending(false);
     }
@@ -3332,7 +3386,7 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
   ].filter(Boolean).join(" ");
   const stripColor = getVenueBrandColor(venue.abbr);
   const stripTextColor = venue.abbr === "WSOP" ? "var(--bg)" : "rgba(255,255,255,0.85)";
-  return /* @__PURE__ */ React.createElement("div", { ref: rowRef, className: rowClasses, style: isInSchedule ? { borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor, ...isAnchor ? { boxShadow: `inset 0 0 0 1.5px ${stripColor}` } : {} } : void 0 }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { ref: rowRef, className: rowClasses, style: isInSchedule ? __spreadValues({ borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor }, isAnchor ? { boxShadow: `inset 0 0 0 1.5px ${stripColor}` } : {}) : void 0 }, /* @__PURE__ */ React.createElement(
     "div",
     {
       className: `cal-venue-strip venue-strip-${venue.abbr.toLowerCase().replace(/\s+/g, "-")}`,
@@ -3503,25 +3557,24 @@ function GameVariantFilter({ selectedGames, setFilters }) {
   const toggleGroup = /* @__PURE__ */ __name((group, checked) => {
     setFilters((f) => {
       const without = f.selectedGames.filter((v) => !group.variants.includes(v));
-      return { ...f, selectedGames: checked ? [...without, ...group.variants] : without };
+      return __spreadProps(__spreadValues({}, f), { selectedGames: checked ? [...without, ...group.variants] : without });
     });
   }, "toggleGroup");
   const toggleVariant = /* @__PURE__ */ __name((v, checked) => {
-    setFilters((f) => ({
-      ...f,
+    setFilters((f) => __spreadProps(__spreadValues({}, f), {
       selectedGames: checked ? [...f.selectedGames, v] : f.selectedGames.filter((g) => g !== v)
     }));
   }, "toggleVariant");
   const isGroupFullySelected = /* @__PURE__ */ __name((group) => group.variants.every((v) => selectedGames.includes(v)), "isGroupFullySelected");
   const isGroupPartial = /* @__PURE__ */ __name((group) => group.variants.some((v) => selectedGames.includes(v)) && !isGroupFullySelected(group), "isGroupPartial");
   const chipStyle = { cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", fontSize: "0.78rem" };
-  const subChipStyle = { ...chipStyle, fontSize: "0.72rem", marginLeft: "4px" };
+  const subChipStyle = __spreadProps(__spreadValues({}, chipStyle), { fontSize: "0.72rem", marginLeft: "4px" });
   return /* @__PURE__ */ React.createElement("div", { className: "filter-group", style: { gridColumn: "1 / -1" } }, /* @__PURE__ */ React.createElement("label", null, "Game"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("label", { className: `filter-chip ${allSelected ? "active" : ""}`, style: chipStyle }, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "checkbox",
       checked: allSelected,
-      onChange: () => setFilters((f) => ({ ...f, selectedGames: [] })),
+      onChange: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { selectedGames: [] })),
       style: { margin: 0 }
     }
   ), "All"), GAME_GROUPS.map((group) => {
@@ -3549,7 +3602,7 @@ function GameVariantFilter({ selectedGames, setFilters }) {
         onClick: (e) => {
           if (e.target.tagName === "INPUT") return;
           e.preventDefault();
-          setExpandedGroups((g) => ({ ...g, [group.label]: !g[group.label] }));
+          setExpandedGroups((g) => __spreadProps(__spreadValues({}, g), { [group.label]: !g[group.label] }));
         }
       },
       /* @__PURE__ */ React.createElement(
@@ -3634,7 +3687,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
     {
       type: "checkbox",
       checked: !filters.hideSatellites,
-      onChange: (e) => setFilters((f) => ({ ...f, hideSatellites: !e.target.checked })),
+      onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideSatellites: !e.target.checked })),
       style: { margin: 0 }
     }
   ), " Satellites"), /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
@@ -3642,7 +3695,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
     {
       type: "checkbox",
       checked: !filters.hideRestarts,
-      onChange: (e) => setFilters((f) => ({ ...f, hideRestarts: !e.target.checked })),
+      onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideRestarts: !e.target.checked })),
       style: { margin: 0 }
     }
   ), " Restarts"), /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
@@ -3650,78 +3703,79 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
     {
       type: "checkbox",
       checked: !filters.hideSideEvents,
-      onChange: (e) => setFilters((f) => ({ ...f, hideSideEvents: !e.target.checked })),
+      onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideSideEvents: !e.target.checked })),
       style: { margin: 0 }
     }
   ), " Side Events"), filters.selectedGames.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.selectedGames.length === 1 ? filters.selectedGames[0] : `${filters.selectedGames.length} games`, /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
-      onClick: () => setFilters((f) => ({ ...f, selectedGames: [] }))
+      onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { selectedGames: [] }))
     },
     "✕"
   )), filters.buyinRanges && filters.buyinRanges.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.buyinRanges.length === 1 ? { "0-500": "< $500", "500-1500": "$500–$1.5K", "1500-5000": "$1.5K–$5K", "5000-10000": "$5K–$10K", "10000+": "$10K+" }[filters.buyinRanges[0]] : `${filters.buyinRanges.length} buy-ins`, /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
-      onClick: () => setFilters((f) => ({ ...f, buyinRanges: [] }))
+      onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { buyinRanges: [] }))
     },
     "✕"
   )), filters.rakeRanges && filters.rakeRanges.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.rakeRanges.length === 1 ? { "0-5": "< 5%", "5-8": "5–8%", "8-10": "8–10%", "10-13": "10–13%", "13+": "13%+" }[filters.rakeRanges[0]] : `${filters.rakeRanges.length} rake ranges`, /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
-      onClick: () => setFilters((f) => ({ ...f, rakeRanges: [] }))
+      onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { rakeRanges: [] }))
     },
     "✕"
   )), filters.bountyOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Bounty", /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
-      onClick: () => setFilters((f) => ({ ...f, bountyOnly: false }))
+      onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { bountyOnly: false }))
     },
     "✕"
   )), filters.mysteryBountyOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Mystery Bounty", /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
-      onClick: () => setFilters((f) => ({ ...f, mysteryBountyOnly: false }))
+      onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { mysteryBountyOnly: false }))
     },
     "✕"
   )), filters.headsUpOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Heads Up", /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
-      onClick: () => setFilters((f) => ({ ...f, headsUpOnly: false }))
+      onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { headsUpOnly: false }))
     },
     "✕"
   )), filters.tagTeamOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Tag Team", /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
-      onClick: () => setFilters((f) => ({ ...f, tagTeamOnly: false }))
+      onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { tagTeamOnly: false }))
     },
     "✕"
   )), filters.employeesOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Employees", /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
-      onClick: () => setFilters((f) => ({ ...f, employeesOnly: false }))
+      onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { employeesOnly: false }))
     },
     "✕"
   )), filters.hiddenVenues && filters.hiddenVenues.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, availableVenues.length - filters.hiddenVenues.filter((v) => availableVenues.some((av) => av.venue === v)).length, " of ", availableVenues.length, " venues", /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
-      onClick: () => setFilters((f) => ({ ...f, hiddenVenues: [] }))
+      onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { hiddenVenues: [] }))
     },
     "✕"
-  )), filters.ladiesOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Ladies Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => ({ ...f, ladiesOnly: false })) }, "✕")), filters.seniorsOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Seniors Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => ({ ...f, seniorsOnly: false })) }, "✕")), filters.mixedOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Mixed", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => ({ ...f, mixedOnly: false })) }, "✕")), (filters.dateFrom || filters.dateTo) && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.dateFrom && filters.dateTo ? `${fmtShortDate(filters.dateFrom)} — ${fmtShortDate(filters.dateTo)}` : filters.dateFrom ? `From ${fmtShortDate(filters.dateFrom)}` : `Until ${fmtShortDate(filters.dateTo)}`, /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => ({ ...f, dateFrom: "", dateTo: "" })) }, "✕"))), open && ReactDOM.createPortal(
+  )), filters.ladiesOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Ladies Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { ladiesOnly: false })) }, "✕")), filters.seniorsOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Seniors Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { seniorsOnly: false })) }, "✕")), filters.mixedOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Mixed", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { mixedOnly: false })) }, "✕")), (filters.dateFrom || filters.dateTo) && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.dateFrom && filters.dateTo ? `${fmtShortDate(filters.dateFrom)} — ${fmtShortDate(filters.dateTo)}` : filters.dateFrom ? `From ${fmtShortDate(filters.dateFrom)}` : `Until ${fmtShortDate(filters.dateTo)}`, /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { dateFrom: "", dateTo: "" })) }, "✕"))), open && ReactDOM.createPortal(
     /* @__PURE__ */ React.createElement("div", { className: "dropdown-backdrop", onClick: () => setOpen(false) }),
     document.body
   ), open && ReactDOM.createPortal(
     /* @__PURE__ */ React.createElement("div", { ref: panelRef, className: "filter-panel", style: (() => {
-      const r = toggleRef.current?.getBoundingClientRect();
+      var _a;
+      const r = (_a = toggleRef.current) == null ? void 0 : _a.getBoundingClientRect();
       if (!r) return { top: 60, left: 8, right: 8 };
       const vw = window.innerWidth || document.documentElement.clientWidth || 375;
       const vh = window.innerHeight || document.documentElement.clientHeight || 700;
@@ -3731,27 +3785,27 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         {
           label: "NLH",
           isActive: filters.selectedGames.includes("NLH"),
-          toggle: /* @__PURE__ */ __name(() => setFilters((f) => ({ ...f, selectedGames: f.selectedGames.includes("NLH") ? f.selectedGames.filter((g) => g !== "NLH") : [...f.selectedGames, "NLH"] })), "toggle")
+          toggle: /* @__PURE__ */ __name(() => setFilters((f) => __spreadProps(__spreadValues({}, f), { selectedGames: f.selectedGames.includes("NLH") ? f.selectedGames.filter((g) => g !== "NLH") : [...f.selectedGames, "NLH"] })), "toggle")
         },
         {
           label: "PLO",
           isActive: filters.selectedGames.includes("PLO"),
-          toggle: /* @__PURE__ */ __name(() => setFilters((f) => ({ ...f, selectedGames: f.selectedGames.includes("PLO") ? f.selectedGames.filter((g) => g !== "PLO") : [...f.selectedGames, "PLO"] })), "toggle")
+          toggle: /* @__PURE__ */ __name(() => setFilters((f) => __spreadProps(__spreadValues({}, f), { selectedGames: f.selectedGames.includes("PLO") ? f.selectedGames.filter((g) => g !== "PLO") : [...f.selectedGames, "PLO"] })), "toggle")
         },
         {
           label: "Mixed",
           isActive: !!filters.mixedOnly,
-          toggle: /* @__PURE__ */ __name(() => setFilters((f) => ({ ...f, mixedOnly: !f.mixedOnly })), "toggle")
+          toggle: /* @__PURE__ */ __name(() => setFilters((f) => __spreadProps(__spreadValues({}, f), { mixedOnly: !f.mixedOnly })), "toggle")
         },
         {
           label: "Ladies",
           isActive: !!filters.ladiesOnly,
-          toggle: /* @__PURE__ */ __name(() => setFilters((f) => ({ ...f, ladiesOnly: !f.ladiesOnly })), "toggle")
+          toggle: /* @__PURE__ */ __name(() => setFilters((f) => __spreadProps(__spreadValues({}, f), { ladiesOnly: !f.ladiesOnly })), "toggle")
         },
         {
           label: "Seniors",
           isActive: !!filters.seniorsOnly,
-          toggle: /* @__PURE__ */ __name(() => setFilters((f) => ({ ...f, seniorsOnly: !f.seniorsOnly })), "toggle")
+          toggle: /* @__PURE__ */ __name(() => setFilters((f) => __spreadProps(__spreadValues({}, f), { seniorsOnly: !f.seniorsOnly })), "toggle")
         }
       ];
       return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "6px", marginBottom: "10px", gridColumn: "1 / -1" } }, quickFilters.map((qf) => /* @__PURE__ */ React.createElement(
@@ -3782,7 +3836,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
           value: fromIdx,
           onChange: (e) => {
             const v = Math.min(Number(e.target.value), toIdx);
-            setFilters((f) => ({ ...f, dateFrom: v <= 0 ? "" : addDays(minDate, v) }));
+            setFilters((f) => __spreadProps(__spreadValues({}, f), { dateFrom: v <= 0 ? "" : addDays(minDate, v) }));
           }
         }
       ), /* @__PURE__ */ React.createElement(
@@ -3795,7 +3849,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
           value: toIdx,
           onChange: (e) => {
             const v = Math.max(Number(e.target.value), fromIdx);
-            setFilters((f) => ({ ...f, dateTo: v >= totalDays ? "" : addDays(minDate, v) }));
+            setFilters((f) => __spreadProps(__spreadValues({}, f), { dateTo: v >= totalDays ? "" : addDays(minDate, v) }));
           }
         }
       )), /* @__PURE__ */ React.createElement("div", { className: "date-slider-labels" }, /* @__PURE__ */ React.createElement("span", null, fmtShortDate(fromDate)), /* @__PURE__ */ React.createElement("span", null, fmtShortDate(toDate)))));
@@ -3807,7 +3861,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         ref: (el) => {
           if (el) el.indeterminate = filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.length < availableVenues.length;
         },
-        onChange: (e) => setFilters((f) => ({ ...f, hiddenVenues: e.target.checked ? [] : availableVenues.map((v) => v.venue) })),
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hiddenVenues: e.target.checked ? [] : availableVenues.map((v) => v.venue) })),
         style: { marginTop: "1px" }
       }
     ), " All"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px" } }, availableVenues.map(({ venue, series, count }) => {
@@ -3819,7 +3873,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
           checked: !hidden,
           onChange: (e) => setFilters((f) => {
             const hv = f.hiddenVenues || [];
-            return { ...f, hiddenVenues: e.target.checked ? hv.filter((v) => v !== venue) : [...hv, venue] };
+            return __spreadProps(__spreadValues({}, f), { hiddenVenues: e.target.checked ? hv.filter((v) => v !== venue) : [...hv, venue] });
           }),
           style: { marginTop: "1px", flexShrink: 0 }
         }
@@ -3849,7 +3903,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         {
           type: "checkbox",
           checked: allBuyinChecked,
-          onChange: () => setFilters((f) => ({ ...f, buyinRanges: [], minBuyin: "", maxBuyin: "" })),
+          onChange: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { buyinRanges: [], minBuyin: "", maxBuyin: "" })),
           style: { marginTop: "1px", flexShrink: 0 }
         }
       ), /* @__PURE__ */ React.createElement("span", null, "All")), buyinOpts.map((opt) => /* @__PURE__ */ React.createElement("label", { key: opt.key, style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "0.82rem", fontWeight: 400, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
@@ -3857,7 +3911,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         {
           type: "checkbox",
           checked: (filters.buyinRanges || []).includes(opt.key),
-          onChange: () => setFilters((f) => ({ ...f, buyinRanges: toggleArr(f.buyinRanges || [], opt.key), minBuyin: "", maxBuyin: "" })),
+          onChange: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { buyinRanges: toggleArr(f.buyinRanges || [], opt.key), minBuyin: "", maxBuyin: "" })),
           style: { marginTop: "1px", flexShrink: 0 }
         }
       ), /* @__PURE__ */ React.createElement("span", null, opt.label)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "2px" } }, "Rake"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "0.82rem", fontWeight: 600, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
@@ -3865,7 +3919,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         {
           type: "checkbox",
           checked: allRakeChecked,
-          onChange: () => setFilters((f) => ({ ...f, rakeRanges: [] })),
+          onChange: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { rakeRanges: [] })),
           style: { marginTop: "1px", flexShrink: 0 }
         }
       ), /* @__PURE__ */ React.createElement("span", null, "All")), rakeOpts.map((opt) => /* @__PURE__ */ React.createElement("label", { key: opt.key, style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "0.82rem", fontWeight: 400, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
@@ -3873,7 +3927,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         {
           type: "checkbox",
           checked: (filters.rakeRanges || []).includes(opt.key),
-          onChange: () => setFilters((f) => ({ ...f, rakeRanges: toggleArr(f.rakeRanges || [], opt.key) })),
+          onChange: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { rakeRanges: toggleArr(f.rakeRanges || [], opt.key) })),
           style: { marginTop: "1px", flexShrink: 0 }
         }
       ), /* @__PURE__ */ React.createElement("span", null, opt.label)))));
@@ -3882,18 +3936,18 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       const toggleGroup = /* @__PURE__ */ __name((group, checked) => {
         setFilters((f) => {
           const without = f.selectedGames.filter((v) => !group.variants.includes(v));
-          return { ...f, selectedGames: checked ? [...without, ...group.variants] : without };
+          return __spreadProps(__spreadValues({}, f), { selectedGames: checked ? [...without, ...group.variants] : without });
         });
       }, "toggleGroup");
       const toggleVariant = /* @__PURE__ */ __name((v, checked) => {
-        setFilters((f) => ({ ...f, selectedGames: checked ? [...f.selectedGames, v] : f.selectedGames.filter((g) => g !== v) }));
+        setFilters((f) => __spreadProps(__spreadValues({}, f), { selectedGames: checked ? [...f.selectedGames, v] : f.selectedGames.filter((g) => g !== v) }));
       }, "toggleVariant");
       return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", fontWeight: 600, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
         "input",
         {
           type: "checkbox",
           checked: allSelected,
-          onChange: () => setFilters((f) => ({ ...f, selectedGames: [] })),
+          onChange: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { selectedGames: [] })),
           style: { marginTop: "1px" }
         }
       ), " All"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px", paddingLeft: "21px" } }, GAME_GROUPS.map((group) => {
@@ -3927,7 +3981,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
               const checked = e.target.checked;
               setFilters((f) => {
                 const without = f.selectedGames.filter((v) => !availVars.includes(v));
-                return { ...f, selectedGames: checked ? [...without, ...availVars] : without };
+                return __spreadProps(__spreadValues({}, f), { selectedGames: checked ? [...without, ...availVars] : without });
               });
             },
             style: { marginTop: "1px" }
@@ -3947,7 +4001,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       {
         type: "checkbox",
         checked: !!filters.ladiesOnly,
-        onChange: () => setFilters((f) => ({ ...f, ladiesOnly: !f.ladiesOnly })),
+        onChange: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { ladiesOnly: !f.ladiesOnly })),
         style: { marginTop: "1px" }
       }
     ), " Ladies"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", fontWeight: 400, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
@@ -3955,7 +4009,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       {
         type: "checkbox",
         checked: !!filters.seniorsOnly,
-        onChange: () => setFilters((f) => ({ ...f, seniorsOnly: !f.seniorsOnly })),
+        onChange: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { seniorsOnly: !f.seniorsOnly })),
         style: { marginTop: "1px" }
       }
     ), " Seniors"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", fontWeight: 400, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
@@ -3963,7 +4017,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       {
         type: "checkbox",
         checked: filters.bountyOnly,
-        onChange: (e) => setFilters((f) => ({ ...f, bountyOnly: e.target.checked })),
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { bountyOnly: e.target.checked })),
         style: { marginTop: "1px" }
       }
     ), " Bounty"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", fontWeight: 400, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
@@ -3971,7 +4025,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       {
         type: "checkbox",
         checked: filters.mysteryBountyOnly,
-        onChange: (e) => setFilters((f) => ({ ...f, mysteryBountyOnly: e.target.checked })),
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { mysteryBountyOnly: e.target.checked })),
         style: { marginTop: "1px" }
       }
     ), " Mystery Bounty"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", fontWeight: 400, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
@@ -3979,7 +4033,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       {
         type: "checkbox",
         checked: filters.headsUpOnly,
-        onChange: (e) => setFilters((f) => ({ ...f, headsUpOnly: e.target.checked })),
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { headsUpOnly: e.target.checked })),
         style: { marginTop: "1px" }
       }
     ), " Heads Up"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", fontWeight: 400, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
@@ -3987,7 +4041,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       {
         type: "checkbox",
         checked: filters.tagTeamOnly,
-        onChange: (e) => setFilters((f) => ({ ...f, tagTeamOnly: e.target.checked })),
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { tagTeamOnly: e.target.checked })),
         style: { marginTop: "1px" }
       }
     ), " Tag Team"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", fontWeight: 400, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
@@ -3995,7 +4049,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       {
         type: "checkbox",
         checked: filters.employeesOnly,
-        onChange: (e) => setFilters((f) => ({ ...f, employeesOnly: e.target.checked })),
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { employeesOnly: e.target.checked })),
         style: { marginTop: "1px" }
       }
     ), " Casino Employees"))), hasActive && /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: () => setFilters({ minBuyin: "", maxBuyin: "", buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: "", dateTo: "" }) }, "Clear all filters"))),
@@ -4100,9 +4154,10 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   }, [mySchedule]);
   const filtered = useMemo(() => {
     return tournaments.filter((t) => {
+      var _a, _b;
       if (search) {
         const q = search.toLowerCase();
-        if (!t.event_name?.toLowerCase().includes(q) && !String(t.event_number).includes(q) && !t.game_variant?.toLowerCase().includes(q)) return false;
+        if (!((_a = t.event_name) == null ? void 0 : _a.toLowerCase().includes(q)) && !String(t.event_number).includes(q) && !((_b = t.game_variant) == null ? void 0 : _b.toLowerCase().includes(q))) return false;
       }
       if (filters.buyinRanges && filters.buyinRanges.length > 0) {
         const b = Number(t.buyin) || 0;
@@ -4332,7 +4387,7 @@ function TravelDayPicker({ onSave, onCancel }) {
     textAlign: "center",
     minWidth: "44px"
   };
-  const TimeSelector = /* @__PURE__ */ __name(({ hour, minute, amPm, onHour, onMinute, onAmPm, label }) => /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "4px", fontWeight: 600 } }, label), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "3px", alignItems: "center" } }, /* @__PURE__ */ React.createElement("select", { value: hour, onChange: (e) => onHour(Number(e.target.value)), style: selectStyle }, hours.map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, h))), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontWeight: 700 } }, ":"), /* @__PURE__ */ React.createElement("select", { value: minute, onChange: (e) => onMinute(Number(e.target.value)), style: selectStyle }, minutes.map((m) => /* @__PURE__ */ React.createElement("option", { key: m, value: m }, String(m).padStart(2, "0")))), /* @__PURE__ */ React.createElement("select", { value: amPm, onChange: (e) => onAmPm(e.target.value), style: { ...selectStyle, minWidth: "50px" } }, /* @__PURE__ */ React.createElement("option", { value: "AM" }, "AM"), /* @__PURE__ */ React.createElement("option", { value: "PM" }, "PM")))), "TimeSelector");
+  const TimeSelector = /* @__PURE__ */ __name(({ hour, minute, amPm, onHour, onMinute, onAmPm, label }) => /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "4px", fontWeight: 600 } }, label), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "3px", alignItems: "center" } }, /* @__PURE__ */ React.createElement("select", { value: hour, onChange: (e) => onHour(Number(e.target.value)), style: selectStyle }, hours.map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, h))), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontWeight: 700 } }, ":"), /* @__PURE__ */ React.createElement("select", { value: minute, onChange: (e) => onMinute(Number(e.target.value)), style: selectStyle }, minutes.map((m) => /* @__PURE__ */ React.createElement("option", { key: m, value: m }, String(m).padStart(2, "0")))), /* @__PURE__ */ React.createElement("select", { value: amPm, onChange: (e) => onAmPm(e.target.value), style: __spreadProps(__spreadValues({}, selectStyle), { minWidth: "50px" }) }, /* @__PURE__ */ React.createElement("option", { value: "AM" }, "AM"), /* @__PURE__ */ React.createElement("option", { value: "PM" }, "PM")))), "TimeSelector");
   return /* @__PURE__ */ React.createElement("div", { style: {
     background: "var(--surface)",
     border: "1px solid var(--border)",
@@ -4505,7 +4560,10 @@ function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, las
     {
       className: "btn btn-ghost btn-sm",
       style: { display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.8rem" },
-      onClick: () => dayOffDateRef.current?.showPicker()
+      onClick: () => {
+        var _a;
+        return (_a = dayOffDateRef.current) == null ? void 0 : _a.showPicker();
+      }
     },
     "🏖️ Day Off"
   ), /* @__PURE__ */ React.createElement(
@@ -4943,7 +5001,7 @@ function RealNamePrompt({ onSave, onDismiss }) {
         return;
       }
       onSave(data.realName);
-    } catch {
+    } catch (e) {
       setErr("Network error");
       setSaving(false);
     }
@@ -5050,7 +5108,7 @@ function ForgotPasswordForm({ onBack, theme, toggleTheme }) {
       } else {
         setSuccess(data.message);
       }
-    } catch {
+    } catch (e2) {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -5117,7 +5175,7 @@ function ResetPasswordForm({ resetToken, theme, toggleTheme }) {
       } else {
         setSuccess(data.message);
       }
-    } catch {
+    } catch (e2) {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -5604,7 +5662,7 @@ function ScheduleExportModal({ events, onClose }) {
                     value: range.label,
                     onChange: /* @__PURE__ */ __name((e) => {
                       const next = [...buyinRanges];
-                      next[idx] = { ...next[idx], label: e.target.value };
+                      next[idx] = __spreadProps(__spreadValues({}, next[idx]), { label: e.target.value });
                       setBuyinRanges(next);
                     }, "onChange"),
                     placeholder: "Label",
@@ -5615,7 +5673,7 @@ function ScheduleExportModal({ events, onClose }) {
                     value: range.min === 0 ? "0" : range.min,
                     onChange: /* @__PURE__ */ __name((e) => {
                       const next = [...buyinRanges];
-                      next[idx] = { ...next[idx], min: Number(e.target.value) || 0 };
+                      next[idx] = __spreadProps(__spreadValues({}, next[idx]), { min: Number(e.target.value) || 0 });
                       setBuyinRanges(next);
                     }, "onChange"),
                     placeholder: "Min",
@@ -5628,7 +5686,7 @@ function ScheduleExportModal({ events, onClose }) {
                     onChange: /* @__PURE__ */ __name((e) => {
                       const next = [...buyinRanges];
                       const val = e.target.value.trim();
-                      next[idx] = { ...next[idx], max: val === "" ? Infinity : Number(val) || 0 };
+                      next[idx] = __spreadProps(__spreadValues({}, next[idx]), { max: val === "" ? Infinity : Number(val) || 0 });
                       setBuyinRanges(next);
                     }, "onChange"),
                     placeholder: "∞",
@@ -5787,13 +5845,13 @@ function MilestoneCelebration({ milestone, onShare, onDismiss }) {
 }
 __name(MilestoneCelebration, "MilestoneCelebration");
 function TrackingEntryForm({ tournaments, mySchedule, existingEntryIds, initialValues, tournamentLabel, entryForPOY, onSubmit, onCancel, isEdit }) {
-  const [tournamentId, setTournamentId] = useState(initialValues?.tournamentId || "");
-  const [numEntries, setNumEntries] = useState(initialValues?.numEntries || 1);
-  const [cashed, setCashed] = useState(initialValues?.cashed || false);
-  const [finishPlace, setFinishPlace] = useState(initialValues?.finishPlace || "");
-  const [cashAmount, setCashAmount] = useState(initialValues?.cashAmount || "");
-  const [notes, setNotes] = useState(initialValues?.notes || "");
-  const [totalFieldSize, setTotalFieldSize] = useState(initialValues?.totalEntries || "");
+  const [tournamentId, setTournamentId] = useState((initialValues == null ? void 0 : initialValues.tournamentId) || "");
+  const [numEntries, setNumEntries] = useState((initialValues == null ? void 0 : initialValues.numEntries) || 1);
+  const [cashed, setCashed] = useState((initialValues == null ? void 0 : initialValues.cashed) || false);
+  const [finishPlace, setFinishPlace] = useState((initialValues == null ? void 0 : initialValues.finishPlace) || "");
+  const [cashAmount, setCashAmount] = useState((initialValues == null ? void 0 : initialValues.cashAmount) || "");
+  const [notes, setNotes] = useState((initialValues == null ? void 0 : initialValues.notes) || "");
+  const [totalFieldSize, setTotalFieldSize] = useState((initialValues == null ? void 0 : initialValues.totalEntries) || "");
   const [showLfg, setShowLfg] = useState(false);
   const tournamentOptions = useMemo(() => {
     if (isEdit) return [];
@@ -5953,6 +6011,7 @@ function TrackingEntryRow({ entry, onEdit, onDelete, isEditing, onUpdate, onCanc
 }
 __name(TrackingEntryRow, "TrackingEntryRow");
 function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, onDelete, myActiveUpdates }) {
+  var _a;
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [pendingFormId, setPendingFormId] = useState(null);
@@ -6001,7 +6060,7 @@ function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, 
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "section-header" }, /* @__PURE__ */ React.createElement("h2", null, "Tracking"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center" } }, trackingData.length > 0 && /* @__PURE__ */ React.createElement("button", { className: "btn-share-overlay", onClick: () => setShowShareMenu(true), title: "Share & Social" }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("circle", { cx: "18", cy: "5", r: "3" }), /* @__PURE__ */ React.createElement("circle", { cx: "6", cy: "12", r: "3" }), /* @__PURE__ */ React.createElement("circle", { cx: "18", cy: "19", r: "3" }), /* @__PURE__ */ React.createElement("line", { x1: "8.59", y1: "13.51", x2: "15.42", y2: "17.49" }), /* @__PURE__ */ React.createElement("line", { x1: "15.41", y1: "6.51", x2: "8.59", y2: "10.49" })), "Share"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-primary btn-sm", onClick: () => {
     setShowAddForm((f) => !f);
     setEditingId(null);
-  } }, showAddForm ? "Cancel" : "+ Log Result"))), trackingData.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "tracking-card", style: { padding: "16px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { className: "tracking-stats" }, /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Total Buyins"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, formatBuyin(stats.totalBuyins))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Total Cashes"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, formatBuyin(stats.totalCashes))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Profit"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${stats.profit >= 0 ? "tracking-profit-pos" : "tracking-profit-neg"}` }, stats.profit >= 0 ? "+" : "", formatBuyin(stats.profit))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "ROI"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${stats.roi >= 0 ? "tracking-profit-pos" : "tracking-profit-neg"}` }, stats.roi >= 0 ? "+" : "", stats.roi.toFixed(1), "%")), stats.poyEventCount > 0 && /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "POY Pts", stats.hasMoreThan15 ? " (Top 15)" : ""), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value tracking-poy" }, stats.totalPOY.toFixed(1)))), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "8px" } }, stats.totalEntries, " event", stats.totalEntries !== 1 ? "s" : "", " played · ", stats.eventsCashed, " cash", stats.eventsCashed !== 1 ? "es" : "", stats.poyEventCount > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", stats.poyEventCount, " POY event", stats.poyEventCount !== 1 ? "s" : ""))), pendingEvent && !showAddForm && pendingFormId !== pendingEvent.id && /* @__PURE__ */ React.createElement("div", { className: "tracking-card", style: { padding: "14px", marginBottom: "12px", border: "1.5px dashed var(--accent)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontFamily: "'Univers Condensed','Univers',sans-serif", letterSpacing: "0.03em" } }, pendingEvent.date, " · #", pendingEvent.event_number?.replace(/^[A-Za-z]+-/, "")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.85rem", fontWeight: 600, color: "var(--text)", marginTop: "2px", fontFamily: "'Univers Condensed','Univers',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pendingEvent.event_name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" } }, "Awaiting result")), /* @__PURE__ */ React.createElement(
+  } }, showAddForm ? "Cancel" : "+ Log Result"))), trackingData.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "tracking-card", style: { padding: "16px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { className: "tracking-stats" }, /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Total Buyins"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, formatBuyin(stats.totalBuyins))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Total Cashes"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, formatBuyin(stats.totalCashes))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Profit"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${stats.profit >= 0 ? "tracking-profit-pos" : "tracking-profit-neg"}` }, stats.profit >= 0 ? "+" : "", formatBuyin(stats.profit))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "ROI"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${stats.roi >= 0 ? "tracking-profit-pos" : "tracking-profit-neg"}` }, stats.roi >= 0 ? "+" : "", stats.roi.toFixed(1), "%")), stats.poyEventCount > 0 && /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "POY Pts", stats.hasMoreThan15 ? " (Top 15)" : ""), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value tracking-poy" }, stats.totalPOY.toFixed(1)))), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "8px" } }, stats.totalEntries, " event", stats.totalEntries !== 1 ? "s" : "", " played · ", stats.eventsCashed, " cash", stats.eventsCashed !== 1 ? "es" : "", stats.poyEventCount > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", stats.poyEventCount, " POY event", stats.poyEventCount !== 1 ? "s" : ""))), pendingEvent && !showAddForm && pendingFormId !== pendingEvent.id && /* @__PURE__ */ React.createElement("div", { className: "tracking-card", style: { padding: "14px", marginBottom: "12px", border: "1.5px dashed var(--accent)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontFamily: "'Univers Condensed','Univers',sans-serif", letterSpacing: "0.03em" } }, pendingEvent.date, " · #", (_a = pendingEvent.event_number) == null ? void 0 : _a.replace(/^[A-Za-z]+-/, "")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.85rem", fontWeight: 600, color: "var(--text)", marginTop: "2px", fontFamily: "'Univers Condensed','Univers',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pendingEvent.event_name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" } }, "Awaiting result")), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn btn-primary btn-sm",
@@ -6019,7 +6078,7 @@ function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, 
       tournamentLabel: `#${(pendingEvent.event_number || "").replace(/^[A-Za-z]+-/, "")} ${pendingEvent.event_name}`,
       entryForPOY: pendingEvent,
       onSubmit: (data) => {
-        onAdd({ ...data, tournamentId: pendingFormId });
+        onAdd(__spreadProps(__spreadValues({}, data), { tournamentId: pendingFormId }));
         setPendingFormId(null);
       },
       onCancel: () => setPendingFormId(null),
@@ -6154,7 +6213,7 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     return Object.entries(baggedMap).filter(([tid]) => !bustedMap[tid]).map(([tid, update]) => {
       const t = (mySchedule || []).find((x) => x.id === Number(tid)) || (tournaments || []).find((x) => x.id === Number(tid));
       if (!t) return null;
-      return { ...t, _bagUpdate: update, _type: "bagged" };
+      return __spreadProps(__spreadValues({}, t), { _bagUpdate: update, _type: "bagged" });
     }).filter(Boolean);
   }, [myActiveUpdates, mySchedule, tournaments]);
   const todayEvents = useMemo(() => {
@@ -6163,7 +6222,7 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
       if (isBagged) return null;
       const isAnchor = !!t.is_anchor;
       const hasCondition = !!t.conditions_json;
-      return { ...t, _type: isAnchor ? "anchor" : hasCondition ? "conditional" : "normal" };
+      return __spreadProps(__spreadValues({}, t), { _type: isAnchor ? "anchor" : hasCondition ? "conditional" : "normal" });
     }).filter(Boolean);
   }, [mySchedule, todayISO, baggedEvents]);
   const activePrevDayEvents = useMemo(() => {
@@ -6172,14 +6231,13 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     return (myActiveUpdates || []).filter((u) => !u.is_busted && !u.is_bagged && !todayIds.has(u.tournament_id) && !baggedIds.has(u.tournament_id)).map((u) => {
       const t = (mySchedule || []).find((x) => x.id === u.tournament_id) || (tournaments || []).find((x) => x.id === u.tournament_id);
       if (!t) return null;
-      return { ...t, _type: "normal" };
+      return __spreadProps(__spreadValues({}, t), { _type: "normal" });
     }).filter(Boolean);
   }, [myActiveUpdates, mySchedule, tournaments, todayISO, baggedEvents]);
   const whatsNextEvents = useMemo(() => {
     const events = [...baggedEvents, ...activePrevDayEvents];
     if (baggedEvents.length > 0) {
-      events.push(...todayEvents.map((t) => ({
-        ...t,
+      events.push(...todayEvents.map((t) => __spreadProps(__spreadValues({}, t), {
         _type: t._type === "anchor" ? "anchor" : "conditional",
         _conditionalOnBag: true
       })));
@@ -6230,7 +6288,7 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     const nextUp = whatsNextEvents.find(
       (e) => e._type !== "bagged" && !bustedEventMap[e.id]
     );
-    return nextUp?.id || null;
+    return (nextUp == null ? void 0 : nextUp.id) || null;
   }, [whatsNextEvents, hasActivePlaying, bustedEventMap]);
   const prevBustedRef = useRef(/* @__PURE__ */ new Set());
   useEffect(() => {
@@ -6248,15 +6306,16 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     prevBustedRef.current = curBusted;
   }, [bustedEventMap, whatsNextEvents, selectedUpNextIdx]);
   function renderEventCard(event) {
+    var _a, _b, _c;
     const startMs = parseTournamentTime(event);
     const started = now >= startMs;
     const regClosed = isLateRegClosed(event);
     const levelDuration = parseLevelDuration(event);
     const blindInfo = started && levelDuration ? estimateBlindLevel(startMs, levelDuration) : null;
     const startingChips = event.starting_chips || 2e4;
-    const currentStack = activeEventMap[event.id]?.stack ? Number(activeEventMap[event.id].stack) : startingChips;
+    const currentStack = ((_a = activeEventMap[event.id]) == null ? void 0 : _a.stack) ? Number(activeEventMap[event.id].stack) : startingChips;
     const bbCount = blindInfo ? Math.floor(currentStack / blindInfo.bb) : null;
-    const hasLiveStack = !!activeEventMap[event.id]?.stack;
+    const hasLiveStack = !!((_b = activeEventMap[event.id]) == null ? void 0 : _b.stack);
     const isCurrentlyPlaying = !!activeEventMap[event.id];
     const isExpanded = true;
     const isConditionalOnPlaying = !isCurrentlyPlaying && hasActivePlaying && event._type !== "bagged";
@@ -6294,9 +6353,9 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     ].filter(Boolean).join(" ");
     const cardStyle = isConditionalOnPlaying ? { borderTopColor: venueColor, borderRightColor: venueColor, borderBottomColor: venueColor } : isBustedDone ? { borderColor: "var(--border)" } : { borderColor: venueColor };
     const activeUpdate = activeEventMap[event.id];
-    const liveStack = activeUpdate?.stack;
+    const liveStack = activeUpdate == null ? void 0 : activeUpdate.stack;
     const stackBB = blindInfo && liveStack ? Math.floor(liveStack / blindInfo.bb) : null;
-    return /* @__PURE__ */ React.createElement("div", { key: event.id, className: cardClass, style: cardStyle }, /* @__PURE__ */ React.createElement("div", { className: "dash-venue-strip", style: { background: venueColor, color: venueStripText } }, isExpanded ? venueInfo.longName || venueInfo.abbr : venueInfo.abbr), /* @__PURE__ */ React.createElement("div", { className: "dash-card-content", style: isConditionalOnPlaying ? { borderColor: venueInfo.abbr === "WSOP" ? "var(--venue-wsop-cond)" : venueColor } : void 0 }, !isConditionalOnPlaying && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" } }, event._type === "bagged" && /* @__PURE__ */ React.createElement("span", { className: "dash-event-tag bagged" }, "Bagged — Day ", event._bagUpdate?.bag_day || "?"), event._type === "anchor" && !event._conditionalOnBag && /* @__PURE__ */ React.createElement("span", { className: "dash-event-tag anchor" }, "Locked In"), event._type === "conditional" && /* @__PURE__ */ React.createElement("span", { className: "dash-event-tag conditional" }, event._conditionalOnBag ? "Conditional on bag" : "Conditional"), regClosed && event._type !== "bagged" && /* @__PURE__ */ React.createElement("span", { className: "dash-event-tag reg-closed" }, "Reg Closed")), /* @__PURE__ */ React.createElement("div", { className: "dash-event-header" }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { className: "dash-event-name" }, event.event_name), !isConditionalOnPlaying && /* @__PURE__ */ React.createElement("div", { className: "dash-event-meta", style: { marginTop: "2px" } }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement(Icon.clock, null), " ", event.time || "TBD"))), /* @__PURE__ */ React.createElement("div", { className: "dash-event-buyin" }, formatBuyin(event.buyin)), onToggle && /* @__PURE__ */ React.createElement("button", { className: "dash-undo-x muted", onClick: (e) => {
+    return /* @__PURE__ */ React.createElement("div", { key: event.id, className: cardClass, style: cardStyle }, /* @__PURE__ */ React.createElement("div", { className: "dash-venue-strip", style: { background: venueColor, color: venueStripText } }, isExpanded ? venueInfo.longName || venueInfo.abbr : venueInfo.abbr), /* @__PURE__ */ React.createElement("div", { className: "dash-card-content", style: isConditionalOnPlaying ? { borderColor: venueInfo.abbr === "WSOP" ? "var(--venue-wsop-cond)" : venueColor } : void 0 }, !isConditionalOnPlaying && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" } }, event._type === "bagged" && /* @__PURE__ */ React.createElement("span", { className: "dash-event-tag bagged" }, "Bagged — Day ", ((_c = event._bagUpdate) == null ? void 0 : _c.bag_day) || "?"), event._type === "anchor" && !event._conditionalOnBag && /* @__PURE__ */ React.createElement("span", { className: "dash-event-tag anchor" }, "Locked In"), event._type === "conditional" && /* @__PURE__ */ React.createElement("span", { className: "dash-event-tag conditional" }, event._conditionalOnBag ? "Conditional on bag" : "Conditional"), regClosed && event._type !== "bagged" && /* @__PURE__ */ React.createElement("span", { className: "dash-event-tag reg-closed" }, "Reg Closed")), /* @__PURE__ */ React.createElement("div", { className: "dash-event-header" }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { className: "dash-event-name" }, event.event_name), !isConditionalOnPlaying && /* @__PURE__ */ React.createElement("div", { className: "dash-event-meta", style: { marginTop: "2px" } }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement(Icon.clock, null), " ", event.time || "TBD"))), /* @__PURE__ */ React.createElement("div", { className: "dash-event-buyin" }, formatBuyin(event.buyin)), onToggle && /* @__PURE__ */ React.createElement("button", { className: "dash-undo-x muted", onClick: (e) => {
       e.stopPropagation();
       if (confirm("Remove from schedule?")) onToggle(event.id);
     }, title: "Remove from schedule" }, "✕")), isExpanded && blindInfo && /* @__PURE__ */ React.createElement("div", { className: "dash-event-stats" }, /* @__PURE__ */ React.createElement("div", { className: "dash-stat-box" }, /* @__PURE__ */ React.createElement("div", { className: "dash-stat-value" }, blindInfo.ante ? `${formatChips(blindInfo.sb)}/${formatChips(blindInfo.bb)}/${formatChips(blindInfo.ante)}` : `${formatChips(blindInfo.sb)}/${formatChips(blindInfo.bb)}`), /* @__PURE__ */ React.createElement("div", { className: "dash-stat-label" }, "Level ", blindInfo.level)), /* @__PURE__ */ React.createElement("div", { className: "dash-stat-box" }, /* @__PURE__ */ React.createElement("div", { className: "dash-stat-value" }, currentStack.toLocaleString()), /* @__PURE__ */ React.createElement("div", { className: "dash-stat-label" }, bbCount ? `${bbCount} BB` : "START STACK")), /* @__PURE__ */ React.createElement("div", { className: "dash-stat-box" }, /* @__PURE__ */ React.createElement("div", { className: "dash-stat-value" }, blindInfo.remainingMin, ":", String(blindInfo.remainingSec).padStart(2, "0")), /* @__PURE__ */ React.createElement("div", { className: "dash-stat-label" }, "Clock"))), event._type === "bagged" && (() => {
@@ -6305,7 +6364,7 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
       );
       const undoBag = /* @__PURE__ */ __name(() => {
         const bu = event._bagUpdate;
-        if (bu?.id && onDeleteUpdate) {
+        if ((bu == null ? void 0 : bu.id) && onDeleteUpdate) {
           onDeleteUpdate(bu.id);
         }
       }, "undoBag");
@@ -6331,12 +6390,12 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
       if (isBusted) {
         const bustedUpdate2 = bustedEventMap[event.id];
         const maxEntries = getMaxEntries(event.reentry);
-        const usedEntries = bustedUpdate2?.bust_count || 1;
+        const usedEntries = (bustedUpdate2 == null ? void 0 : bustedUpdate2.bust_count) || 1;
         const canRebuy = usedEntries < maxEntries && !regClosed;
         const nextBullet = usedEntries + 1;
         return /* @__PURE__ */ React.createElement("div", { className: "dash-status-row" }, /* @__PURE__ */ React.createElement("div", { className: "dash-finished-badge" }, "Finished", /* @__PURE__ */ React.createElement("button", { className: "dash-undo-x muted", onClick: (e) => {
           e.stopPropagation();
-          if (bustedUpdate2?.id && onDeleteUpdate && confirm("Undo finish? This will restore the event to playing.")) onDeleteUpdate(bustedUpdate2.id);
+          if ((bustedUpdate2 == null ? void 0 : bustedUpdate2.id) && onDeleteUpdate && confirm("Undo finish? This will restore the event to playing.")) onDeleteUpdate(bustedUpdate2.id);
         }, title: "Undo finish" }, "✕")), canRebuy ? /* @__PURE__ */ React.createElement("button", { className: "dash-rebuy-btn", onClick: () => {
           if (onPost) {
             onPost({
@@ -6350,7 +6409,7 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
       }
       if (isActive) {
         const activeUpdate2 = activeEventMap[event.id];
-        const bulletNum = (activeUpdate2?.bust_count || 0) + 1;
+        const bulletNum = ((activeUpdate2 == null ? void 0 : activeUpdate2.bust_count) || 0) + 1;
         const showBustMenu = bustMenuEventId === event.id;
         const maxEntries = getMaxEntries(event.reentry);
         const canRebuy = bulletNum < maxEntries && !regClosed;
@@ -6388,14 +6447,14 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
         }
         return /* @__PURE__ */ React.createElement("div", { className: "dash-status-stack" }, /* @__PURE__ */ React.createElement("div", { className: "dash-playing-badge" }, /* @__PURE__ */ React.createElement("span", { className: "dash-playing-dot" }), " Currently Playing", bulletNum > 1 ? `; Bullet ${bulletNum}` : "", /* @__PURE__ */ React.createElement("button", { className: "dash-undo-x", onClick: (e) => {
           e.stopPropagation();
-          if (activeUpdate2?.id && onDeleteUpdate && confirm("Undo playing status for this event?")) onDeleteUpdate(activeUpdate2.id);
+          if ((activeUpdate2 == null ? void 0 : activeUpdate2.id) && onDeleteUpdate && confirm("Undo playing status for this event?")) onDeleteUpdate(activeUpdate2.id);
         }, title: "Undo start" }, "✕")), /* @__PURE__ */ React.createElement("div", { className: "dash-action-row" }, /* @__PURE__ */ React.createElement("button", { className: "dash-update-btn", onClick: () => {
           window.dispatchEvent(new CustomEvent("openLiveUpdate", {
             detail: { tab: "update", tournamentId: event.id }
           }));
         } }, "Update"), /* @__PURE__ */ React.createElement("button", { className: "dash-bag-btn", onClick: () => {
           haptic(25);
-          const nextBagDay = (activeUpdate2?.bag_day || 0) + 1 || 1;
+          const nextBagDay = ((activeUpdate2 == null ? void 0 : activeUpdate2.bag_day) || 0) + 1 || 1;
           window.dispatchEvent(new CustomEvent("openLiveUpdate", {
             detail: { tab: "update", tournamentId: event.id, bag: nextBagDay }
           }));
@@ -6477,8 +6536,7 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     return shareBuddies.filter((b) => {
       const lu = buddyLiveUpdates[b.id];
       return lu && !lu.isBusted;
-    }).map((b) => ({
-      ...b,
+    }).map((b) => __spreadProps(__spreadValues({}, b), {
       liveUpdate: buddyLiveUpdates[b.id]
     }));
   }, [shareBuddies, buddyLiveUpdates]);
@@ -6494,21 +6552,20 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
         buddyToday[b.id].push(t);
       });
     });
-    return shareBuddies.filter((b) => buddyToday[b.id] && buddyToday[b.id].length > 0).map((b) => ({
-      ...b,
+    return shareBuddies.filter((b) => buddyToday[b.id] && buddyToday[b.id].length > 0).map((b) => __spreadProps(__spreadValues({}, b), {
       todayEvents: buddyToday[b.id].sort((a, c) => (a.time || "") < (c.time || "") ? -1 : 1)
     }));
   }, [shareBuddies, buddyEvents, tournaments]);
   const allConnections = useMemo(() => {
     const map = {};
     activeFriends.forEach((f) => {
-      map[f.id] = { ...f, isPlaying: true, liveUpdate: f.liveUpdate, todayEvents: [] };
+      map[f.id] = __spreadProps(__spreadValues({}, f), { isPlaying: true, liveUpdate: f.liveUpdate, todayEvents: [] });
     });
     scheduledFriends.forEach((f) => {
       if (map[f.id]) {
         map[f.id].todayEvents = f.todayEvents || [];
       } else {
-        map[f.id] = { ...f, isPlaying: false, liveUpdate: null, todayEvents: f.todayEvents || [] };
+        map[f.id] = __spreadProps(__spreadValues({}, f), { isPlaying: false, liveUpdate: null, todayEvents: f.todayEvents || [] });
       }
     });
     return Object.values(map).sort((a, b) => (b.isPlaying ? 1 : 0) - (a.isPlaying ? 1 : 0));
@@ -6549,9 +6606,9 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     );
   })() : nextUpcomingEvent ? /* @__PURE__ */ React.createElement("div", { style: { padding: "12px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--text-muted)", fontFamily: "'Univers Condensed','Univers',sans-serif", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "6px" } }, "Next on your schedule"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "0.85rem", marginBottom: "2px" } }, nextUpcomingEvent.event_name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.75rem", color: "var(--text-muted)" } }, fmtShortDate(normaliseDate(nextUpcomingEvent.date)), nextUpcomingEvent.time ? " at " + nextUpcomingEvent.time : "", nextUpcomingEvent.venue ? " — " + nextUpcomingEvent.venue : ""), nextUpcomingEvent.buy_in ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--accent)", marginTop: "2px" } }, formatBuyin(nextUpcomingEvent.buy_in, nextUpcomingEvent.venue)) : null) : /* @__PURE__ */ React.createElement("div", { className: "dash-empty" }, /* @__PURE__ */ React.createElement(Icon.calendar, null), /* @__PURE__ */ React.createElement("div", null, "No events on your schedule"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", marginTop: "4px" } }, "Add events from the ", /* @__PURE__ */ React.createElement("button", { onClick: () => onNavigate("tournaments"), style: { background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontFamily: "inherit", fontSize: "inherit", textDecoration: "underline", padding: 0 } }, "schedule"), " to see them here."))), activeFriends.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "dashboard-section", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Friends Playing"), /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, activeFriends.length, " live")), /* @__PURE__ */ React.createElement("div", { className: "dash-friends-scroll" }, activeFriends.map((f) => {
     const lu = f.liveUpdate;
-    const stack = lu?.stack ? Number(lu.stack).toLocaleString() : null;
-    const blinds = lu?.bb ? `${lu.sb ? Number(lu.sb).toLocaleString() : "?"}/${Number(lu.bb).toLocaleString()}${lu.bbAnte || lu.bb_ante ? "/" + Number(lu.bbAnte || lu.bb_ante).toLocaleString() : ""}` : null;
-    return /* @__PURE__ */ React.createElement("div", { key: f.id, className: "dash-friend-chip", onClick: () => onNavigate("social") }, /* @__PURE__ */ React.createElement(Avatar, { src: f.avatar, username: f.username, size: 28 }), /* @__PURE__ */ React.createElement("div", { className: "friend-info" }, /* @__PURE__ */ React.createElement("div", { className: "friend-name" }, displayName(f)), /* @__PURE__ */ React.createElement("div", { className: "friend-event" }, lu?.eventName || "Playing"), stack && /* @__PURE__ */ React.createElement("div", { className: "friend-stack" }, stack, blinds ? ` @ ${blinds}` : "")));
+    const stack = (lu == null ? void 0 : lu.stack) ? Number(lu.stack).toLocaleString() : null;
+    const blinds = (lu == null ? void 0 : lu.bb) ? `${lu.sb ? Number(lu.sb).toLocaleString() : "?"}/${Number(lu.bb).toLocaleString()}${lu.bbAnte || lu.bb_ante ? "/" + Number(lu.bbAnte || lu.bb_ante).toLocaleString() : ""}` : null;
+    return /* @__PURE__ */ React.createElement("div", { key: f.id, className: "dash-friend-chip", onClick: () => onNavigate("social") }, /* @__PURE__ */ React.createElement(Avatar, { src: f.avatar, username: f.username, size: 28 }), /* @__PURE__ */ React.createElement("div", { className: "friend-info" }, /* @__PURE__ */ React.createElement("div", { className: "friend-name" }, displayName(f)), /* @__PURE__ */ React.createElement("div", { className: "friend-event" }, (lu == null ? void 0 : lu.eventName) || "Playing"), stack && /* @__PURE__ */ React.createElement("div", { className: "friend-stack" }, stack, blinds ? ` @ ${blinds}` : "")));
   }))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Table Scanner ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, fontSize: "0.7rem", color: "var(--text-muted)" } }, "(WSOP+ / PokerStars Live)"))), /* @__PURE__ */ React.createElement(TableScanner, null)), /* @__PURE__ */ React.createElement("div", { className: "dash-bottom-stack" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Results"), plData.count > 0 && /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, plData.count, " result", plData.count !== 1 ? "s" : "")), plData.count > 0 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-grid" }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card dash-pl-btn", onClick: () => setPlDropdown((d) => d === "buyins" ? null : "buyins") }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-value" }, formatBuyin(plData.invested)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Total Buyins ▾"), plDropdown === "buyins" && /* @__PURE__ */ React.createElement("div", { className: "dash-pl-dropdown" }, Object.entries(plData.byVenue).filter(([, v]) => v.invested > 0).sort((a, b) => b[1].invested - a[1].invested).map(([venue, v]) => /* @__PURE__ */ React.createElement("div", { key: venue, className: "dash-pl-dropdown-row" }, /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-venue" }, venue), /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-amount" }, formatBuyin(v.invested)))))), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card dash-pl-btn", onClick: () => setPlDropdown((d) => d === "cashes" ? null : "cashes") }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-value" }, formatBuyin(plData.cashed)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Cashes ▾"), plDropdown === "cashes" && /* @__PURE__ */ React.createElement("div", { className: "dash-pl-dropdown" }, Object.entries(plData.byVenue).filter(([, v]) => v.cashed > 0).sort((a, b) => b[1].cashed - a[1].cashed).map(([venue, v]) => /* @__PURE__ */ React.createElement("div", { key: venue, className: "dash-pl-dropdown-row" }, /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-venue" }, venue), /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-amount" }, formatBuyin(v.cashed)))))), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card" }, /* @__PURE__ */ React.createElement("div", { className: `dash-pl-value ${plData.net >= 0 ? "positive" : "negative"}` }, plData.net >= 0 ? "+" : "", formatBuyin(plData.net)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Net — ", plData.roi >= 0 ? "+" : "", plData.roi.toFixed(1), "% ROI")))) : /* @__PURE__ */ React.createElement("div", { className: "dash-empty", style: { padding: "12px 16px" } }, /* @__PURE__ */ React.createElement(Icon.tracking, null), /* @__PURE__ */ React.createElement("div", null, "No results logged yet"))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Connections"), allConnections.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, activeFriends.length > 0 ? `${activeFriends.length} live` : `${allConnections.length}`)), allConnections.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "dash-connections-row" }, allConnections.slice(0, 10).map((f) => /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -6564,7 +6621,8 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     f.isPlaying && /* @__PURE__ */ React.createElement("span", { className: "playing-dot" }),
     /* @__PURE__ */ React.createElement("span", { className: "conn-name" }, displayName(f)),
     connDropdownId === f.id && (() => {
-      const rect = connDropdownRef.current?.getBoundingClientRect();
+      var _a;
+      const rect = (_a = connDropdownRef.current) == null ? void 0 : _a.getBoundingClientRect();
       const openAbove = rect && rect.top > window.innerHeight / 2;
       return /* @__PURE__ */ React.createElement("div", { className: "dash-conn-dropdown " + (openAbove ? "above" : "below"), onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "dash-conn-dropdown-name" }, displayName(f)), f.isPlaying && f.liveUpdate && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "dash-conn-dropdown-label" }, "Now Playing"), /* @__PURE__ */ React.createElement("div", { className: "dash-conn-dropdown-event" }, f.liveUpdate.eventName, f.liveUpdate.stack && /* @__PURE__ */ React.createElement("span", { className: "muted" }, " — ", Number(f.liveUpdate.stack).toLocaleString()))), f.todayEvents && f.todayEvents.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "dash-conn-dropdown-label" }, f.isPlaying ? "Also Scheduled" : "Scheduled Today"), f.todayEvents.map((t, i) => {
         const v = getVenueInfo(t.venue);
@@ -6588,7 +6646,7 @@ function NotificationsPanel({ notifications, token, onClose, fetchNotifications,
         fetchNotifications();
         fetchMyGroups();
       }
-    } catch {
+    } catch (e) {
     }
   }, "handleAcceptGroupInvite");
   const handleDeclineGroupInvite = /* @__PURE__ */ __name(async (inviteId) => {
@@ -6598,7 +6656,7 @@ function NotificationsPanel({ notifications, token, onClose, fetchNotifications,
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) fetchNotifications();
-    } catch {
+    } catch (e) {
     }
   }, "handleDeclineGroupInvite");
   const handleAcceptBuddy = /* @__PURE__ */ __name(async (requestId) => {
@@ -6611,7 +6669,7 @@ function NotificationsPanel({ notifications, token, onClose, fetchNotifications,
         fetchNotifications();
         fetchShareBuddies();
       }
-    } catch {
+    } catch (e) {
     }
   }, "handleAcceptBuddy");
   const handleDeclineBuddy = /* @__PURE__ */ __name(async (requestId) => {
@@ -6624,7 +6682,7 @@ function NotificationsPanel({ notifications, token, onClose, fetchNotifications,
         fetchNotifications();
         fetchShareBuddies();
       }
-    } catch {
+    } catch (e) {
     }
   }, "handleDeclineBuddy");
   const handleSwapRespond = /* @__PURE__ */ __name(async (id, response) => {
@@ -6635,7 +6693,7 @@ function NotificationsPanel({ notifications, token, onClose, fetchNotifications,
         body: JSON.stringify({ response })
       });
       if (res.ok) fetchNotifications();
-    } catch {
+    } catch (e) {
     }
   }, "handleSwapRespond");
   const timeAgo = /* @__PURE__ */ __name((dateStr) => {
@@ -6846,7 +6904,7 @@ function AdminView({ token, onNavigate }) {
           headers: { Authorization: "Bearer " + token }
         });
         if (res.ok) setUsers(await res.json());
-      } catch {
+      } catch (e) {
       }
       setLoading(false);
     })();
@@ -6895,7 +6953,7 @@ function AdminView({ token, onNavigate }) {
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
         body: JSON.stringify({ enabled })
       });
-      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, hand_replayer_access: enabled ? 1 : 0 } : u));
+      setUsers((prev) => prev.map((u) => u.id === userId ? __spreadProps(__spreadValues({}, u), { hand_replayer_access: enabled ? 1 : 0 }) : u));
     } catch (e) {
       console.error("Toggle replayer access error:", e);
     }
@@ -7188,12 +7246,12 @@ function App() {
         const d = JSON.parse(e.data);
         if (d.cleared) {
           setBuddyLiveUpdates((prev) => {
-            const next = { ...prev };
+            const next = __spreadValues({}, prev);
             delete next[d.buddyId];
             return next;
           });
         } else {
-          setBuddyLiveUpdates((prev) => ({ ...prev, [d.buddyId]: {
+          setBuddyLiveUpdates((prev) => __spreadProps(__spreadValues({}, prev), { [d.buddyId]: {
             tournamentId: d.tournamentId,
             eventName: d.eventName,
             venue: d.venue,
@@ -7253,7 +7311,7 @@ function App() {
         const d = JSON.parse(e.data);
         fetchMyGroups();
         setActiveGroupId((prev) => prev === d.groupId ? null : prev);
-      } catch {
+      } catch (e2) {
       }
     });
     es.addEventListener("group-live-update", (e) => {
@@ -7336,7 +7394,7 @@ function App() {
       if (!res) return;
       const data = await res.json();
       setTournaments(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (e) {
       toast.error("Failed to load tournaments");
     }
   }, "fetchTournaments");
@@ -7348,7 +7406,7 @@ function App() {
       if (!res) return;
       const data = await res.json();
       setMySchedule(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (e) {
       setMySchedule([]);
     }
   }, "fetchMySchedule");
@@ -7360,7 +7418,7 @@ function App() {
       if (!res) return;
       const data = await res.json();
       setGameVariants(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (e) {
     }
   }, "fetchGameVariants");
   const fetchVenues = /* @__PURE__ */ __name(async () => {
@@ -7371,7 +7429,7 @@ function App() {
       if (!res) return;
       const data = await res.json();
       setVenues(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (e) {
     }
   }, "fetchVenues");
   const fetchTracking = /* @__PURE__ */ __name(async () => {
@@ -7381,7 +7439,7 @@ function App() {
       });
       const data = await res.json();
       setTrackingData(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (e) {
       toast.error("Failed to load tracking data");
     }
   }, "fetchTracking");
@@ -7393,7 +7451,7 @@ function App() {
       if (!res) return;
       const data = await res.json();
       setMyActiveUpdates(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (e) {
     }
   }, "fetchMyLiveUpdate");
   const postLiveUpdate = /* @__PURE__ */ __name(async (data) => {
@@ -7405,7 +7463,7 @@ function App() {
         body: JSON.stringify(data)
       });
       if (res.ok) fetchMyLiveUpdate();
-    } catch {
+    } catch (e) {
     }
   }, "postLiveUpdate");
   const deleteLiveUpdate = /* @__PURE__ */ __name(async (updateId) => {
@@ -7415,7 +7473,7 @@ function App() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) fetchMyLiveUpdate();
-    } catch {
+    } catch (e) {
     }
   }, "deleteLiveUpdate");
   const saveFieldSize = /* @__PURE__ */ __name(async (tournamentId, totalFieldSize) => {
@@ -7427,20 +7485,19 @@ function App() {
         body: JSON.stringify({ totalEntries: totalFieldSize })
       });
       fetchTournaments();
-    } catch {
+    } catch (e) {
     }
   }, "saveFieldSize");
   const addTracking = /* @__PURE__ */ __name(async (data) => {
     try {
       const matchedTournament = tournaments.find((tr) => tr.id === data.tournamentId);
-      const entryForMilestone = {
-        ...data,
+      const entryForMilestone = __spreadProps(__spreadValues({}, data), {
         buyin: matchedTournament ? matchedTournament.buyin : 0,
         event_name: matchedTournament ? matchedTournament.event_name : "",
         game_variant: matchedTournament ? matchedTournament.game_variant : "NLH"
-      };
+      });
       const milestones = detectMilestones(trackingData, entryForMilestone);
-      const { totalFieldSize, ...trackingPayload } = data;
+      const _a = data, { totalFieldSize } = _a, trackingPayload = __objRest(_a, ["totalFieldSize"]);
       const res = await fetch(`${API_URL}/tracking`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -7456,13 +7513,13 @@ function App() {
       if (milestones.length > 0) {
         setActiveMilestone(milestones[0]);
       }
-    } catch {
+    } catch (e) {
       setError("Failed to add tracking entry");
     }
   }, "addTracking");
   const updateTracking = /* @__PURE__ */ __name(async (entryId, data) => {
     try {
-      const { totalFieldSize, tournamentId, ...trackingData2 } = data;
+      const _a = data, { totalFieldSize, tournamentId } = _a, trackingData2 = __objRest(_a, ["totalFieldSize", "tournamentId"]);
       const res = await fetch(`${API_URL}/tracking/${entryId}`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -7475,7 +7532,7 @@ function App() {
       }
       if (totalFieldSize && tournamentId) await saveFieldSize(tournamentId, totalFieldSize);
       fetchTracking();
-    } catch {
+    } catch (e) {
       setError("Failed to update tracking entry");
     }
   }, "updateTracking");
@@ -7486,7 +7543,7 @@ function App() {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchTracking();
-    } catch {
+    } catch (e) {
       setError("Failed to delete tracking entry");
     }
   }, "deleteTracking");
@@ -7495,7 +7552,7 @@ function App() {
       const res = await fetch(`${API_URL}/share-token`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setShareToken(data.token);
-    } catch {
+    } catch (e) {
     }
   }, "fetchShareToken");
   const fetchShareBuddies = /* @__PURE__ */ __name(async () => {
@@ -7511,7 +7568,7 @@ function App() {
       setLastSeenShares(lss);
       const newBuddies = (data.buddies || []).filter((b) => !lss || b.since > lss).length;
       setNewShareCount(newBuddies + (data.pendingIncoming || []).length);
-    } catch {
+    } catch (e) {
     }
   }, "fetchShareBuddies");
   const fetchMyGroups = /* @__PURE__ */ __name(async () => {
@@ -7521,7 +7578,7 @@ function App() {
         const data = await res.json();
         setMyGroups(Array.isArray(data) ? data : []);
       }
-    } catch {
+    } catch (e) {
     }
   }, "fetchMyGroups");
   const fetchGroupFeed = /* @__PURE__ */ __name(async (groupId) => {
@@ -7531,7 +7588,7 @@ function App() {
         const data = await res.json();
         setGroupFeed(Array.isArray(data) ? data : []);
       }
-    } catch {
+    } catch (e) {
     }
   }, "fetchGroupFeed");
   const fetchGroupSchedule = /* @__PURE__ */ __name(async (groupId) => {
@@ -7541,7 +7598,7 @@ function App() {
         const data = await res.json();
         setGroupSchedule(Array.isArray(data) ? data : []);
       }
-    } catch {
+    } catch (e) {
     }
   }, "fetchGroupSchedule");
   const fetchNotifications = /* @__PURE__ */ __name(async () => {
@@ -7556,7 +7613,7 @@ function App() {
           swapSuggestions: data.swapSuggestions || []
         });
       }
-    } catch {
+    } catch (e) {
     }
   }, "fetchNotifications");
   const markNotificationsSeen = /* @__PURE__ */ __name(async () => {
@@ -7565,7 +7622,7 @@ function App() {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` }
       });
-    } catch {
+    } catch (e) {
     }
   }, "markNotificationsSeen");
   const notifCount = notifications.groupInvites.length + notifications.buddyRequests.length + notifications.acceptedBuddies.length;
@@ -7574,14 +7631,14 @@ function App() {
       const res = await fetch(`${API_URL}/share-token`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setShareToken(data.token);
-    } catch {
+    } catch (e) {
     }
   }, "handleGenerateShareToken");
   const handleRevokeShareToken = /* @__PURE__ */ __name(async () => {
     try {
       await fetch(`${API_URL}/share-token`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       setShareToken(null);
-    } catch {
+    } catch (e) {
     }
   }, "handleRevokeShareToken");
   const handleSendShareRequest = /* @__PURE__ */ __name(async (e) => {
@@ -7602,7 +7659,7 @@ function App() {
       toast.success(data.message);
       e.target.reset();
       fetchShareBuddies();
-    } catch {
+    } catch (e2) {
       toast.error("Failed to send request");
     }
   }, "handleSendShareRequest");
@@ -7610,28 +7667,28 @@ function App() {
     try {
       await fetch(`${API_URL}/share-request/${id}/accept`, { method: "PUT", headers: { Authorization: `Bearer ${token}` } });
       fetchShareBuddies();
-    } catch {
+    } catch (e) {
     }
   }, "handleAcceptRequest");
   const handleRejectRequest = /* @__PURE__ */ __name(async (id) => {
     try {
       await fetch(`${API_URL}/share-request/${id}/reject`, { method: "PUT", headers: { Authorization: `Bearer ${token}` } });
       fetchShareBuddies();
-    } catch {
+    } catch (e) {
     }
   }, "handleRejectRequest");
   const handleCancelRequest = /* @__PURE__ */ __name(async (id) => {
     try {
       await fetch(`${API_URL}/share-request/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchShareBuddies();
-    } catch {
+    } catch (e) {
     }
   }, "handleCancelRequest");
   const handleRemoveBuddy = /* @__PURE__ */ __name(async (userId) => {
     try {
       await fetch(`${API_URL}/share-buddy/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchShareBuddies();
-    } catch {
+    } catch (e) {
     }
   }, "handleRemoveBuddy");
   const handleLogin = /* @__PURE__ */ __name(async (e, isRegister = false, keepSignedIn = true) => {
@@ -7675,7 +7732,7 @@ function App() {
         setHandReplayerAccess(!!data.handReplayerAccess);
         if (!data.realName) setShowRealNamePrompt(true);
       }
-    } catch {
+    } catch (e2) {
       setError("Network error. Please try again.");
     }
   }, "handleLogin");
@@ -7697,7 +7754,7 @@ function App() {
       setUsername(data.username);
       setIsGuest(true);
       setAvatar(null);
-    } catch {
+    } catch (e) {
       setError("Network error. Please try again.");
     }
   }, "handleGuestLogin");
@@ -7744,7 +7801,7 @@ function App() {
         setAvatar(data.avatar);
         localStorage.setItem("avatar", data.avatar);
       }
-    } catch {
+    } catch (e2) {
     }
     e.target.value = "";
   }, "handleAvatarUpload");
@@ -7756,7 +7813,7 @@ function App() {
       });
       setAvatar(null);
       localStorage.removeItem("avatar");
-    } catch {
+    } catch (e) {
     }
   }, "handleAvatarRemove");
   const toggleTournament = /* @__PURE__ */ __name(async (tournamentId) => {
@@ -7784,7 +7841,7 @@ function App() {
         });
       }
       fetchMySchedule();
-    } catch {
+    } catch (e) {
       setError("Failed to update schedule");
     }
   }, "toggleTournament");
@@ -7801,7 +7858,7 @@ function App() {
         return;
       }
       fetchMySchedule();
-    } catch {
+    } catch (e) {
       setError("Failed to create personal event");
     }
   }, "addPersonalEvent");
@@ -7813,7 +7870,7 @@ function App() {
         body: JSON.stringify({ notes })
       });
       fetchMySchedule();
-    } catch {
+    } catch (e) {
       setError("Failed to update personal event");
     }
   }, "updatePersonalEvent");
@@ -7825,7 +7882,7 @@ function App() {
         body: JSON.stringify({ conditions, isPublic })
       });
       fetchMySchedule();
-    } catch {
+    } catch (e) {
       setError("Failed to set condition");
     }
   }, "setCondition");
@@ -7836,7 +7893,7 @@ function App() {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchMySchedule();
-    } catch {
+    } catch (e) {
       setError("Failed to remove condition");
     }
   }, "removeCondition");
@@ -7848,7 +7905,7 @@ function App() {
         body: JSON.stringify({ isAnchor })
       });
       fetchMySchedule();
-    } catch {
+    } catch (e) {
       setError("Failed to update anchor status");
     }
   }, "toggleAnchor");
@@ -7860,7 +7917,7 @@ function App() {
         body: JSON.stringify({ plannedEntries })
       });
       fetchMySchedule();
-    } catch {
+    } catch (e) {
       setError("Failed to update planned entries");
     }
   }, "setPlannedEntries");
@@ -7881,7 +7938,7 @@ function App() {
       toast.success(`Imported ${data.tournamentsCount} tournaments from ${data.format === "wsop" ? "WSOP" : "generic"} format!`);
       setUploadVenue("");
       fetchTournaments();
-    } catch {
+    } catch (e2) {
       toast.error("Failed to upload schedule");
     }
   }, "handleFileUpload");
@@ -7989,7 +8046,7 @@ function App() {
       fetchShareBuddies,
       fetchMyGroups
     }
-  ), /* @__PURE__ */ React.createElement("main", { className: "content-area ptr-container", ref: contentAreaRef, ...ptrProps }, /* @__PURE__ */ React.createElement("div", { className: "ptr-indicator" + (refreshing ? " visible" : ""), ref: ptrIndicator }, /* @__PURE__ */ React.createElement("div", { className: "ptr-spinner" + (refreshing ? " spinning" : "") })), /* @__PURE__ */ React.createElement("div", { className: "view-fade", key: viewKey }, currentView === "dashboard" && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonDashboard, null) : /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("main", __spreadValues({ className: "content-area ptr-container", ref: contentAreaRef }, ptrProps), /* @__PURE__ */ React.createElement("div", { className: "ptr-indicator" + (refreshing ? " visible" : ""), ref: ptrIndicator }, /* @__PURE__ */ React.createElement("div", { className: "ptr-spinner" + (refreshing ? " spinning" : "") })), /* @__PURE__ */ React.createElement("div", { className: "view-fade", key: viewKey }, currentView === "dashboard" && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonDashboard, null) : /* @__PURE__ */ React.createElement(
     DashboardView,
     {
       key: debugTimeKey,
