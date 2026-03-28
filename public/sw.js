@@ -1,21 +1,28 @@
 // Service Worker for WSOP Scheduler PWA
 // Handles offline caching + push notifications
 
-const CACHE_NAME = 'wsop-scheduler-v1';
+const CACHE_NAME = 'wsop-scheduler-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icon.svg',
+  '/favicon.svg',
   '/icon-192.png',
   '/icon-512.png',
+  '/styles.css',
+  '/js/poker-engine.js',
+  '/js/utils.js',
+  '/dist/app.js',
+  '/dist/replayer.js',
+  '/dist/export.js',
+  '/dist/social.js',
+  '/dist/staking.js',
 ];
 
 // External resources to cache
 const EXTERNAL_ASSETS = [
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
-  'https://unpkg.com/@babel/standalone@7.26.9/babel.min.js',
   'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',
 ];
