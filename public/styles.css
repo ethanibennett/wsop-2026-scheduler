@@ -2836,6 +2836,7 @@
     .cal-venue-strip {
       width: 22px;
       flex-shrink: 0;
+      align-self: stretch;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2849,7 +2850,7 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: rgba(255,255,255,0.85);
-      border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+      border-radius: 0;
       position: relative;
       user-select: none;
       padding: 0 2px 0 0;
