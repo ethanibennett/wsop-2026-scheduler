@@ -1,7 +1,7 @@
 // Service Worker for WSOP Scheduler PWA
 // Handles offline caching + push notifications
 
-const CACHE_NAME = 'wsop-scheduler-v3';
+const CACHE_NAME = 'wsop-scheduler-v4';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -71,7 +71,8 @@ self.addEventListener('fetch', function(event) {
   if (url.pathname.startsWith('/api/')) return;
 
   // HTML navigation — network first, fall back to cache
-  if (event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html')) {
+  var accept = event.request.headers.get('accept') || '';
+  if (event.request.mode === 'navigate' || accept.includes('text/html')) {
     event.respondWith(
       fetch(event.request).then(function(response) {
         var clone = response.clone();
@@ -131,7 +132,7 @@ self.addEventListener('push', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  var url = event.notification.data?.url || '/';
+  var url = (event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(windowClients) {
       for (var i = 0; i < windowClients.length; i++) {
