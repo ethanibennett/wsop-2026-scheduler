@@ -3233,11 +3233,13 @@
     }
 
     function TableScanner() {
-      const [state, setState] = useState('idle'); // idle | processing | results
+      const [state, setState] = useState('idle'); // idle | processing | tableSelect | results
       const [progress, setProgress] = useState(0);
       const [players, setPlayers] = useState([]);
       const [eventTitle, setEventTitle] = useState('');
       const [error, setError] = useState('');
+      const [availableTables, setAvailableTables] = useState(null); // { tableNum: [players] }
+      const [allParsedPlayers, setAllParsedPlayers] = useState([]);
       const fileRef = useRef(null);
 
       const handleFile = async (e) => {
@@ -3274,7 +3276,27 @@
             console.log('[TableScanner] PokerStars Live OCR text:', data.text);
             const extracted = parsePokerStarsTable(data.text);
 
-            if (extracted.length === 0) {
+            // Group by table number
+            const tableGroups = {};
+            var noTablePlayers = [];
+            extracted.forEach(function(p) {
+              if (p.seat) {
+                var tbl = p.seat.split('-')[0];
+                if (!tableGroups[tbl]) tableGroups[tbl] = [];
+                tableGroups[tbl].push(p);
+              } else {
+                noTablePlayers.push(p);
+              }
+            });
+            var tableNums = Object.keys(tableGroups).sort(function(a, b) { return parseInt(a) - parseInt(b); });
+
+            if (tableNums.length > 1) {
+              // Multiple tables found — show table picker
+              setAvailableTables(tableGroups);
+              setAllParsedPlayers(extracted);
+              setEventTitle('PokerStars Live');
+              setState('tableSelect');
+            } else if (extracted.length === 0) {
               // Fallback: try the standard WSOP extraction on the same OCR data
               const fallback = extractPlayerNames(data);
               if (fallback.length > 0) {
@@ -3352,6 +3374,31 @@
                 <div className="table-scanner-bar-fill" style={{width: progress + '%'}} />
               </div>
               <div className="table-scanner-progress-pct">{progress}%</div>
+            </div>
+          )}
+
+          {state === 'tableSelect' && availableTables && (
+            <div className="table-scanner-table-select">
+              <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--text)',marginBottom:'8px'}}>
+                Multiple tables found — select yours:
+              </div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:'8px'}}>
+                {Object.keys(availableTables).sort(function(a, b) { return parseInt(a) - parseInt(b); }).map(function(tbl) {
+                  return React.createElement('button', {
+                    key: tbl,
+                    className: 'btn btn-primary btn-sm',
+                    style: {minWidth:'60px',padding:'8px 16px'},
+                    onClick: function() {
+                      var tablePlayers = availableTables[tbl];
+                      setPlayers(tablePlayers);
+                      setEventTitle('Table ' + tbl);
+                      setAvailableTables(null);
+                      setState('results');
+                    }
+                  }, 'Table ' + tbl + ' (' + availableTables[tbl].length + ')');
+                })}
+              </div>
+              <button className="btn btn-ghost btn-sm" style={{marginTop:'8px'}} onClick={function() { setState('idle'); setAvailableTables(null); }}>Cancel</button>
             </div>
           )}
 

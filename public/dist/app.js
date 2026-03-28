@@ -2991,6 +2991,8 @@ function TableScanner() {
   const [players, setPlayers] = useState([]);
   const [eventTitle, setEventTitle] = useState("");
   const [error, setError] = useState("");
+  const [availableTables, setAvailableTables] = useState(null);
+  const [allParsedPlayers, setAllParsedPlayers] = useState([]);
   const fileRef = useRef(null);
   const handleFile = /* @__PURE__ */ __name(async (e) => {
     var _a;
@@ -3022,7 +3024,26 @@ function TableScanner() {
         await worker.terminate();
         console.log("[TableScanner] PokerStars Live OCR text:", data.text);
         const extracted = parsePokerStarsTable(data.text);
-        if (extracted.length === 0) {
+        const tableGroups = {};
+        var noTablePlayers = [];
+        extracted.forEach(function(p) {
+          if (p.seat) {
+            var tbl = p.seat.split("-")[0];
+            if (!tableGroups[tbl]) tableGroups[tbl] = [];
+            tableGroups[tbl].push(p);
+          } else {
+            noTablePlayers.push(p);
+          }
+        });
+        var tableNums = Object.keys(tableGroups).sort(function(a, b) {
+          return parseInt(a) - parseInt(b);
+        });
+        if (tableNums.length > 1) {
+          setAvailableTables(tableGroups);
+          setAllParsedPlayers(extracted);
+          setEventTitle("PokerStars Live");
+          setState("tableSelect");
+        } else if (extracted.length === 0) {
           const fallback = extractPlayerNames(data);
           if (fallback.length > 0) {
             setPlayers(fallback);
@@ -3092,7 +3113,25 @@ function TableScanner() {
     },
     /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "13", r: "4" })),
     "Upload Table Screenshot (WSOP+ / PokerStars Live)"
-  ), state === "processing" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress-label" }, "Scanning image…"), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-bar-fill", style: { width: progress + "%" } })), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress-pct" }, progress, "%")), state === "results" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results-header" }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--text)", flex: 1, minWidth: 0 } }, eventTitle || `${players.length} player${players.length !== 1 ? "s" : ""} found`), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => {
+  ), state === "processing" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress-label" }, "Scanning image…"), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-bar-fill", style: { width: progress + "%" } })), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress-pct" }, progress, "%")), state === "tableSelect" && availableTables && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-table-select" }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "0.9rem", color: "var(--text)", marginBottom: "8px" } }, "Multiple tables found — select yours:"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px" } }, Object.keys(availableTables).sort(function(a, b) {
+    return parseInt(a) - parseInt(b);
+  }).map(function(tbl) {
+    return React.createElement("button", {
+      key: tbl,
+      className: "btn btn-primary btn-sm",
+      style: { minWidth: "60px", padding: "8px 16px" },
+      onClick: /* @__PURE__ */ __name(function() {
+        var tablePlayers = availableTables[tbl];
+        setPlayers(tablePlayers);
+        setEventTitle("Table " + tbl);
+        setAvailableTables(null);
+        setState("results");
+      }, "onClick")
+    }, "Table " + tbl + " (" + availableTables[tbl].length + ")");
+  })), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { marginTop: "8px" }, onClick: function() {
+    setState("idle");
+    setAvailableTables(null);
+  } }, "Cancel")), state === "results" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results-header" }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--text)", flex: 1, minWidth: 0 } }, eventTitle || `${players.length} player${players.length !== 1 ? "s" : ""} found`), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => {
     setState("idle");
     setPlayers([]);
     setEventTitle("");

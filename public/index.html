@@ -29,6 +29,8 @@
   <script>
     // Global error handler — surfaces runtime errors visibly during debugging
     window.onerror = function(msg, url, line, col, err) {
+      // Ignore cross-origin "Script error" with no details (CDN worker errors, not real bugs)
+      if (msg === 'Script error.' && line === 0) return true;
       var el = document.getElementById('startup-error');
       if (!el) {
         el = document.createElement('div');
@@ -37,6 +39,10 @@
         document.body.prepend(el);
       }
       el.textContent += msg + ' (line ' + line + ')\n';
+    };
+    // Also catch unhandled promise rejections (iOS reports these as Script error)
+    window.onunhandledrejection = function(e) {
+      if (e && e.reason && e.reason.message === 'Script error.') { e.preventDefault(); return; }
     };
   </script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
