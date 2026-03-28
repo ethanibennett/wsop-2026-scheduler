@@ -5484,11 +5484,11 @@
             return true;
           })
           .sort((a, b) => {
-            const ta = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
-            const tb = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
-            if (ta.getTime() !== tb.getTime()) return ta - tb;
-            const na = a.event_number.startsWith('SAT') ? 10000 + parseInt(a.event_number.slice(4)) : (parseInt(a.event_number) || 9999);
-            const nb = b.event_number.startsWith('SAT') ? 10000 + parseInt(b.event_number.slice(4)) : (parseInt(b.event_number) || 9999);
+            const ta = parseDateTime(a.date, (a.time || '').replace(/\s*GMT\s*$/i, ''));
+            const tb = parseDateTime(b.date, (b.time || '').replace(/\s*GMT\s*$/i, ''));
+            if (ta !== tb) return ta - tb;
+            const na = (a.event_number || '').startsWith('SAT') ? 10000 + parseInt((a.event_number || '').slice(4)) : (parseInt(a.event_number) || 9999);
+            const nb = (b.event_number || '').startsWith('SAT') ? 10000 + parseInt((b.event_number || '').slice(4)) : (parseInt(b.event_number) || 9999);
             return na - nb;
           });
       }, [todayEvents, filters]);
