@@ -2498,23 +2498,30 @@ function extractPlayerNames(ocrData) {
 }
 __name(extractPlayerNames, "extractPlayerNames");
 function detectImageFormat(img) {
-  const canvas = document.createElement("canvas");
+  var canvas = document.createElement("canvas");
   canvas.width = img.width;
   canvas.height = img.height;
-  const ctx = canvas.getContext("2d");
+  var ctx = canvas.getContext("2d");
   ctx.drawImage(img, 0, 0);
-  const pixels = ctx.getImageData(0, 0, img.width, img.height).data;
-  const total = img.width * img.height;
-  let greenFeltCount = 0;
-  let darkCount = 0;
-  for (let i = 0; i < pixels.length; i += 4) {
-    const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+  var pixels = ctx.getImageData(0, 0, img.width, img.height).data;
+  var total = img.width * img.height;
+  var greenFeltCount = 0;
+  var whiteCount = 0;
+  var purpleCount = 0;
+  for (var i = 0; i < pixels.length; i += 4) {
+    var r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
     if (g > r * 1.2 && g > b * 1.2 && g > 30) greenFeltCount++;
-    if (r < 60 && g < 60 && b < 60) darkCount++;
+    if (r > 220 && g > 220 && b > 220) whiteCount++;
+    if (r > 80 && b > 80 && g < 60 && Math.abs(r - b) < 40) purpleCount++;
   }
-  const greenRatio = greenFeltCount / total;
-  const darkRatio = darkCount / total;
-  if (greenRatio < 0.05 && darkRatio > 0.3) return "pokerstars";
+  var greenRatio = greenFeltCount / total;
+  var whiteRatio = whiteCount / total;
+  var purpleRatio = purpleCount / total;
+  var aspectRatio = img.height / img.width;
+  var isPortrait = aspectRatio > 1.3;
+  if (greenRatio > 0.05) return "wsop";
+  if (isPortrait && (whiteRatio > 0.15 || purpleRatio > 0.02)) return "pokerstars";
+  if (greenRatio < 0.03) return "pokerstars";
   return "wsop";
 }
 __name(detectImageFormat, "detectImageFormat");

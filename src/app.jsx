@@ -2831,32 +2831,44 @@
     // Pos. | Player (name + country) | Chips | Seat (e.g. "7-1") | Prize
     // Dark background, no green felt — pure tabular data.
 
-    // Detect whether screenshot is a green-felt table (WSOP+) or a dark list/table (PokerStars Live)
+    // Detect whether screenshot is a green-felt table (WSOP+) or a list/table (PokerStars Live)
     function detectImageFormat(img) {
-      const canvas = document.createElement('canvas');
+      var canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
+      var ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
-      const pixels = ctx.getImageData(0, 0, img.width, img.height).data;
-      const total = img.width * img.height;
+      var pixels = ctx.getImageData(0, 0, img.width, img.height).data;
+      var total = img.width * img.height;
 
-      let greenFeltCount = 0;
-      let darkCount = 0;
+      var greenFeltCount = 0;
+      var whiteCount = 0;
+      var purpleCount = 0;
 
-      for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+      for (var i = 0; i < pixels.length; i += 4) {
+        var r = pixels[i], g = pixels[i+1], b = pixels[i+2];
         // Green felt: green channel dominant
         if (g > r * 1.2 && g > b * 1.2 && g > 30) greenFeltCount++;
-        // Dark pixel (PokerStars Live has dark/black background)
-        if (r < 60 && g < 60 && b < 60) darkCount++;
+        // White/light (PS Live has white/light gray rows)
+        if (r > 220 && g > 220 && b > 220) whiteCount++;
+        // Purple (PS Live header is purple/magenta)
+        if (r > 80 && b > 80 && g < 60 && Math.abs(r - b) < 40) purpleCount++;
       }
 
-      const greenRatio = greenFeltCount / total;
-      const darkRatio = darkCount / total;
+      var greenRatio = greenFeltCount / total;
+      var whiteRatio = whiteCount / total;
+      var purpleRatio = purpleCount / total;
 
-      // PokerStars Live: mostly dark, very little green felt
-      if (greenRatio < 0.05 && darkRatio > 0.3) return 'pokerstars';
+      // PS Live: white background with purple accents, aspect ratio is portrait (tall)
+      var aspectRatio = img.height / img.width;
+      var isPortrait = aspectRatio > 1.3;
+
+      // If mostly green felt (>5%), it's WSOP+
+      if (greenRatio > 0.05) return 'wsop';
+      // Portrait with white bg or purple = PS Live list view
+      if (isPortrait && (whiteRatio > 0.15 || purpleRatio > 0.02)) return 'pokerstars';
+      // Fallback: if very little green, assume PS Live
+      if (greenRatio < 0.03) return 'pokerstars';
       return 'wsop';
     }
 
