@@ -2938,12 +2938,46 @@
       // Process each line after header (or all lines if no header found)
       const startIdx = headerIdx >= 0 ? headerIdx + 1 : 0;
 
+      // Pre-process: merge lines that are just country names into the previous line
+      const mergedLines = [];
       for (let i = startIdx; i < lines.length; i++) {
         const line = lines[i];
+        const stripped = line.replace(/[^a-zA-Z\s]/g, '').trim().toLowerCase();
+        const words = stripped.split(/\s+/).filter(Boolean);
+        const isCountryLine = (words.length <= 2 && words.length > 0 &&
+          (PS_COUNTRIES.has(stripped) || PS_COUNTRIES.has(words.join(' ')) ||
+           (words.length === 1 && PS_COUNTRY_CODES.has(words[0]))));
+
+        // Check if line is just a chip count (e.g. "50,000")
+        const isChipLine = /^\s*\d{1,3}(?:,\d{3})+\s*$/.test(line) || /^\s*\d{4,}\s*$/.test(line);
+
+        // Check if line is just a seat assignment (e.g. "7-1")
+        const isSeatLine = /^\s*\d{1,3}\s*[-–]\s*\d{1,2}\s*$/.test(line);
+
+        if ((isCountryLine || isChipLine || isSeatLine) && mergedLines.length > 0) {
+          // Append to previous line
+          mergedLines[mergedLines.length - 1] += '  ' + line;
+        } else {
+          mergedLines.push(line);
+        }
+      }
+
+      for (let i = 0; i < mergedLines.length; i++) {
+        const line = mergedLines[i];
 
         // Skip obviously non-player lines
         if (line.length < 8) continue;
         if (/^(pos|player|chip|seat|prize|total|page|showing)/i.test(line)) continue;
+
+        // Skip lines that are just a country name/code (OCR splits name + country across lines)
+        const lineLower = line.replace(/[^a-zA-Z\s]/g, '').trim().toLowerCase();
+        if (lineLower && (PS_COUNTRIES.has(lineLower) || PS_COUNTRY_CODES.has(lineLower))) continue;
+        // Also skip 2-word countries with flag emoji/chars stripped
+        const lineWords = lineLower.split(/\s+/).filter(Boolean);
+        if (lineWords.length <= 2 && lineWords.length > 0) {
+          const asTwo = lineWords.join(' ');
+          if (PS_COUNTRIES.has(asTwo) || (lineWords.length === 1 && PS_COUNTRY_CODES.has(lineWords[0]))) continue;
+        }
 
         // Strategy 1: Structured row with position number at start
         // Pattern: "1  John Smith  United States  50,000  7-1  $0"
@@ -3034,6 +3068,10 @@
         // Clean player name
         playerName = playerName.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '').trim();
         if (!playerName || playerName.length < 3) continue;
+
+        // Final check: skip if the "name" is actually just a country
+        const nameLower = playerName.toLowerCase();
+        if (PS_COUNTRIES.has(nameLower) || PS_COUNTRY_CODES.has(nameLower)) continue;
 
         // Title case the name
         playerName = playerName.split(/\s+/).map(w =>
