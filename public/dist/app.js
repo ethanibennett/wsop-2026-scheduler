@@ -2806,7 +2806,7 @@ function parsePokerStarsTable(ocrText) {
     if (pos < 1 || pos > 500) continue;
     let rest = rowMatch[2].trim();
     let seatAssignment = null;
-    const seatMatch = rest.match(/\b(\d{1,3})\s*[-–]\s*(\d{1,2})\b/);
+    const seatMatch = rest.match(/\b(\d{1,3})\s*[-–—~.]\s*(\d{1,2})\b/);
     if (seatMatch) {
       const tbl = parseInt(seatMatch[1]);
       const st = parseInt(seatMatch[2]);
@@ -3031,10 +3031,13 @@ function TableScanner() {
         await worker.terminate();
         console.log("[TableScanner] PokerStars Live OCR text:", data.text);
         const extracted = parsePokerStarsTable(data.text);
+        console.log("[TableScanner] Extracted players:", extracted.map(function(p) {
+          return p.name + " seat:" + p.seat;
+        }));
         const tableGroups = {};
         var noTablePlayers = [];
         extracted.forEach(function(p) {
-          if (p.seat) {
+          if (p.seat && p.seat.includes("-")) {
             var tbl = p.seat.split("-")[0];
             if (!tableGroups[tbl]) tableGroups[tbl] = [];
             tableGroups[tbl].push(p);
@@ -3045,6 +3048,7 @@ function TableScanner() {
         var tableNums = Object.keys(tableGroups).sort(function(a, b) {
           return parseInt(a) - parseInt(b);
         });
+        console.log("[TableScanner] Table groups:", tableNums, "noTable:", noTablePlayers.length);
         if (tableNums.length > 1) {
           setAvailableTables(tableGroups);
           setAllParsedPlayers(extracted);
