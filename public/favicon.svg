@@ -14,9 +14,9 @@
   <circle cx="50" cy="44" r="38" fill="url(#ballGrad)" stroke="#6b5b8a" stroke-width="2"/>
   <!-- Shine highlight -->
   <circle cx="50" cy="44" r="38" fill="url(#shine)"/>
-  <!-- Base/stand -->
-  <path d="M25 78 L75 78 L70 85 Q50 92 30 85 Z" fill="#1a1a2e" stroke="#6b5b8a" stroke-width="1.5"/>
-  <rect x="28" y="72" width="44" height="8" rx="2" fill="#1a1a2e" stroke="#6b5b8a" stroke-width="1.5"/>
+  <!-- Base/stand — neck narrows then flares out at bottom -->
+  <rect x="35" y="76" width="30" height="6" rx="2" fill="#1a1a2e" stroke="#6b5b8a" stroke-width="1.5"/>
+  <path d="M30 82 L70 82 L78 90 Q50 96 22 90 Z" fill="#1a1a2e" stroke="#6b5b8a" stroke-width="1.5"/>
   <!-- Letter f -->
   <text x="50" y="58" text-anchor="middle" font-family="'Libre Baskerville', Georgia, serif" font-size="48" font-style="italic" fill="#c4b5fd" opacity="0.9">f</text>
 </svg>
