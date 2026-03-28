@@ -2488,9 +2488,9 @@
         });
       };
 
-      var callAmount = currentActor >= 0 ? Math.min(streetBets.maxBet - streetBets.contrib[currentActor], currentStacks[currentActor]) : 0;
+      var playerContrib = currentActor >= 0 ? streetBets.contrib[currentActor] : 0;
+      var callAmount = currentActor >= 0 ? Math.min(streetBets.maxBet - playerContrib, currentStacks[currentActor]) : 0;
       var canCheck = callAmount === 0;
-      var minRaise = Math.max((hand.blinds || {}).bb || 0, streetBets.maxBet * 2 - (currentActor >= 0 ? streetBets.contrib[currentActor] : 0));
       var playerStack = currentActor >= 0 ? currentStacks[currentActor] : 0;
 
       // Betting structure awareness
@@ -2500,21 +2500,88 @@
       var flSmallStreets = gameCfg.flSmallStreets || [0, 1];
       var flRaiseCap = gameCfg.raiseCap || 4;
 
-      // Count raises on current street
-      var streetRaiseCountGTO = 0;
+      // Count bets+raises on current street for cap tracking
+      // In fixed-limit: 1 bet + 3 raises = 4 total aggressive actions = cap
+      // In stud with bring-in: "complete" counts as the first bet, then 3 raises
+      var streetBetRaiseCount = 0;
       (currentStreet.actions || []).forEach(function(a) {
-        if (a.action === 'raise' || a.action === 'bet') streetRaiseCountGTO++;
+        if (a.action === 'raise' || a.action === 'bet') streetBetRaiseCount++;
       });
+
+      // Heads-up: uncap raises (only cap when 3+ active players)
+      var activePlayerCount = hand.players.filter(function(_, i) { return !foldedSet.has(i) && !allInSet.has(i); }).length;
+      var isHeadsUp = activePlayerCount <= 2;
 
       // Fixed limit bet size
       var flIsSmall = flSmallStreets.includes(currentStreetIdx);
       var flBetSize = flIsSmall ? ((hand.blinds || {}).bb || 100) : ((hand.blinds || {}).bb || 100) * 2;
-      var flRaiseToAmount = streetBets.maxBet + flBetSize;
-      var flCanRaise = streetRaiseCountGTO < flRaiseCap;
+      // flRaiseToTotal = the total amount the raiser will have committed this street
+      var flRaiseToTotal = streetBets.maxBet + flBetSize;
+      // Incremental amount the raiser needs to ADD (accounting for chips already in)
+      var flRaiseIncrement = flRaiseToTotal - playerContrib;
+      // Can raise? Cap at 4 bets+raises per street (1 bet + 3 raises), uncapped heads-up
+      var flCanRaise = isHeadsUp || streetBetRaiseCount < flRaiseCap;
 
-      // Pot-limit max raise
+      // Pot-limit max raise calculation
+      // Formula: pot-size raise = call + (pot after calling)
+      // pot after calling = current pot + call amount
+      // Total raise-to = current contrib + call amount + pot after calling
       var plPotAfterCall = currentPot + callAmount;
-      var plMaxRaise = plPotAfterCall + streetBets.maxBet;
+      // The raise SIZE = pot after calling
+      // The raise-to TOTAL = playerContrib + callAmount + plPotAfterCall
+      var plRaiseToTotal = playerContrib + callAmount + plPotAfterCall;
+      // The incremental amount the raiser adds
+      var plMaxRaiseIncrement = plRaiseToTotal - playerContrib;
+      // For an opening bet (no one has bet yet), max bet = current pot
+      var plMaxBet = currentPot;
+
+      // NL/PL min-raise: at least the size of the last raise/bet, minimum BB
+      // Track the previous maxBet level to compute the last raise size
+      var prevMaxBet = 0;
+      var lastAggressiveSize = (hand.blinds || {}).bb || 0; // default to BB
+      (currentStreet.actions || []).forEach(function(a) {
+        if (a.action === 'raise' || a.action === 'bet') {
+          // The new level is prevMaxBet + a.amount for bet, or we need to track differently
+          // Since contrib accumulates: after this action, the aggressor's total = their prior contrib + a.amount
+          // The new maxBet level = aggressor's new total
+          // The raise size = new level - previous maxBet level
+          var newLevel = streetBets.maxBet; // We can't easily compute per-action, use final maxBet for last action
+          lastAggressiveSize = Math.max(a.amount, (hand.blinds || {}).bb || 0);
+        }
+      });
+      // Actually, simpler: track raise sizes by replaying the maxBet progression
+      var _prevMax = 0;
+      var _lastRaiseSize = (hand.blinds || {}).bb || 0;
+      var _runContrib = new Array(hand.players.length).fill(0);
+      if (isPreflop && category !== 'stud') {
+        var _sbIdx = hand.players.findIndex(function(p) { return p.position === 'SB' || p.position === 'BTN/SB'; });
+        var _bbIdx = hand.players.findIndex(function(p) { return p.position === 'BB'; });
+        if (_sbIdx >= 0) _runContrib[_sbIdx] = (hand.blinds || {}).sb || 0;
+        if (_bbIdx >= 0) _runContrib[_bbIdx] = (hand.blinds || {}).bb || 0;
+        _prevMax = (hand.blinds || {}).bb || 0;
+      }
+      if (category === 'stud' && currentStreetIdx === 0 && studInfo && studInfo.bringInIdx >= 0) {
+        _runContrib[studInfo.bringInIdx] = bringInAmount;
+        _prevMax = bringInAmount;
+      }
+      (currentStreet.actions || []).forEach(function(a) {
+        if (a.action === 'fold') return;
+        if (a.action === 'bring-in') {
+          _runContrib[a.player] = a.amount || bringInAmount;
+          _prevMax = Math.max(_prevMax, _runContrib[a.player]);
+          return;
+        }
+        if (a.amount > 0) _runContrib[a.player] += a.amount;
+        if (a.action === 'raise' || a.action === 'bet') {
+          var newMax = _runContrib[a.player];
+          _lastRaiseSize = Math.max(newMax - _prevMax, (hand.blinds || {}).bb || 0);
+          _prevMax = newMax;
+        }
+      });
+      // Min raise-to total = current maxBet + last raise size
+      var minRaiseToTotal = streetBets.maxBet + _lastRaiseSize;
+      // Min raise increment = how much more the current player needs to put in
+      var minRaiseIncrement = minRaiseToTotal - playerContrib;
 
       var cumulativeBoard = useMemo(function() {
         var b = '';
@@ -3371,9 +3438,25 @@
                               <span className="gto-action-icon call">⬤</span>
                               <span className="gto-action-label">Bring In {formatChipAmount(bringInAmount)}</span>
                             </button>
-                            <button className="gto-action-btn" onClick={function() { addAction('bet', Math.min(flBetSize, playerStack)); }}>
+                            <button className="gto-action-btn" onClick={function() { var completeAmt = Math.min(flBetSize - playerContrib, playerStack); addAction('bet', completeAmt); }}>
                               <span className="gto-action-icon raise">▲</span>
-                              <span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack))}</span>
+                              <span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack + playerContrib))}</span>
+                            </button>
+                          </div>
+                        ) : isLimitGame && gameCfg.isStud && currentStreetIdx === 0 && (currentStreet.actions || []).length > 0 && streetBets.maxBet <= bringInAmount && streetBetRaiseCount === 0 ? (
+                          /* ── Stud 3rd street after bring-in: anyone can "complete" to full small bet ── */
+                          <div className="gto-action-row">
+                            <button className="gto-action-btn" onClick={function() { addAction('fold'); }}>
+                              <span className="gto-action-icon fold">✕</span>
+                              <span className="gto-action-label">Fold</span>
+                            </button>
+                            <button className="gto-action-btn" onClick={function() { addAction('call', Math.min(callAmount, playerStack)); }}>
+                              <span className="gto-action-icon call">⬤</span>
+                              <span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span>
+                            </button>
+                            <button className="gto-action-btn" onClick={function() { var completeAmt = Math.min(flBetSize - playerContrib, playerStack); addAction('bet', completeAmt); }}>
+                              <span className="gto-action-icon raise">▲</span>
+                              <span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack + playerContrib))}</span>
                             </button>
                           </div>
                         ) : isLimitGame ? (
@@ -3393,14 +3476,14 @@
                                   <span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span>
                                 </button>
                             }
-                            {flCanRaise && (canCheck
+                            {flCanRaise && playerStack > callAmount && (canCheck
                               ? <button className="gto-action-btn" onClick={function() { addAction('bet', Math.min(flBetSize, playerStack)); }}>
                                   <span className="gto-action-icon raise">▲</span>
                                   <span className="gto-action-label">Bet {formatChipAmount(Math.min(flBetSize, playerStack))}</span>
                                 </button>
-                              : <button className="gto-action-btn" onClick={function() { addAction('raise', Math.min(flRaiseToAmount, playerStack)); }}>
+                              : <button className="gto-action-btn" onClick={function() { addAction('raise', Math.min(flRaiseIncrement, playerStack)); }}>
                                   <span className="gto-action-icon raise">▲</span>
-                                  <span className="gto-action-label">Raise to {formatChipAmount(Math.min(flRaiseToAmount, playerStack))}</span>
+                                  <span className="gto-action-label">Raise to {formatChipAmount(Math.min(flRaiseToTotal, playerStack + playerContrib))}</span>
                                 </button>
                             )}
                           </div>
@@ -3423,7 +3506,7 @@
                                       <span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span>
                                     </button>
                                 }
-                                <button className="gto-action-btn" onClick={function() {
+                                {playerStack > callAmount && <button className="gto-action-btn" onClick={function() {
                                   var container = document.querySelector('.content-area');
                                   if (container) {
                                     var savedTop = container.scrollTop;
@@ -3432,27 +3515,55 @@
                                     setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
                                   }
                                   setShowRaiseInput(true);
-                                  setBetAmount(String(canCheck ? Math.min((hand.blinds || {}).bb || 0, playerStack) : Math.min(minRaise, playerStack)));
+                                  var plMinBet = Math.min((hand.blinds || {}).bb || 0, playerStack);
+                                  var plMinRaise = Math.min(minRaiseIncrement, playerStack);
+                                  setBetAmount(String(canCheck ? plMinBet : plMinRaise));
                                 }}>
                                   <span className="gto-action-icon raise">▲</span>
                                   <span className="gto-action-label">{canCheck ? 'Bet' : 'Raise'}</span>
-                                </button>
-                                <button className="gto-action-btn" onClick={function() { addAction(canCheck ? 'bet' : 'raise', Math.min(canCheck ? currentPot : plMaxRaise, playerStack)); }}>
+                                </button>}
+                                {playerStack > callAmount && <button className="gto-action-btn" onClick={function() {
+                                  var potIncrement = canCheck ? Math.min(plMaxBet, playerStack) : Math.min(plMaxRaiseIncrement, playerStack);
+                                  addAction(canCheck ? 'bet' : 'raise', potIncrement);
+                                }}>
                                   <span className="gto-action-icon raise">▲</span>
-                                  <span className="gto-action-label">Pot</span>
-                                </button>
+                                  <span className="gto-action-label">Pot {formatChipAmount(Math.min(canCheck ? plMaxBet : plRaiseToTotal, playerStack + playerContrib))}</span>
+                                </button>}
                               </div>
                             )}
                             {showRaiseInput && (
                               <React.Fragment>
                                 <div className="gto-sizing-row">
-                                  {[{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(function(s) {
-                                    return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(Math.min(Math.round(currentPot * s.mult), playerStack))); }}>{s.label}</button>;
+                                  {(canCheck
+                                    ? [{label:'Min',mult:0},{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}]
+                                    : [{label:'Min',mult:0},{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}]
+                                  ).map(function(s) {
+                                    var pillAmt;
+                                    if (canCheck) {
+                                      // Opening bet: pills are fractions of current pot
+                                      pillAmt = s.mult === 0 ? Math.min((hand.blinds || {}).bb || 0, playerStack) : Math.min(Math.round(plMaxBet * s.mult), playerStack);
+                                    } else {
+                                      // Facing a bet: pills are fractions of pot-size raise increment
+                                      if (s.mult === 0) {
+                                        pillAmt = Math.min(minRaiseIncrement, playerStack);
+                                      } else {
+                                        // Scale between min raise and pot raise
+                                        var minR = minRaiseIncrement;
+                                        var maxR = plMaxRaiseIncrement;
+                                        pillAmt = Math.min(Math.round(minR + (maxR - minR) * s.mult), playerStack);
+                                      }
+                                    }
+                                    return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(pillAmt)); }}>{s.label}</button>;
                                   })}
                                 </div>
                                 <div className="gto-raise-input-row">
                                   <input type="text" inputMode="decimal" value={betAmount} onChange={function(e) { setBetAmount(e.target.value); }} autoFocus />
-                                  <button className="btn btn-primary btn-sm" onClick={function() { var amt = Math.min(Number(betAmount) || 0, canCheck ? currentPot : plMaxRaise, playerStack); if (amt > 0) addAction(canCheck ? 'bet' : 'raise', amt); }}>Confirm</button>
+                                  <button className="btn btn-primary btn-sm" onClick={function() {
+                                    var inputAmt = Number(betAmount) || 0;
+                                    var maxIncrement = canCheck ? Math.min(plMaxBet, playerStack) : Math.min(plMaxRaiseIncrement, playerStack);
+                                    var amt = Math.min(inputAmt, maxIncrement);
+                                    if (amt > 0) addAction(canCheck ? 'bet' : 'raise', amt);
+                                  }}>Confirm</button>
                                   <button className="btn btn-ghost btn-sm" onClick={function() {
                                     var container = document.querySelector('.content-area');
                                     if (container) {
@@ -3495,7 +3606,7 @@
                                     setTimeout(function() { container.removeEventListener('scroll', lock); }, 500);
                                   }
                                   setShowRaiseInput(true);
-                                  setBetAmount(String(canCheck ? ((hand.blinds || {}).bb || 0) : minRaise));
+                                  setBetAmount(String(canCheck ? ((hand.blinds || {}).bb || 0) : Math.min(minRaiseIncrement, playerStack)));
                                 }}>
                                   <span className="gto-action-icon raise">▲</span>
                                   <span className="gto-action-label">{canCheck ? 'Bet' : 'Raise'}</span>

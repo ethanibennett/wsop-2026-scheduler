@@ -2826,6 +2826,246 @@
       }));
     }
 
+    // ── PokerStars Live table format detection & parsing ──────
+    // PokerStars Live screenshots show a structured table with columns:
+    // Pos. | Player (name + country) | Chips | Seat (e.g. "7-1") | Prize
+    // Dark background, no green felt — pure tabular data.
+
+    // Detect whether screenshot is a green-felt table (WSOP+) or a dark list/table (PokerStars Live)
+    function detectImageFormat(img) {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const pixels = ctx.getImageData(0, 0, img.width, img.height).data;
+      const total = img.width * img.height;
+
+      let greenFeltCount = 0;
+      let darkCount = 0;
+
+      for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+        // Green felt: green channel dominant
+        if (g > r * 1.2 && g > b * 1.2 && g > 30) greenFeltCount++;
+        // Dark pixel (PokerStars Live has dark/black background)
+        if (r < 60 && g < 60 && b < 60) darkCount++;
+      }
+
+      const greenRatio = greenFeltCount / total;
+      const darkRatio = darkCount / total;
+
+      // PokerStars Live: mostly dark, very little green felt
+      if (greenRatio < 0.05 && darkRatio > 0.3) return 'pokerstars';
+      return 'wsop';
+    }
+
+    // Preprocess PokerStars Live screenshot for OCR: high contrast, scale up
+    function preprocessPokerStarsImage(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = 2;
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // PokerStars Live has light/white text on dark background
+          // Invert + grayscale + high contrast for best Tesseract results
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imageData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+            const inverted = 255 - gray;
+            // Sharpen contrast: push towards black or white
+            const val = inverted < 100 ? Math.max(0, inverted * 0.3) :
+                        inverted > 160 ? 255 :
+                        Math.round((inverted - 100) / 60 * 255);
+            d[i] = d[i+1] = d[i+2] = val;
+          }
+          ctx.putImageData(imageData, 0, 0);
+
+          canvas.toBlob((blob) => resolve(blob), 'image/png');
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // Country names commonly appearing in PokerStars Live player rows
+    const PS_COUNTRIES = new Set([
+      'argentina','australia','austria','bahamas','belgium','brazil','bulgaria',
+      'canada','chile','china','colombia','croatia','czech republic','czechia',
+      'denmark','egypt','england','estonia','finland','france','germany','greece',
+      'hungary','iceland','india','indonesia','iran','ireland','israel','italy',
+      'japan','kazakhstan','korea','latvia','lebanon','lithuania','luxembourg',
+      'malaysia','mexico','monaco','morocco','netherlands','new zealand','nigeria',
+      'norway','pakistan','peru','philippines','poland','portugal','romania',
+      'russia','scotland','serbia','singapore','slovakia','slovenia','south africa',
+      'south korea','spain','sweden','switzerland','taiwan','thailand','turkey',
+      'ukraine','united kingdom','united states','uruguay','venezuela','vietnam',
+      'wales','uk','us','usa','uae',
+    ]);
+
+    // 2-letter and 3-letter country codes
+    const PS_COUNTRY_CODES = new Set([
+      'ar','au','at','bs','be','br','bg','ca','cl','cn','co','hr','cz','dk',
+      'eg','ee','fi','fr','de','gr','hu','is','in','id','ir','ie','il','it',
+      'jp','kz','kr','lv','lb','lt','lu','my','mx','mc','ma','nl','nz','ng',
+      'no','pk','pe','ph','pl','pt','ro','ru','rs','sg','sk','si','za','es',
+      'se','ch','tw','th','tr','ua','gb','us','uy','ve','vn',
+      'arg','aus','aut','bhs','bel','bra','bgr','can','chl','chn','col','hrv',
+      'cze','dnk','egy','est','fin','fra','deu','grc','hun','isl','ind','idn',
+      'irn','irl','isr','ita','jpn','kaz','kor','lva','lbn','ltu','lux','mys',
+      'mex','mco','mar','nld','nzl','nga','nor','pak','per','phl','pol','prt',
+      'rou','rus','srb','sgp','svk','svn','zaf','esp','swe','che','twn','tha',
+      'tur','ukr','gbr','usa','ury','ven','vnm',
+    ]);
+
+    // Parse PokerStars Live tabular OCR text into player objects
+    function parsePokerStarsTable(ocrText) {
+      const lines = ocrText.split('\n').map(l => l.trim()).filter(Boolean);
+      const players = [];
+
+      // Detect header row to confirm format
+      const headerIdx = lines.findIndex(l =>
+        /pos/i.test(l) && /player/i.test(l) && (/chip/i.test(l) || /seat/i.test(l))
+      );
+
+      // Process each line after header (or all lines if no header found)
+      const startIdx = headerIdx >= 0 ? headerIdx + 1 : 0;
+
+      for (let i = startIdx; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Skip obviously non-player lines
+        if (line.length < 8) continue;
+        if (/^(pos|player|chip|seat|prize|total|page|showing)/i.test(line)) continue;
+
+        // Strategy 1: Structured row with position number at start
+        // Pattern: "1  John Smith  United States  50,000  7-1  $0"
+        // or: "1  John Smith  US  50,000  7-1"
+        const rowMatch = line.match(
+          /^(\d{1,3})\s{1,}(.+?)$/
+        );
+        if (!rowMatch) continue;
+
+        const pos = parseInt(rowMatch[1]);
+        if (pos < 1 || pos > 500) continue;
+
+        let rest = rowMatch[2].trim();
+
+        // Extract seat assignment (e.g. "7-1" = table 7 seat 1)
+        let seatAssignment = null;
+        const seatMatch = rest.match(/\b(\d{1,3})\s*[-–]\s*(\d{1,2})\b/);
+        if (seatMatch) {
+          const tbl = parseInt(seatMatch[1]);
+          const st = parseInt(seatMatch[2]);
+          if (tbl >= 1 && tbl <= 999 && st >= 1 && st <= 10) {
+            seatAssignment = `${tbl}-${st}`;
+          }
+        }
+
+        // Extract chip count (e.g. "50,000" or "1,234,567" or "50000")
+        let chips = null;
+        const chipMatch = rest.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
+        if (chipMatch) {
+          const rawNum = parseInt(chipMatch[1].replace(/,/g, ''));
+          if (rawNum >= 100) {
+            if (rawNum >= 1000000) chips = (rawNum / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            else if (rawNum >= 1000) chips = Math.round(rawNum / 1000) + 'K';
+            else chips = rawNum.toString();
+          }
+        }
+
+        // Extract prize (e.g. "$1,234" or "$0")
+        let prize = null;
+        const prizeMatch = rest.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
+        if (prizeMatch) {
+          const prizeNum = parseFloat(prizeMatch[1].replace(/,/g, ''));
+          if (prizeNum > 0) prize = '$' + prizeNum.toLocaleString();
+        }
+
+        // Remove extracted numeric data to isolate the player name + country
+        let nameArea = rest;
+        // Remove prize
+        if (prizeMatch) nameArea = nameArea.replace(prizeMatch[0], '');
+        // Remove seat assignment
+        if (seatMatch) nameArea = nameArea.replace(seatMatch[0], '');
+        // Remove chip count
+        if (chipMatch) nameArea = nameArea.replace(chipMatch[0], '');
+        // Clean up remaining
+        nameArea = nameArea.replace(/\$/g, '').replace(/\s{2,}/g, ' ').trim();
+
+        // Split name from country: country is usually at the end
+        let playerName = nameArea;
+        let country = null;
+
+        // Try to find a country name or code at the end
+        const nameWords = nameArea.split(/\s+/);
+        // Try 3-word country (e.g. "Czech Republic")
+        if (nameWords.length >= 4) {
+          const c3 = nameWords.slice(-3).join(' ').toLowerCase();
+          if (PS_COUNTRIES.has(c3)) {
+            country = nameWords.slice(-3).join(' ');
+            playerName = nameWords.slice(0, -3).join(' ');
+          }
+        }
+        // Try 2-word country (e.g. "United States", "South Korea", "New Zealand")
+        if (!country && nameWords.length >= 3) {
+          const c2 = nameWords.slice(-2).join(' ').toLowerCase();
+          if (PS_COUNTRIES.has(c2)) {
+            country = nameWords.slice(-2).join(' ');
+            playerName = nameWords.slice(0, -2).join(' ');
+          }
+        }
+        // Try 1-word country (e.g. "France", "US", "GBR")
+        if (!country && nameWords.length >= 2) {
+          const c1 = nameWords[nameWords.length - 1].toLowerCase();
+          if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) {
+            country = nameWords[nameWords.length - 1];
+            playerName = nameWords.slice(0, -1).join(' ');
+          }
+        }
+
+        // Clean player name
+        playerName = playerName.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '').trim();
+        if (!playerName || playerName.length < 3) continue;
+
+        // Title case the name
+        playerName = playerName.split(/\s+/).map(w =>
+          w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+        ).join(' ');
+
+        // Apply OCR first-name correction
+        const nameWords2 = playerName.split(/\s+/);
+        if (nameWords2.length >= 2) {
+          nameWords2[0] = ocrCorrectFirstName(nameWords2[0]);
+          playerName = nameWords2.join(' ');
+        }
+
+        // Need at least first + last name
+        if (playerName.split(/\s+/).length < 2) continue;
+
+        players.push({
+          name: playerName,
+          chips,
+          seat: seatAssignment,
+          prize,
+          country,
+          position: pos,
+          // For oval layout: evenly space around the table based on position
+          px: null,
+          py: null,
+        });
+      }
+
+      return players;
+    }
+
     function preprocessImage(file) {
       return new Promise((resolve) => {
         const img = new Image();
@@ -2972,35 +3212,76 @@
         setEventTitle('');
 
         try {
-          const { tableBlob, headerBlob } = await preprocessImage(file);
+          // Detect image format first
+          const formatImg = new Image();
+          const formatUrl = URL.createObjectURL(file);
+          await new Promise((resolve) => { formatImg.onload = resolve; formatImg.src = formatUrl; });
+          const format = detectImageFormat(formatImg);
+          URL.revokeObjectURL(formatUrl);
 
-          // OCR the table region for player names
-          const worker = await Tesseract.createWorker('eng', 1, {
-            logger: (m) => {
-              if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 100));
+          if (format === 'pokerstars') {
+            // ── PokerStars Live table format ──
+            const psBlob = await preprocessPokerStarsImage(file);
+
+            const worker = await Tesseract.createWorker('eng', 1, {
+              logger: (m) => {
+                if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 100));
+              }
+            });
+            // Use AUTO page segmentation for structured table layout
+            await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO });
+            const { data } = await worker.recognize(psBlob);
+            await worker.terminate();
+
+            console.log('[TableScanner] PokerStars Live OCR text:', data.text);
+            const extracted = parsePokerStarsTable(data.text);
+
+            if (extracted.length === 0) {
+              // Fallback: try the standard WSOP extraction on the same OCR data
+              const fallback = extractPlayerNames(data);
+              if (fallback.length > 0) {
+                setPlayers(fallback);
+                setState('results');
+              } else {
+                setError('No player names found. Try a clearer screenshot of the table or seating view.');
+                setState('idle');
+              }
+            } else {
+              setEventTitle('PokerStars Live');
+              setPlayers(extracted);
+              setState('results');
             }
-          });
-          await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT });
-          const { data } = await worker.recognize(tableBlob);
-
-          // OCR the header region for event title (if available)
-          if (headerBlob) {
-            try {
-              await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO });
-              const { data: headerData } = await worker.recognize(headerBlob);
-              const title = extractEventTitle(headerData.text);
-              if (title) setEventTitle(title);
-            } catch {}
-          }
-          await worker.terminate();
-
-          const extracted = extractPlayerNames(data);
-          if (extracted.length === 0) {
-            setError('No player names found. Try a clearer screenshot of the table view.');
-            setState('idle');
           } else {
-            setPlayers(extracted);
-            setState('results');
+            // ── Standard WSOP+ felt screenshot ──
+            const { tableBlob, headerBlob } = await preprocessImage(file);
+
+            const worker = await Tesseract.createWorker('eng', 1, {
+              logger: (m) => {
+                if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 100));
+              }
+            });
+            await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT });
+            const { data } = await worker.recognize(tableBlob);
+
+            // OCR the header region for event title (if available)
+            if (headerBlob) {
+              try {
+                await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO });
+                const { data: headerData } = await worker.recognize(headerBlob);
+                const title = extractEventTitle(headerData.text);
+                if (title) setEventTitle(title);
+              } catch {}
+            }
+            await worker.terminate();
+
+            const extracted = extractPlayerNames(data);
+            if (extracted.length === 0) {
+              setError('No player names found. Try a clearer screenshot of the table view.');
+              setState('idle');
+            } else {
+              setPlayers(extracted);
+              setState('results');
+            }
           }
         } catch (err) {
           console.error('OCR error:', err);
@@ -3022,7 +3303,7 @@
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                 <circle cx="12" cy="13" r="4"/>
               </svg>
-              Upload WSOP+ Screenshot for Table Info
+              Upload Table Screenshot (WSOP+ / PokerStars Live)
             </button>
           )}
 
@@ -3049,8 +3330,16 @@
               <div className="table-scanner-oval">
                 <div className="table-scanner-felt" />
                 {(() => {
-                  // Sort players clockwise by their OCR position, then assign to fixed seat layouts
+                  // Sort players: use seat number if available (PokerStars Live),
+                  // otherwise sort clockwise by OCR position (WSOP+ felt)
+                  const hasSeatData = players.some(p => p.seat);
                   const sorted = [...players].sort((a, b) => {
+                    if (hasSeatData) {
+                      // Sort by seat number within the table (second part of "table-seat")
+                      const seatA = a.seat ? parseInt(a.seat.split('-')[1]) || 0 : (a.position || 99);
+                      const seatB = b.seat ? parseInt(b.seat.split('-')[1]) || 0 : (b.position || 99);
+                      return seatA - seatB;
+                    }
                     const angA = Math.atan2((a.px ?? 50) - 50, 50 - (a.py ?? 50));
                     const angB = Math.atan2((b.px ?? 50) - 50, 50 - (b.py ?? 50));
                     return (angA < 0 ? angA + 2 * Math.PI : angA) - (angB < 0 ? angB + 2 * Math.PI : angB);
@@ -3078,7 +3367,9 @@
                         onClick={() => window.open(`/api/hendon-redirect?name=${encodeURIComponent(player.name)}`, '_blank', 'noopener,noreferrer')}>
                         <span className="table-scanner-name-stack">
                           <span>{player.name}</span>
-                          {player.chips && <span className="table-scanner-chips">{player.chips}</span>}
+                          {player.chips && <span className="table-scanner-chips">{player.chips}{player.seat ? ` \u00B7 Seat ${player.seat}` : ''}</span>}
+                          {!player.chips && player.seat && <span className="table-scanner-chips">Seat {player.seat}</span>}
+                          {player.prize && <span className="table-scanner-chips" style={{color:'var(--accent)'}}>{player.prize}</span>}
                         </span>
                         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,opacity:0.4}}>
                           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -7502,7 +7793,7 @@
           {/* ── Table Scanner ── */}
           <div className="dashboard-section">
             <div className="dashboard-section-header">
-              <div className="dashboard-section-title">Table Scanner <span style={{fontWeight:400,fontSize:'0.7rem',color:'var(--text-muted)'}}>(WSOP+ only)</span></div>
+              <div className="dashboard-section-title">Table Scanner <span style={{fontWeight:400,fontSize:'0.7rem',color:'var(--text-muted)'}}>(WSOP+ / PokerStars Live)</span></div>
             </div>
             <TableScanner />
           </div>

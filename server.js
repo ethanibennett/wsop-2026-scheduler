@@ -2346,7 +2346,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
-      expiresIn: '24h'
+      expiresIn: '90d'
     });
 
     res.json({ token, username: user.username, userId: user.id, avatar: user.avatar || null, realName: user.real_name || null, handReplayerAccess: !!user.hand_replayer_access });
