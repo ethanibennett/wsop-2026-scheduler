@@ -2890,16 +2890,16 @@
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
           // PokerStars Live has light/white text on dark background
-          // Invert + grayscale + high contrast for best Tesseract results
+          // Invert + grayscale + softer contrast to preserve thin characters like hyphens
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const d = imageData.data;
           for (let i = 0; i < d.length; i += 4) {
             const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
             const inverted = 255 - gray;
-            // Sharpen contrast: push towards black or white
-            const val = inverted < 100 ? Math.max(0, inverted * 0.3) :
-                        inverted > 160 ? 255 :
-                        Math.round((inverted - 100) / 60 * 255);
+            // Gentle threshold: preserve detail in mid-tones (hyphens, thin text)
+            const val = inverted < 60 ? 0 :
+                        inverted > 180 ? 255 :
+                        Math.round((inverted - 60) / 120 * 255);
             d[i] = d[i+1] = d[i+2] = val;
           }
           ctx.putImageData(imageData, 0, 0);
@@ -3010,13 +3010,26 @@
         let rest = rowMatch[2].trim();
 
         // Extract seat assignment (e.g. "7-1" = table 7 seat 1)
+        // OCR may render the hyphen as various characters or drop it entirely
         let seatAssignment = null;
-        const seatMatch = rest.match(/\b(\d{1,3})\s*[-–—~.]\s*(\d{1,2})\b/);
+        // Try standard hyphen/dash patterns first
+        const seatMatch = rest.match(/\b(\d{1,3})\s*[-–—~_.,:;]\s*(\d{1,2})\b/);
         if (seatMatch) {
           const tbl = parseInt(seatMatch[1]);
           const st = parseInt(seatMatch[2]);
           if (tbl >= 1 && tbl <= 999 && st >= 1 && st <= 10) {
             seatAssignment = `${tbl}-${st}`;
+          }
+        }
+        // Fallback: look for "N N" pattern at end of line (OCR dropped hyphen)
+        if (!seatAssignment) {
+          const endMatch = rest.match(/\b(\d{1,3})\s+(\d{1,2})\s*$/);
+          if (endMatch) {
+            const tbl = parseInt(endMatch[1]);
+            const st = parseInt(endMatch[2]);
+            if (tbl >= 1 && tbl <= 999 && st >= 1 && st <= 10) {
+              seatAssignment = `${tbl}-${st}`;
+            }
           }
         }
 
@@ -3285,17 +3298,28 @@
 
             const worker = await Tesseract.createWorker('eng', 1, {
               logger: (m) => {
-                if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 100));
+                if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 50));
               }
             });
-            // Use AUTO page segmentation for structured table layout
-            await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO });
-            const { data } = await worker.recognize(psBlob);
-            await worker.terminate();
+            // Use SINGLE_BLOCK for structured table layout (better than AUTO for columns)
+            await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK });
+            let { data } = await worker.recognize(psBlob);
 
-            console.log('[TableScanner] PokerStars Live OCR text:', data.text);
-            const extracted = parsePokerStarsTable(data.text);
+            console.log('[TableScanner] PS Live OCR (SINGLE_BLOCK):', data.text);
+            let extracted = parsePokerStarsTable(data.text);
             console.log('[TableScanner] Extracted players:', extracted.map(function(p) { return p.name + ' seat:' + p.seat; }));
+
+            // If no players found with seat assignments, retry with AUTO mode
+            if (extracted.length === 0) {
+              console.log('[TableScanner] No seats found, retrying with AUTO PSM...');
+              await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO });
+              const retry = await worker.recognize(psBlob);
+              data = retry.data;
+              console.log('[TableScanner] PS Live OCR (AUTO):', data.text);
+              extracted = parsePokerStarsTable(data.text);
+              console.log('[TableScanner] Retry extracted:', extracted.map(function(p) { return p.name + ' seat:' + p.seat; }));
+            }
+            await worker.terminate();
 
             // Group by table number
             const tableGroups = {};
