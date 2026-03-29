@@ -2940,199 +2940,175 @@
     ]);
 
     // Parse PokerStars Live tabular OCR text into player objects
+    // Strategy: find all seat assignments (N-N) first, then look backwards for names
     function parsePokerStarsTable(ocrText) {
-      const lines = ocrText.split('\n').map(l => l.trim()).filter(Boolean);
       const players = [];
+      const seen = new Set();
 
-      // Detect header row to confirm format
-      const headerIdx = lines.findIndex(l =>
-        /pos/i.test(l) && /player/i.test(l) && (/chip/i.test(l) || /seat/i.test(l))
-      );
+      // Flatten text: collapse all whitespace, then re-split into tokens
+      // This handles OCR splitting rows across multiple lines
+      const fullText = ocrText.replace(/\n/g, '  ');
+      const lines = ocrText.split('\n').map(l => l.trim()).filter(Boolean);
 
-      // Process each line after header (or all lines if no header found)
-      const startIdx = headerIdx >= 0 ? headerIdx + 1 : 0;
+      console.log('[PSParser] Lines:', lines.length, 'Full text length:', fullText.length);
 
-      // Pre-process: merge lines that are just country names into the previous line
-      const mergedLines = [];
-      for (let i = startIdx; i < lines.length; i++) {
-        const line = lines[i];
-        const stripped = line.replace(/[^a-zA-Z\s]/g, '').trim().toLowerCase();
-        const words = stripped.split(/\s+/).filter(Boolean);
-        const isCountryLine = (words.length <= 2 && words.length > 0 &&
-          (PS_COUNTRIES.has(stripped) || PS_COUNTRIES.has(words.join(' ')) ||
-           (words.length === 1 && PS_COUNTRY_CODES.has(words[0]))));
+      // ── Approach 1: scan each line for seat assignment pattern ──
+      // Merge consecutive lines to handle OCR splitting rows
+      for (let i = 0; i < lines.length; i++) {
+        // Try current line alone, and also merged with next 1-2 lines
+        const candidates = [lines[i]];
+        if (i + 1 < lines.length) candidates.push(lines[i] + '  ' + lines[i + 1]);
+        if (i + 2 < lines.length) candidates.push(lines[i] + '  ' + lines[i + 1] + '  ' + lines[i + 2]);
 
-        // Check if line is just a chip count (e.g. "50,000")
-        const isChipLine = /^\s*\d{1,3}(?:,\d{3})+\s*$/.test(line) || /^\s*\d{4,}\s*$/.test(line);
+        for (const line of candidates) {
+          // Find seat assignment: N-N pattern (table-seat)
+          const seatMatch = line.match(/\b(\d{1,3})\s*[-–—~_.,:;]\s*(\d{1,2})\b/);
+          if (!seatMatch) continue;
 
-        // Check if line is just a seat assignment (e.g. "7-1")
-        const isSeatLine = /^\s*\d{1,3}\s*[-–]\s*\d{1,2}\s*$/.test(line);
-
-        if ((isCountryLine || isChipLine || isSeatLine) && mergedLines.length > 0) {
-          // Append to previous line
-          mergedLines[mergedLines.length - 1] += '  ' + line;
-        } else {
-          mergedLines.push(line);
-        }
-      }
-
-      for (let i = 0; i < mergedLines.length; i++) {
-        const line = mergedLines[i];
-
-        // Skip obviously non-player lines
-        if (line.length < 8) continue;
-        if (/^(pos|player|chip|seat|prize|total|page|showing)/i.test(line)) continue;
-        // Skip UI/button text that OCR picks up from felt screenshots
-        if (/payout|structure|lobby|chat|cashier|rebuy|add.on|tournament|table|dealer|fold|check|call|raise|all.in|sit.out|leave|blind|level|break|hand/i.test(line)) continue;
-
-        // Skip lines that are just a country name/code (OCR splits name + country across lines)
-        const lineLower = line.replace(/[^a-zA-Z\s]/g, '').trim().toLowerCase();
-        if (lineLower && (PS_COUNTRIES.has(lineLower) || PS_COUNTRY_CODES.has(lineLower))) continue;
-        // Also skip 2-word countries with flag emoji/chars stripped
-        const lineWords = lineLower.split(/\s+/).filter(Boolean);
-        if (lineWords.length <= 2 && lineWords.length > 0) {
-          const asTwo = lineWords.join(' ');
-          if (PS_COUNTRIES.has(asTwo) || (lineWords.length === 1 && PS_COUNTRY_CODES.has(lineWords[0]))) continue;
-        }
-
-        // Strategy 1: Structured row with position number at start
-        // Pattern: "1  John Smith  United States  50,000  7-1  $0"
-        // or: "1  John Smith  US  50,000  7-1"
-        const rowMatch = line.match(
-          /^(\d{1,3})\s{1,}(.+?)$/
-        );
-        if (!rowMatch) continue;
-
-        const pos = parseInt(rowMatch[1]);
-        if (pos < 1 || pos > 500) continue;
-
-        let rest = rowMatch[2].trim();
-
-        // Extract seat assignment (e.g. "7-1" = table 7 seat 1)
-        // OCR may render the hyphen as various characters or drop it entirely
-        let seatAssignment = null;
-        // Try standard hyphen/dash patterns first
-        const seatMatch = rest.match(/\b(\d{1,3})\s*[-–—~_.,:;]\s*(\d{1,2})\b/);
-        if (seatMatch) {
           const tbl = parseInt(seatMatch[1]);
           const st = parseInt(seatMatch[2]);
-          if (tbl >= 1 && tbl <= 999 && st >= 1 && st <= 10) {
-            seatAssignment = `${tbl}-${st}`;
-          }
-        }
-        // Fallback: look for "N N" pattern at end of line (OCR dropped hyphen)
-        if (!seatAssignment) {
-          const endMatch = rest.match(/\b(\d{1,3})\s+(\d{1,2})\s*$/);
-          if (endMatch) {
-            const tbl = parseInt(endMatch[1]);
-            const st = parseInt(endMatch[2]);
-            if (tbl >= 1 && tbl <= 999 && st >= 1 && st <= 10) {
-              seatAssignment = `${tbl}-${st}`;
+          if (tbl < 1 || tbl > 999 || st < 1 || st > 10) continue;
+          const seatAssignment = tbl + '-' + st;
+
+          // Extract chip count
+          let chips = null;
+          const chipMatch = line.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
+          if (chipMatch) {
+            const rawNum = parseInt(chipMatch[1].replace(/,/g, ''));
+            if (rawNum >= 100) {
+              if (rawNum >= 1000000) chips = (rawNum / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+              else if (rawNum >= 1000) chips = Math.round(rawNum / 1000) + 'K';
+              else chips = rawNum.toString();
             }
           }
-        }
 
-        // Extract chip count (e.g. "50,000" or "1,234,567" or "50000")
-        let chips = null;
-        const chipMatch = rest.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
-        if (chipMatch) {
-          const rawNum = parseInt(chipMatch[1].replace(/,/g, ''));
-          if (rawNum >= 100) {
-            if (rawNum >= 1000000) chips = (rawNum / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-            else if (rawNum >= 1000) chips = Math.round(rawNum / 1000) + 'K';
-            else chips = rawNum.toString();
+          // Remove numbers, seat, chips, country, punctuation to find name
+          let nameArea = line;
+          // Remove seat match
+          nameArea = nameArea.replace(seatMatch[0], ' ');
+          // Remove chip count
+          if (chipMatch) nameArea = nameArea.replace(chipMatch[0], ' ');
+          // Remove leading position number
+          nameArea = nameArea.replace(/^\s*\d{1,3}\s+/, '');
+          // Remove prize amounts
+          nameArea = nameArea.replace(/\$\s*[\d,]+(?:\.\d{2})?/g, ' ');
+          // Remove country names/codes
+          nameArea = nameArea.replace(/\s{2,}/g, '  ');
+          const parts = nameArea.split(/\s{2,}/);
+
+          // Find the part that looks like a name (2-4 alpha words, no digits)
+          let playerName = null;
+          for (const part of parts) {
+            const cleaned = part.replace(/[^A-Za-z\s'-]/g, '').trim();
+            const words = cleaned.split(/\s+/).filter(w => w.length >= 2);
+            if (words.length >= 2 && words.length <= 4 && !words.every(w =>
+              PS_COUNTRIES.has(w.toLowerCase()) || PS_COUNTRY_CODES.has(w.toLowerCase()) ||
+              WSOP_UI_NOISE.has(w.toLowerCase())
+            )) {
+              // Remove trailing country words
+              let nameWords = [...words];
+              // Try removing last 2 words as country
+              if (nameWords.length >= 4) {
+                const c2 = nameWords.slice(-2).join(' ').toLowerCase();
+                if (PS_COUNTRIES.has(c2)) nameWords = nameWords.slice(0, -2);
+              }
+              // Try removing last word as country
+              if (nameWords.length >= 3) {
+                const c1 = nameWords[nameWords.length - 1].toLowerCase();
+                if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) nameWords = nameWords.slice(0, -1);
+              }
+
+              if (nameWords.length >= 2) {
+                playerName = nameWords.map(w =>
+                  w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+                ).join(' ');
+                break;
+              }
+            }
           }
-        }
 
-        // Extract prize (e.g. "$1,234" or "$0")
-        let prize = null;
-        const prizeMatch = rest.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
-        if (prizeMatch) {
-          const prizeNum = parseFloat(prizeMatch[1].replace(/,/g, ''));
-          if (prizeNum > 0) prize = '$' + prizeNum.toLocaleString();
-        }
+          if (!playerName || playerName.length < 4) continue;
 
-        // Remove extracted numeric data to isolate the player name + country
-        let nameArea = rest;
-        // Remove prize
-        if (prizeMatch) nameArea = nameArea.replace(prizeMatch[0], '');
-        // Remove seat assignment
-        if (seatMatch) nameArea = nameArea.replace(seatMatch[0], '');
-        // Remove chip count
-        if (chipMatch) nameArea = nameArea.replace(chipMatch[0], '');
-        // Clean up remaining
-        nameArea = nameArea.replace(/\$/g, '').replace(/\s{2,}/g, ' ').trim();
-
-        // Split name from country: country is usually at the end
-        let playerName = nameArea;
-        let country = null;
-
-        // Try to find a country name or code at the end
-        const nameWords = nameArea.split(/\s+/);
-        // Try 3-word country (e.g. "Czech Republic")
-        if (nameWords.length >= 4) {
-          const c3 = nameWords.slice(-3).join(' ').toLowerCase();
-          if (PS_COUNTRIES.has(c3)) {
-            country = nameWords.slice(-3).join(' ');
-            playerName = nameWords.slice(0, -3).join(' ');
+          // Apply OCR first-name correction
+          const nw = playerName.split(/\s+/);
+          if (nw.length >= 2) {
+            nw[0] = ocrCorrectFirstName(nw[0]);
+            playerName = nw.join(' ');
           }
+
+          // Deduplicate
+          const key = playerName.toLowerCase() + '|' + seatAssignment;
+          if (seen.has(key)) continue;
+          seen.add(key);
+
+          players.push({
+            name: playerName,
+            chips,
+            seat: seatAssignment,
+            prize: null,
+            country: null,
+            position: players.length + 1,
+            px: null,
+            py: null,
+          });
+          break; // Found a match in this candidate, move to next line
         }
-        // Try 2-word country (e.g. "United States", "South Korea", "New Zealand")
-        if (!country && nameWords.length >= 3) {
-          const c2 = nameWords.slice(-2).join(' ').toLowerCase();
-          if (PS_COUNTRIES.has(c2)) {
-            country = nameWords.slice(-2).join(' ');
-            playerName = nameWords.slice(0, -2).join(' ');
-          }
-        }
-        // Try 1-word country (e.g. "France", "US", "GBR")
-        if (!country && nameWords.length >= 2) {
-          const c1 = nameWords[nameWords.length - 1].toLowerCase();
-          if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) {
-            country = nameWords[nameWords.length - 1];
-            playerName = nameWords.slice(0, -1).join(' ');
-          }
-        }
-
-        // Clean player name
-        playerName = playerName.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '').trim();
-        if (!playerName || playerName.length < 3) continue;
-
-        // Final check: skip if the "name" is actually just a country
-        const nameLower = playerName.toLowerCase();
-        if (PS_COUNTRIES.has(nameLower) || PS_COUNTRY_CODES.has(nameLower)) continue;
-
-        // Title case the name
-        playerName = playerName.split(/\s+/).map(w =>
-          w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-        ).join(' ');
-
-        // Apply OCR first-name correction
-        const nameWords2 = playerName.split(/\s+/);
-        if (nameWords2.length >= 2) {
-          nameWords2[0] = ocrCorrectFirstName(nameWords2[0]);
-          playerName = nameWords2.join(' ');
-        }
-
-        // Need at least first + last name
-        if (playerName.split(/\s+/).length < 2) continue;
-
-        // Must have a seat assignment (number-hyphen-number) to be a real player
-        if (!seatAssignment) continue;
-
-        players.push({
-          name: playerName,
-          chips,
-          seat: seatAssignment,
-          prize,
-          country,
-          position: pos,
-          // For oval layout: evenly space around the table based on position
-          px: null,
-          py: null,
-        });
       }
 
+      // ── Approach 2: if approach 1 found very few, scan full text for seat patterns ──
+      if (players.length < 3) {
+        console.log('[PSParser] Approach 1 found only', players.length, ', trying full-text scan...');
+        // Find all N-N seat patterns in full text with surrounding context
+        const seatRe = /\b(\d{1,3})\s*[-–—]\s*(\d{1,2})\b/g;
+        let m;
+        while ((m = seatRe.exec(fullText)) !== null) {
+          const tbl = parseInt(m[1]);
+          const st = parseInt(m[2]);
+          if (tbl < 1 || tbl > 999 || st < 1 || st > 10) continue;
+          const seat = tbl + '-' + st;
+          if (seen.has(seat)) continue;
+
+          // Look at 200 chars before the seat for a name
+          const before = fullText.substring(Math.max(0, m.index - 200), m.index);
+          // Find name-like words (consecutive alpha words)
+          const nameMatches = before.match(/[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){1,3}/g);
+          if (!nameMatches) continue;
+
+          // Take the last (closest) name match
+          let playerName = nameMatches[nameMatches.length - 1].trim();
+          // Remove country names from end
+          const nw = playerName.split(/\s+/);
+          while (nw.length > 2 && (PS_COUNTRIES.has(nw[nw.length-1].toLowerCase()) || PS_COUNTRY_CODES.has(nw[nw.length-1].toLowerCase()))) {
+            nw.pop();
+          }
+          playerName = nw.join(' ');
+          if (nw.length < 2) continue;
+
+          nw[0] = ocrCorrectFirstName(nw[0]);
+          playerName = nw.join(' ');
+
+          const key = playerName.toLowerCase() + '|' + seat;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          seen.add(seat);
+
+          // Look for chip count near the seat
+          const nearby = fullText.substring(Math.max(0, m.index - 100), m.index + 20);
+          let chips = null;
+          const chipM = nearby.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
+          if (chipM) {
+            const raw = parseInt(chipM[1].replace(/,/g, ''));
+            if (raw >= 1000) chips = Math.round(raw / 1000) + 'K';
+          }
+
+          players.push({
+            name: playerName, chips, seat, prize: null, country: null,
+            position: players.length + 1, px: null, py: null,
+          });
+        }
+      }
+
+      console.log('[PSParser] Final result:', players.length, 'players');
       return players;
     }
 

@@ -2787,135 +2787,131 @@ const PS_COUNTRY_CODES = /* @__PURE__ */ new Set([
   "vnm"
 ]);
 function parsePokerStarsTable(ocrText) {
-  const lines = ocrText.split("\n").map((l) => l.trim()).filter(Boolean);
   const players = [];
-  const headerIdx = lines.findIndex(
-    (l) => /pos/i.test(l) && /player/i.test(l) && (/chip/i.test(l) || /seat/i.test(l))
-  );
-  const startIdx = headerIdx >= 0 ? headerIdx + 1 : 0;
-  const mergedLines = [];
-  for (let i = startIdx; i < lines.length; i++) {
-    const line = lines[i];
-    const stripped = line.replace(/[^a-zA-Z\s]/g, "").trim().toLowerCase();
-    const words = stripped.split(/\s+/).filter(Boolean);
-    const isCountryLine = words.length <= 2 && words.length > 0 && (PS_COUNTRIES.has(stripped) || PS_COUNTRIES.has(words.join(" ")) || words.length === 1 && PS_COUNTRY_CODES.has(words[0]));
-    const isChipLine = /^\s*\d{1,3}(?:,\d{3})+\s*$/.test(line) || /^\s*\d{4,}\s*$/.test(line);
-    const isSeatLine = /^\s*\d{1,3}\s*[-–]\s*\d{1,2}\s*$/.test(line);
-    if ((isCountryLine || isChipLine || isSeatLine) && mergedLines.length > 0) {
-      mergedLines[mergedLines.length - 1] += "  " + line;
-    } else {
-      mergedLines.push(line);
-    }
-  }
-  for (let i = 0; i < mergedLines.length; i++) {
-    const line = mergedLines[i];
-    if (line.length < 8) continue;
-    if (/^(pos|player|chip|seat|prize|total|page|showing)/i.test(line)) continue;
-    if (/payout|structure|lobby|chat|cashier|rebuy|add.on|tournament|table|dealer|fold|check|call|raise|all.in|sit.out|leave|blind|level|break|hand/i.test(line)) continue;
-    const lineLower = line.replace(/[^a-zA-Z\s]/g, "").trim().toLowerCase();
-    if (lineLower && (PS_COUNTRIES.has(lineLower) || PS_COUNTRY_CODES.has(lineLower))) continue;
-    const lineWords = lineLower.split(/\s+/).filter(Boolean);
-    if (lineWords.length <= 2 && lineWords.length > 0) {
-      const asTwo = lineWords.join(" ");
-      if (PS_COUNTRIES.has(asTwo) || lineWords.length === 1 && PS_COUNTRY_CODES.has(lineWords[0])) continue;
-    }
-    const rowMatch = line.match(
-      /^(\d{1,3})\s{1,}(.+?)$/
-    );
-    if (!rowMatch) continue;
-    const pos = parseInt(rowMatch[1]);
-    if (pos < 1 || pos > 500) continue;
-    let rest = rowMatch[2].trim();
-    let seatAssignment = null;
-    const seatMatch = rest.match(/\b(\d{1,3})\s*[-–—~_.,:;]\s*(\d{1,2})\b/);
-    if (seatMatch) {
+  const seen = /* @__PURE__ */ new Set();
+  const fullText = ocrText.replace(/\n/g, "  ");
+  const lines = ocrText.split("\n").map((l) => l.trim()).filter(Boolean);
+  console.log("[PSParser] Lines:", lines.length, "Full text length:", fullText.length);
+  for (let i = 0; i < lines.length; i++) {
+    const candidates = [lines[i]];
+    if (i + 1 < lines.length) candidates.push(lines[i] + "  " + lines[i + 1]);
+    if (i + 2 < lines.length) candidates.push(lines[i] + "  " + lines[i + 1] + "  " + lines[i + 2]);
+    for (const line of candidates) {
+      const seatMatch = line.match(/\b(\d{1,3})\s*[-–—~_.,:;]\s*(\d{1,2})\b/);
+      if (!seatMatch) continue;
       const tbl = parseInt(seatMatch[1]);
       const st = parseInt(seatMatch[2]);
-      if (tbl >= 1 && tbl <= 999 && st >= 1 && st <= 10) {
-        seatAssignment = `${tbl}-${st}`;
-      }
-    }
-    if (!seatAssignment) {
-      const endMatch = rest.match(/\b(\d{1,3})\s+(\d{1,2})\s*$/);
-      if (endMatch) {
-        const tbl = parseInt(endMatch[1]);
-        const st = parseInt(endMatch[2]);
-        if (tbl >= 1 && tbl <= 999 && st >= 1 && st <= 10) {
-          seatAssignment = `${tbl}-${st}`;
+      if (tbl < 1 || tbl > 999 || st < 1 || st > 10) continue;
+      const seatAssignment = tbl + "-" + st;
+      let chips = null;
+      const chipMatch = line.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
+      if (chipMatch) {
+        const rawNum = parseInt(chipMatch[1].replace(/,/g, ""));
+        if (rawNum >= 100) {
+          if (rawNum >= 1e6) chips = (rawNum / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+          else if (rawNum >= 1e3) chips = Math.round(rawNum / 1e3) + "K";
+          else chips = rawNum.toString();
         }
       }
-    }
-    let chips = null;
-    const chipMatch = rest.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
-    if (chipMatch) {
-      const rawNum = parseInt(chipMatch[1].replace(/,/g, ""));
-      if (rawNum >= 100) {
-        if (rawNum >= 1e6) chips = (rawNum / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
-        else if (rawNum >= 1e3) chips = Math.round(rawNum / 1e3) + "K";
-        else chips = rawNum.toString();
+      let nameArea = line;
+      nameArea = nameArea.replace(seatMatch[0], " ");
+      if (chipMatch) nameArea = nameArea.replace(chipMatch[0], " ");
+      nameArea = nameArea.replace(/^\s*\d{1,3}\s+/, "");
+      nameArea = nameArea.replace(/\$\s*[\d,]+(?:\.\d{2})?/g, " ");
+      nameArea = nameArea.replace(/\s{2,}/g, "  ");
+      const parts = nameArea.split(/\s{2,}/);
+      let playerName = null;
+      for (const part of parts) {
+        const cleaned = part.replace(/[^A-Za-z\s'-]/g, "").trim();
+        const words = cleaned.split(/\s+/).filter((w) => w.length >= 2);
+        if (words.length >= 2 && words.length <= 4 && !words.every(
+          (w) => PS_COUNTRIES.has(w.toLowerCase()) || PS_COUNTRY_CODES.has(w.toLowerCase()) || WSOP_UI_NOISE.has(w.toLowerCase())
+        )) {
+          let nameWords = [...words];
+          if (nameWords.length >= 4) {
+            const c2 = nameWords.slice(-2).join(" ").toLowerCase();
+            if (PS_COUNTRIES.has(c2)) nameWords = nameWords.slice(0, -2);
+          }
+          if (nameWords.length >= 3) {
+            const c1 = nameWords[nameWords.length - 1].toLowerCase();
+            if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) nameWords = nameWords.slice(0, -1);
+          }
+          if (nameWords.length >= 2) {
+            playerName = nameWords.map(
+              (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+            ).join(" ");
+            break;
+          }
+        }
       }
-    }
-    let prize = null;
-    const prizeMatch = rest.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
-    if (prizeMatch) {
-      const prizeNum = parseFloat(prizeMatch[1].replace(/,/g, ""));
-      if (prizeNum > 0) prize = "$" + prizeNum.toLocaleString();
-    }
-    let nameArea = rest;
-    if (prizeMatch) nameArea = nameArea.replace(prizeMatch[0], "");
-    if (seatMatch) nameArea = nameArea.replace(seatMatch[0], "");
-    if (chipMatch) nameArea = nameArea.replace(chipMatch[0], "");
-    nameArea = nameArea.replace(/\$/g, "").replace(/\s{2,}/g, " ").trim();
-    let playerName = nameArea;
-    let country = null;
-    const nameWords = nameArea.split(/\s+/);
-    if (nameWords.length >= 4) {
-      const c3 = nameWords.slice(-3).join(" ").toLowerCase();
-      if (PS_COUNTRIES.has(c3)) {
-        country = nameWords.slice(-3).join(" ");
-        playerName = nameWords.slice(0, -3).join(" ");
+      if (!playerName || playerName.length < 4) continue;
+      const nw = playerName.split(/\s+/);
+      if (nw.length >= 2) {
+        nw[0] = ocrCorrectFirstName(nw[0]);
+        playerName = nw.join(" ");
       }
+      const key = playerName.toLowerCase() + "|" + seatAssignment;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      players.push({
+        name: playerName,
+        chips,
+        seat: seatAssignment,
+        prize: null,
+        country: null,
+        position: players.length + 1,
+        px: null,
+        py: null
+      });
+      break;
     }
-    if (!country && nameWords.length >= 3) {
-      const c2 = nameWords.slice(-2).join(" ").toLowerCase();
-      if (PS_COUNTRIES.has(c2)) {
-        country = nameWords.slice(-2).join(" ");
-        playerName = nameWords.slice(0, -2).join(" ");
-      }
-    }
-    if (!country && nameWords.length >= 2) {
-      const c1 = nameWords[nameWords.length - 1].toLowerCase();
-      if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) {
-        country = nameWords[nameWords.length - 1];
-        playerName = nameWords.slice(0, -1).join(" ");
-      }
-    }
-    playerName = playerName.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "").trim();
-    if (!playerName || playerName.length < 3) continue;
-    const nameLower = playerName.toLowerCase();
-    if (PS_COUNTRIES.has(nameLower) || PS_COUNTRY_CODES.has(nameLower)) continue;
-    playerName = playerName.split(/\s+/).map(
-      (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-    ).join(" ");
-    const nameWords2 = playerName.split(/\s+/);
-    if (nameWords2.length >= 2) {
-      nameWords2[0] = ocrCorrectFirstName(nameWords2[0]);
-      playerName = nameWords2.join(" ");
-    }
-    if (playerName.split(/\s+/).length < 2) continue;
-    if (!seatAssignment) continue;
-    players.push({
-      name: playerName,
-      chips,
-      seat: seatAssignment,
-      prize,
-      country,
-      position: pos,
-      // For oval layout: evenly space around the table based on position
-      px: null,
-      py: null
-    });
   }
+  if (players.length < 3) {
+    console.log("[PSParser] Approach 1 found only", players.length, ", trying full-text scan...");
+    const seatRe = /\b(\d{1,3})\s*[-–—]\s*(\d{1,2})\b/g;
+    let m;
+    while ((m = seatRe.exec(fullText)) !== null) {
+      const tbl = parseInt(m[1]);
+      const st = parseInt(m[2]);
+      if (tbl < 1 || tbl > 999 || st < 1 || st > 10) continue;
+      const seat = tbl + "-" + st;
+      if (seen.has(seat)) continue;
+      const before = fullText.substring(Math.max(0, m.index - 200), m.index);
+      const nameMatches = before.match(/[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){1,3}/g);
+      if (!nameMatches) continue;
+      let playerName = nameMatches[nameMatches.length - 1].trim();
+      const nw = playerName.split(/\s+/);
+      while (nw.length > 2 && (PS_COUNTRIES.has(nw[nw.length - 1].toLowerCase()) || PS_COUNTRY_CODES.has(nw[nw.length - 1].toLowerCase()))) {
+        nw.pop();
+      }
+      playerName = nw.join(" ");
+      if (nw.length < 2) continue;
+      nw[0] = ocrCorrectFirstName(nw[0]);
+      playerName = nw.join(" ");
+      const key = playerName.toLowerCase() + "|" + seat;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      seen.add(seat);
+      const nearby = fullText.substring(Math.max(0, m.index - 100), m.index + 20);
+      let chips = null;
+      const chipM = nearby.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
+      if (chipM) {
+        const raw = parseInt(chipM[1].replace(/,/g, ""));
+        if (raw >= 1e3) chips = Math.round(raw / 1e3) + "K";
+      }
+      players.push({
+        name: playerName,
+        chips,
+        seat,
+        prize: null,
+        country: null,
+        position: players.length + 1,
+        px: null,
+        py: null
+      });
+    }
+  }
+  console.log("[PSParser] Final result:", players.length, "players");
   return players;
 }
 __name(parsePokerStarsTable, "parsePokerStarsTable");
