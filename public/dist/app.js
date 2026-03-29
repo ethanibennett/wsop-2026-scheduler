@@ -2547,7 +2547,7 @@ function preprocessPokerStarsImage(file) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      const scale = 3;
+      const scale = 2;
       const canvas = document.createElement("canvas");
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
@@ -2555,14 +2555,18 @@ function preprocessPokerStarsImage(file) {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imageData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-        d[i] = d[i + 1] = d[i + 2] = 255 - gray;
-      }
-      ctx.putImageData(imageData, 0, 0);
-      canvas.toBlob((blob) => resolve(blob), "image/png");
+      canvas.toBlob((blob) => {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          d[i] = d[i + 1] = d[i + 2] = 255 - gray;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        canvas.toBlob((invertedBlob) => {
+          resolve({ raw: blob, inverted: invertedBlob });
+        }, "image/png");
+      }, "image/png");
     };
     img.src = URL.createObjectURL(file);
   });
@@ -3048,31 +3052,34 @@ function TableScanner() {
       const format = detectImageFormat(formatImg);
       URL.revokeObjectURL(formatUrl);
       if (format === "pokerstars") {
-        const psBlob = await preprocessPokerStarsImage(file);
+        const { raw, inverted } = await preprocessPokerStarsImage(file);
         const worker = await Tesseract.createWorker("eng", 1, {
           logger: /* @__PURE__ */ __name((m) => {
-            if (m.status === "recognizing text") setProgress(Math.round(m.progress * 50));
+            if (m.status === "recognizing text") setProgress(Math.round(m.progress * 25));
           }, "logger")
         });
-        await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK });
-        let { data } = await worker.recognize(psBlob);
-        console.log("[TableScanner] PS Live OCR (SINGLE_BLOCK):", data.text);
-        let extracted = parsePokerStarsTable(data.text);
-        console.log("[TableScanner] Extracted players:", extracted.map(function(p) {
-          return p.name + " seat:" + p.seat;
-        }));
-        if (extracted.length === 0) {
-          console.log("[TableScanner] No seats found, retrying with AUTO PSM...");
-          await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO });
-          const retry = await worker.recognize(psBlob);
-          data = retry.data;
-          console.log("[TableScanner] PS Live OCR (AUTO):", data.text);
-          extracted = parsePokerStarsTable(data.text);
-          console.log("[TableScanner] Retry extracted:", extracted.map(function(p) {
-            return p.name + " seat:" + p.seat;
-          }));
+        const attempts = [
+          { blob: raw, psm: Tesseract.PSM.SINGLE_BLOCK, label: "raw/SINGLE_BLOCK" },
+          { blob: inverted, psm: Tesseract.PSM.SINGLE_BLOCK, label: "inverted/SINGLE_BLOCK" },
+          { blob: raw, psm: Tesseract.PSM.AUTO, label: "raw/AUTO" },
+          { blob: inverted, psm: Tesseract.PSM.AUTO, label: "inverted/AUTO" }
+        ];
+        let extracted = [];
+        let data = null;
+        for (const attempt of attempts) {
+          await worker.setParameters({ tessedit_pageseg_mode: attempt.psm });
+          const result = await worker.recognize(attempt.blob);
+          console.log("[TableScanner] OCR (" + attempt.label + "):", result.data.text.substring(0, 200) + "...");
+          const parsed = parsePokerStarsTable(result.data.text);
+          console.log("[TableScanner] Found " + parsed.length + " players with seats");
+          if (parsed.length > extracted.length) {
+            extracted = parsed;
+            data = result.data;
+          }
+          if (extracted.length >= 5) break;
         }
         await worker.terminate();
+        console.log("[TableScanner] Best result: " + extracted.length + " players");
         const tableGroups = {};
         var noTablePlayers = [];
         extracted.forEach(function(p) {

@@ -2875,12 +2875,13 @@
       return 'wsop';
     }
 
-    // Preprocess PokerStars Live screenshot for OCR: high contrast, scale up
+    // Preprocess PokerStars Live screenshot for OCR
+    // Returns multiple preprocessed versions to try
     function preprocessPokerStarsImage(file) {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
-          const scale = 3;
+          const scale = 2;
           const canvas = document.createElement('canvas');
           canvas.width = img.width * scale;
           canvas.height = img.height * scale;
@@ -2889,17 +2890,20 @@
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          // PokerStars Live has light/white text on dark background
-          // Simple invert + grayscale — no aggressive thresholding
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const d = imageData.data;
-          for (let i = 0; i < d.length; i += 4) {
-            const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-            d[i] = d[i+1] = d[i+2] = 255 - gray;
-          }
-          ctx.putImageData(imageData, 0, 0);
-
-          canvas.toBlob((blob) => resolve(blob), 'image/png');
+          // No color manipulation — Tesseract handles white-on-dark natively
+          canvas.toBlob((blob) => {
+            // Also create an inverted version as fallback
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = imageData.data;
+            for (let i = 0; i < d.length; i += 4) {
+              const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+              d[i] = d[i+1] = d[i+2] = 255 - gray;
+            }
+            ctx.putImageData(imageData, 0, 0);
+            canvas.toBlob((invertedBlob) => {
+              resolve({ raw: blob, inverted: invertedBlob });
+            }, 'image/png');
+          }, 'image/png');
         };
         img.src = URL.createObjectURL(file);
       });
@@ -3289,32 +3293,38 @@
 
           if (format === 'pokerstars') {
             // ── PokerStars Live table format ──
-            const psBlob = await preprocessPokerStarsImage(file);
+            const { raw, inverted } = await preprocessPokerStarsImage(file);
 
             const worker = await Tesseract.createWorker('eng', 1, {
               logger: (m) => {
-                if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 50));
+                if (m.status === 'recognizing text') setProgress(Math.round(m.progress * 25));
               }
             });
-            // Use SINGLE_BLOCK for structured table layout (better than AUTO for columns)
-            await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK });
-            let { data } = await worker.recognize(psBlob);
 
-            console.log('[TableScanner] PS Live OCR (SINGLE_BLOCK):', data.text);
-            let extracted = parsePokerStarsTable(data.text);
-            console.log('[TableScanner] Extracted players:', extracted.map(function(p) { return p.name + ' seat:' + p.seat; }));
+            // Try multiple approaches: raw + inverted × SINGLE_BLOCK + AUTO
+            const attempts = [
+              { blob: raw, psm: Tesseract.PSM.SINGLE_BLOCK, label: 'raw/SINGLE_BLOCK' },
+              { blob: inverted, psm: Tesseract.PSM.SINGLE_BLOCK, label: 'inverted/SINGLE_BLOCK' },
+              { blob: raw, psm: Tesseract.PSM.AUTO, label: 'raw/AUTO' },
+              { blob: inverted, psm: Tesseract.PSM.AUTO, label: 'inverted/AUTO' },
+            ];
 
-            // If no players found with seat assignments, retry with AUTO mode
-            if (extracted.length === 0) {
-              console.log('[TableScanner] No seats found, retrying with AUTO PSM...');
-              await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO });
-              const retry = await worker.recognize(psBlob);
-              data = retry.data;
-              console.log('[TableScanner] PS Live OCR (AUTO):', data.text);
-              extracted = parsePokerStarsTable(data.text);
-              console.log('[TableScanner] Retry extracted:', extracted.map(function(p) { return p.name + ' seat:' + p.seat; }));
+            let extracted = [];
+            let data = null;
+            for (const attempt of attempts) {
+              await worker.setParameters({ tessedit_pageseg_mode: attempt.psm });
+              const result = await worker.recognize(attempt.blob);
+              console.log('[TableScanner] OCR (' + attempt.label + '):', result.data.text.substring(0, 200) + '...');
+              const parsed = parsePokerStarsTable(result.data.text);
+              console.log('[TableScanner] Found ' + parsed.length + ' players with seats');
+              if (parsed.length > extracted.length) {
+                extracted = parsed;
+                data = result.data;
+              }
+              if (extracted.length >= 5) break; // Good enough, stop trying
             }
             await worker.terminate();
+            console.log('[TableScanner] Best result: ' + extracted.length + ' players');
 
             // Group by table number
             const tableGroups = {};
