@@ -3150,8 +3150,21 @@
             return PS_COUNTRIES.has(wl) || PS_COUNTRY_CODES.has(wl) || WSOP_UI_NOISE.has(wl);
           })) continue;
 
-          // Remove trailing country words
+          // Remove country words from START of name (OCR sometimes puts country before name)
           let nameWords = [...words];
+          // Try removing first 2 words as country
+          if (nameWords.length >= 3) {
+            const c2f = nameWords.slice(0, 2).join(' ').toLowerCase()
+              .replace(/lnited/g, 'united').replace(/kingdorn/g, 'kingdom');
+            if (PS_COUNTRIES.has(c2f)) nameWords = nameWords.slice(2);
+          }
+          // Try removing first word as country
+          if (nameWords.length >= 2) {
+            const c1f = nameWords[0].toLowerCase()
+              .replace(/lnited/g, 'united').replace(/engIand/gi, 'england');
+            if (PS_COUNTRIES.has(c1f) || PS_COUNTRY_CODES.has(c1f)) nameWords = nameWords.slice(1);
+          }
+          // Remove country words from END of name
           // Try removing last 2 words as country
           if (nameWords.length >= 3) {
             const c2 = nameWords.slice(-2).join(' ').toLowerCase()
@@ -3164,6 +3177,9 @@
               .replace(/lnited/g, 'united').replace(/engIand/gi, 'england');
             if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) nameWords = nameWords.slice(0, -1);
           }
+          // Remove short OCR artifacts (1-2 char fragments like "Be", "Ya", "Et")
+          nameWords = nameWords.filter(w => w.length >= 3 || /^[A-Z][a-z]$/.test(w) === false);
+          if (nameWords.length === 0) nameWords = words.filter(w => w.length >= 3);
 
           if (nameWords.length >= 1) {
             // Title case each word

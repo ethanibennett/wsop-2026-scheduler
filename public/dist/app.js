@@ -2946,6 +2946,14 @@ function parsePokerStarsTable(ocrText) {
       })) continue;
       let nameWords = [...words];
       if (nameWords.length >= 3) {
+        const c2f = nameWords.slice(0, 2).join(" ").toLowerCase().replace(/lnited/g, "united").replace(/kingdorn/g, "kingdom");
+        if (PS_COUNTRIES.has(c2f)) nameWords = nameWords.slice(2);
+      }
+      if (nameWords.length >= 2) {
+        const c1f = nameWords[0].toLowerCase().replace(/lnited/g, "united").replace(/engIand/gi, "england");
+        if (PS_COUNTRIES.has(c1f) || PS_COUNTRY_CODES.has(c1f)) nameWords = nameWords.slice(1);
+      }
+      if (nameWords.length >= 3) {
         const c2 = nameWords.slice(-2).join(" ").toLowerCase().replace(/lnited/g, "united").replace(/kingdorn/g, "kingdom");
         if (PS_COUNTRIES.has(c2)) nameWords = nameWords.slice(0, -2);
       }
@@ -2953,6 +2961,8 @@ function parsePokerStarsTable(ocrText) {
         const c1 = nameWords[nameWords.length - 1].toLowerCase().replace(/lnited/g, "united").replace(/engIand/gi, "england");
         if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) nameWords = nameWords.slice(0, -1);
       }
+      nameWords = nameWords.filter((w) => w.length >= 3 || /^[A-Z][a-z]$/.test(w) === false);
+      if (nameWords.length === 0) nameWords = words.filter((w) => w.length >= 3);
       if (nameWords.length >= 1) {
         const name = nameWords.map(
           (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
