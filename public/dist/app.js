@@ -2385,7 +2385,25 @@ const WSOP_UI_NOISE = /* @__PURE__ */ new Set([
   "senior",
   "employee",
   "daily",
-  "special"
+  "special",
+  "payouts",
+  "payout",
+  "structure",
+  "lobby",
+  "chat",
+  "cashier",
+  "rebuy",
+  "addon",
+  "tournament",
+  "dealer",
+  "fold",
+  "check",
+  "call",
+  "raise",
+  "hand",
+  "history",
+  "settings",
+  "menu"
 ]);
 const CHIP_RE = /(\d[\d,]*\.?\d*)\s*([KkMm])?/;
 function parseChips(line) {

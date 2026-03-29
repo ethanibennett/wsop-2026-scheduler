@@ -2691,6 +2691,9 @@
       'level','break','ante','big','small','blind','pot','limit',
       'seat','seats','chip','chips','round','final','heads','tag',
       'team','ladies','senior','employee','daily','special',
+      'payouts','payout','structure','lobby','chat','cashier',
+      'rebuy','addon','tournament','dealer','fold','check',
+      'call','raise','hand','history','settings','menu',
     ]);
 
     // Parse chip count string like "405.0K" or "1.1M" into display format
