@@ -2891,6 +2891,7 @@ function parsePokerStarsTable(ocrText) {
       playerName = nameWords2.join(" ");
     }
     if (playerName.split(/\s+/).length < 2) continue;
+    if (!seatAssignment) continue;
     players.push({
       name: playerName,
       chips,

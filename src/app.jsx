@@ -3105,6 +3105,9 @@
         // Need at least first + last name
         if (playerName.split(/\s+/).length < 2) continue;
 
+        // Must have a seat assignment (number-hyphen-number) to be a real player
+        if (!seatAssignment) continue;
+
         players.push({
           name: playerName,
           chips,
