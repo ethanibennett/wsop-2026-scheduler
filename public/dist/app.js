@@ -2553,157 +2553,42 @@ function preprocessPokerStarsImage(file) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      function makeBlob(canvas) {
-        return new Promise((res) => canvas.toBlob(res, "image/png"));
+      const scale = 3;
+      const w = img.width * scale;
+      const h = img.height * scale;
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, w, h);
+      const id = ctx.getImageData(0, 0, w, h);
+      const d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const gray = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+        d[i] = d[i + 1] = d[i + 2] = gray;
       }
-      __name(makeBlob, "makeBlob");
-      const tmpCanvas = document.createElement("canvas");
-      tmpCanvas.width = img.width;
-      tmpCanvas.height = img.height;
-      const tmpCtx = tmpCanvas.getContext("2d");
-      tmpCtx.drawImage(img, 0, 0);
-      const fullData = tmpCtx.getImageData(0, 0, img.width, img.height).data;
-      let cropTop = 0, cropBottom = img.height;
-      for (let y = 0; y < Math.floor(img.height * 0.15); y++) {
-        let rowBright = 0, rowCount = 0;
-        for (let x = 0; x < img.width; x += 4) {
-          const idx = (y * img.width + x) * 4;
-          rowBright += 0.299 * fullData[idx] + 0.587 * fullData[idx + 1] + 0.114 * fullData[idx + 2];
-          rowCount++;
+      for (let y = 0; y < h; y++) {
+        let rowSum = 0;
+        for (let x = 0; x < w; x++) {
+          rowSum += d[(y * w + x) * 4];
         }
-        const avgBright = rowBright / rowCount;
-        if (avgBright > 30 && avgBright < 220) {
-          cropTop = y;
-          break;
-        }
-      }
-      for (let y = img.height - 1; y > Math.floor(img.height * 0.85); y--) {
-        let rowBright = 0, rowCount = 0;
-        for (let x = 0; x < img.width; x += 4) {
-          const idx = (y * img.width + x) * 4;
-          rowBright += 0.299 * fullData[idx] + 0.587 * fullData[idx + 1] + 0.114 * fullData[idx + 2];
-          rowCount++;
-        }
-        const avgBright = rowBright / rowCount;
-        if (avgBright > 30 && avgBright < 220) {
-          cropBottom = y + 1;
-          break;
-        }
-      }
-      const contentHeight = cropBottom - cropTop;
-      const contentWidth = img.width;
-      console.log("[PSPreprocess] Crop:", cropTop, "to", cropBottom, "(content height:", contentHeight, ")");
-      const versions = {};
-      async function makeHighContrast(scaleFactor) {
-        const w = contentWidth * scaleFactor;
-        const h = contentHeight * scaleFactor;
-        const c = document.createElement("canvas");
-        c.width = w;
-        c.height = h;
-        const ctx = c.getContext("2d");
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, 0, cropTop, contentWidth, contentHeight, 0, 0, w, h);
-        const imageData = ctx.getImageData(0, 0, w, h);
-        const d = imageData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const r = d[i], g = d[i + 1], b = d[i + 2];
-          const isPurple = r > 60 && b > 60 && g < r * 0.8 && g < b * 0.8;
-          let gray;
-          if (isPurple) {
-            gray = Math.min(r, g, b) * 0.3;
-          } else {
-            gray = 0.299 * r + 0.587 * g + 0.114 * b;
-          }
-          d[i] = d[i + 1] = d[i + 2] = 255 - gray;
-        }
-        const histogram = new Array(256).fill(0);
-        for (let i = 0; i < d.length; i += 4) {
-          histogram[d[i]]++;
-        }
-        const totalPixels = d.length / 4;
-        let sum = 0;
-        for (let i = 0; i < 256; i++) sum += i * histogram[i];
-        let sumB = 0, wB = 0, wF = 0, maxVariance = 0, threshold = 128;
-        for (let t = 0; t < 256; t++) {
-          wB += histogram[t];
-          if (wB === 0) continue;
-          wF = totalPixels - wB;
-          if (wF === 0) break;
-          sumB += t * histogram[t];
-          const mB = sumB / wB;
-          const mF = (sum - sumB) / wF;
-          const variance = wB * wF * (mB - mF) * (mB - mF);
-          if (variance > maxVariance) {
-            maxVariance = variance;
-            threshold = t;
+        const avgBrightness = rowSum / w;
+        if (avgBrightness < 160) {
+          for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            d[idx] = d[idx + 1] = d[idx + 2] = 255 - d[idx];
           }
         }
-        for (let i = 0; i < d.length; i += 4) {
-          const v = d[i] < threshold ? 0 : 255;
-          d[i] = d[i + 1] = d[i + 2] = v;
-        }
-        ctx.putImageData(imageData, 0, 0);
-        return makeBlob(c);
       }
-      __name(makeHighContrast, "makeHighContrast");
-      async function makeInverted(scaleFactor) {
-        const w = contentWidth * scaleFactor;
-        const h = contentHeight * scaleFactor;
-        const c = document.createElement("canvas");
-        c.width = w;
-        c.height = h;
-        const ctx = c.getContext("2d");
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, 0, cropTop, contentWidth, contentHeight, 0, 0, w, h);
-        const imageData = ctx.getImageData(0, 0, w, h);
-        const d = imageData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const r = d[i], g = d[i + 1], b = d[i + 2];
-          const isPurple = r > 60 && b > 60 && g < r * 0.8 && g < b * 0.8;
-          let gray;
-          if (isPurple) {
-            gray = Math.min(r, g, b) * 0.3;
-          } else {
-            gray = 0.299 * r + 0.587 * g + 0.114 * b;
-          }
-          d[i] = d[i + 1] = d[i + 2] = 255 - gray;
-        }
-        ctx.putImageData(imageData, 0, 0);
-        return makeBlob(c);
+      for (let i = 0; i < d.length; i += 4) {
+        const v = d[i];
+        const stretched = v < 80 ? 0 : v > 180 ? 255 : Math.round((v - 80) * (255 / 100));
+        d[i] = d[i + 1] = d[i + 2] = stretched;
       }
-      __name(makeInverted, "makeInverted");
-      async function makeRaw(scaleFactor) {
-        const w = contentWidth * scaleFactor;
-        const h = contentHeight * scaleFactor;
-        const c = document.createElement("canvas");
-        c.width = w;
-        c.height = h;
-        const ctx = c.getContext("2d");
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, 0, cropTop, contentWidth, contentHeight, 0, 0, w, h);
-        return makeBlob(c);
-      }
-      __name(makeRaw, "makeRaw");
-      Promise.all([
-        makeHighContrast(3),
-        // Primary: 3x scale, binarized
-        makeHighContrast(2),
-        // Fallback: 2x scale, binarized
-        makeInverted(3),
-        // Soft inverted, 3x
-        makeRaw(2)
-        // Raw, 2x
-      ]).then(([hc3, hc2, inv3, raw2]) => {
-        resolve({
-          highContrast3x: hc3,
-          highContrast2x: hc2,
-          inverted3x: inv3,
-          raw: raw2
-        });
-      });
+      ctx.putImageData(id, 0, 0);
+      c.toBlob((blob) => resolve({ gray3x: blob }), "image/png");
     };
     img.src = URL.createObjectURL(file);
   });
@@ -2923,243 +2808,187 @@ const PS_COUNTRY_CODES = /* @__PURE__ */ new Set([
   "ven",
   "vnm"
 ]);
-function parsePokerStarsTable(ocrText) {
+function parsePokerStarsTable(ocrData) {
   const players = [];
   const seen = /* @__PURE__ */ new Set();
-  let cleanedText = ocrText.replace(/[\u{1F1E0}-\u{1F1FF}]/gu, " ").replace(/[\u{1F600}-\u{1F64F}]/gu, " ").replace(/[\u{1F300}-\u{1F5FF}]/gu, " ").replace(/[\u{1F680}-\u{1F6FF}]/gu, " ").replace(/[\u{1F900}-\u{1F9FF}]/gu, " ").replace(/[\u{2600}-\u{26FF}]/gu, " ").replace(/[\u{2700}-\u{27BF}]/gu, " ").replace(/[^\x00-\x7F]/g, " ").replace(/\t/g, "  ").replace(/  +/g, "  ");
-  const fullText = cleanedText.replace(/\n/g, "  ");
-  const lines = cleanedText.split("\n").map((l) => l.trim()).filter(Boolean);
-  console.log("[PSParser] Lines:", lines.length, "Full text length:", fullText.length);
-  console.log("[PSParser] First 500 chars:", cleanedText.substring(0, 500));
-  function extractName(text) {
-    let nameArea = text.replace(/\$\s*[\d,]+(?:\.\d{2})?/g, " ").replace(/\b\d{1,3}(?:,\d{3})+\b/g, " ").replace(/\b\d{4,}\b/g, " ").replace(/^\s*\d{1,3}\s+/, "").replace(/[^A-Za-z\s'-]/g, " ").replace(/\s+/g, " ").trim();
-    if (!nameArea) return null;
-    const segments = nameArea.split(/\s{2,}/).filter(Boolean);
-    for (const segment of segments) {
-      let fixCountry2 = function(s) {
-        return s.toLowerCase().replace(/lnited/g, "united").replace(/kingdorn/g, "kingdom").replace(/engIand/gi, "england").replace(/gerrnany/g, "germany").replace(/lreland/g, "ireland").replace(/switzer[il]and/g, "switzerland").replace(/belgiurn/g, "belgium").replace(/austral[il]a/g, "australia");
-      };
-      var fixCountry = fixCountry2;
-      __name(fixCountry2, "fixCountry");
-      const words = segment.trim().split(/\s+/).filter((w) => w.length >= 2);
-      if (words.length === 0 || words.length > 5) continue;
-      const fullPhrase = words.join(" ").toLowerCase().replace(/lnited/g, "united").replace(/lreland/g, "ireland").replace(/kingdorn/g, "kingdom").replace(/gerrnany/g, "germany").replace(/engIand/gi, "england");
-      if (PS_COUNTRIES.has(fullPhrase)) continue;
-      if (words.every((w) => {
-        const wl = w.toLowerCase();
-        return PS_COUNTRIES.has(wl) || PS_COUNTRY_CODES.has(wl) || WSOP_UI_NOISE.has(wl);
-      })) continue;
-      let nameWords = [...words];
-      if (nameWords.length >= 4) {
-        const c3f = fixCountry2(nameWords.slice(0, 3).join(" "));
-        if (PS_COUNTRIES.has(c3f)) nameWords = nameWords.slice(3);
-      }
-      if (nameWords.length >= 3) {
-        const c2f = fixCountry2(nameWords.slice(0, 2).join(" "));
-        if (PS_COUNTRIES.has(c2f)) nameWords = nameWords.slice(2);
-      }
-      if (nameWords.length >= 2) {
-        const c1f = fixCountry2(nameWords[0]);
-        if (PS_COUNTRIES.has(c1f) || PS_COUNTRY_CODES.has(c1f)) nameWords = nameWords.slice(1);
-      }
-      if (nameWords.length >= 3) {
-        const c2 = nameWords.slice(-2).join(" ").toLowerCase().replace(/lnited/g, "united").replace(/kingdorn/g, "kingdom");
-        if (PS_COUNTRIES.has(c2)) nameWords = nameWords.slice(0, -2);
-      }
-      if (nameWords.length >= 2) {
-        const c1 = nameWords[nameWords.length - 1].toLowerCase().replace(/lnited/g, "united").replace(/engIand/gi, "england");
-        if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) nameWords = nameWords.slice(0, -1);
-      }
-      nameWords = nameWords.filter((w) => w.length >= 3);
-      while (nameWords.length > 2 && nameWords[nameWords.length - 1].length <= 3 && !/^(Lee|Ann|Amy|Max|Ben|Dan|Ian|Joe|Jon|Kim|Leo|Luc|Mae|Mia|Pat|Ray|Rob|Roy|Sam|Tom|Zoe)$/i.test(nameWords[nameWords.length - 1])) {
-        nameWords.pop();
-      }
-      if (nameWords.length === 0) nameWords = words.filter((w) => w.length >= 3);
-      if (nameWords.length >= 1) {
-        const name = nameWords.map(
-          (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-        ).join(" ");
-        if (name.length >= 3) return name;
-      }
+  const words = [];
+  if (ocrData.words) {
+    for (const w of ocrData.words) {
+      if (w.text && w.bbox) words.push(w);
     }
-    const allWords = nameArea.split(/\s+/).filter((w) => w.length >= 2 && !/^\d+$/.test(w));
-    while (allWords.length > 1) {
-      const last = allWords[allWords.length - 1].toLowerCase().replace(/lnited/g, "united").replace(/kingdorn/g, "kingdom");
-      if (PS_COUNTRIES.has(last) || PS_COUNTRY_CODES.has(last) || WSOP_UI_NOISE.has(last)) {
-        allWords.pop();
-      } else break;
-    }
-    while (allWords.length > 1) {
-      const first = allWords[0].toLowerCase();
-      if (WSOP_UI_NOISE.has(first)) {
-        allWords.shift();
-      } else break;
-    }
-    if (allWords.length >= 1 && allWords.length <= 4) {
-      const name = allWords.map(
-        (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-      ).join(" ");
-      if (name.length >= 3) return name;
-    }
-    return null;
-  }
-  __name(extractName, "extractName");
-  function extractChips(text) {
-    const commaMatch = text.match(/\b(\d{1,3}(?:,\d{3})+)\b/);
-    if (commaMatch) {
-      const raw = parseInt(commaMatch[1].replace(/,/g, ""));
-      if (raw >= 1e3) {
-        if (raw >= 1e6) return (raw / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
-        return Math.round(raw / 1e3) + "K";
-      }
-    }
-    const plainMatch = text.match(/\b(\d{4,})\b/);
-    if (plainMatch) {
-      const raw = parseInt(plainMatch[1]);
-      if (raw >= 1e3 && raw < 1e8) {
-        if (raw >= 1e6) return (raw / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
-        return Math.round(raw / 1e3) + "K";
-      }
-    }
-    return null;
-  }
-  __name(extractChips, "extractChips");
-  for (let i = 0; i < lines.length; i++) {
-    const candidates = [lines[i]];
-    if (i + 1 < lines.length) candidates.push(lines[i] + "  " + lines[i + 1]);
-    if (i + 2 < lines.length) candidates.push(lines[i] + "  " + lines[i + 1] + "  " + lines[i + 2]);
-    for (const line of candidates) {
-      const seatRe = /(\d{1,2})\s*[-–—]\s*(\d{1,2})/g;
-      let seatMatch = null;
-      let lastMatch = null;
-      let m;
-      while ((m = seatRe.exec(line)) !== null) {
-        const tbl = parseInt(m[1]);
-        const st = parseInt(m[2]);
-        if (tbl >= 1 && tbl <= 99 && st >= 1 && st <= 10) {
-          lastMatch = { match: m, tbl, st };
+  } else if (ocrData.lines) {
+    for (const line of ocrData.lines) {
+      if (line.words) {
+        for (const w of line.words) {
+          if (w.text && w.bbox) words.push(w);
         }
       }
-      if (!lastMatch) continue;
-      seatMatch = lastMatch;
-      const seatAssignment = seatMatch.tbl + "-" + seatMatch.st;
-      const beforeSeat = line.substring(0, seatMatch.match.index);
-      const chips = extractChips(beforeSeat);
-      let nameText = beforeSeat;
-      if (chips) {
-        nameText = nameText.replace(/\b\d{1,3}(?:,\d{3})+\b/, " ").replace(/\b\d{4,}\b/, " ");
-      }
-      let playerName = extractName(nameText);
-      if (!playerName || playerName.length < 3) continue;
-      const nw = playerName.split(/\s+/);
-      if (nw.length >= 2) {
-        nw[0] = ocrCorrectFirstName(nw[0]);
-        playerName = nw.join(" ");
-      } else if (nw.length === 1) {
-        nw[0] = ocrCorrectFirstName(nw[0]);
-        playerName = nw[0];
-      }
-      if (seen.has("seat:" + seatAssignment)) continue;
-      if (seen.has("name:" + playerName.toLowerCase())) continue;
-      seen.add("seat:" + seatAssignment);
-      seen.add("name:" + playerName.toLowerCase());
-      players.push({
-        name: playerName,
-        chips,
-        seat: seatAssignment,
-        prize: null,
-        country: null,
-        position: players.length + 1,
-        px: null,
-        py: null
-      });
-      break;
     }
   }
-  if (players.length < 3) {
-    console.log("[PSParser] Approach 1 found only", players.length, ", trying full-text scan...");
-    const seatRe = /(\d{1,2})\s*[-–—]\s*(\d{1,2})/g;
-    let m;
-    while ((m = seatRe.exec(fullText)) !== null) {
+  if (words.length === 0) {
+    return parsePokerStarsTableFromText(ocrData.text || "");
+  }
+  const seatWords = [];
+  for (const w of words) {
+    const m = w.text.match(/^(\d{1,2})[-–—](\d{1,2})$/);
+    if (m) {
       const tbl = parseInt(m[1]);
       const st = parseInt(m[2]);
-      if (tbl < 1 || tbl > 99 || st < 1 || st > 10) continue;
-      const seat = tbl + "-" + st;
-      if (seen.has("seat:" + seat)) continue;
-      const before = fullText.substring(Math.max(0, m.index - 300), m.index);
-      const nameMatches = before.match(/[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{1,}){0,3}/g);
-      if (!nameMatches || nameMatches.length === 0) continue;
-      let playerName = nameMatches[nameMatches.length - 1].trim();
-      const nw = playerName.split(/\s+/);
-      while (nw.length > 1 && (PS_COUNTRIES.has(nw[nw.length - 1].toLowerCase()) || PS_COUNTRY_CODES.has(nw[nw.length - 1].toLowerCase()))) {
-        nw.pop();
+      if (tbl >= 1 && tbl <= 99 && st >= 1 && st <= 10) {
+        seatWords.push({ tbl, st, seat: tbl + "-" + st, cy: (w.bbox.y0 + w.bbox.y1) / 2, cx: (w.bbox.x0 + w.bbox.x1) / 2, bbox: w.bbox });
       }
-      playerName = nw.join(" ");
-      if (nw.length < 1 || playerName.length < 3) continue;
-      const fullLower = playerName.toLowerCase().replace(/lnited/g, "united").replace(/kingdorn/g, "kingdom");
-      if (PS_COUNTRIES.has(fullLower)) continue;
-      if (nw.length >= 2) nw[0] = ocrCorrectFirstName(nw[0]);
-      else nw[0] = ocrCorrectFirstName(nw[0]);
-      playerName = nw.join(" ");
-      if (seen.has("seat:" + seat)) continue;
-      if (seen.has("name:" + playerName.toLowerCase())) continue;
-      seen.add("seat:" + seat);
-      seen.add("name:" + playerName.toLowerCase());
-      const nearby = fullText.substring(Math.max(0, m.index - 150), m.index + 20);
-      const chips = extractChips(nearby);
-      players.push({
-        name: playerName,
-        chips,
-        seat,
-        prize: null,
-        country: null,
-        position: players.length + 1,
-        px: null,
-        py: null
-      });
     }
   }
-  if (players.length < 3) {
-    console.log("[PSParser] Approach 2 found only", players.length, ", trying loose patterns...");
-    for (const line of lines) {
-      const looseMatch = line.match(/(\d{1,2})\s*[.\s]\s*(\d{1,2})\s*$/);
-      if (!looseMatch) continue;
-      const tbl = parseInt(looseMatch[1]);
-      const st = parseInt(looseMatch[2]);
-      if (tbl < 1 || tbl > 99 || st < 1 || st > 10) continue;
-      const seat = tbl + "-" + st;
-      if (seen.has("seat:" + seat)) continue;
-      const beforeSeat = line.substring(0, looseMatch.index);
-      const chips = extractChips(beforeSeat);
-      let nameText = beforeSeat;
-      if (chips) {
-        nameText = nameText.replace(/\b\d{1,3}(?:,\d{3})+\b/, " ").replace(/\b\d{4,}\b/, " ");
-      }
-      let playerName = extractName(nameText);
-      if (!playerName || playerName.length < 3) continue;
-      const nw = playerName.split(/\s+/);
-      nw[0] = ocrCorrectFirstName(nw[0]);
-      playerName = nw.join(" ");
-      if (seen.has("seat:" + seat)) continue;
-      if (seen.has("name:" + playerName.toLowerCase())) continue;
-      seen.add("seat:" + seat);
-      seen.add("name:" + playerName.toLowerCase());
-      players.push({
-        name: playerName,
-        chips,
-        seat,
-        prize: null,
-        country: null,
-        position: players.length + 1,
-        px: null,
-        py: null
-      });
-    }
+  console.log("[PSParser] Found", seatWords.length, "seat words from", words.length, "total words");
+  if (seatWords.length === 0) {
+    return parsePokerStarsTableFromText(ocrData.text || "");
   }
-  console.log("[PSParser] Final result:", players.length, "players");
+  for (const sw of seatWords) {
+    if (seen.has("seat:" + sw.seat)) continue;
+    const rowY = sw.cy;
+    const rowH = sw.bbox ? sw.bbox.y1 - sw.bbox.y0 : 60;
+    const tolerance = Math.max(rowH * 0.8, 50);
+    const rowWords = words.filter((w) => {
+      const wy = (w.bbox.y0 + w.bbox.y1) / 2;
+      return Math.abs(wy - rowY) < tolerance;
+    }).sort((a, b) => a.bbox.x0 - b.bbox.x0);
+    let chips = null;
+    let chipIdx = -1;
+    for (let i = rowWords.length - 1; i >= 0; i--) {
+      const t = rowWords[i].text;
+      if (t === sw.tbl + "-" + sw.st || t === sw.tbl + "—" + sw.st || t === sw.tbl + "–" + sw.st) continue;
+      const chipMatch = t.match(/^(\d{1,3}(?:[.,]\d{3})+|\d{4,}|(\d+(?:\.\d+)?)[KkMm])$/);
+      if (chipMatch) {
+        let chipVal;
+        if (chipMatch[2] !== void 0) {
+          const num = parseFloat(chipMatch[2]);
+          const suffix = t.slice(-1).toUpperCase();
+          chipVal = suffix === "M" ? num + "M" : Math.round(num) + "K";
+        } else {
+          const raw = parseInt(chipMatch[1].replace(/[,. ]/g, ""));
+          if (raw < 1e3) {
+            continue;
+          }
+          chipVal = raw >= 1e6 ? (raw / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : Math.round(raw / 1e3) + "K";
+        }
+        chips = chipVal;
+        chipIdx = i;
+        break;
+      }
+    }
+    let nameStart = 0;
+    if (rowWords.length > 0 && /^\d{1,3}$/.test(rowWords[0].text)) nameStart = 1;
+    const nameEnd = chipIdx >= 0 ? chipIdx : rowWords.length - 1;
+    const nameWordTexts = [];
+    for (let i = nameStart; i < nameEnd; i++) {
+      const t = rowWords[i].text.replace(/[^A-Za-z'-]/g, "");
+      if (t.length >= 2) nameWordTexts.push(t);
+    }
+    while (nameWordTexts.length > 1) {
+      const first2 = nameWordTexts.slice(0, 2).join(" ").toLowerCase();
+      const first1 = nameWordTexts[0].toLowerCase();
+      if (PS_COUNTRIES.has(first2)) {
+        nameWordTexts.splice(0, 2);
+        continue;
+      }
+      if (PS_COUNTRIES.has(first1) || PS_COUNTRY_CODES.has(first1)) {
+        nameWordTexts.shift();
+        continue;
+      }
+      break;
+    }
+    while (nameWordTexts.length > 1) {
+      const last2 = nameWordTexts.slice(-2).join(" ").toLowerCase();
+      const last1 = nameWordTexts[nameWordTexts.length - 1].toLowerCase();
+      if (PS_COUNTRIES.has(last2)) {
+        nameWordTexts.splice(-2);
+        continue;
+      }
+      if (PS_COUNTRIES.has(last1) || PS_COUNTRY_CODES.has(last1)) {
+        nameWordTexts.pop();
+        continue;
+      }
+      break;
+    }
+    const cleaned = nameWordTexts.filter((w) => w.length >= 3 || COMMON_FIRST_NAMES.has(w.toLowerCase()));
+    if (cleaned.length === 0) continue;
+    let playerName = cleaned.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+    if (PS_COUNTRIES.has(playerName.toLowerCase())) continue;
+    const nw = playerName.split(/\s+/);
+    nw[0] = ocrCorrectFirstName(nw[0]);
+    playerName = nw.join(" ");
+    if (playerName.length < 3) continue;
+    if (seen.has("seat:" + sw.seat)) continue;
+    if (seen.has("name:" + playerName.toLowerCase())) continue;
+    seen.add("seat:" + sw.seat);
+    seen.add("name:" + playerName.toLowerCase());
+    players.push({
+      name: playerName,
+      chips,
+      seat: sw.seat,
+      prize: null,
+      country: null,
+      position: players.length + 1,
+      px: null,
+      py: null
+    });
+  }
+  console.log("[PSParser] Spatial parse result:", players.length, "players");
   return players;
 }
 __name(parsePokerStarsTable, "parsePokerStarsTable");
+function parsePokerStarsTableFromText(ocrText) {
+  const players = [];
+  const seen = /* @__PURE__ */ new Set();
+  const lines = ocrText.split("\n").map((l) => l.trim()).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    const candidates = [lines[i]];
+    if (i + 1 < lines.length) candidates.push(lines[i] + "  " + lines[i + 1]);
+    for (const line of candidates) {
+      const seatRe = /(\d{1,2})\s*[-–—]\s*(\d{1,2})/g;
+      let lastMatch = null, m;
+      while ((m = seatRe.exec(line)) !== null) {
+        const tbl = parseInt(m[1]), st = parseInt(m[2]);
+        if (tbl >= 1 && tbl <= 99 && st >= 1 && st <= 10) lastMatch = { m, tbl, st };
+      }
+      if (!lastMatch) continue;
+      const seat = lastMatch.tbl + "-" + lastMatch.st;
+      if (seen.has("seat:" + seat)) continue;
+      const before = line.substring(0, lastMatch.m.index);
+      let chips = null;
+      const chipM = before.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
+      if (chipM) {
+        const raw = parseInt(chipM[1].replace(/,/g, ""));
+        if (raw >= 1e3) chips = Math.round(raw / 1e3) + "K";
+      }
+      let nameArea = before.replace(/\b\d[\d,]*\b/g, " ").replace(/[^A-Za-z\s'-]/g, " ").replace(/\s+/g, " ").trim();
+      let nameWords = nameArea.split(/\s+/).filter((w) => w.length >= 2);
+      while (nameWords.length > 1 && (PS_COUNTRIES.has(nameWords.slice(0, 2).join(" ").toLowerCase()) || PS_COUNTRIES.has(nameWords[0].toLowerCase()) || PS_COUNTRY_CODES.has(nameWords[0].toLowerCase()))) {
+        if (PS_COUNTRIES.has(nameWords.slice(0, 2).join(" ").toLowerCase())) nameWords.splice(0, 2);
+        else nameWords.shift();
+      }
+      while (nameWords.length > 1 && (PS_COUNTRIES.has(nameWords.slice(-2).join(" ").toLowerCase()) || PS_COUNTRIES.has(nameWords[nameWords.length - 1].toLowerCase()) || PS_COUNTRY_CODES.has(nameWords[nameWords.length - 1].toLowerCase()))) {
+        if (nameWords.length >= 2 && PS_COUNTRIES.has(nameWords.slice(-2).join(" ").toLowerCase())) nameWords.splice(-2);
+        else nameWords.pop();
+      }
+      nameWords = nameWords.filter((w) => w.length >= 3 || COMMON_FIRST_NAMES.has(w.toLowerCase()));
+      if (nameWords.length === 0) continue;
+      let playerName = nameWords.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      if (PS_COUNTRIES.has(playerName.toLowerCase())) continue;
+      const nw = playerName.split(/\s+/);
+      nw[0] = ocrCorrectFirstName(nw[0]);
+      playerName = nw.join(" ");
+      if (playerName.length < 3) continue;
+      if (seen.has("name:" + playerName.toLowerCase())) continue;
+      seen.add("seat:" + seat);
+      seen.add("name:" + playerName.toLowerCase());
+      players.push({ name: playerName, chips, seat, prize: null, country: null, position: players.length + 1, px: null, py: null });
+      break;
+    }
+  }
+  return players;
+}
+__name(parsePokerStarsTableFromText, "parsePokerStarsTableFromText");
 function preprocessImage(file) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -3293,102 +3122,87 @@ function TableScanner() {
       const format = detectImageFormat(formatImg);
       URL.revokeObjectURL(formatUrl);
       if (format === "pokerstars") {
-        const preprocessed = await preprocessPokerStarsImage(file);
-        const worker = await Tesseract.createWorker("eng", 1, {
-          logger: /* @__PURE__ */ __name((m) => {
-            if (m.status === "recognizing text") setProgress(Math.round(m.progress * 25));
-          }, "logger")
+        setProgress(30);
+        const formData = new FormData();
+        formData.append("image", file);
+        const token = localStorage.getItem("token");
+        const resp = await fetch("/api/scan-table", {
+          method: "POST",
+          headers: token ? { Authorization: "Bearer " + token } : {},
+          body: formData
         });
-        await worker.setParameters({
-          // Whitelist characters we expect: letters, digits, common punctuation
-          tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -.,'"
-        });
-        const attempts = [
-          { blob: preprocessed.highContrast3x, psm: Tesseract.PSM.SINGLE_BLOCK, label: "hc3x/BLOCK" },
-          { blob: preprocessed.highContrast3x, psm: 4, label: "hc3x/COLUMN" },
-          { blob: preprocessed.highContrast2x, psm: Tesseract.PSM.SINGLE_BLOCK, label: "hc2x/BLOCK" },
-          { blob: preprocessed.inverted3x, psm: Tesseract.PSM.SINGLE_BLOCK, label: "inv3x/BLOCK" },
-          { blob: preprocessed.highContrast3x, psm: Tesseract.PSM.AUTO, label: "hc3x/AUTO" },
-          { blob: preprocessed.inverted3x, psm: Tesseract.PSM.AUTO, label: "inv3x/AUTO" },
-          { blob: preprocessed.raw, psm: Tesseract.PSM.SINGLE_BLOCK, label: "raw/BLOCK" },
-          { blob: preprocessed.highContrast3x, psm: 11, label: "hc3x/SPARSE" }
-        ];
-        let extracted = [];
-        let data = null;
-        for (const attempt of attempts) {
-          try {
-            await worker.setParameters({ tessedit_pageseg_mode: attempt.psm });
-            const result = await worker.recognize(attempt.blob);
-            console.log("[TableScanner] OCR (" + attempt.label + "):", result.data.text.substring(0, 300) + "...");
-            const parsed = parsePokerStarsTable(result.data.text);
-            console.log("[TableScanner] Found " + parsed.length + " players with seats");
-            if (parsed.length > extracted.length) {
-              extracted = parsed;
-              data = result.data;
-            }
-            if (extracted.length >= 8) break;
-          } catch (e2) {
-            console.warn("[TableScanner] Attempt", attempt.label, "failed:", e2.message);
-          }
+        setProgress(90);
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || "Scan failed (" + resp.status + ")");
         }
-        await worker.terminate();
-        console.log("[TableScanner] Best result: " + extracted.length + " players");
+        const { players: rawPlayers } = await resp.json();
+        setProgress(100);
+        const extracted = (rawPlayers || []).map((p, i) => ({
+          name: p.name || "",
+          chips: p.chips || null,
+          seat: p.seat || null,
+          prize: null,
+          country: null,
+          position: i + 1,
+          px: null,
+          py: null
+        })).filter((p) => p.name.length > 1);
+        console.log("[TableScanner] Claude found", extracted.length, "players");
         const tableGroups = {};
-        var noTablePlayers = [];
         extracted.forEach(function(p) {
           if (p.seat && p.seat.includes("-")) {
             var tbl = p.seat.split("-")[0];
             if (!tableGroups[tbl]) tableGroups[tbl] = [];
             tableGroups[tbl].push(p);
-          } else {
-            noTablePlayers.push(p);
           }
         });
         var tableNums = Object.keys(tableGroups).sort(function(a, b) {
           return parseInt(a) - parseInt(b);
         });
-        console.log("[TableScanner] Table groups:", tableNums, "noTable:", noTablePlayers.length);
         if (tableNums.length > 1) {
           setAvailableTables(tableGroups);
           setAllParsedPlayers(extracted);
           setEventTitle("PokerStars Live");
           setState("tableSelect");
         } else if (extracted.length === 0) {
-          const fallback = extractPlayerNames(data);
-          if (fallback.length > 0) {
-            setPlayers(fallback);
-            setState("results");
-          } else {
-            setError("No player names found. Try a clearer screenshot of the table or seating view.");
-            setState("idle");
-          }
+          setError("No players found in image. Make sure the full seating list is visible.");
+          setState("idle");
         } else {
           setEventTitle("PokerStars Live");
           setPlayers(extracted);
           setState("results");
         }
       } else {
-        const { tableBlob, headerBlob } = await preprocessImage(file);
-        const worker = await Tesseract.createWorker("eng", 1, {
-          logger: /* @__PURE__ */ __name((m) => {
-            if (m.status === "recognizing text") setProgress(Math.round(m.progress * 100));
-          }, "logger")
+        setProgress(30);
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("format", "wsop");
+        const token = localStorage.getItem("token");
+        const resp = await fetch("/api/scan-table", {
+          method: "POST",
+          headers: token ? { Authorization: "Bearer " + token } : {},
+          body: formData
         });
-        await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT });
-        const { data } = await worker.recognize(tableBlob);
-        if (headerBlob) {
-          try {
-            await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO });
-            const { data: headerData } = await worker.recognize(headerBlob);
-            const title = extractEventTitle(headerData.text);
-            if (title) setEventTitle(title);
-          } catch (e2) {
-          }
+        setProgress(90);
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || "Scan failed (" + resp.status + ")");
         }
-        await worker.terminate();
-        const extracted = extractPlayerNames(data);
+        const { players: rawPlayers } = await resp.json();
+        setProgress(100);
+        const extracted = (rawPlayers || []).map((p, i) => ({
+          name: p.name || "",
+          chips: p.chips || null,
+          seat: null,
+          prize: null,
+          country: null,
+          position: p.position || i + 1,
+          px: null,
+          py: null
+        })).filter((p) => p.name.length > 1).sort((a, b) => a.position - b.position);
         if (extracted.length === 0) {
-          setError("No player names found. Try a clearer screenshot of the table view.");
+          setError("No players found. Try a clearer screenshot of the table view.");
           setState("idle");
         } else {
           setPlayers(extracted);
@@ -3397,7 +3211,7 @@ function TableScanner() {
       }
     } catch (err) {
       console.error("OCR error:", err);
-      setError("Failed to scan image. Please try again.");
+      setError("Scan failed: " + err.message);
       setState("idle");
     }
     if (fileRef.current) fileRef.current.value = "";
@@ -3474,6 +3288,8 @@ function TableScanner() {
     return sorted.map((player, i) => {
       const pos = seats[i] || [50, 50];
       const align = pos[0] <= 5 ? " seat-left" : pos[0] >= 95 ? " seat-right" : "";
+      const words = player.name.trim().split(/\s+/);
+      const isNickname = words.length < 2 || !words.every((w) => /^[A-Z][a-zA-Z'-]+$/.test(w));
       return /* @__PURE__ */ React.createElement(
         "div",
         {
@@ -3485,10 +3301,12 @@ function TableScanner() {
           "button",
           {
             className: "table-scanner-link",
-            onClick: () => window.open(`/api/hendon-redirect?name=${encodeURIComponent(player.name)}`, "_blank", "noopener,noreferrer")
+            disabled: isNickname,
+            style: isNickname ? { cursor: "default" } : {},
+            onClick: isNickname ? void 0 : () => window.open(`/api/hendon-redirect?name=${encodeURIComponent(player.name)}`, "_blank", "noopener,noreferrer")
           },
           /* @__PURE__ */ React.createElement("span", { className: "table-scanner-name-stack" }, /* @__PURE__ */ React.createElement("span", null, player.name), player.chips && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips" }, player.chips, player.seat ? ` · Seat ${player.seat}` : ""), !player.chips && player.seat && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips" }, "Seat ", player.seat), player.prize && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips", style: { color: "var(--accent)" } }, player.prize)),
-          /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0, opacity: 0.4 } }, /* @__PURE__ */ React.createElement("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }), /* @__PURE__ */ React.createElement("polyline", { points: "15 3 21 3 21 9" }), /* @__PURE__ */ React.createElement("line", { x1: "10", y1: "14", x2: "21", y2: "3" }))
+          !isNickname && /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0, opacity: 0.4 } }, /* @__PURE__ */ React.createElement("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }), /* @__PURE__ */ React.createElement("polyline", { points: "15 3 21 3 21 9" }), /* @__PURE__ */ React.createElement("line", { x1: "10", y1: "14", x2: "21", y2: "3" }))
         )
       );
     });

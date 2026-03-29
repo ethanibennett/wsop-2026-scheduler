@@ -3789,7 +3789,7 @@
       line-height: 22px;
       text-align: center;
       white-space: nowrap;
-      border-radius: var(--radius) 0 0 var(--radius);
+      border-radius: 0;
     }
 
     .dash-event-card.playing .dash-venue-strip,

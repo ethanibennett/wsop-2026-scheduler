@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
@@ -16,6 +16,7 @@ const { parseGenericSchedule, detectFormat } = require('./parsers/generic-parser
 const nodemailer = require('nodemailer');
 const webpush = require('web-push');
 const sampleTournaments = require('./sample-data');
+const Anthropic = require('@anthropic-ai/sdk');
 
 // ── Web Push (VAPID) setup ──
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -6551,6 +6552,79 @@ async function sendPushToAdmin(title, body, url) {
     console.error('sendPushToAdmin error:', err);
   }
 }
+
+// ── Table Scanner: parse seating list image via Claude Vision ──
+const scanUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+app.post('/api/scan-table', authenticateToken, scanUpload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image provided' });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+
+  try {
+    const client = new Anthropic({ apiKey });
+    const base64 = req.file.buffer.toString('base64');
+    const mediaType = req.file.mimetype || 'image/jpeg';
+
+    const format = req.body?.format || 'pokerstars';
+
+    const promptByFormat = {
+      pokerstars: `This is a PokerStars Live tournament seating list screenshot. Extract every player row you can see.
+
+For each player row return:
+- name: full player name (ignore country flags/codes, ignore position numbers)
+- chips: chip count exactly as shown (e.g. "27K", "120K", "1.2M")
+- seat: seat in format "table-seat" (e.g. "2-4", "3-6")
+
+Return ONLY valid JSON — an array of objects with keys "name", "chips", "seat". No markdown, no explanation.
+Example: [{"name":"John Smith","chips":"45K","seat":"3-2"},...]`,
+
+      wsop: `This is a WSOP+ poker tournament table screenshot showing players seated around a green felt table. Extract every visible player name label around the table.
+
+For each player return:
+- name: the player's name as shown
+- chips: chip count if visible (e.g. "45,200" or "45K"), or null
+- position: seat number 1 through N going clockwise around the table, where 1 is the top-left seat
+
+Return ONLY valid JSON — an array of objects with keys "name", "chips", "position". No markdown, no explanation.
+Example: [{"name":"John Smith","chips":"45,200","position":1},{"name":"Jane Doe","chips":null,"position":2},...]`,
+    };
+
+    const prompt = promptByFormat[format] || promptByFormat.pokerstars;
+
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64 },
+          },
+          { type: 'text', text: prompt },
+        ],
+      }],
+    });
+
+    const text = message.content[0]?.text?.trim() || '';
+    // Strip markdown code fences if present
+    const json = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    let players;
+    try {
+      players = JSON.parse(json);
+    } catch (e) {
+      console.error('[ScanTable] Failed to parse Claude response:', text);
+      return res.status(422).json({ error: 'Could not parse player data from image', raw: text });
+    }
+
+    res.json({ players });
+  } catch (err) {
+    console.error('[ScanTable] Anthropic API error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // SPA catch-all for /shared/* routes
 app.get('/shared/:token', serveIndex);
