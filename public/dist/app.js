@@ -2824,13 +2824,19 @@ function parsePokerStarsTable(ocrText) {
       for (const part of parts) {
         const cleaned = part.replace(/[^A-Za-z\s'-]/g, "").trim();
         const words = cleaned.split(/\s+/).filter((w) => w.length >= 2);
-        if (words.length >= 2 && words.length <= 4 && !words.every(
+        if (words.length < 2 || words.length > 4) continue;
+        const fullPhrase = words.join(" ").toLowerCase();
+        const ocrFixedPhrase = fullPhrase.replace(/lnited/g, "united").replace(/lreland/g, "ireland").replace(/lraq/g, "iraq");
+        if (PS_COUNTRIES.has(fullPhrase) || PS_COUNTRIES.has(ocrFixedPhrase) || PS_COUNTRY_CODES.has(fullPhrase) || PS_COUNTRY_CODES.has(ocrFixedPhrase)) continue;
+        if (words.every(
           (w) => PS_COUNTRIES.has(w.toLowerCase()) || PS_COUNTRY_CODES.has(w.toLowerCase()) || WSOP_UI_NOISE.has(w.toLowerCase())
-        )) {
+        )) continue;
+        {
           let nameWords = [...words];
           if (nameWords.length >= 4) {
             const c2 = nameWords.slice(-2).join(" ").toLowerCase();
-            if (PS_COUNTRIES.has(c2)) nameWords = nameWords.slice(0, -2);
+            const c2f = c2.replace(/lnited/g, "united");
+            if (PS_COUNTRIES.has(c2) || PS_COUNTRIES.has(c2f)) nameWords = nameWords.slice(0, -2);
           }
           if (nameWords.length >= 3) {
             const c1 = nameWords[nameWords.length - 1].toLowerCase();
@@ -2850,9 +2856,10 @@ function parsePokerStarsTable(ocrText) {
         nw[0] = ocrCorrectFirstName(nw[0]);
         playerName = nw.join(" ");
       }
-      const key = playerName.toLowerCase() + "|" + seatAssignment;
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (seen.has("seat:" + seatAssignment)) continue;
+      if (seen.has("name:" + playerName.toLowerCase())) continue;
+      seen.add("seat:" + seatAssignment);
+      seen.add("name:" + playerName.toLowerCase());
       players.push({
         name: playerName,
         chips,
@@ -2888,10 +2895,10 @@ function parsePokerStarsTable(ocrText) {
       if (nw.length < 2) continue;
       nw[0] = ocrCorrectFirstName(nw[0]);
       playerName = nw.join(" ");
-      const key = playerName.toLowerCase() + "|" + seat;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      seen.add(seat);
+      if (seen.has("seat:" + seat)) continue;
+      if (seen.has("name:" + playerName.toLowerCase())) continue;
+      seen.add("seat:" + seat);
+      seen.add("name:" + playerName.toLowerCase());
       const nearby = fullText.substring(Math.max(0, m.index - 100), m.index + 20);
       let chips = null;
       const chipM = nearby.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
