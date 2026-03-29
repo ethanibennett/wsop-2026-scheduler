@@ -2880,7 +2880,7 @@
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
-          const scale = 2;
+          const scale = 3;
           const canvas = document.createElement('canvas');
           canvas.width = img.width * scale;
           canvas.height = img.height * scale;
@@ -2890,17 +2890,12 @@
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
           // PokerStars Live has light/white text on dark background
-          // Invert + grayscale + softer contrast to preserve thin characters like hyphens
+          // Simple invert + grayscale — no aggressive thresholding
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const d = imageData.data;
           for (let i = 0; i < d.length; i += 4) {
             const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-            const inverted = 255 - gray;
-            // Gentle threshold: preserve detail in mid-tones (hyphens, thin text)
-            const val = inverted < 60 ? 0 :
-                        inverted > 180 ? 255 :
-                        Math.round((inverted - 60) / 120 * 255);
-            d[i] = d[i+1] = d[i+2] = val;
+            d[i] = d[i+1] = d[i+2] = 255 - gray;
           }
           ctx.putImageData(imageData, 0, 0);
 
