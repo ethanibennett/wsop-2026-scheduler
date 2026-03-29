@@ -2980,6 +2980,8 @@
         // Skip obviously non-player lines
         if (line.length < 8) continue;
         if (/^(pos|player|chip|seat|prize|total|page|showing)/i.test(line)) continue;
+        // Skip UI/button text that OCR picks up from felt screenshots
+        if (/payout|structure|lobby|chat|cashier|rebuy|add.on|tournament|table|dealer|fold|check|call|raise|all.in|sit.out|leave|blind|level|break|hand/i.test(line)) continue;
 
         // Skip lines that are just a country name/code (OCR splits name + country across lines)
         const lineLower = line.replace(/[^a-zA-Z\s]/g, '').trim().toLowerCase();
@@ -7436,11 +7438,9 @@
           regClosed && event._type !== 'bagged' ? 'reg-closed' : '',
         ].filter(Boolean).join(' ');
 
-        const cardStyle = isConditionalOnPlaying
-          ? { borderTopColor: venueColor, borderRightColor: venueColor, borderBottomColor: venueColor }
-          : isBustedDone
-            ? { borderColor: 'var(--border)' }
-            : { borderColor: venueColor };
+        const cardStyle = isBustedDone
+          ? { borderColor: 'var(--border)' }
+          : {};
 
         const activeUpdate = activeEventMap[event.id];
         const liveStack = activeUpdate?.stack;
@@ -7448,7 +7448,7 @@
 
         return (
           <div key={event.id} className={cardClass} style={cardStyle}>
-            <div className="dash-venue-strip" style={{background: venueColor, color: venueStripText}}>{isExpanded ? (venueInfo.longName || venueInfo.abbr) : venueInfo.abbr}</div>
+            <div className="dash-venue-strip" style={{background: venueColor, color: venueStripText}}>{venueInfo.abbr}</div>
             <div className="dash-card-content" style={isConditionalOnPlaying ? {borderColor: venueInfo.abbr === 'WSOP' ? 'var(--venue-wsop-cond)' : venueColor} : undefined}>
             {!isConditionalOnPlaying && (
               <div style={{display:'flex',flexWrap:'wrap',gap:'4px',alignItems:'center'}}>
@@ -7471,14 +7471,14 @@
 
             <div className="dash-event-header">
               <div style={{flex:1}}>
-                <div className="dash-event-name">{event.event_name}</div>
+                <div className="dash-event-name">{formatEventName(event.event_name)}</div>
                 {!isConditionalOnPlaying && (
                   <div className="dash-event-meta" style={{marginTop:'2px'}}>
-                    <span><Icon.clock /> {event.time || 'TBD'}</span>
+                    <span><Icon.clock /> {event.time || 'TBD'}{event.venue ? ' ' + getVenueTzAbbr(event.venue) : ''}</span>
                   </div>
                 )}
               </div>
-              <div className="dash-event-buyin">{formatBuyin(event.buyin)}</div>
+              <div className="dash-event-buyin">{formatBuyin(event.buyin, event.venue)}</div>
               {onToggle && (
                 <button className="dash-undo-x muted" onClick={(e) => { e.stopPropagation(); if (confirm('Remove from schedule?')) onToggle(event.id); }} title="Remove from schedule">✕</button>
               )}
