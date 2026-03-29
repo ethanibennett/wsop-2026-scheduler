@@ -3152,16 +3152,27 @@
 
           // Remove country words from START of name (OCR sometimes puts country before name)
           let nameWords = [...words];
+          // Helper to normalize OCR country typos
+          function fixCountry(s) {
+            return s.toLowerCase()
+              .replace(/lnited/g, 'united').replace(/kingdorn/g, 'kingdom')
+              .replace(/engIand/gi, 'england').replace(/gerrnany/g, 'germany')
+              .replace(/lreland/g, 'ireland').replace(/switzer[il]and/g, 'switzerland')
+              .replace(/belgiurn/g, 'belgium').replace(/austral[il]a/g, 'australia');
+          }
+          // Try removing first 3 words as country
+          if (nameWords.length >= 4) {
+            const c3f = fixCountry(nameWords.slice(0, 3).join(' '));
+            if (PS_COUNTRIES.has(c3f)) nameWords = nameWords.slice(3);
+          }
           // Try removing first 2 words as country
           if (nameWords.length >= 3) {
-            const c2f = nameWords.slice(0, 2).join(' ').toLowerCase()
-              .replace(/lnited/g, 'united').replace(/kingdorn/g, 'kingdom');
+            const c2f = fixCountry(nameWords.slice(0, 2).join(' '));
             if (PS_COUNTRIES.has(c2f)) nameWords = nameWords.slice(2);
           }
           // Try removing first word as country
           if (nameWords.length >= 2) {
-            const c1f = nameWords[0].toLowerCase()
-              .replace(/lnited/g, 'united').replace(/engIand/gi, 'england');
+            const c1f = fixCountry(nameWords[0]);
             if (PS_COUNTRIES.has(c1f) || PS_COUNTRY_CODES.has(c1f)) nameWords = nameWords.slice(1);
           }
           // Remove country words from END of name
@@ -3178,7 +3189,13 @@
             if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) nameWords = nameWords.slice(0, -1);
           }
           // Remove short OCR artifacts (1-2 char fragments like "Be", "Ya", "Et")
-          nameWords = nameWords.filter(w => w.length >= 3 || /^[A-Z][a-z]$/.test(w) === false);
+          // Also remove trailing fragments that look like truncated words (3 chars, not a common name)
+          nameWords = nameWords.filter(w => w.length >= 3);
+          // Remove trailing fragment if it's 3 chars and lowercase-ish (OCR word split)
+          while (nameWords.length > 2 && nameWords[nameWords.length-1].length <= 3 &&
+                 !/^(Lee|Ann|Amy|Max|Ben|Dan|Ian|Joe|Jon|Kim|Leo|Luc|Mae|Mia|Pat|Ray|Rob|Roy|Sam|Tom|Zoe)$/i.test(nameWords[nameWords.length-1])) {
+            nameWords.pop();
+          }
           if (nameWords.length === 0) nameWords = words.filter(w => w.length >= 3);
 
           if (nameWords.length >= 1) {

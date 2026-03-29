@@ -2936,6 +2936,11 @@ function parsePokerStarsTable(ocrText) {
     if (!nameArea) return null;
     const segments = nameArea.split(/\s{2,}/).filter(Boolean);
     for (const segment of segments) {
+      let fixCountry2 = function(s) {
+        return s.toLowerCase().replace(/lnited/g, "united").replace(/kingdorn/g, "kingdom").replace(/engIand/gi, "england").replace(/gerrnany/g, "germany").replace(/lreland/g, "ireland").replace(/switzer[il]and/g, "switzerland").replace(/belgiurn/g, "belgium").replace(/austral[il]a/g, "australia");
+      };
+      var fixCountry = fixCountry2;
+      __name(fixCountry2, "fixCountry");
       const words = segment.trim().split(/\s+/).filter((w) => w.length >= 2);
       if (words.length === 0 || words.length > 5) continue;
       const fullPhrase = words.join(" ").toLowerCase().replace(/lnited/g, "united").replace(/lreland/g, "ireland").replace(/kingdorn/g, "kingdom").replace(/gerrnany/g, "germany").replace(/engIand/gi, "england");
@@ -2945,12 +2950,16 @@ function parsePokerStarsTable(ocrText) {
         return PS_COUNTRIES.has(wl) || PS_COUNTRY_CODES.has(wl) || WSOP_UI_NOISE.has(wl);
       })) continue;
       let nameWords = [...words];
+      if (nameWords.length >= 4) {
+        const c3f = fixCountry2(nameWords.slice(0, 3).join(" "));
+        if (PS_COUNTRIES.has(c3f)) nameWords = nameWords.slice(3);
+      }
       if (nameWords.length >= 3) {
-        const c2f = nameWords.slice(0, 2).join(" ").toLowerCase().replace(/lnited/g, "united").replace(/kingdorn/g, "kingdom");
+        const c2f = fixCountry2(nameWords.slice(0, 2).join(" "));
         if (PS_COUNTRIES.has(c2f)) nameWords = nameWords.slice(2);
       }
       if (nameWords.length >= 2) {
-        const c1f = nameWords[0].toLowerCase().replace(/lnited/g, "united").replace(/engIand/gi, "england");
+        const c1f = fixCountry2(nameWords[0]);
         if (PS_COUNTRIES.has(c1f) || PS_COUNTRY_CODES.has(c1f)) nameWords = nameWords.slice(1);
       }
       if (nameWords.length >= 3) {
@@ -2961,7 +2970,10 @@ function parsePokerStarsTable(ocrText) {
         const c1 = nameWords[nameWords.length - 1].toLowerCase().replace(/lnited/g, "united").replace(/engIand/gi, "england");
         if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) nameWords = nameWords.slice(0, -1);
       }
-      nameWords = nameWords.filter((w) => w.length >= 3 || /^[A-Z][a-z]$/.test(w) === false);
+      nameWords = nameWords.filter((w) => w.length >= 3);
+      while (nameWords.length > 2 && nameWords[nameWords.length - 1].length <= 3 && !/^(Lee|Ann|Amy|Max|Ben|Dan|Ian|Joe|Jon|Kim|Leo|Luc|Mae|Mia|Pat|Ray|Rob|Roy|Sam|Tom|Zoe)$/i.test(nameWords[nameWords.length - 1])) {
+        nameWords.pop();
+      }
       if (nameWords.length === 0) nameWords = words.filter((w) => w.length >= 3);
       if (nameWords.length >= 1) {
         const name = nameWords.map(
