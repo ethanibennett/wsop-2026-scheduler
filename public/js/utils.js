@@ -284,7 +284,12 @@
     function normaliseDate(d) {
       if (!d) return '';
       if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
-      return new Date(d).toISOString().slice(0, 10);
+      var dt = new Date(d + ' 12:00:00');
+      if (isNaN(dt.getTime())) return '';
+      var y = dt.getFullYear();
+      var m = String(dt.getMonth() + 1).padStart(2, '0');
+      var day = String(dt.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
     }
 
     function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }

@@ -4846,8 +4846,8 @@ function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venu
       if (filters.hideSideEvents && t.category === "side") return false;
       return true;
     }).sort((a, b) => {
-      const ta = parseDateTime(a.date, (a.time || "").replace(/\s*GMT\s*$/i, ""));
-      const tb = parseDateTime(b.date, (b.time || "").replace(/\s*GMT\s*$/i, ""));
+      const ta = a.venue ? parseDateTimeInTz(a.date, a.time, a.venue) : parseDateTime(a.date, (a.time || "").replace(/\s*GMT\s*$/i, ""));
+      const tb = b.venue ? parseDateTimeInTz(b.date, b.time, b.venue) : parseDateTime(b.date, (b.time || "").replace(/\s*GMT\s*$/i, ""));
       if (ta !== tb) return ta - tb;
       const na = (a.event_number || "").startsWith("SAT") ? 1e4 + parseInt((a.event_number || "").slice(4)) : parseInt(a.event_number) || 9999;
       const nb = (b.event_number || "").startsWith("SAT") ? 1e4 + parseInt((b.event_number || "").slice(4)) : parseInt(b.event_number) || 9999;
@@ -5276,15 +5276,16 @@ function ShareMenu({ trackingData, tournaments, mySchedule, myActiveUpdates, onC
   const nextEvent = useMemo(() => {
     if (!mySchedule || mySchedule.length === 0) return null;
     const now = Date.now();
+    const parseTs = /* @__PURE__ */ __name((t) => t.venue ? parseDateTimeInTz(t.date, t.time, t.venue) : parseDateTime(t.date, t.time), "parseTs");
     return [...mySchedule].filter((t) => {
       if (!t.date) return false;
-      const ts = parseDateTime(t.date, t.time);
+      const ts = parseTs(t);
       return !isNaN(ts) && ts > now;
-    }).sort((a, b) => parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time))[0] || null;
+    }).sort((a, b) => parseTs(a) - parseTs(b))[0] || null;
   }, [mySchedule]);
   const nextCountdown = useMemo(() => {
     if (!nextEvent) return null;
-    const ts = parseDateTime(nextEvent.date, nextEvent.time);
+    const ts = nextEvent.venue ? parseDateTimeInTz(nextEvent.date, nextEvent.time, nextEvent.venue) : parseDateTime(nextEvent.date, nextEvent.time);
     if (isNaN(ts)) return "—";
     const diff = ts - Date.now();
     if (diff <= 0) return "now";
@@ -6301,7 +6302,11 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
   const nextUpcomingEvent = useMemo(() => {
     if (whatsNextEvents.length > 0) return null;
     const today = todayISO;
-    return (mySchedule || []).filter((t) => normaliseDate(t.date) > today && t.venue !== "Personal" && !t.is_restart).sort((a, b) => parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time))[0] || null;
+    return (mySchedule || []).filter((t) => normaliseDate(t.date) > today && t.venue !== "Personal" && !t.is_restart).sort((a, b) => {
+      const ta = a.venue ? parseDateTimeInTz(a.date, a.time, a.venue) : parseDateTime(a.date, a.time);
+      const tb = b.venue ? parseDateTimeInTz(b.date, b.time, b.venue) : parseDateTime(b.date, b.time);
+      return ta - tb;
+    })[0] || null;
   }, [whatsNextEvents, mySchedule, todayISO]);
   function parseLevelDuration(t) {
     if (!t.level_duration) return null;
