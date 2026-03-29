@@ -2612,11 +2612,11 @@
     // Common first names for OCR correction (lowercase)
     const COMMON_FIRST_NAMES = new Set([
       'aaron','adam','adrian','alan','albert','alex','alexander','alfred',
-      'allen','andrew','angel','anthony','antonio','arthur','austin',
+      'allen','andree','andrew','angel','anthony','antonio','arthur','austin',
       'barry','ben','benjamin','bernard','bill','billy','bobby','brad',
       'bradley','brandon','brian','bruce','bryan','carl','carlos','chad',
       'charles','charlie','chris','christian','christopher','clarence',
-      'claude','clifford','cody','cole','colin','connor','corey','craig',
+      'claude','clifford','cody','cole','colin','connor','conor','conrad','corey','craig',
       'dale','dan','daniel','danny','darren','dave','david','dean','dennis',
       'derek','derrick','dino','dom','dominic','don','donald','dong','doug',
       'douglas','drew','dustin','dwight','dylan','earl','eddie','edward',
@@ -2629,16 +2629,16 @@
       'jeremy','jerome','jerry','jesse','jim','jimmy','joe','joel','john',
       'johnny','jon','jonathan','jordan','jorge','jose','joseph','josh',
       'joshua','juan','julian','justin','karl','keith','kelly','ken',
-      'kenneth','kevin','kirk','kyle','lance','larry','lawrence','lee',
+      'kenneth','kevin','kimberly','kirk','kyle','lance','larry','lawrence','lee',
       'leon','leonard','lester','lewis','liam','logan','lonnie','louis',
-      'lucas','luis','luke','marcus','mario','mark','marshall','martin',
+      'luc','lucas','luis','luke','marcus','mario','mark','marshall','martin',
       'marvin','mason','matt','matthew','maurice','max','michael','miguel',
       'mike','miles','mitchell','mohammad','morris','murray','nathan',
       'nathaniel','neil','nelson','nicholas','nick','noah','norman','oliver',
       'omar','oscar','owen','pablo','patrick','paul','pedro','perry','pete',
       'peter','phil','philip','phillip','pierre','raj','ralph','ramon',
       'randy','ray','raymond','ricardo','rich','richard','rick','ricky',
-      'rob','robert','robin','rod','rodney','roger','roland','roman','ron',
+      'rob','robert','robin','rod','rodney','rodolphe','roger','roland','roman','ron',
       'ronald','ross','roy','ruben','russell','ryan','sam','samuel','scott',
       'sean','sergio','seth','shane','shaun','shawn','simon','spencer',
       'stanley','stephen','steve','steven','stuart','ted','terry','thomas',
@@ -2877,33 +2877,183 @@
 
     // Preprocess PokerStars Live screenshot for OCR
     // Returns multiple preprocessed versions to try
+    // PS Live: dark background (#1a1a2e or similar), white/light gray text,
+    // purple highlighted row for the user, flag emojis between name and country
     function preprocessPokerStarsImage(file) {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
-          const scale = 2;
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          const ctx = canvas.getContext('2d');
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // ── Helper: create a processed canvas blob ──
+          function makeBlob(canvas) {
+            return new Promise(res => canvas.toBlob(res, 'image/png'));
+          }
 
-          // No color manipulation — Tesseract handles white-on-dark natively
-          canvas.toBlob((blob) => {
-            // Also create an inverted version as fallback
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          // ── Detect content region (crop status bar & bottom nav) ──
+          // PS Live screenshots on phones have ~5-8% status bar at top and ~8-12% nav at bottom
+          const tmpCanvas = document.createElement('canvas');
+          tmpCanvas.width = img.width;
+          tmpCanvas.height = img.height;
+          const tmpCtx = tmpCanvas.getContext('2d');
+          tmpCtx.drawImage(img, 0, 0);
+          const fullData = tmpCtx.getImageData(0, 0, img.width, img.height).data;
+
+          // Find the first and last rows that contain significant content
+          // (skip uniform dark/light bars at top and bottom)
+          let cropTop = 0, cropBottom = img.height;
+          // Scan from top: find where row brightness variance increases (content starts)
+          for (let y = 0; y < Math.floor(img.height * 0.15); y++) {
+            let rowBright = 0, rowCount = 0;
+            for (let x = 0; x < img.width; x += 4) {
+              const idx = (y * img.width + x) * 4;
+              rowBright += 0.299 * fullData[idx] + 0.587 * fullData[idx+1] + 0.114 * fullData[idx+2];
+              rowCount++;
+            }
+            const avgBright = rowBright / rowCount;
+            // Status bars are typically very dark (<30) or very bright (>220)
+            if (avgBright > 30 && avgBright < 220) { cropTop = y; break; }
+          }
+          // Scan from bottom: find where content ends
+          for (let y = img.height - 1; y > Math.floor(img.height * 0.85); y--) {
+            let rowBright = 0, rowCount = 0;
+            for (let x = 0; x < img.width; x += 4) {
+              const idx = (y * img.width + x) * 4;
+              rowBright += 0.299 * fullData[idx] + 0.587 * fullData[idx+1] + 0.114 * fullData[idx+2];
+              rowCount++;
+            }
+            const avgBright = rowBright / rowCount;
+            if (avgBright > 30 && avgBright < 220) { cropBottom = y + 1; break; }
+          }
+
+          const contentHeight = cropBottom - cropTop;
+          const contentWidth = img.width;
+          console.log('[PSPreprocess] Crop:', cropTop, 'to', cropBottom, '(content height:', contentHeight, ')');
+
+          // ── Create multiple preprocessed versions ──
+          const versions = {};
+
+          // Version 1: High-contrast binarized (inverted + thresholded)
+          // This is the primary version — converts dark bg to white, text to black
+          async function makeHighContrast(scaleFactor) {
+            const w = contentWidth * scaleFactor;
+            const h = contentHeight * scaleFactor;
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            // Draw only the content region, scaled up
+            ctx.drawImage(img, 0, cropTop, contentWidth, contentHeight, 0, 0, w, h);
+
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const d = imageData.data;
+
+            // Pass 1: Convert to grayscale and invert
+            // Special handling for purple rows: normalize them to same contrast
+            for (let i = 0; i < d.length; i += 4) {
+              const r = d[i], g = d[i+1], b = d[i+2];
+              // Detect purple/magenta pixels (highlighted row background)
+              // Purple: R>60, B>60, G<R*0.7, G<B*0.7
+              const isPurple = r > 60 && b > 60 && g < r * 0.8 && g < b * 0.8;
+              let gray;
+              if (isPurple) {
+                // For purple bg pixels, treat as dark background
+                gray = Math.min(r, g, b) * 0.3;
+              } else {
+                gray = 0.299 * r + 0.587 * g + 0.114 * b;
+              }
+              // Invert: dark bg becomes white, light text becomes dark
+              d[i] = d[i+1] = d[i+2] = 255 - gray;
+            }
+
+            // Pass 2: Aggressive binary threshold
+            // After inversion, text should be dark (low values) and bg should be bright (high values)
+            // Use Otsu-like thresholding: find a good cutoff
+            const histogram = new Array(256).fill(0);
+            for (let i = 0; i < d.length; i += 4) {
+              histogram[d[i]]++;
+            }
+            // Find Otsu threshold
+            const totalPixels = d.length / 4;
+            let sum = 0;
+            for (let i = 0; i < 256; i++) sum += i * histogram[i];
+            let sumB = 0, wB = 0, wF = 0, maxVariance = 0, threshold = 128;
+            for (let t = 0; t < 256; t++) {
+              wB += histogram[t];
+              if (wB === 0) continue;
+              wF = totalPixels - wB;
+              if (wF === 0) break;
+              sumB += t * histogram[t];
+              const mB = sumB / wB;
+              const mF = (sum - sumB) / wF;
+              const variance = wB * wF * (mB - mF) * (mB - mF);
+              if (variance > maxVariance) {
+                maxVariance = variance;
+                threshold = t;
+              }
+            }
+            // Apply threshold: make it pure black and white
+            for (let i = 0; i < d.length; i += 4) {
+              const v = d[i] < threshold ? 0 : 255;
+              d[i] = d[i+1] = d[i+2] = v;
+            }
+            ctx.putImageData(imageData, 0, 0);
+            return makeBlob(c);
+          }
+
+          // Version 2: Simple inverted grayscale (no binarization) — softer, may catch edge cases
+          async function makeInverted(scaleFactor) {
+            const w = contentWidth * scaleFactor;
+            const h = contentHeight * scaleFactor;
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, cropTop, contentWidth, contentHeight, 0, 0, w, h);
+            const imageData = ctx.getImageData(0, 0, w, h);
             const d = imageData.data;
             for (let i = 0; i < d.length; i += 4) {
-              const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+              const r = d[i], g = d[i+1], b = d[i+2];
+              const isPurple = r > 60 && b > 60 && g < r * 0.8 && g < b * 0.8;
+              let gray;
+              if (isPurple) {
+                gray = Math.min(r, g, b) * 0.3;
+              } else {
+                gray = 0.299 * r + 0.587 * g + 0.114 * b;
+              }
               d[i] = d[i+1] = d[i+2] = 255 - gray;
             }
             ctx.putImageData(imageData, 0, 0);
-            canvas.toBlob((invertedBlob) => {
-              resolve({ raw: blob, inverted: invertedBlob });
-            }, 'image/png');
-          }, 'image/png');
+            return makeBlob(c);
+          }
+
+          // Version 3: Raw (no processing) at higher scale
+          async function makeRaw(scaleFactor) {
+            const w = contentWidth * scaleFactor;
+            const h = contentHeight * scaleFactor;
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, cropTop, contentWidth, contentHeight, 0, 0, w, h);
+            return makeBlob(c);
+          }
+
+          // Generate all versions
+          Promise.all([
+            makeHighContrast(3),   // Primary: 3x scale, binarized
+            makeHighContrast(2),   // Fallback: 2x scale, binarized
+            makeInverted(3),       // Soft inverted, 3x
+            makeRaw(2),            // Raw, 2x
+          ]).then(([hc3, hc2, inv3, raw2]) => {
+            resolve({
+              highContrast3x: hc3,
+              highContrast2x: hc2,
+              inverted3x: inv3,
+              raw: raw2,
+            });
+          });
         };
         img.src = URL.createObjectURL(file);
       });
@@ -2940,20 +3090,142 @@
     ]);
 
     // Parse PokerStars Live tabular OCR text into player objects
-    // Strategy: find all seat assignments (N-N) first, then look backwards for names
+    // PS Live row format: PosNum  PlayerName  FlagEmoji Country  ChipCount  Seat(N-N)
+    // Strategy: find seat assignments (N-N) at or near end of lines, extract name from before them
     function parsePokerStarsTable(ocrText) {
       const players = [];
       const seen = new Set();
 
-      // Flatten text: collapse all whitespace, then re-split into tokens
-      // This handles OCR splitting rows across multiple lines
-      const fullText = ocrText.replace(/\n/g, '  ');
-      const lines = ocrText.split('\n').map(l => l.trim()).filter(Boolean);
+      // Clean up OCR text: remove emoji/unicode noise, normalize whitespace
+      let cleanedText = ocrText
+        .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, ' ')  // Regional indicator flags
+        .replace(/[\u{1F600}-\u{1F64F}]/gu, ' ')   // Emoticons
+        .replace(/[\u{1F300}-\u{1F5FF}]/gu, ' ')   // Symbols & pictographs
+        .replace(/[\u{1F680}-\u{1F6FF}]/gu, ' ')   // Transport & map
+        .replace(/[\u{1F900}-\u{1F9FF}]/gu, ' ')   // Supplemental symbols
+        .replace(/[\u{2600}-\u{26FF}]/gu, ' ')      // Misc symbols
+        .replace(/[\u{2700}-\u{27BF}]/gu, ' ')      // Dingbats
+        .replace(/[^\x00-\x7F]/g, ' ')              // Remove all non-ASCII
+        .replace(/\t/g, '  ')                        // Tabs to spaces
+        .replace(/  +/g, '  ');                      // Collapse multiple spaces
+
+      const fullText = cleanedText.replace(/\n/g, '  ');
+      const lines = cleanedText.split('\n').map(l => l.trim()).filter(Boolean);
 
       console.log('[PSParser] Lines:', lines.length, 'Full text length:', fullText.length);
+      console.log('[PSParser] First 500 chars:', cleanedText.substring(0, 500));
 
-      // ── Approach 1: scan each line for seat assignment pattern ──
-      // Merge consecutive lines to handle OCR splitting rows
+      // Helper: extract name from a text segment
+      function extractName(text) {
+        // Clean the text
+        let nameArea = text
+          .replace(/\$\s*[\d,]+(?:\.\d{2})?/g, ' ')  // Remove prize amounts
+          .replace(/\b\d{1,3}(?:,\d{3})+\b/g, ' ')    // Remove comma-formatted numbers (chips)
+          .replace(/\b\d{4,}\b/g, ' ')                  // Remove large numbers
+          .replace(/^\s*\d{1,3}\s+/, '')                // Remove leading position number
+          .replace(/[^A-Za-z\s'-]/g, ' ')               // Keep only letters, spaces, hyphens, apostrophes
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (!nameArea) return null;
+
+        // Split into segments by double+ spaces (OCR often puts gaps between columns)
+        const segments = nameArea.split(/\s{2,}/).filter(Boolean);
+
+        // Try each segment as a potential name
+        for (const segment of segments) {
+          const words = segment.trim().split(/\s+/).filter(w => w.length >= 2);
+          if (words.length === 0 || words.length > 5) continue;
+
+          // Check if the whole segment is a country name
+          const fullPhrase = words.join(' ').toLowerCase()
+            .replace(/lnited/g, 'united').replace(/lreland/g, 'ireland')
+            .replace(/kingdorn/g, 'kingdom').replace(/gerrnany/g, 'germany')
+            .replace(/engIand/gi, 'england');
+          if (PS_COUNTRIES.has(fullPhrase)) continue;
+
+          // Check if all words are countries or noise
+          if (words.every(w => {
+            const wl = w.toLowerCase();
+            return PS_COUNTRIES.has(wl) || PS_COUNTRY_CODES.has(wl) || WSOP_UI_NOISE.has(wl);
+          })) continue;
+
+          // Remove trailing country words
+          let nameWords = [...words];
+          // Try removing last 2 words as country
+          if (nameWords.length >= 3) {
+            const c2 = nameWords.slice(-2).join(' ').toLowerCase()
+              .replace(/lnited/g, 'united').replace(/kingdorn/g, 'kingdom');
+            if (PS_COUNTRIES.has(c2)) nameWords = nameWords.slice(0, -2);
+          }
+          // Try removing last word as country
+          if (nameWords.length >= 2) {
+            const c1 = nameWords[nameWords.length - 1].toLowerCase()
+              .replace(/lnited/g, 'united').replace(/engIand/gi, 'england');
+            if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) nameWords = nameWords.slice(0, -1);
+          }
+
+          if (nameWords.length >= 1) {
+            // Title case each word
+            const name = nameWords.map(w =>
+              w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+            ).join(' ');
+            // Must be at least 3 chars
+            if (name.length >= 3) return name;
+          }
+        }
+
+        // Fallback: try the whole text as one segment
+        const allWords = nameArea.split(/\s+/).filter(w => w.length >= 2 && !/^\d+$/.test(w));
+        // Filter out country words from the end
+        while (allWords.length > 1) {
+          const last = allWords[allWords.length - 1].toLowerCase()
+            .replace(/lnited/g, 'united').replace(/kingdorn/g, 'kingdom');
+          if (PS_COUNTRIES.has(last) || PS_COUNTRY_CODES.has(last) || WSOP_UI_NOISE.has(last)) {
+            allWords.pop();
+          } else break;
+        }
+        // Filter out country words from the beginning (unlikely but possible with OCR reordering)
+        while (allWords.length > 1) {
+          const first = allWords[0].toLowerCase();
+          if (WSOP_UI_NOISE.has(first)) {
+            allWords.shift();
+          } else break;
+        }
+
+        if (allWords.length >= 1 && allWords.length <= 4) {
+          const name = allWords.map(w =>
+            w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+          ).join(' ');
+          if (name.length >= 3) return name;
+        }
+        return null;
+      }
+
+      // Helper: extract chip count from text (prefer comma-formatted like "26,500")
+      function extractChips(text) {
+        // First try comma-formatted (most reliable): 26,500 or 120,000
+        const commaMatch = text.match(/\b(\d{1,3}(?:,\d{3})+)\b/);
+        if (commaMatch) {
+          const raw = parseInt(commaMatch[1].replace(/,/g, ''));
+          if (raw >= 1000) {
+            if (raw >= 1000000) return (raw / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            return Math.round(raw / 1000) + 'K';
+          }
+        }
+        // Try plain large number (4+ digits, not a year or position)
+        const plainMatch = text.match(/\b(\d{4,})\b/);
+        if (plainMatch) {
+          const raw = parseInt(plainMatch[1]);
+          if (raw >= 1000 && raw < 100000000) {
+            if (raw >= 1000000) return (raw / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            return Math.round(raw / 1000) + 'K';
+          }
+        }
+        return null;
+      }
+
+      // ── Approach 1: Line-based parsing — find seat patterns in each line ──
       for (let i = 0; i < lines.length; i++) {
         // Try current line alone, and also merged with next 1-2 lines
         const candidates = [lines[i]];
@@ -2961,93 +3233,54 @@
         if (i + 2 < lines.length) candidates.push(lines[i] + '  ' + lines[i + 1] + '  ' + lines[i + 2]);
 
         for (const line of candidates) {
-          // Find seat assignment: N-N pattern (table-seat)
-          const seatMatch = line.match(/\b(\d{1,3})\s*[-–—~_.,:;]\s*(\d{1,2})\b/);
-          if (!seatMatch) continue;
-
-          const tbl = parseInt(seatMatch[1]);
-          const st = parseInt(seatMatch[2]);
-          if (tbl < 1 || tbl > 999 || st < 1 || st > 10) continue;
-          const seatAssignment = tbl + '-' + st;
-
-          // Extract chip count
-          let chips = null;
-          const chipMatch = line.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
-          if (chipMatch) {
-            const rawNum = parseInt(chipMatch[1].replace(/,/g, ''));
-            if (rawNum >= 100) {
-              if (rawNum >= 1000000) chips = (rawNum / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-              else if (rawNum >= 1000) chips = Math.round(rawNum / 1000) + 'K';
-              else chips = rawNum.toString();
+          // Find ALL seat assignment patterns in this line: N-N (table-seat)
+          // Use global regex to find all matches, prefer the one nearest the end (rightmost column)
+          const seatRe = /(\d{1,2})\s*[-–—]\s*(\d{1,2})/g;
+          let seatMatch = null;
+          let lastMatch = null;
+          let m;
+          while ((m = seatRe.exec(line)) !== null) {
+            const tbl = parseInt(m[1]);
+            const st = parseInt(m[2]);
+            // Valid table 1-99, seat 1-10
+            if (tbl >= 1 && tbl <= 99 && st >= 1 && st <= 10) {
+              lastMatch = { match: m, tbl, st };
             }
           }
+          if (!lastMatch) continue;
+          seatMatch = lastMatch;
 
-          // Remove numbers, seat, chips, country, punctuation to find name
-          let nameArea = line;
-          // Remove seat match
-          nameArea = nameArea.replace(seatMatch[0], ' ');
-          // Remove chip count
-          if (chipMatch) nameArea = nameArea.replace(chipMatch[0], ' ');
-          // Remove leading position number
-          nameArea = nameArea.replace(/^\s*\d{1,3}\s+/, '');
-          // Remove prize amounts
-          nameArea = nameArea.replace(/\$\s*[\d,]+(?:\.\d{2})?/g, ' ');
-          // Remove country names/codes
-          nameArea = nameArea.replace(/\s{2,}/g, '  ');
-          const parts = nameArea.split(/\s{2,}/);
+          const seatAssignment = seatMatch.tbl + '-' + seatMatch.st;
 
-          // Find the part that looks like a name (2-4 alpha words, no digits)
-          let playerName = null;
-          for (const part of parts) {
-            const cleaned = part.replace(/[^A-Za-z\s'-]/g, '').trim();
-            const words = cleaned.split(/\s+/).filter(w => w.length >= 2);
-            if (words.length < 2 || words.length > 4) continue;
+          // Text before the seat match is where name and chips live
+          const beforeSeat = line.substring(0, seatMatch.match.index);
 
-            // Skip if the whole phrase is a country (including OCR variants)
-            const fullPhrase = words.join(' ').toLowerCase();
-            const ocrFixedPhrase = fullPhrase.replace(/lnited/g, 'united').replace(/lreland/g, 'ireland').replace(/lraq/g, 'iraq');
-            if (PS_COUNTRIES.has(fullPhrase) || PS_COUNTRIES.has(ocrFixedPhrase) ||
-                PS_COUNTRY_CODES.has(fullPhrase) || PS_COUNTRY_CODES.has(ocrFixedPhrase)) continue;
-            // Skip if all words are noise/country
-            if (words.every(w =>
-              PS_COUNTRIES.has(w.toLowerCase()) || PS_COUNTRY_CODES.has(w.toLowerCase()) ||
-              WSOP_UI_NOISE.has(w.toLowerCase())
-            )) continue;
+          // Extract chips from the text before the seat
+          const chips = extractChips(beforeSeat);
 
-            {
-              // Remove trailing country words
-              let nameWords = [...words];
-              // Try removing last 2 words as country
-              if (nameWords.length >= 4) {
-                const c2 = nameWords.slice(-2).join(' ').toLowerCase();
-                const c2f = c2.replace(/lnited/g, 'united');
-                if (PS_COUNTRIES.has(c2) || PS_COUNTRIES.has(c2f)) nameWords = nameWords.slice(0, -2);
-              }
-              // Try removing last word as country
-              if (nameWords.length >= 3) {
-                const c1 = nameWords[nameWords.length - 1].toLowerCase();
-                if (PS_COUNTRIES.has(c1) || PS_COUNTRY_CODES.has(c1)) nameWords = nameWords.slice(0, -1);
-              }
-
-              if (nameWords.length >= 2) {
-                playerName = nameWords.map(w =>
-                  w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-                ).join(' ');
-                break;
-              }
-            }
+          // Extract name from text before the seat
+          // Remove the chip count text first to avoid confusion
+          let nameText = beforeSeat;
+          if (chips) {
+            // Remove the first large number or comma-formatted number
+            nameText = nameText.replace(/\b\d{1,3}(?:,\d{3})+\b/, ' ').replace(/\b\d{4,}\b/, ' ');
           }
 
-          if (!playerName || playerName.length < 4) continue;
+          let playerName = extractName(nameText);
+          if (!playerName || playerName.length < 3) continue;
 
           // Apply OCR first-name correction
           const nw = playerName.split(/\s+/);
           if (nw.length >= 2) {
             nw[0] = ocrCorrectFirstName(nw[0]);
             playerName = nw.join(' ');
+          } else if (nw.length === 1) {
+            // Single name — try correction anyway
+            nw[0] = ocrCorrectFirstName(nw[0]);
+            playerName = nw[0];
           }
 
-          // Deduplicate by seat (one player per seat) and by name
+          // Deduplicate by seat and by name
           if (seen.has('seat:' + seatAssignment)) continue;
           if (seen.has('name:' + playerName.toLowerCase())) continue;
           seen.add('seat:' + seatAssignment);
@@ -3067,36 +3300,41 @@
         }
       }
 
-      // ── Approach 2: if approach 1 found very few, scan full text for seat patterns ──
+      // ── Approach 2: full-text scan if approach 1 found few players ──
       if (players.length < 3) {
         console.log('[PSParser] Approach 1 found only', players.length, ', trying full-text scan...');
-        // Find all N-N seat patterns in full text with surrounding context
-        const seatRe = /\b(\d{1,3})\s*[-–—]\s*(\d{1,2})\b/g;
+        const seatRe = /(\d{1,2})\s*[-–—]\s*(\d{1,2})/g;
         let m;
         while ((m = seatRe.exec(fullText)) !== null) {
           const tbl = parseInt(m[1]);
           const st = parseInt(m[2]);
-          if (tbl < 1 || tbl > 999 || st < 1 || st > 10) continue;
+          if (tbl < 1 || tbl > 99 || st < 1 || st > 10) continue;
           const seat = tbl + '-' + st;
-          if (seen.has(seat)) continue;
+          if (seen.has('seat:' + seat)) continue;
 
-          // Look at 200 chars before the seat for a name
-          const before = fullText.substring(Math.max(0, m.index - 200), m.index);
-          // Find name-like words (consecutive alpha words)
-          const nameMatches = before.match(/[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){1,3}/g);
-          if (!nameMatches) continue;
+          // Look at 300 chars before the seat for a name
+          const before = fullText.substring(Math.max(0, m.index - 300), m.index);
+
+          // Find name-like words: consecutive capitalized words (1-4 words)
+          const nameMatches = before.match(/[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{1,}){0,3}/g);
+          if (!nameMatches || nameMatches.length === 0) continue;
 
           // Take the last (closest) name match
           let playerName = nameMatches[nameMatches.length - 1].trim();
           // Remove country names from end
           const nw = playerName.split(/\s+/);
-          while (nw.length > 2 && (PS_COUNTRIES.has(nw[nw.length-1].toLowerCase()) || PS_COUNTRY_CODES.has(nw[nw.length-1].toLowerCase()))) {
+          while (nw.length > 1 && (PS_COUNTRIES.has(nw[nw.length-1].toLowerCase()) || PS_COUNTRY_CODES.has(nw[nw.length-1].toLowerCase()))) {
             nw.pop();
           }
           playerName = nw.join(' ');
-          if (nw.length < 2) continue;
+          if (nw.length < 1 || playerName.length < 3) continue;
 
-          nw[0] = ocrCorrectFirstName(nw[0]);
+          // Skip if entire result is a country
+          const fullLower = playerName.toLowerCase().replace(/lnited/g, 'united').replace(/kingdorn/g, 'kingdom');
+          if (PS_COUNTRIES.has(fullLower)) continue;
+
+          if (nw.length >= 2) nw[0] = ocrCorrectFirstName(nw[0]);
+          else nw[0] = ocrCorrectFirstName(nw[0]);
           playerName = nw.join(' ');
 
           if (seen.has('seat:' + seat)) continue;
@@ -3105,13 +3343,48 @@
           seen.add('name:' + playerName.toLowerCase());
 
           // Look for chip count near the seat
-          const nearby = fullText.substring(Math.max(0, m.index - 100), m.index + 20);
-          let chips = null;
-          const chipM = nearby.match(/\b(\d{1,3}(?:,\d{3})+|\d{4,})\b/);
-          if (chipM) {
-            const raw = parseInt(chipM[1].replace(/,/g, ''));
-            if (raw >= 1000) chips = Math.round(raw / 1000) + 'K';
+          const nearby = fullText.substring(Math.max(0, m.index - 150), m.index + 20);
+          const chips = extractChips(nearby);
+
+          players.push({
+            name: playerName, chips, seat, prize: null, country: null,
+            position: players.length + 1, px: null, py: null,
+          });
+        }
+      }
+
+      // ── Approach 3: if still very few, try looser patterns ──
+      // Sometimes OCR renders seat as "2 4" or "2.4" instead of "2-4"
+      if (players.length < 3) {
+        console.log('[PSParser] Approach 2 found only', players.length, ', trying loose patterns...');
+        // Look for patterns like "N  N" at end of lines that could be table-seat
+        for (const line of lines) {
+          // Match end-of-line pattern: digits space(s) digits where both are small
+          const looseMatch = line.match(/(\d{1,2})\s*[.\s]\s*(\d{1,2})\s*$/);
+          if (!looseMatch) continue;
+          const tbl = parseInt(looseMatch[1]);
+          const st = parseInt(looseMatch[2]);
+          if (tbl < 1 || tbl > 99 || st < 1 || st > 10) continue;
+          const seat = tbl + '-' + st;
+          if (seen.has('seat:' + seat)) continue;
+
+          const beforeSeat = line.substring(0, looseMatch.index);
+          const chips = extractChips(beforeSeat);
+          let nameText = beforeSeat;
+          if (chips) {
+            nameText = nameText.replace(/\b\d{1,3}(?:,\d{3})+\b/, ' ').replace(/\b\d{4,}\b/, ' ');
           }
+          let playerName = extractName(nameText);
+          if (!playerName || playerName.length < 3) continue;
+
+          const nw = playerName.split(/\s+/);
+          nw[0] = ocrCorrectFirstName(nw[0]);
+          playerName = nw.join(' ');
+
+          if (seen.has('seat:' + seat)) continue;
+          if (seen.has('name:' + playerName.toLowerCase())) continue;
+          seen.add('seat:' + seat);
+          seen.add('name:' + playerName.toLowerCase());
 
           players.push({
             name: playerName, chips, seat, prize: null, country: null,
@@ -3281,7 +3554,7 @@
 
           if (format === 'pokerstars') {
             // ── PokerStars Live table format ──
-            const { raw, inverted } = await preprocessPokerStarsImage(file);
+            const preprocessed = await preprocessPokerStarsImage(file);
 
             const worker = await Tesseract.createWorker('eng', 1, {
               logger: (m) => {
@@ -3289,27 +3562,46 @@
               }
             });
 
-            // Try multiple approaches: raw + inverted × SINGLE_BLOCK + AUTO
+            // Set Tesseract parameters for tabular data with names and numbers
+            await worker.setParameters({
+              // Whitelist characters we expect: letters, digits, common punctuation
+              tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -.,\'',
+            });
+
+            // Try multiple image versions × PSM modes, ordered by expected quality
+            // PSM 6 = SINGLE_BLOCK (assume uniform block of text)
+            // PSM 4 = SINGLE_COLUMN (assume single column)
+            // PSM 3 = AUTO (fully automatic page segmentation)
+            // PSM 11 = SPARSE_TEXT (find as much text as possible)
             const attempts = [
-              { blob: raw, psm: Tesseract.PSM.SINGLE_BLOCK, label: 'raw/SINGLE_BLOCK' },
-              { blob: inverted, psm: Tesseract.PSM.SINGLE_BLOCK, label: 'inverted/SINGLE_BLOCK' },
-              { blob: raw, psm: Tesseract.PSM.AUTO, label: 'raw/AUTO' },
-              { blob: inverted, psm: Tesseract.PSM.AUTO, label: 'inverted/AUTO' },
+              { blob: preprocessed.highContrast3x, psm: Tesseract.PSM.SINGLE_BLOCK, label: 'hc3x/BLOCK' },
+              { blob: preprocessed.highContrast3x, psm: 4, label: 'hc3x/COLUMN' },
+              { blob: preprocessed.highContrast2x, psm: Tesseract.PSM.SINGLE_BLOCK, label: 'hc2x/BLOCK' },
+              { blob: preprocessed.inverted3x, psm: Tesseract.PSM.SINGLE_BLOCK, label: 'inv3x/BLOCK' },
+              { blob: preprocessed.highContrast3x, psm: Tesseract.PSM.AUTO, label: 'hc3x/AUTO' },
+              { blob: preprocessed.inverted3x, psm: Tesseract.PSM.AUTO, label: 'inv3x/AUTO' },
+              { blob: preprocessed.raw, psm: Tesseract.PSM.SINGLE_BLOCK, label: 'raw/BLOCK' },
+              { blob: preprocessed.highContrast3x, psm: 11, label: 'hc3x/SPARSE' },
             ];
 
             let extracted = [];
             let data = null;
             for (const attempt of attempts) {
-              await worker.setParameters({ tessedit_pageseg_mode: attempt.psm });
-              const result = await worker.recognize(attempt.blob);
-              console.log('[TableScanner] OCR (' + attempt.label + '):', result.data.text.substring(0, 200) + '...');
-              const parsed = parsePokerStarsTable(result.data.text);
-              console.log('[TableScanner] Found ' + parsed.length + ' players with seats');
-              if (parsed.length > extracted.length) {
-                extracted = parsed;
-                data = result.data;
+              try {
+                await worker.setParameters({ tessedit_pageseg_mode: attempt.psm });
+                const result = await worker.recognize(attempt.blob);
+                console.log('[TableScanner] OCR (' + attempt.label + '):', result.data.text.substring(0, 300) + '...');
+                const parsed = parsePokerStarsTable(result.data.text);
+                console.log('[TableScanner] Found ' + parsed.length + ' players with seats');
+                if (parsed.length > extracted.length) {
+                  extracted = parsed;
+                  data = result.data;
+                }
+                // Stop early if we found a good result (at least 8 players)
+                if (extracted.length >= 8) break;
+              } catch (e) {
+                console.warn('[TableScanner] Attempt', attempt.label, 'failed:', e.message);
               }
-              if (extracted.length >= 5) break; // Good enough, stop trying
             }
             await worker.terminate();
             console.log('[TableScanner] Best result: ' + extracted.length + ' players');
