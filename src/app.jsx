@@ -3319,6 +3319,125 @@
       const fileRef = useRef(null);
       const colorRef = useRef(null);
 
+      const SCANNER_LAYOUTS = {
+        2:  [[50,4],[50,96]],
+        3:  [[50,4],[85,75],[15,75]],
+        4:  [[50,4],[98,50],[50,96],[2,50]],
+        5:  [[50,4],[98,40],[80,96],[20,96],[2,40]],
+        6:  [[30,4],[70,4],[98,50],[70,96],[30,96],[2,50]],
+        7:  [[50,4],[98,28],[98,65],[70,96],[30,96],[2,65],[2,28]],
+        8:  [[30,4],[70,4],[98,28],[98,72],[70,96],[30,96],[2,72],[2,28]],
+        9:  [[50,4],[80,10],[98,42],[98,72],[70,96],[30,96],[2,72],[2,42],[20,10]],
+        10: [[35,4],[65,4],[98,22],[98,50],[98,78],[65,96],[35,96],[2,78],[2,50],[2,22]],
+      };
+
+      function getDisplayPlayers(rawPlayers) {
+        const hasSeatData = rawPlayers.some(p => p.seat);
+        const sorted = [...rawPlayers].sort((a, b) => {
+          if (hasSeatData) {
+            const sA = a.seat ? parseInt(a.seat.split('-')[1]) || 0 : (a.position || 99);
+            const sB = b.seat ? parseInt(b.seat.split('-')[1]) || 0 : (b.position || 99);
+            return sA - sB;
+          }
+          return (a.position || 0) - (b.position || 0);
+        });
+        const n = Math.min(Math.max(sorted.length, 2), 10);
+        const heroIdx = sorted.findIndex(p => p.isHero);
+        if (heroIdx < 0) return { display: sorted, n, seats: SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9] };
+        const targetIdx = Math.floor(n / 2);
+        const delta = (heroIdx - targetIdx + n) % n;
+        const display = [...sorted.slice(delta), ...sorted.slice(0, delta)];
+        return { display, n, seats: SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9] };
+      }
+
+      function handleExport() {
+        const EW = 1200, EH = 600;
+        const canvas = document.createElement('canvas');
+        canvas.width = EW; canvas.height = EH;
+        const ctx = canvas.getContext('2d');
+        // transparent background — no fill
+
+        const cx = EW / 2, cy = EH / 2;
+        const rx = EW * 0.40, ry = EH * 0.32;
+        const RAIL = Math.round(EW * 0.012);
+
+        // Rail (same color as felt, slightly darker)
+        const hexToRgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+        const [fr,fg,fb] = hexToRgb(feltColor);
+        const darken = (v,a) => Math.max(0, Math.round(v*a));
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx + RAIL, ry + RAIL, 0, 0, 2 * Math.PI);
+        ctx.fillStyle = `rgb(${darken(fr,0.7)},${darken(fg,0.7)},${darken(fb,0.7)})`;
+        ctx.fill();
+
+        // Felt with radial gradient
+        const grad = ctx.createRadialGradient(cx, cy * 0.85, 0, cx, cy, Math.max(rx, ry));
+        grad.addColorStop(0, `rgba(${Math.min(255,fr+40)},${Math.min(255,fg+40)},${Math.min(255,fb+40)},1)`);
+        grad.addColorStop(1, feltColor);
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Player cards
+        const { display, seats } = getDisplayPlayers(players);
+        const CARD_W = 190, CARD_PAD = 10, CARD_CORNER = 8;
+
+        display.forEach((player, i) => {
+          const [px, py] = seats[i] || [50, 50];
+          const cardX_center = (px / 100) * EW;
+          const cardY_center = (py / 100) * EH;
+
+          // measure text to determine card height
+          ctx.font = '700 17px -apple-system,system-ui,sans-serif';
+          const nameLine = player.name;
+          const chipsLine = [player.chips, player.seat ? 'Seat ' + player.seat.split('-')[1] : null].filter(Boolean).join(' · ');
+          const cardH = chipsLine ? 54 : 36;
+
+          // x alignment: left edge / right edge / centered
+          let cardX = cardX_center - CARD_W / 2;
+          if (px <= 5) cardX = cardX_center;
+          else if (px >= 95) cardX = cardX_center - CARD_W;
+          const cardY = cardY_center - cardH / 2;
+
+          // card background
+          ctx.save();
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(cardX, cardY, CARD_W, cardH, CARD_CORNER);
+          } else {
+            ctx.rect(cardX, cardY, CARD_W, cardH);
+          }
+          ctx.fillStyle = 'rgba(18,22,28,0.93)';
+          ctx.fill();
+          if (player.isHero) {
+            ctx.strokeStyle = 'rgb(16,185,129)';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          // name text
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '700 17px -apple-system,system-ui,sans-serif';
+          ctx.fillText(nameLine, cardX + CARD_PAD, cardY + 20, CARD_W - CARD_PAD * 2);
+
+          // chips/seat text
+          if (chipsLine) {
+            ctx.fillStyle = 'rgba(180,190,200,0.85)';
+            ctx.font = '13px -apple-system,system-ui,sans-serif';
+            ctx.fillText(chipsLine, cardX + CARD_PAD, cardY + 40, CARD_W - CARD_PAD * 2);
+          }
+        });
+
+        canvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'table.png'; a.click();
+          URL.revokeObjectURL(url);
+        }, 'image/png');
+      }
+
       const handleFile = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -3493,59 +3612,25 @@
                 <span style={{fontWeight:600,fontSize:'0.82rem',color:'var(--text)',flex:1,minWidth:0}}>
                   {eventTitle || `${players.length} player${players.length !== 1 ? 's' : ''} found`}
                 </span>
+                <button className="table-scanner-rescan" onClick={handleExport} style={{marginRight:'8px'}}>Export</button>
                 <button className="table-scanner-rescan" onClick={() => { setState('idle'); setPlayers([]); setEventTitle(''); }}>
                   Rescan
                 </button>
               </div>
               <div className="table-scanner-oval">
-                <input ref={colorRef} type="color" value={feltColor}
-                  onChange={e => setFeltColor(e.target.value)}
-                  style={{position:'absolute',opacity:0,width:0,height:0,pointerEvents:'none'}} />
-                <button className="table-scanner-felt" title="Change felt colour"
-                  onClick={() => colorRef.current?.click()}
+                <label className="table-scanner-felt" title="Change felt colour"
                   style={{
                     background: `radial-gradient(ellipse at 50% 40%, ${feltColor}cc 0%, ${feltColor} 100%)`,
                     borderColor: feltColor,
                     cursor: 'pointer',
-                  }} />
+                    display: 'block',
+                  }}>
+                  <input type="color" value={feltColor}
+                    onChange={e => setFeltColor(e.target.value)}
+                    style={{opacity:0,position:'absolute',width:'100%',height:'100%',top:0,left:0,cursor:'pointer',border:'none',padding:0}} />
+                </label>
                 {(() => {
-                  // Sort players: use seat number if available (PokerStars Live),
-                  // otherwise sort clockwise by OCR position (WSOP+ felt)
-                  const hasSeatData = players.some(p => p.seat);
-                  const sorted = [...players].sort((a, b) => {
-                    if (hasSeatData) {
-                      // Sort by seat number within the table (second part of "table-seat")
-                      const seatA = a.seat ? parseInt(a.seat.split('-')[1]) || 0 : (a.position || 99);
-                      const seatB = b.seat ? parseInt(b.seat.split('-')[1]) || 0 : (b.position || 99);
-                      return seatA - seatB;
-                    }
-                    const angA = Math.atan2((a.px ?? 50) - 50, 50 - (a.py ?? 50));
-                    const angB = Math.atan2((b.px ?? 50) - 50, 50 - (b.py ?? 50));
-                    return (angA < 0 ? angA + 2 * Math.PI : angA) - (angB < 0 ? angB + 2 * Math.PI : angB);
-                  });
-                  const layouts = {
-                    2:  [[50,4],[50,96]],
-                    3:  [[50,4],[85,75],[15,75]],
-                    4:  [[50,4],[98,50],[50,96],[2,50]],
-                    5:  [[50,4],[98,40],[80,96],[20,96],[2,40]],
-                    6:  [[30,4],[70,4],[98,50],[70,96],[30,96],[2,50]],
-                    7:  [[50,4],[98,28],[98,65],[70,96],[30,96],[2,65],[2,28]],
-                    8:  [[30,4],[70,4],[98,28],[98,72],[70,96],[30,96],[2,72],[2,28]],
-                    9:  [[50,4],[80,10],[98,42],[98,72],[70,96],[30,96],[2,72],[2,42],[20,10]],
-                    10: [[35,4],[65,4],[98,22],[98,50],[98,78],[65,96],[35,96],[2,78],[2,50],[2,22]],
-                  };
-                  const n = Math.min(Math.max(sorted.length, 2), 10);
-                  const seats = layouts[n] || layouts[9];
-
-                  // Rotate sorted array so the hero (highlighted row) sits at the bottom seat
-                  const heroIdx = sorted.findIndex(p => p.isHero);
-                  let display = sorted;
-                  if (heroIdx >= 0) {
-                    const targetIdx = Math.floor(n / 2);
-                    const delta = (heroIdx - targetIdx + n) % n;
-                    display = [...sorted.slice(delta), ...sorted.slice(0, delta)];
-                  }
-
+                  const { display, seats } = getDisplayPlayers(players);
                   return display.map((player, i) => {
                   const pos = seats[i] || [50, 50];
                   const align = pos[0] <= 5 ? ' seat-left' : pos[0] >= 95 ? ' seat-right' : '';
