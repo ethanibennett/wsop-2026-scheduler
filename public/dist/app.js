@@ -6519,6 +6519,22 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
   const [selectedUpNextIdx, setSelectedUpNextIdx] = useState(0);
   const [connDropdownId, setConnDropdownId] = useState(null);
   const [now, setNow] = useState(getNow());
+  const [dashCurrency, setDashCurrency] = useState(() => localStorage.getItem("trackingCurrency") || "NATIVE");
+  const [dashRates, setDashRates] = useState(null);
+  const [dashRatesStale, setDashRatesStale] = useState(false);
+  useEffect(() => {
+    fetch(API_URL + "/exchange-rates").then((r) => r.json()).then((data) => {
+      setDashRates(data.rates);
+      setDashRatesStale(data.stale);
+    }).catch(() => {
+      setDashRates({ EUR: 0.91, GBP: 0.79, CAD: 1.36, AUD: 1.53, JPY: 149.5, USD: 1 });
+      setDashRatesStale(true);
+    });
+  }, []);
+  const onDashCurrencyChange = useCallback((c) => {
+    setDashCurrency(c);
+    localStorage.setItem("trackingCurrency", c);
+  }, []);
   const rebuyingRef = useRef(false);
   const [bustMenuEventId, setBustMenuEventId] = useState(null);
   const swipeRef = useRef(null);
@@ -6882,9 +6898,12 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     trackingData.forEach((entry) => {
       const t = (tournaments || []).find((x) => x.id === entry.tournament_id);
       const buyin = t ? t.buyin : 0;
+      const venueRaw = t ? t.venue : "";
       const venue = t ? getVenueInfo(t.venue).abbr : "Other";
-      const entryBuyin = buyin * (entry.num_entries || 1);
-      const entryCash = entry.cash_amount || 0;
+      const from = nativeCurrency(venueRaw);
+      const to = dashCurrency === "NATIVE" ? from : dashCurrency;
+      const entryBuyin = convertAmount(buyin * (entry.num_entries || 1), from, to, dashRates);
+      const entryCash = convertAmount(entry.cash_amount || 0, from, to, dashRates);
       invested += entryBuyin;
       cashed += entryCash;
       if (!byVenue[venue]) byVenue[venue] = { invested: 0, cashed: 0 };
@@ -6894,7 +6913,7 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     const net = cashed - invested;
     const roi = invested > 0 ? net / invested * 100 : 0;
     return { invested, cashed, net, roi, count: trackingData.length, byVenue };
-  }, [trackingData, tournaments]);
+  }, [trackingData, tournaments, dashCurrency, dashRates]);
   const [plDropdown, setPlDropdown] = useState(null);
   const activeFriends = useMemo(() => {
     if (!shareBuddies || !buddyLiveUpdates) return [];
@@ -6974,7 +6993,28 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     const stack = (lu == null ? void 0 : lu.stack) ? Number(lu.stack).toLocaleString() : null;
     const blinds = (lu == null ? void 0 : lu.bb) ? `${lu.sb ? Number(lu.sb).toLocaleString() : "?"}/${Number(lu.bb).toLocaleString()}${lu.bbAnte || lu.bb_ante ? "/" + Number(lu.bbAnte || lu.bb_ante).toLocaleString() : ""}` : null;
     return /* @__PURE__ */ React.createElement("div", { key: f.id, className: "dash-friend-chip", onClick: () => onNavigate("social") }, /* @__PURE__ */ React.createElement(Avatar, { src: f.avatar, username: f.username, size: 28 }), /* @__PURE__ */ React.createElement("div", { className: "friend-info" }, /* @__PURE__ */ React.createElement("div", { className: "friend-name" }, displayName(f)), /* @__PURE__ */ React.createElement("div", { className: "friend-event" }, (lu == null ? void 0 : lu.eventName) || "Playing"), stack && /* @__PURE__ */ React.createElement("div", { className: "friend-stack" }, stack, blinds ? ` @ ${blinds}` : "")));
-  }))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Table Scanner ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, fontSize: "0.7rem", color: "var(--text-muted)" } }, "(WSOP+ / PokerStars Live)"))), /* @__PURE__ */ React.createElement(TableScanner, null)), /* @__PURE__ */ React.createElement("div", { className: "dash-bottom-stack" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Results"), plData.count > 0 && /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, plData.count, " result", plData.count !== 1 ? "s" : "")), plData.count > 0 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-grid" }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card dash-pl-btn", onClick: () => setPlDropdown((d) => d === "buyins" ? null : "buyins") }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-value" }, formatBuyin(plData.invested)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Total Buyins ▾"), plDropdown === "buyins" && /* @__PURE__ */ React.createElement("div", { className: "dash-pl-dropdown" }, Object.entries(plData.byVenue).filter(([, v]) => v.invested > 0).sort((a, b) => b[1].invested - a[1].invested).map(([venue, v]) => /* @__PURE__ */ React.createElement("div", { key: venue, className: "dash-pl-dropdown-row" }, /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-venue" }, venue), /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-amount" }, formatBuyin(v.invested)))))), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card dash-pl-btn", onClick: () => setPlDropdown((d) => d === "cashes" ? null : "cashes") }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-value" }, formatBuyin(plData.cashed)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Cashes ▾"), plDropdown === "cashes" && /* @__PURE__ */ React.createElement("div", { className: "dash-pl-dropdown" }, Object.entries(plData.byVenue).filter(([, v]) => v.cashed > 0).sort((a, b) => b[1].cashed - a[1].cashed).map(([venue, v]) => /* @__PURE__ */ React.createElement("div", { key: venue, className: "dash-pl-dropdown-row" }, /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-venue" }, venue), /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-amount" }, formatBuyin(v.cashed)))))), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card" }, /* @__PURE__ */ React.createElement("div", { className: `dash-pl-value ${plData.net >= 0 ? "positive" : "negative"}` }, plData.net >= 0 ? "+" : "", formatBuyin(plData.net)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Net — ", plData.roi >= 0 ? "+" : "", plData.roi.toFixed(1), "% ROI")))) : /* @__PURE__ */ React.createElement("div", { className: "dash-empty", style: { padding: "12px 16px" } }, /* @__PURE__ */ React.createElement(Icon.tracking, null), /* @__PURE__ */ React.createElement("div", null, "No results logged yet"))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Connections"), allConnections.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, activeFriends.length > 0 ? `${activeFriends.length} live` : `${allConnections.length}`)), allConnections.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "dash-connections-row" }, allConnections.slice(0, 10).map((f) => /* @__PURE__ */ React.createElement(
+  }))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Table Scanner ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, fontSize: "0.7rem", color: "var(--text-muted)" } }, "(WSOP+ / PokerStars Live)"))), /* @__PURE__ */ React.createElement(TableScanner, null)), /* @__PURE__ */ React.createElement("div", { className: "dash-bottom-stack" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Results"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "6px", alignItems: "center" } }, plData.count > 0 && dashRates && /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      value: dashCurrency,
+      onChange: (e) => onDashCurrencyChange(e.target.value),
+      style: {
+        fontSize: "0.65rem",
+        padding: "2px 4px",
+        border: "1px solid var(--border)",
+        borderRadius: "5px",
+        background: "var(--surface)",
+        color: "var(--text)",
+        cursor: "pointer",
+        fontWeight: 600
+      }
+    },
+    /* @__PURE__ */ React.createElement("option", { value: "NATIVE" }, "Native"),
+    Object.keys(CURRENCY_CONFIG).map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, (CURRENCY_CONFIG[c] || {}).symbol, " ", c))
+  ), plData.count > 0 && /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, plData.count, " result", plData.count !== 1 ? "s" : ""))), plData.count > 0 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-grid" }, (() => {
+    const fmtPl = /* @__PURE__ */ __name((v) => formatCurrencyAmount(v, dashCurrency === "NATIVE" ? "USD" : dashCurrency), "fmtPl");
+    return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card dash-pl-btn", onClick: () => setPlDropdown((d) => d === "buyins" ? null : "buyins") }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-value" }, fmtPl(plData.invested)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Total Buyins ▾"), plDropdown === "buyins" && /* @__PURE__ */ React.createElement("div", { className: "dash-pl-dropdown" }, Object.entries(plData.byVenue).filter(([, v]) => v.invested > 0).sort((a, b) => b[1].invested - a[1].invested).map(([venue, v]) => /* @__PURE__ */ React.createElement("div", { key: venue, className: "dash-pl-dropdown-row" }, /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-venue" }, venue), /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-amount" }, fmtPl(v.invested)))))), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card dash-pl-btn", onClick: () => setPlDropdown((d) => d === "cashes" ? null : "cashes") }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-value" }, fmtPl(plData.cashed)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Cashes ▾"), plDropdown === "cashes" && /* @__PURE__ */ React.createElement("div", { className: "dash-pl-dropdown" }, Object.entries(plData.byVenue).filter(([, v]) => v.cashed > 0).sort((a, b) => b[1].cashed - a[1].cashed).map(([venue, v]) => /* @__PURE__ */ React.createElement("div", { key: venue, className: "dash-pl-dropdown-row" }, /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-venue" }, venue), /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-amount" }, fmtPl(v.cashed)))))), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card" }, /* @__PURE__ */ React.createElement("div", { className: `dash-pl-value ${plData.net >= 0 ? "positive" : "negative"}` }, plData.net >= 0 ? "+" : "", fmtPl(plData.net)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Net — ", plData.roi >= 0 ? "+" : "", plData.roi.toFixed(1), "% ROI")));
+  })())) : /* @__PURE__ */ React.createElement("div", { className: "dash-empty", style: { padding: "12px 16px" } }, /* @__PURE__ */ React.createElement(Icon.tracking, null), /* @__PURE__ */ React.createElement("div", null, "No results logged yet"))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Connections"), allConnections.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, activeFriends.length > 0 ? `${activeFriends.length} live` : `${allConnections.length}`)), allConnections.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "dash-connections-row" }, allConnections.slice(0, 10).map((f) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: f.id,

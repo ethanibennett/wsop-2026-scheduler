@@ -7445,6 +7445,19 @@
       const [selectedUpNextIdx, setSelectedUpNextIdx] = useState(0);
       const [connDropdownId, setConnDropdownId] = useState(null);
       const [now, setNow] = useState(getNow());
+      const [dashCurrency, setDashCurrency] = useState(() => localStorage.getItem('trackingCurrency') || 'NATIVE');
+      const [dashRates, setDashRates] = useState(null);
+      const [dashRatesStale, setDashRatesStale] = useState(false);
+      useEffect(() => {
+        fetch(API_URL + '/exchange-rates')
+          .then(r => r.json())
+          .then(data => { setDashRates(data.rates); setDashRatesStale(data.stale); })
+          .catch(() => { setDashRates({ EUR:0.91, GBP:0.79, CAD:1.36, AUD:1.53, JPY:149.5, USD:1 }); setDashRatesStale(true); });
+      }, []);
+      const onDashCurrencyChange = useCallback((c) => {
+        setDashCurrency(c);
+        localStorage.setItem('trackingCurrency', c);
+      }, []);
       const rebuyingRef = useRef(false);
       const [bustMenuEventId, setBustMenuEventId] = useState(null);
 
@@ -7974,9 +7987,12 @@
         trackingData.forEach(entry => {
           const t = (tournaments || []).find(x => x.id === entry.tournament_id);
           const buyin = t ? t.buyin : 0;
+          const venueRaw = t ? t.venue : '';
           const venue = t ? getVenueInfo(t.venue).abbr : 'Other';
-          const entryBuyin = buyin * (entry.num_entries || 1);
-          const entryCash = entry.cash_amount || 0;
+          const from = nativeCurrency(venueRaw);
+          const to = dashCurrency === 'NATIVE' ? from : dashCurrency;
+          const entryBuyin = convertAmount(buyin * (entry.num_entries || 1), from, to, dashRates);
+          const entryCash = convertAmount(entry.cash_amount || 0, from, to, dashRates);
           invested += entryBuyin;
           cashed += entryCash;
           if (!byVenue[venue]) byVenue[venue] = { invested: 0, cashed: 0 };
@@ -7986,7 +8002,7 @@
         const net = cashed - invested;
         const roi = invested > 0 ? ((net / invested) * 100) : 0;
         return { invested, cashed, net, roi, count: trackingData.length, byVenue };
-      }, [trackingData, tournaments]);
+      }, [trackingData, tournaments, dashCurrency, dashRates]);
 
       const [plDropdown, setPlDropdown] = useState(null); // 'buyins' | 'cashes' | null
 
@@ -8169,15 +8185,28 @@
           <div className="dashboard-section">
             <div className="dashboard-section-header">
               <div className="dashboard-section-title">Results</div>
-              {plData.count > 0 && (
-                <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
-              )}
+              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                {plData.count > 0 && dashRates && (
+                  <select value={dashCurrency} onChange={e => onDashCurrencyChange(e.target.value)}
+                    style={{fontSize:'0.65rem',padding:'2px 4px',border:'1px solid var(--border)',borderRadius:'5px',
+                      background:'var(--surface)',color:'var(--text)',cursor:'pointer',fontWeight:600}}>
+                    <option value="NATIVE">Native</option>
+                    {Object.keys(CURRENCY_CONFIG).map(c => (
+                      <option key={c} value={c}>{(CURRENCY_CONFIG[c]||{}).symbol} {c}</option>
+                    ))}
+                  </select>
+                )}
+                {plData.count > 0 && (
+                  <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
+                )}
+              </div>
             </div>
             {plData.count > 0 ? (
               <>
               <div className="dash-pl-grid">
+                {(() => { const fmtPl = (v) => formatCurrencyAmount(v, dashCurrency === 'NATIVE' ? 'USD' : dashCurrency); return (<>
                 <div className="dash-pl-card dash-pl-btn" onClick={() => setPlDropdown(d => d === 'buyins' ? null : 'buyins')}>
-                  <div className="dash-pl-value">{formatBuyin(plData.invested)}</div>
+                  <div className="dash-pl-value">{fmtPl(plData.invested)}</div>
                   <div className="dash-pl-label">Total Buyins ▾</div>
                   {plDropdown === 'buyins' && (
                     <div className="dash-pl-dropdown">
@@ -8187,7 +8216,7 @@
                         .map(([venue, v]) => (
                           <div key={venue} className="dash-pl-dropdown-row">
                             <span className="dash-pl-dropdown-venue">{venue}</span>
-                            <span className="dash-pl-dropdown-amount">{formatBuyin(v.invested)}</span>
+                            <span className="dash-pl-dropdown-amount">{fmtPl(v.invested)}</span>
                           </div>
                         ))
                       }
@@ -8195,7 +8224,7 @@
                   )}
                 </div>
                 <div className="dash-pl-card dash-pl-btn" onClick={() => setPlDropdown(d => d === 'cashes' ? null : 'cashes')}>
-                  <div className="dash-pl-value">{formatBuyin(plData.cashed)}</div>
+                  <div className="dash-pl-value">{fmtPl(plData.cashed)}</div>
                   <div className="dash-pl-label">Cashes ▾</div>
                   {plDropdown === 'cashes' && (
                     <div className="dash-pl-dropdown">
@@ -8205,7 +8234,7 @@
                         .map(([venue, v]) => (
                           <div key={venue} className="dash-pl-dropdown-row">
                             <span className="dash-pl-dropdown-venue">{venue}</span>
-                            <span className="dash-pl-dropdown-amount">{formatBuyin(v.cashed)}</span>
+                            <span className="dash-pl-dropdown-amount">{fmtPl(v.cashed)}</span>
                           </div>
                         ))
                       }
@@ -8214,12 +8243,13 @@
                 </div>
                 <div className="dash-pl-card">
                   <div className={`dash-pl-value ${plData.net >= 0 ? 'positive' : 'negative'}`}>
-                    {plData.net >= 0 ? '+' : ''}{formatBuyin(plData.net)}
+                    {plData.net >= 0 ? '+' : ''}{fmtPl(plData.net)}
                   </div>
                   <div className="dash-pl-label">
                     Net — {plData.roi >= 0 ? '+' : ''}{plData.roi.toFixed(1)}% ROI
                   </div>
                 </div>
+                </>); })()}
               </div>
               </>
             ) : (
