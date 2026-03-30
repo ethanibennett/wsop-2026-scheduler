@@ -2048,6 +2048,16 @@ async function initDatabase() {
         }
       }
     },
+    {
+      name: 'wynn-naming-conventions-2026-03',
+      fn: () => {
+        // Remove "Mixed " prefix from Wynn event names to match WSOP conventions
+        db.run("UPDATE tournaments SET event_name = REPLACE(event_name, 'Mixed TORSE', 'TORSE') WHERE venue = 'Wynn Las Vegas' AND event_name LIKE '%Mixed TORSE%'");
+        db.run("UPDATE tournaments SET event_name = REPLACE(event_name, 'Mixed TOE', 'TOE') WHERE venue = 'Wynn Las Vegas' AND event_name LIKE '%Mixed TOE%'");
+        db.run("UPDATE tournaments SET event_name = REPLACE(event_name, 'Mixed Wynn Mix', 'Wynn Mix') WHERE venue = 'Wynn Las Vegas' AND event_name LIKE '%Mixed Wynn Mix%'");
+        console.log('Fixed Wynn event naming conventions (removed Mixed prefix from TORSE, TOE, Wynn Mix)');
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {

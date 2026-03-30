@@ -55,7 +55,7 @@
   },
   {
     "event_number": "WYNN-3",
-    "event_name": "Mixed TORSE",
+    "event_name": "TORSE",
     "date": "May 21, 2026",
     "time": "11:00 AM",
     "buyin": 1100,
@@ -1027,7 +1027,7 @@
   },
   {
     "event_number": "WYNN-17",
-    "event_name": "Mixed TORSE",
+    "event_name": "TORSE",
     "date": "June 2, 2026",
     "time": "12:00 PM",
     "buyin": 1600,
@@ -1540,7 +1540,7 @@
   },
   {
     "event_number": "WYNN-29",
-    "event_name": "Mixed TOE",
+    "event_name": "TOE",
     "date": "June 9, 2026",
     "time": "12:00 PM",
     "buyin": 1100,
@@ -3133,7 +3133,7 @@
   },
   {
     "event_number": "WYNN-69",
-    "event_name": "Mixed Wynn Mix Championship",
+    "event_name": "Wynn Mix Championship",
     "date": "June 26, 2026",
     "time": "12:00 PM",
     "buyin": 1600,
