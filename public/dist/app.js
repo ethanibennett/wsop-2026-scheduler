@@ -3166,45 +3166,49 @@ function TableScanner() {
     const fw = feltRect.width, fh = feltRect.height;
     const feltStyle = getComputedStyle(feltEl);
     const borderW = parseFloat(feltStyle.borderWidth) || 10;
+    const pillR = fh / 2;
     const hexToRgb = /* @__PURE__ */ __name((h) => {
       const m = h.match(/\w\w/g);
       return m ? m.map((x) => parseInt(x, 16)) : [0, 0, 0];
     }, "hexToRgb");
     const [fr, fg, fb] = hexToRgb(feltColor);
-    const darken = /* @__PURE__ */ __name((v, a) => Math.max(0, Math.round(v * a)), "darken");
-    ctx.beginPath();
-    ctx.ellipse(fx + fw / 2, fy + fh / 2, fw / 2, fh / 2, 0, 0, 2 * Math.PI);
-    ctx.fillStyle = `rgb(${darken(fr, 0.55)},${darken(fg, 0.55)},${darken(fb, 0.55)})`;
+    ctx.save();
     ctx.shadowColor = "rgba(0,0,0,0.5)";
     ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 4;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(fx, fy, fw, fh, pillR);
+    else ctx.rect(fx, fy, fw, fh);
+    ctx.fillStyle = feltStyle.borderColor || feltColor;
     ctx.fill();
-    ctx.shadowBlur = 0;
-    const grad = ctx.createRadialGradient(fx + fw / 2, fy + fh * 0.4, 0, fx + fw / 2, fy + fh / 2, Math.max(fw, fh) / 2);
+    ctx.restore();
+    const ix = fx + borderW, iy = fy + borderW;
+    const iw = fw - borderW * 2, ih = fh - borderW * 2;
+    const grad = ctx.createRadialGradient(ix + iw / 2, iy + ih * 0.4, 0, ix + iw / 2, iy + ih / 2, Math.max(iw, ih) / 2);
     grad.addColorStop(0, `rgba(${Math.min(255, fr + 30)},${Math.min(255, fg + 30)},${Math.min(255, fb + 30)},0.8)`);
     grad.addColorStop(1, feltColor);
     ctx.beginPath();
-    ctx.ellipse(fx + fw / 2, fy + fh / 2, fw / 2 - borderW, fh / 2 - borderW, 0, 0, 2 * Math.PI);
+    if (ctx.roundRect) ctx.roundRect(ix, iy, iw, ih, ih / 2);
+    else ctx.rect(ix, iy, iw, ih);
     ctx.fillStyle = grad;
     ctx.fill();
+    const FONT = '"Univers Condensed",Univers,-apple-system,system-ui,sans-serif';
     seatEls.forEach((seat) => {
       const btn = seat.querySelector(".table-scanner-link");
       if (!btn) return;
       const btnRect = btn.getBoundingClientRect();
       const bx = btnRect.left - minX, by = btnRect.top - minY;
       const bw = btnRect.width, bh = btnRect.height;
-      const btnStyle = getComputedStyle(btn);
-      const isHero = btn.style.outline && btn.style.outline.includes("var(--accent)");
+      const bs = getComputedStyle(btn);
       const nameEl = seat.querySelector(".table-scanner-name-stack > span:first-child");
       const chipsEl = seat.querySelector(".table-scanner-chips");
-      const name = nameEl ? nameEl.textContent : "";
-      const chips = chipsEl ? chipsEl.textContent : "";
       ctx.save();
-      const r = 6;
       ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, r) : ctx.rect(bx, by, bw, bh);
-      ctx.fillStyle = btnStyle.backgroundColor || "rgba(30,35,44,0.95)";
+      if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 6);
+      else ctx.rect(bx, by, bw, bh);
+      ctx.fillStyle = bs.backgroundColor;
       ctx.fill();
-      ctx.strokeStyle = btnStyle.borderColor || "rgba(255,255,255,0.1)";
+      ctx.strokeStyle = bs.borderColor;
       ctx.lineWidth = 1;
       ctx.stroke();
       if (btn.style.outline && btn.style.outline.includes("accent")) {
@@ -3213,14 +3217,16 @@ function TableScanner() {
         ctx.stroke();
       }
       ctx.restore();
-      ctx.fillStyle = btnStyle.color || "#6ee7b7";
-      ctx.font = `500 ${parseFloat(btnStyle.fontSize) || 11}px -apple-system,system-ui,sans-serif`;
-      ctx.fillText(name, bx + 8, by + 14, bw - 16);
-      if (chips) {
-        const chipsStyle = chipsEl ? getComputedStyle(chipsEl) : {};
-        ctx.fillStyle = chipsStyle.color || "rgba(180,190,200,0.7)";
-        ctx.font = `400 ${parseFloat(chipsStyle.fontSize) || 9.5}px -apple-system,system-ui,sans-serif`;
-        ctx.fillText(chips, bx + 8, by + 26, bw - 16);
+      const nameSize = nameEl ? parseFloat(getComputedStyle(nameEl).fontSize) : parseFloat(bs.fontSize);
+      ctx.fillStyle = bs.color;
+      ctx.font = `500 ${nameSize}px ${FONT}`;
+      ctx.fillText((nameEl == null ? void 0 : nameEl.textContent) || "", bx + 8, by + nameSize + 2, bw - 16);
+      if (chipsEl) {
+        const cs = getComputedStyle(chipsEl);
+        const chipsSize = parseFloat(cs.fontSize);
+        ctx.fillStyle = cs.color;
+        ctx.font = `400 ${chipsSize}px ${FONT}`;
+        ctx.fillText(chipsEl.textContent, bx + 8, by + nameSize + chipsSize + 4, bw - 16);
       }
     });
     canvas.toBlob((blob) => {
