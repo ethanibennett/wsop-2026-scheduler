@@ -6570,15 +6570,19 @@ app.post('/api/scan-table', authenticateToken, scanUpload.single('image'), async
     const format = req.body?.format || 'pokerstars';
 
     const promptByFormat = {
-      pokerstars: `This is a PokerStars Live tournament seating list screenshot. Extract every player row you can see.
+      pokerstars: `This is a PokerStars Live tournament seating list. Each row has 4 columns:
+1. Position/rank number (ignore this)
+2. Player name + country flag
+3. Chip count
+4. Seat assignment in "table-seat" format (e.g. "12-5", "13-2")
 
-For each player row return:
-- name: full player name (ignore country flags/codes, ignore position numbers)
-- chips: chip count exactly as shown (e.g. "27K", "120K", "1.2M")
-- seat: seat in format "table-seat" (e.g. "2-4", "3-6")
+Extract every player row. For each return:
+- name: player name only (no country, no position number)
+- chips: chip count exactly as shown (e.g. "30,000", "51,000", "27K")
+- seat: the value from column 4 only — the "table-seat" number like "12-5" or "13-2". Do NOT use the position number from column 1.
 
-Return ONLY valid JSON — an array of objects with keys "name", "chips", "seat". No markdown, no explanation.
-Example: [{"name":"John Smith","chips":"45K","seat":"3-2"},...]`,
+Return ONLY valid JSON array with keys "name", "chips", "seat". No markdown.
+Example: [{"name":"John Smith","chips":"30,000","seat":"12-5"},{"name":"Jane Doe","chips":"51,000","seat":"12-6"}]`,
 
       wsop: `This is a WSOP+ poker tournament table screenshot showing players seated around a green felt table. Extract every visible player name label around the table.
 
