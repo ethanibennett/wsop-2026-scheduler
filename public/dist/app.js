@@ -3107,15 +3107,15 @@ function TableScanner() {
   const fileRef = useRef(null);
   const colorRef = useRef(null);
   const SCANNER_LAYOUTS = {
-    2: [[50, 4], [50, 96]],
-    3: [[50, 4], [85, 75], [15, 75]],
-    4: [[50, 4], [98, 50], [50, 96], [2, 50]],
-    5: [[50, 4], [98, 40], [80, 96], [20, 96], [2, 40]],
-    6: [[30, 4], [70, 4], [98, 50], [70, 96], [30, 96], [2, 50]],
-    7: [[50, 4], [98, 28], [98, 65], [70, 96], [30, 96], [2, 65], [2, 28]],
-    8: [[30, 4], [70, 4], [98, 28], [98, 72], [70, 96], [30, 96], [2, 72], [2, 28]],
-    9: [[50, 4], [80, 10], [98, 42], [98, 72], [70, 96], [30, 96], [2, 72], [2, 42], [20, 10]],
-    10: [[35, 4], [65, 4], [98, 22], [98, 50], [98, 78], [65, 96], [35, 96], [2, 78], [2, 50], [2, 22]]
+    2: [[50, 12], [50, 88]],
+    3: [[50, 12], [85, 75], [15, 75]],
+    4: [[50, 12], [98, 50], [50, 88], [2, 50]],
+    5: [[50, 12], [98, 40], [80, 88], [20, 88], [2, 40]],
+    6: [[30, 12], [70, 12], [98, 50], [70, 88], [30, 88], [2, 50]],
+    7: [[50, 12], [98, 28], [98, 65], [70, 88], [30, 88], [2, 65], [2, 28]],
+    8: [[30, 12], [70, 12], [98, 28], [98, 72], [70, 88], [30, 88], [2, 72], [2, 28]],
+    9: [[50, 12], [80, 16], [98, 42], [98, 72], [70, 88], [30, 88], [2, 72], [2, 42], [20, 16]],
+    10: [[35, 12], [65, 12], [98, 22], [98, 50], [98, 78], [65, 88], [35, 88], [2, 78], [2, 50], [2, 22]]
   };
   function getDisplayPlayers(rawPlayers) {
     const hasSeatData = rawPlayers.some((p) => p.seat);
@@ -3401,7 +3401,7 @@ function TableScanner() {
   })), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { marginTop: "8px" }, onClick: function() {
     setState("idle");
     setAvailableTables(null);
-  } }, "Cancel")), state === "results" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results-header" }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--text)", flex: 1, minWidth: 0 } }, eventTitle || `${players.length} player${players.length !== 1 ? "s" : ""} found`), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: handleExport, style: { marginRight: "8px" } }, "Export"), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => {
+  } }, "Cancel")), state === "results" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results-header" }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--text)", flex: 1, minWidth: 0 } }, eventTitle || `${players.length} player${players.length !== 1 ? "s" : ""} found`), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: handleExport, style: { marginRight: "8px", padding: "4px 6px" }, title: "Export as PNG" }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" }))), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => {
     setState("idle");
     setPlayers([]);
     setEventTitle("");
