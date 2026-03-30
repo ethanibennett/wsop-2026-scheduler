@@ -5034,9 +5034,30 @@
         return m;
       }, [mySchedule]);
 
+      // Hide series that have ended (2 days after their last Day 1 / flight)
+      const endedVenues = useMemo(() => {
+        const todayISO = getToday();
+        const lastDay1ByVenue = {};
+        for (const t of tournaments) {
+          if (t.is_restart || t.is_satellite) continue;
+          const d = normaliseDate(t.date);
+          if (!d) continue;
+          if (!lastDay1ByVenue[t.venue] || d > lastDay1ByVenue[t.venue]) lastDay1ByVenue[t.venue] = d;
+        }
+        const ended = new Set();
+        for (const [venue, lastDate] of Object.entries(lastDay1ByVenue)) {
+          const cutoff = new Date(lastDate + 'T00:00:00');
+          cutoff.setDate(cutoff.getDate() + 2);
+          const cutoffISO = cutoff.toISOString().slice(0, 10);
+          if (todayISO > cutoffISO) ended.add(venue);
+        }
+        return ended;
+      }, [tournaments]);
+
       const filtered = useMemo(() => {
         return tournaments
           .filter(t => {
+            if (endedVenues.has(t.venue)) return false;
             if (search) {
               const q = search.toLowerCase();
               if (!t.event_name?.toLowerCase().includes(q) &&
@@ -5704,6 +5725,25 @@
         return m;
       }, [mySchedule]);
 
+      // Hide series that have ended (2 days after their last Day 1 / flight)
+      const calEndedVenues = useMemo(() => {
+        const todayISO = getToday();
+        const lastDay1ByVenue = {};
+        for (const t of allTournaments) {
+          if (t.is_restart || t.is_satellite) continue;
+          const d = normaliseDate(t.date);
+          if (!d) continue;
+          if (!lastDay1ByVenue[t.venue] || d > lastDay1ByVenue[t.venue]) lastDay1ByVenue[t.venue] = d;
+        }
+        const ended = new Set();
+        for (const [venue, lastDate] of Object.entries(lastDay1ByVenue)) {
+          const cutoff = new Date(lastDate + 'T00:00:00');
+          cutoff.setDate(cutoff.getDate() + 2);
+          if (todayISO > cutoff.toISOString().slice(0, 10)) ended.add(venue);
+        }
+        return ended;
+      }, [allTournaments]);
+
       const selDateObj  = new Date(selectedDate + 'T12:00:00');
       const todayEvents = byDate[selectedDate] || [];
 
@@ -5711,6 +5751,7 @@
       const sortedEvents = useMemo(() => {
         return [...todayEvents]
           .filter(t => {
+            if (calEndedVenues.has(t.venue)) return false;
             if (filters.minBuyin && t.buyin < Number(filters.minBuyin)) return false;
             if (filters.maxBuyin && t.buyin > Number(filters.maxBuyin)) return false;
             if (filters.buyinRanges && filters.buyinRanges.length > 0) {
@@ -8184,8 +8225,8 @@
           {/* ── Results ── */}
           <div className="dashboard-section">
             <div className="dashboard-section-header">
-              <div className="dashboard-section-title">Results</div>
-              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+              <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                <div className="dashboard-section-title">Results</div>
                 {plData.count > 0 && dashRates && (
                   <select value={dashCurrency} onChange={e => onDashCurrencyChange(e.target.value)}
                     style={{fontSize:'0.65rem',padding:'2px 4px',border:'1px solid var(--border)',borderRadius:'5px',
@@ -8196,10 +8237,10 @@
                     ))}
                   </select>
                 )}
-                {plData.count > 0 && (
-                  <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
-                )}
               </div>
+              {plData.count > 0 && (
+                <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
+              )}
             </div>
             {plData.count > 0 ? (
               <>
