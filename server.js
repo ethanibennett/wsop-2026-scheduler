@@ -6580,9 +6580,10 @@ Extract every player row. For each return:
 - name: player name only (no country, no position number)
 - chips: chip count exactly as shown (e.g. "30,000", "51,000", "27K")
 - seat: the value from column 4 only — the "table-seat" number like "12-5" or "13-2". Do NOT use the position number from column 1.
+- isHero: true if this row is visually highlighted (different background color — typically pink or purple), false otherwise. Only one row should be isHero.
 
-Return ONLY valid JSON array with keys "name", "chips", "seat". No markdown.
-Example: [{"name":"John Smith","chips":"30,000","seat":"12-5"},{"name":"Jane Doe","chips":"51,000","seat":"12-6"}]`,
+Return ONLY valid JSON array with keys "name", "chips", "seat", "isHero". No markdown.
+Example: [{"name":"John Smith","chips":"30,000","seat":"12-5","isHero":false},{"name":"Ethan Bennett","chips":"32,700","seat":"13-7","isHero":true}]`,
 
       wsop: `This is a WSOP+ poker tournament table screenshot showing players seated around a green felt table. Extract every visible player name label around the table.
 

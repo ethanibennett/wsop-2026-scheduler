@@ -3358,6 +3358,7 @@
               name: p.name || '',
               chips: p.chips || null,
               seat: p.seat || null,
+              isHero: p.isHero || false,
               prize: null, country: null,
               position: i + 1, px: null, py: null,
             })).filter(p => p.name.length > 1);
@@ -3524,7 +3525,17 @@
                   };
                   const n = Math.min(Math.max(sorted.length, 2), 10);
                   const seats = layouts[n] || layouts[9];
-                  return sorted.map((player, i) => {
+
+                  // Rotate sorted array so the hero (highlighted row) sits at the bottom seat
+                  const heroIdx = sorted.findIndex(p => p.isHero);
+                  let display = sorted;
+                  if (heroIdx >= 0) {
+                    const targetIdx = Math.floor(n / 2);
+                    const delta = (heroIdx - targetIdx + n) % n;
+                    display = [...sorted.slice(delta), ...sorted.slice(0, delta)];
+                  }
+
+                  return display.map((player, i) => {
                   const pos = seats[i] || [50, 50];
                   const align = pos[0] <= 5 ? ' seat-left' : pos[0] >= 95 ? ' seat-right' : '';
                   // Nickname detection: real names have 2+ words, each starting capital + lowercase
@@ -3535,7 +3546,7 @@
                       style={{left: pos[0] + '%', top: pos[1] + '%'}}>
                       <button className="table-scanner-link"
                         disabled={isNickname}
-                        style={isNickname ? {cursor:'default'} : {}}
+                        style={{...(isNickname ? {cursor:'default'} : {}), ...(player.isHero ? {outline:'2px solid var(--accent)',outlineOffset:'2px'} : {})}}
                         onClick={isNickname ? undefined : () => window.open(`/api/hendon-redirect?name=${encodeURIComponent(player.name)}`, '_blank', 'noopener,noreferrer')}>
                         <span className="table-scanner-name-stack">
                           <span>{player.name}</span>
