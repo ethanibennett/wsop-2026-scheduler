@@ -3404,14 +3404,35 @@
         // Inner felt with radial gradient
         const ix = fx + borderW, iy = fy + borderW;
         const iw = fw - borderW * 2, ih = fh - borderW * 2;
+        const innerR = ih / 2;
         const grad = ctx.createRadialGradient(ix + iw/2, iy + ih*0.4, 0, ix + iw/2, iy + ih/2, Math.max(iw, ih)/2);
         grad.addColorStop(0, `rgba(${Math.min(255,fr+30)},${Math.min(255,fg+30)},${Math.min(255,fb+30)},0.8)`);
         grad.addColorStop(1, feltColor);
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(ix, iy, iw, ih, ih / 2);
+        if (ctx.roundRect) ctx.roundRect(ix, iy, iw, ih, innerR);
         else ctx.rect(ix, iy, iw, ih);
         ctx.fillStyle = grad;
         ctx.fill();
+
+        // Inset shadow (matching CSS: inset 0 2px 12px rgba(0,0,0,0.4))
+        ctx.save();
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(ix, iy, iw, ih, innerR);
+        else ctx.rect(ix, iy, iw, ih);
+        ctx.clip();
+        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 2;
+        // Draw a ring outside the clip — only the inward shadow leaks through
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(ix - 20, iy - 20, iw + 40, ih + 40, innerR + 20);
+        else ctx.rect(ix - 20, iy - 20, iw + 40, ih + 40);
+        // Cut out the inside so only the shadow edge remains
+        if (ctx.roundRect) ctx.roundRect(ix, iy, iw, ih, innerR);
+        else ctx.rect(ix, iy, iw, ih);
+        ctx.fillStyle = 'rgba(0,0,0,1)';
+        ctx.fill('evenodd');
+        ctx.restore();
 
         // ── Player cards ──
         const FONT = '"Univers Condensed",Univers,-apple-system,system-ui,sans-serif';
