@@ -3738,6 +3738,7 @@
 
     // ── Currency helper ─────────────────────────────────────────
     function currencySymbol(venue) { return (venue === 'Irish Poker Open' || venue === 'WSOP Europe') ? '€' : '$'; }
+    const EUR_TO_USD = 1.10; // approximate conversion rate
 
     function formatEventName(name) {
       if (!name) return name;
@@ -6997,7 +6998,7 @@
             <div style={{textAlign:'right',flexShrink:0}}>
               <div style={{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:'1rem',fontWeight:700}}
                 className={profit >= 0 && entry.cashed ? 'tracking-profit-pos' : 'tracking-profit-neg'}>
-                {profit >= 0 && entry.cashed ? `+${formatBuyin(profit)}` : formatBuyin(profit)}
+                {profit >= 0 && entry.cashed ? `+${formatBuyin(profit, entry.venue)}` : formatBuyin(profit, entry.venue)}
               </div>
             </div>
           </div>
@@ -7005,7 +7006,7 @@
           <div className="cal-detail-grid" style={{marginBottom:'8px'}}>
             <div className="cal-detail-item">
               <span className="cal-detail-label">Cost</span>
-              <span className="cal-detail-value">{formatBuyin(totalCost)}</span>
+              <span className="cal-detail-value">{formatBuyin(totalCost, entry.venue)}</span>
             </div>
             <div className="cal-detail-item">
               <span className="cal-detail-label">Entries</span>
@@ -7015,7 +7016,7 @@
               <React.Fragment>
                 <div className="cal-detail-item">
                   <span className="cal-detail-label">Cashed</span>
-                  <span className="cal-detail-value">{formatBuyin(entry.cash_amount)}</span>
+                  <span className="cal-detail-value">{formatBuyin(entry.cash_amount, entry.venue)}</span>
                 </div>
                 <div className="cal-detail-item">
                   <span className="cal-detail-label">Finish</span>
@@ -7064,13 +7065,20 @@
       const [pendingFormId, setPendingFormId] = useState(null);
       const [showShareMenu, setShowShareMenu] = useState(false);
       const [showWrapUp, setShowWrapUp] = useState(false);
+      const [displayCurrency, setDisplayCurrency] = useState('USD');
+
+      const hasEuroEntries = useMemo(() => trackingData.some(e => currencySymbol(e.venue) === '€'), [trackingData]);
 
       const stats = useMemo(() => {
         let totalBuyins = 0, totalCashes = 0, eventsCashed = 0;
         const poyScores = [];
         for (const e of trackingData) {
-          totalBuyins += (e.buyin || 0) * (e.num_entries || 1);
-          if (e.cashed) { totalCashes += e.cash_amount || 0; eventsCashed++; }
+          const isEuro = currencySymbol(e.venue) === '€';
+          const rate = isEuro
+            ? (displayCurrency === 'EUR' ? 1 : EUR_TO_USD)
+            : (displayCurrency === 'EUR' ? 1 / EUR_TO_USD : 1);
+          totalBuyins += (e.buyin || 0) * (e.num_entries || 1) * rate;
+          if (e.cashed) { totalCashes += (e.cash_amount || 0) * rate; eventsCashed++; }
           if (isPOYEligible(e)) {
             const pts = calculatePOYPoints(e.buyin, e.finish_place, e.total_entries, !!e.cashed, e.event_name);
             if (pts !== null) poyScores.push(pts);
@@ -7082,7 +7090,9 @@
         const totalPOY = poyScores.slice(0, 15).reduce((s, p) => s + p, 0);
         return { totalBuyins, totalCashes, profit, roi, totalEntries: trackingData.length, eventsCashed,
                  totalPOY, poyEventCount: poyScores.length, hasMoreThan15: poyScores.length > 15 };
-      }, [trackingData]);
+      }, [trackingData, displayCurrency]);
+
+      const fmtStat = (val) => (displayCurrency === 'EUR' ? '€' : '$') + Math.round(Math.abs(val)).toLocaleString();
 
       const existingEntryIds = useMemo(() => new Set(trackingData.map(e => e.tournament_id)), [trackingData]);
 
@@ -7118,19 +7128,34 @@
 
           {trackingData.length > 0 && (
             <div className="tracking-card" style={{padding:'16px',marginBottom:'12px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+                <span style={{fontSize:'0.7rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em'}}>Summary</span>
+                {hasEuroEntries && (
+                  <div style={{display:'flex',gap:'2px',background:'var(--border)',borderRadius:'6px',padding:'2px'}}>
+                    {['USD','EUR'].map(c => (
+                      <button key={c} onClick={() => setDisplayCurrency(c)}
+                        style={{fontSize:'0.68rem',padding:'2px 8px',border:'none',borderRadius:'4px',cursor:'pointer',fontWeight:600,
+                          background: displayCurrency === c ? 'var(--accent)' : 'transparent',
+                          color: displayCurrency === c ? '#fff' : 'var(--text-muted)'}}>
+                        {c === 'USD' ? '$ USD' : '€ EUR'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="tracking-stats">
                 <div className="cal-detail-item">
                   <span className="cal-detail-label">Total Buyins</span>
-                  <span className="cal-detail-value">{formatBuyin(stats.totalBuyins)}</span>
+                  <span className="cal-detail-value">{fmtStat(stats.totalBuyins)}</span>
                 </div>
                 <div className="cal-detail-item">
                   <span className="cal-detail-label">Total Cashes</span>
-                  <span className="cal-detail-value">{formatBuyin(stats.totalCashes)}</span>
+                  <span className="cal-detail-value">{fmtStat(stats.totalCashes)}</span>
                 </div>
                 <div className="cal-detail-item">
                   <span className="cal-detail-label">Profit</span>
                   <span className={`cal-detail-value ${stats.profit >= 0 ? 'tracking-profit-pos' : 'tracking-profit-neg'}`}>
-                    {stats.profit >= 0 ? '+' : ''}{formatBuyin(stats.profit)}
+                    {stats.profit >= 0 ? '+' : '-'}{fmtStat(stats.profit)}
                   </span>
                 </div>
                 <div className="cal-detail-item">
@@ -7149,6 +7174,7 @@
               <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginTop:'8px'}}>
                 {stats.totalEntries} event{stats.totalEntries !== 1 ? 's' : ''} played · {stats.eventsCashed} cash{stats.eventsCashed !== 1 ? 'es' : ''}
                 {stats.poyEventCount > 0 && <> · {stats.poyEventCount} POY event{stats.poyEventCount !== 1 ? 's' : ''}</>}
+                {hasEuroEntries && <> · converted at 1€ = {EUR_TO_USD}$</>}
               </p>
             </div>
           )}
