@@ -3315,7 +3315,9 @@
       const [error, setError] = useState('');
       const [availableTables, setAvailableTables] = useState(null); // { tableNum: [players] }
       const [allParsedPlayers, setAllParsedPlayers] = useState([]);
+      const [feltColor, setFeltColor] = useState('#1a5c2e');
       const fileRef = useRef(null);
+      const colorRef = useRef(null);
 
       const handleFile = async (e) => {
         const file = e.target.files?.[0];
@@ -3496,7 +3498,16 @@
                 </button>
               </div>
               <div className="table-scanner-oval">
-                <div className="table-scanner-felt" />
+                <input ref={colorRef} type="color" value={feltColor}
+                  onChange={e => setFeltColor(e.target.value)}
+                  style={{position:'absolute',opacity:0,width:0,height:0,pointerEvents:'none'}} />
+                <button className="table-scanner-felt" title="Change felt colour"
+                  onClick={() => colorRef.current?.click()}
+                  style={{
+                    background: `radial-gradient(ellipse at 50% 40%, ${feltColor}cc 0%, ${feltColor} 100%)`,
+                    borderColor: feltColor,
+                    cursor: 'pointer',
+                  }} />
                 {(() => {
                   // Sort players: use seat number if available (PokerStars Live),
                   // otherwise sort clockwise by OCR position (WSOP+ felt)
