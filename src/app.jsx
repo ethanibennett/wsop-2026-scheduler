@@ -3468,7 +3468,7 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const feltCx = fx + fw / 2, feltBottom = fy + fh;
-        ctx.fillText('futurega.me', feltCx, feltBottom - fh * 0.15);
+        ctx.fillText('futurega.me', feltCx, feltBottom - fh * 0.18);
         ctx.restore();
 
         canvas.toBlob(blob => {
