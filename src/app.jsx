@@ -3355,26 +3355,112 @@
         const el = ovalRef.current;
         if (!el) return;
 
-        // Load html2canvas on demand
-        const doExport = (h2c) => {
-          h2c(el, { backgroundColor: null, scale: 2, useCORS: true }).then(canvas => {
-            canvas.toBlob(blob => {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url; a.download = 'table.png'; a.click();
-              URL.revokeObjectURL(url);
-            }, 'image/png');
-          });
-        };
+        // Measure actual bounds including overflowing seats
+        const ovalRect = el.getBoundingClientRect();
+        const seatEls = el.querySelectorAll('.table-scanner-seat');
+        let minX = ovalRect.left, minY = ovalRect.top, maxX = ovalRect.right, maxY = ovalRect.bottom;
+        seatEls.forEach(s => {
+          const r = s.getBoundingClientRect();
+          if (r.left < minX) minX = r.left;
+          if (r.top < minY) minY = r.top;
+          if (r.right > maxX) maxX = r.right;
+          if (r.bottom > maxY) maxY = r.bottom;
+        });
+        // Add padding
+        minX -= 8; minY -= 8; maxX += 8; maxY += 8;
 
-        if (window.html2canvas) {
-          doExport(window.html2canvas);
-        } else {
-          const s = document.createElement('script');
-          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-          s.onload = () => doExport(window.html2canvas);
-          document.head.appendChild(s);
-        }
+        const W = maxX - minX, H = maxY - minY;
+        const SCALE = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(W * SCALE);
+        canvas.height = Math.round(H * SCALE);
+        const ctx = canvas.getContext('2d');
+        ctx.scale(SCALE, SCALE);
+
+        // Draw felt ellipse
+        const feltEl = el.querySelector('.table-scanner-felt');
+        const feltRect = feltEl.getBoundingClientRect();
+        const fx = feltRect.left - minX, fy = feltRect.top - minY;
+        const fw = feltRect.width, fh = feltRect.height;
+        const feltStyle = getComputedStyle(feltEl);
+        const borderW = parseFloat(feltStyle.borderWidth) || 10;
+
+        // Rail (border)
+        const hexToRgb = h => { const m = h.match(/\w\w/g); return m ? m.map(x => parseInt(x, 16)) : [0,0,0]; };
+        const [fr,fg,fb] = hexToRgb(feltColor);
+        const darken = (v, a) => Math.max(0, Math.round(v * a));
+        ctx.beginPath();
+        ctx.ellipse(fx + fw/2, fy + fh/2, fw/2, fh/2, 0, 0, 2*Math.PI);
+        ctx.fillStyle = `rgb(${darken(fr,0.55)},${darken(fg,0.55)},${darken(fb,0.55)})`;
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 24;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Felt inner
+        const grad = ctx.createRadialGradient(fx+fw/2, fy+fh*0.4, 0, fx+fw/2, fy+fh/2, Math.max(fw,fh)/2);
+        grad.addColorStop(0, `rgba(${Math.min(255,fr+30)},${Math.min(255,fg+30)},${Math.min(255,fb+30)},0.8)`);
+        grad.addColorStop(1, feltColor);
+        ctx.beginPath();
+        ctx.ellipse(fx + fw/2, fy + fh/2, fw/2 - borderW, fh/2 - borderW, 0, 0, 2*Math.PI);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Draw each seat card by reading from DOM
+        seatEls.forEach(seat => {
+          const btn = seat.querySelector('.table-scanner-link');
+          if (!btn) return;
+          const btnRect = btn.getBoundingClientRect();
+          const bx = btnRect.left - minX, by = btnRect.top - minY;
+          const bw = btnRect.width, bh = btnRect.height;
+
+          const btnStyle = getComputedStyle(btn);
+          const isHero = btn.style.outline && btn.style.outline.includes('var(--accent)');
+          const nameEl = seat.querySelector('.table-scanner-name-stack > span:first-child');
+          const chipsEl = seat.querySelector('.table-scanner-chips');
+          const name = nameEl ? nameEl.textContent : '';
+          const chips = chipsEl ? chipsEl.textContent : '';
+
+          // Card bg
+          ctx.save();
+          const r = 6;
+          ctx.beginPath();
+          ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, r) : ctx.rect(bx, by, bw, bh);
+          // Read actual computed bg color
+          ctx.fillStyle = btnStyle.backgroundColor || 'rgba(30,35,44,0.95)';
+          ctx.fill();
+          // Border
+          ctx.strokeStyle = btnStyle.borderColor || 'rgba(255,255,255,0.1)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          // Hero outline
+          if (btn.style.outline && btn.style.outline.includes('accent')) {
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#10b981';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          // Name text
+          ctx.fillStyle = btnStyle.color || '#6ee7b7';
+          ctx.font = `500 ${parseFloat(btnStyle.fontSize) || 11}px -apple-system,system-ui,sans-serif`;
+          ctx.fillText(name, bx + 8, by + 14, bw - 16);
+
+          // Chips text
+          if (chips) {
+            const chipsStyle = chipsEl ? getComputedStyle(chipsEl) : {};
+            ctx.fillStyle = chipsStyle.color || 'rgba(180,190,200,0.7)';
+            ctx.font = `400 ${parseFloat(chipsStyle.fontSize) || 9.5}px -apple-system,system-ui,sans-serif`;
+            ctx.fillText(chips, bx + 8, by + 26, bw - 16);
+          }
+        });
+
+        canvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'table.png'; a.click();
+          URL.revokeObjectURL(url);
+        }, 'image/png');
       }
 
       const handleFile = async (e) => {
