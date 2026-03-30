@@ -3102,7 +3102,110 @@ function TableScanner() {
   const [error, setError] = useState("");
   const [availableTables, setAvailableTables] = useState(null);
   const [allParsedPlayers, setAllParsedPlayers] = useState([]);
+  const [feltColor, setFeltColor] = useState("#1a5c2e");
   const fileRef = useRef(null);
+  const colorRef = useRef(null);
+  const SCANNER_LAYOUTS = {
+    2: [[50, 4], [50, 96]],
+    3: [[50, 4], [85, 75], [15, 75]],
+    4: [[50, 4], [98, 50], [50, 96], [2, 50]],
+    5: [[50, 4], [98, 40], [80, 96], [20, 96], [2, 40]],
+    6: [[30, 4], [70, 4], [98, 50], [70, 96], [30, 96], [2, 50]],
+    7: [[50, 4], [98, 28], [98, 65], [70, 96], [30, 96], [2, 65], [2, 28]],
+    8: [[30, 4], [70, 4], [98, 28], [98, 72], [70, 96], [30, 96], [2, 72], [2, 28]],
+    9: [[50, 4], [80, 10], [98, 42], [98, 72], [70, 96], [30, 96], [2, 72], [2, 42], [20, 10]],
+    10: [[35, 4], [65, 4], [98, 22], [98, 50], [98, 78], [65, 96], [35, 96], [2, 78], [2, 50], [2, 22]]
+  };
+  function getDisplayPlayers(rawPlayers) {
+    const hasSeatData = rawPlayers.some((p) => p.seat);
+    const sorted = [...rawPlayers].sort((a, b) => {
+      if (hasSeatData) {
+        const sA = a.seat ? parseInt(a.seat.split("-")[1]) || 0 : a.position || 99;
+        const sB = b.seat ? parseInt(b.seat.split("-")[1]) || 0 : b.position || 99;
+        return sA - sB;
+      }
+      return (a.position || 0) - (b.position || 0);
+    });
+    const n = Math.min(Math.max(sorted.length, 2), 10);
+    const heroIdx = sorted.findIndex((p) => p.isHero);
+    if (heroIdx < 0) return { display: sorted, n, seats: SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9] };
+    const targetIdx = Math.floor(n / 2);
+    const delta = (heroIdx - targetIdx + n) % n;
+    const display = [...sorted.slice(delta), ...sorted.slice(0, delta)];
+    return { display, n, seats: SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9] };
+  }
+  __name(getDisplayPlayers, "getDisplayPlayers");
+  function handleExport() {
+    const EW = 1200, EH = 600;
+    const canvas = document.createElement("canvas");
+    canvas.width = EW;
+    canvas.height = EH;
+    const ctx = canvas.getContext("2d");
+    const cx = EW / 2, cy = EH / 2;
+    const rx = EW * 0.4, ry = EH * 0.32;
+    const RAIL = Math.round(EW * 0.012);
+    const hexToRgb = /* @__PURE__ */ __name((h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)], "hexToRgb");
+    const [fr, fg, fb] = hexToRgb(feltColor);
+    const darken = /* @__PURE__ */ __name((v, a) => Math.max(0, Math.round(v * a)), "darken");
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx + RAIL, ry + RAIL, 0, 0, 2 * Math.PI);
+    ctx.fillStyle = `rgb(${darken(fr, 0.7)},${darken(fg, 0.7)},${darken(fb, 0.7)})`;
+    ctx.fill();
+    const grad = ctx.createRadialGradient(cx, cy * 0.85, 0, cx, cy, Math.max(rx, ry));
+    grad.addColorStop(0, `rgba(${Math.min(255, fr + 40)},${Math.min(255, fg + 40)},${Math.min(255, fb + 40)},1)`);
+    grad.addColorStop(1, feltColor);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    const { display, seats } = getDisplayPlayers(players);
+    const CARD_W = 190, CARD_PAD = 10, CARD_CORNER = 8;
+    display.forEach((player, i) => {
+      const [px, py] = seats[i] || [50, 50];
+      const cardX_center = px / 100 * EW;
+      const cardY_center = py / 100 * EH;
+      ctx.font = "700 17px -apple-system,system-ui,sans-serif";
+      const nameLine = player.name;
+      const chipsLine = [player.chips, player.seat ? "Seat " + player.seat.split("-")[1] : null].filter(Boolean).join(" · ");
+      const cardH = chipsLine ? 54 : 36;
+      let cardX = cardX_center - CARD_W / 2;
+      if (px <= 5) cardX = cardX_center;
+      else if (px >= 95) cardX = cardX_center - CARD_W;
+      const cardY = cardY_center - cardH / 2;
+      ctx.save();
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(cardX, cardY, CARD_W, cardH, CARD_CORNER);
+      } else {
+        ctx.rect(cardX, cardY, CARD_W, cardH);
+      }
+      ctx.fillStyle = "rgba(18,22,28,0.93)";
+      ctx.fill();
+      if (player.isHero) {
+        ctx.strokeStyle = "rgb(16,185,129)";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 17px -apple-system,system-ui,sans-serif";
+      ctx.fillText(nameLine, cardX + CARD_PAD, cardY + 20, CARD_W - CARD_PAD * 2);
+      if (chipsLine) {
+        ctx.fillStyle = "rgba(180,190,200,0.85)";
+        ctx.font = "13px -apple-system,system-ui,sans-serif";
+        ctx.fillText(chipsLine, cardX + CARD_PAD, cardY + 40, CARD_W - CARD_PAD * 2);
+      }
+    });
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "table.png";
+      a.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  }
+  __name(handleExport, "handleExport");
   const handleFile = /* @__PURE__ */ __name(async (e) => {
     var _a;
     const file = (_a = e.target.files) == null ? void 0 : _a[0];
@@ -3142,6 +3245,7 @@ function TableScanner() {
           name: p.name || "",
           chips: p.chips || null,
           seat: p.seat || null,
+          isHero: p.isHero || false,
           prize: null,
           country: null,
           position: i + 1,
@@ -3255,37 +3359,34 @@ function TableScanner() {
   })), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { marginTop: "8px" }, onClick: function() {
     setState("idle");
     setAvailableTables(null);
-  } }, "Cancel")), state === "results" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results-header" }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--text)", flex: 1, minWidth: 0 } }, eventTitle || `${players.length} player${players.length !== 1 ? "s" : ""} found`), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => {
+  } }, "Cancel")), state === "results" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results-header" }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--text)", flex: 1, minWidth: 0 } }, eventTitle || `${players.length} player${players.length !== 1 ? "s" : ""} found`), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: handleExport, style: { marginRight: "8px" } }, "Export"), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => {
     setState("idle");
     setPlayers([]);
     setEventTitle("");
-  } }, "Rescan")), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-oval" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-felt" }), (() => {
-    const hasSeatData = players.some((p) => p.seat);
-    const sorted = [...players].sort((a, b) => {
-      var _a, _b, _c, _d;
-      if (hasSeatData) {
-        const seatA = a.seat ? parseInt(a.seat.split("-")[1]) || 0 : a.position || 99;
-        const seatB = b.seat ? parseInt(b.seat.split("-")[1]) || 0 : b.position || 99;
-        return seatA - seatB;
+  } }, "Rescan")), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-oval" }, /* @__PURE__ */ React.createElement(
+    "label",
+    {
+      className: "table-scanner-felt",
+      title: "Change felt colour",
+      style: {
+        background: `radial-gradient(ellipse at 50% 40%, ${feltColor}cc 0%, ${feltColor} 100%)`,
+        borderColor: feltColor,
+        cursor: "pointer",
+        display: "block"
       }
-      const angA = Math.atan2(((_a = a.px) != null ? _a : 50) - 50, 50 - ((_b = a.py) != null ? _b : 50));
-      const angB = Math.atan2(((_c = b.px) != null ? _c : 50) - 50, 50 - ((_d = b.py) != null ? _d : 50));
-      return (angA < 0 ? angA + 2 * Math.PI : angA) - (angB < 0 ? angB + 2 * Math.PI : angB);
-    });
-    const layouts = {
-      2: [[50, 4], [50, 96]],
-      3: [[50, 4], [85, 75], [15, 75]],
-      4: [[50, 4], [98, 50], [50, 96], [2, 50]],
-      5: [[50, 4], [98, 40], [80, 96], [20, 96], [2, 40]],
-      6: [[30, 4], [70, 4], [98, 50], [70, 96], [30, 96], [2, 50]],
-      7: [[50, 4], [98, 28], [98, 65], [70, 96], [30, 96], [2, 65], [2, 28]],
-      8: [[30, 4], [70, 4], [98, 28], [98, 72], [70, 96], [30, 96], [2, 72], [2, 28]],
-      9: [[50, 4], [80, 10], [98, 42], [98, 72], [70, 96], [30, 96], [2, 72], [2, 42], [20, 10]],
-      10: [[35, 4], [65, 4], [98, 22], [98, 50], [98, 78], [65, 96], [35, 96], [2, 78], [2, 50], [2, 22]]
-    };
-    const n = Math.min(Math.max(sorted.length, 2), 10);
-    const seats = layouts[n] || layouts[9];
-    return sorted.map((player, i) => {
+    },
+    /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "color",
+        value: feltColor,
+        onChange: (e) => setFeltColor(e.target.value),
+        style: { opacity: 0, position: "absolute", width: "100%", height: "100%", top: 0, left: 0, cursor: "pointer", border: "none", padding: 0 }
+      }
+    )
+  ), (() => {
+    const { display, seats } = getDisplayPlayers(players);
+    return display.map((player, i) => {
       const pos = seats[i] || [50, 50];
       const align = pos[0] <= 5 ? " seat-left" : pos[0] >= 95 ? " seat-right" : "";
       const words = player.name.trim().split(/\s+/);
@@ -3302,7 +3403,7 @@ function TableScanner() {
           {
             className: "table-scanner-link",
             disabled: isNickname,
-            style: isNickname ? { cursor: "default" } : {},
+            style: __spreadValues(__spreadValues({}, isNickname ? { cursor: "default" } : {}), player.isHero ? { outline: "2px solid var(--accent)", outlineOffset: "2px" } : {}),
             onClick: isNickname ? void 0 : () => window.open(`/api/hendon-redirect?name=${encodeURIComponent(player.name)}`, "_blank", "noopener,noreferrer")
           },
           /* @__PURE__ */ React.createElement("span", { className: "table-scanner-name-stack" }, /* @__PURE__ */ React.createElement("span", null, player.name), player.chips && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips" }, player.chips, player.seat ? ` · Seat ${player.seat}` : ""), !player.chips && player.seat && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips" }, "Seat ", player.seat), player.prize && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips", style: { color: "var(--accent)" } }, player.prize)),
@@ -3461,10 +3562,49 @@ function BuddyAvatarRow({ buddies, liveUpdates, onBuddyClick }) {
   );
 }
 __name(BuddyAvatarRow, "BuddyAvatarRow");
+const VENUE_CURRENCY = { "Irish Poker Open": "EUR", "WSOP Europe": "EUR" };
+function nativeCurrency(venue) {
+  return VENUE_CURRENCY[venue] || "USD";
+}
+__name(nativeCurrency, "nativeCurrency");
+const CURRENCY_CONFIG = {
+  USD: { symbol: "$", pos: "pre", label: "US Dollar" },
+  EUR: { symbol: "€", pos: "pre", label: "Euro" },
+  GBP: { symbol: "£", pos: "pre", label: "British Pound" },
+  CAD: { symbol: "C$", pos: "pre", label: "Canadian Dollar" },
+  AUD: { symbol: "A$", pos: "pre", label: "Australian Dollar" },
+  JPY: { symbol: "¥", pos: "pre", label: "Japanese Yen" },
+  CHF: { symbol: "CHF", pos: "pre", label: "Swiss Franc" },
+  SEK: { symbol: "kr", pos: "suf", label: "Swedish Krona" },
+  DKK: { symbol: "kr", pos: "suf", label: "Danish Krone" },
+  NOK: { symbol: "kr", pos: "suf", label: "Norwegian Krone" },
+  CZK: { symbol: "Kč", pos: "suf", label: "Czech Koruna" },
+  PLN: { symbol: "zł", pos: "suf", label: "Polish Złoty" },
+  HKD: { symbol: "HK$", pos: "pre", label: "Hong Kong Dollar" },
+  SGD: { symbol: "S$", pos: "pre", label: "Singapore Dollar" },
+  BRL: { symbol: "R$", pos: "pre", label: "Brazilian Real" },
+  MXN: { symbol: "MX$", pos: "pre", label: "Mexican Peso" },
+  INR: { symbol: "₹", pos: "pre", label: "Indian Rupee" },
+  CNY: { symbol: "¥", pos: "pre", label: "Chinese Yuan" }
+};
 function currencySymbol(venue) {
-  return venue === "Irish Poker Open" || venue === "WSOP Europe" ? "€" : "$";
+  return (CURRENCY_CONFIG[nativeCurrency(venue)] || CURRENCY_CONFIG.USD).symbol;
 }
 __name(currencySymbol, "currencySymbol");
+function formatCurrencyAmount(val, currCode) {
+  if (!val && val !== 0) return "—";
+  const cfg = CURRENCY_CONFIG[currCode] || CURRENCY_CONFIG.USD;
+  const num = Math.round(Math.abs(val)).toLocaleString();
+  const sign = val < 0 ? "-" : "";
+  return cfg.pos === "suf" ? sign + num + " " + cfg.symbol : sign + cfg.symbol + num;
+}
+__name(formatCurrencyAmount, "formatCurrencyAmount");
+function convertAmount(amount, fromCurr, toCurr, rates) {
+  if (!amount || !rates || fromCurr === toCurr) return amount;
+  const inUSD = fromCurr === "USD" ? amount : amount / (rates[fromCurr] || 1);
+  return toCurr === "USD" ? inUSD : inUSD * (rates[toCurr] || 1);
+}
+__name(convertAmount, "convertAmount");
 function formatEventName(name) {
   if (!name) return name;
   var match = name.match(/^(.+?)\s*-\s*(Flight\s+\w+|Day\s+\d+|Final(?:\s+Day)?|Round\s+\d+|Quarter-?Final|Semi-?Final)$/i);
@@ -6142,7 +6282,15 @@ function TrackingEntryForm({ tournaments, mySchedule, existingEntryIds, initialV
   )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px" } }, /* @__PURE__ */ React.createElement("button", { type: "submit", className: "btn btn-primary btn-sm" }, isEdit ? "Save Changes" : "Log Result"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn btn-ghost btn-sm", onClick: onCancel }, "Cancel")));
 }
 __name(TrackingEntryForm, "TrackingEntryForm");
-function TrackingEntryRow({ entry, onEdit, onDelete, isEditing, onUpdate, onCancelEdit }) {
+function TrackingEntryRow({ entry, onEdit, onDelete, isEditing, onUpdate, onCancelEdit, displayCurrency, exchangeRates }) {
+  const from = nativeCurrency(entry.venue);
+  const to = displayCurrency === "NATIVE" ? from : displayCurrency;
+  const cv = /* @__PURE__ */ __name((val) => convertAmount(val, from, to, exchangeRates), "cv");
+  const fmt = /* @__PURE__ */ __name((val) => formatCurrencyAmount(val, to), "fmt");
+  const fmtSigned = /* @__PURE__ */ __name((val) => {
+    const c = cv(val);
+    return (c >= 0 ? "+" : "") + formatCurrencyAmount(c, to);
+  }, "fmtSigned");
   const totalCost = (entry.buyin || 0) * (entry.num_entries || 1);
   const profit = (entry.cash_amount || 0) - totalCost;
   const poyEligible = isPOYEligible(entry);
@@ -6174,8 +6322,8 @@ function TrackingEntryRow({ entry, onEdit, onDelete, isEditing, onUpdate, onCanc
       style: { fontFamily: "'Libre Baskerville',Georgia,serif", fontSize: "1rem", fontWeight: 700 },
       className: profit >= 0 && entry.cashed ? "tracking-profit-pos" : "tracking-profit-neg"
     },
-    profit >= 0 && entry.cashed ? `+${formatBuyin(profit)}` : formatBuyin(profit)
-  ))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-grid", style: { marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Cost"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, formatBuyin(totalCost))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Entries"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, entry.num_entries || 1)), entry.cashed ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Cashed"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, formatBuyin(entry.cash_amount))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Finish"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, entry.finish_place ? `${entry.finish_place}${getOrdinal(entry.finish_place)}` : "—"))) : /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Result"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value", style: { color: "var(--text-muted)" } }, "No cash")), poyEligible && /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "POY Pts"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${poyPoints > 0 ? "tracking-poy" : ""}` }, poyPoints !== null ? poyPoints.toFixed(1) : "—"))), poyEligible && !entry.total_entries && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.72rem", color: "#d97706", marginBottom: "4px" } }, "⚑ Edit to add field size for POY points"), entry.notes && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.78rem", color: "var(--text-muted)", fontStyle: "italic", marginBottom: "8px" } }, entry.notes), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: onEdit }, "Edit"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { color: "var(--accent2)" }, onClick: onDelete }, "Delete")));
+    fmtSigned(profit)
+  ))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-grid", style: { marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Cost"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, fmt(cv(totalCost)))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Entries"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, entry.num_entries || 1)), entry.cashed ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Cashed"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, fmt(cv(entry.cash_amount)))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Finish"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, entry.finish_place ? `${entry.finish_place}${getOrdinal(entry.finish_place)}` : "—"))) : /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Result"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value", style: { color: "var(--text-muted)" } }, "No cash")), poyEligible && /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "POY Pts"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${poyPoints > 0 ? "tracking-poy" : ""}` }, poyPoints !== null ? poyPoints.toFixed(1) : "—"))), poyEligible && !entry.total_entries && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.72rem", color: "#d97706", marginBottom: "4px" } }, "⚑ Edit to add field size for POY points"), entry.notes && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.78rem", color: "var(--text-muted)", fontStyle: "italic", marginBottom: "8px" } }, entry.notes), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: onEdit }, "Edit"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { color: "var(--accent2)" }, onClick: onDelete }, "Delete")));
 }
 __name(TrackingEntryRow, "TrackingEntryRow");
 function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, onDelete, myActiveUpdates }) {
@@ -6185,13 +6333,34 @@ function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, 
   const [pendingFormId, setPendingFormId] = useState(null);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showWrapUp, setShowWrapUp] = useState(false);
+  const [displayCurrency, setDisplayCurrency] = useState(
+    () => localStorage.getItem("trackingCurrency") || "NATIVE"
+  );
+  const [exchangeRates, setExchangeRates] = useState(null);
+  const [ratesStale, setRatesStale] = useState(false);
+  useEffect(() => {
+    fetch(API_URL + "/exchange-rates").then((r) => r.json()).then((data) => {
+      setExchangeRates(data.rates);
+      setRatesStale(data.stale);
+    }).catch(() => {
+      setExchangeRates({ EUR: 0.91, GBP: 0.79, CAD: 1.36, AUD: 1.53, JPY: 149.5, USD: 1 });
+      setRatesStale(true);
+    });
+  }, []);
+  const onCurrencyChange = useCallback((c) => {
+    setDisplayCurrency(c);
+    localStorage.setItem("trackingCurrency", c);
+  }, []);
   const stats = useMemo(() => {
     let totalBuyins = 0, totalCashes = 0, eventsCashed = 0;
     const poyScores = [];
     for (const e of trackingData) {
-      totalBuyins += (e.buyin || 0) * (e.num_entries || 1);
+      const from = nativeCurrency(e.venue);
+      const to = displayCurrency === "NATIVE" ? from : displayCurrency;
+      const cost = (e.buyin || 0) * (e.num_entries || 1);
+      totalBuyins += convertAmount(cost, from, to, exchangeRates);
       if (e.cashed) {
-        totalCashes += e.cash_amount || 0;
+        totalCashes += convertAmount(e.cash_amount || 0, from, to, exchangeRates);
         eventsCashed++;
       }
       if (isPOYEligible(e)) {
@@ -6214,7 +6383,11 @@ function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, 
       poyEventCount: poyScores.length,
       hasMoreThan15: poyScores.length > 15
     };
-  }, [trackingData]);
+  }, [trackingData, displayCurrency, exchangeRates]);
+  const fmtStat = /* @__PURE__ */ __name((val) => {
+    const code = displayCurrency === "NATIVE" ? "USD" : displayCurrency;
+    return formatCurrencyAmount(val, code);
+  }, "fmtStat");
   const existingEntryIds = useMemo(() => new Set(trackingData.map((e) => e.tournament_id)), [trackingData]);
   const pendingEvent = useMemo(() => {
     if (!mySchedule || mySchedule.length === 0) return null;
@@ -6228,7 +6401,25 @@ function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, 
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "section-header" }, /* @__PURE__ */ React.createElement("h2", null, "Tracking"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center" } }, trackingData.length > 0 && /* @__PURE__ */ React.createElement("button", { className: "btn-share-overlay", onClick: () => setShowShareMenu(true), title: "Share & Social" }, /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("circle", { cx: "18", cy: "5", r: "3" }), /* @__PURE__ */ React.createElement("circle", { cx: "6", cy: "12", r: "3" }), /* @__PURE__ */ React.createElement("circle", { cx: "18", cy: "19", r: "3" }), /* @__PURE__ */ React.createElement("line", { x1: "8.59", y1: "13.51", x2: "15.42", y2: "17.49" }), /* @__PURE__ */ React.createElement("line", { x1: "15.41", y1: "6.51", x2: "8.59", y2: "10.49" })), "Share"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-primary btn-sm", onClick: () => {
     setShowAddForm((f) => !f);
     setEditingId(null);
-  } }, showAddForm ? "Cancel" : "+ Log Result"))), trackingData.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "tracking-card", style: { padding: "16px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { className: "tracking-stats" }, /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Total Buyins"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, formatBuyin(stats.totalBuyins))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Total Cashes"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, formatBuyin(stats.totalCashes))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Profit"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${stats.profit >= 0 ? "tracking-profit-pos" : "tracking-profit-neg"}` }, stats.profit >= 0 ? "+" : "", formatBuyin(stats.profit))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "ROI"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${stats.roi >= 0 ? "tracking-profit-pos" : "tracking-profit-neg"}` }, stats.roi >= 0 ? "+" : "", stats.roi.toFixed(1), "%")), stats.poyEventCount > 0 && /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "POY Pts", stats.hasMoreThan15 ? " (Top 15)" : ""), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value tracking-poy" }, stats.totalPOY.toFixed(1)))), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "8px" } }, stats.totalEntries, " event", stats.totalEntries !== 1 ? "s" : "", " played · ", stats.eventsCashed, " cash", stats.eventsCashed !== 1 ? "es" : "", stats.poyEventCount > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", stats.poyEventCount, " POY event", stats.poyEventCount !== 1 ? "s" : ""))), pendingEvent && !showAddForm && pendingFormId !== pendingEvent.id && /* @__PURE__ */ React.createElement("div", { className: "tracking-card", style: { padding: "14px", marginBottom: "12px", border: "1.5px dashed var(--accent)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontFamily: "'Univers Condensed','Univers',sans-serif", letterSpacing: "0.03em" } }, pendingEvent.date, " · #", (_a = pendingEvent.event_number) == null ? void 0 : _a.replace(/^[A-Za-z]+-/, "")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.85rem", fontWeight: 600, color: "var(--text)", marginTop: "2px", fontFamily: "'Univers Condensed','Univers',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pendingEvent.event_name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" } }, "Awaiting result")), /* @__PURE__ */ React.createElement(
+  } }, showAddForm ? "Cancel" : "+ Log Result"))), trackingData.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "tracking-card", style: { padding: "16px", marginBottom: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" } }, "Summary"), exchangeRates && /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      value: displayCurrency,
+      onChange: (e) => onCurrencyChange(e.target.value),
+      style: {
+        fontSize: "0.7rem",
+        padding: "3px 6px",
+        border: "1px solid var(--border)",
+        borderRadius: "6px",
+        background: "var(--surface)",
+        color: "var(--text)",
+        cursor: "pointer",
+        fontWeight: 600
+      }
+    },
+    /* @__PURE__ */ React.createElement("option", { value: "NATIVE" }, "Native"),
+    (exchangeRates ? Object.keys(CURRENCY_CONFIG) : ["USD", "EUR"]).map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, (CURRENCY_CONFIG[c] || {}).symbol, " ", c))
+  )), /* @__PURE__ */ React.createElement("div", { className: "tracking-stats" }, /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Total Buyins"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, fmtStat(stats.totalBuyins))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Total Cashes"), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value" }, fmtStat(stats.totalCashes))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "Profit"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${stats.profit >= 0 ? "tracking-profit-pos" : "tracking-profit-neg"}` }, stats.profit >= 0 ? "+" : "-", fmtStat(stats.profit))), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "ROI"), /* @__PURE__ */ React.createElement("span", { className: `cal-detail-value ${stats.roi >= 0 ? "tracking-profit-pos" : "tracking-profit-neg"}` }, stats.roi >= 0 ? "+" : "", stats.roi.toFixed(1), "%")), stats.poyEventCount > 0 && /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item" }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, "POY Pts", stats.hasMoreThan15 ? " (Top 15)" : ""), /* @__PURE__ */ React.createElement("span", { className: "cal-detail-value tracking-poy" }, stats.totalPOY.toFixed(1)))), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "8px" } }, stats.totalEntries, " event", stats.totalEntries !== 1 ? "s" : "", " played · ", stats.eventsCashed, " cash", stats.eventsCashed !== 1 ? "es" : "", stats.poyEventCount > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", stats.poyEventCount, " POY event", stats.poyEventCount !== 1 ? "s" : ""), displayCurrency !== "NATIVE" && exchangeRates && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", ratesStale ? "fallback rates" : "live rates"))), pendingEvent && !showAddForm && pendingFormId !== pendingEvent.id && /* @__PURE__ */ React.createElement("div", { className: "tracking-card", style: { padding: "14px", marginBottom: "12px", border: "1.5px dashed var(--accent)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontFamily: "'Univers Condensed','Univers',sans-serif", letterSpacing: "0.03em" } }, pendingEvent.date, " · #", (_a = pendingEvent.event_number) == null ? void 0 : _a.replace(/^[A-Za-z]+-/, "")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.85rem", fontWeight: 600, color: "var(--text)", marginTop: "2px", fontFamily: "'Univers Condensed','Univers',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pendingEvent.event_name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" } }, "Awaiting result")), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn btn-primary btn-sm",
@@ -6276,7 +6467,9 @@ function TrackingView({ trackingData, tournaments, mySchedule, onAdd, onUpdate, 
         onUpdate(entry.id, data);
         setEditingId(null);
       },
-      onCancelEdit: () => setEditingId(null)
+      onCancelEdit: () => setEditingId(null),
+      displayCurrency,
+      exchangeRates
     }
   )), showShareMenu && /* @__PURE__ */ React.createElement(
     ShareMenu,

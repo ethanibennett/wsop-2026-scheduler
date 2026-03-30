@@ -3821,9 +3821,43 @@
       );
     }
 
-    // ── Currency helper ─────────────────────────────────────────
-    function currencySymbol(venue) { return (venue === 'Irish Poker Open' || venue === 'WSOP Europe') ? '€' : '$'; }
-    const EUR_TO_USD = 1.10; // approximate conversion rate
+    // ── Currency helpers ────────────────────────────────────────
+    const VENUE_CURRENCY = { 'Irish Poker Open': 'EUR', 'WSOP Europe': 'EUR' };
+    function nativeCurrency(venue) { return VENUE_CURRENCY[venue] || 'USD'; }
+    const CURRENCY_CONFIG = {
+      USD: { symbol: '$', pos: 'pre', label: 'US Dollar' },
+      EUR: { symbol: '€', pos: 'pre', label: 'Euro' },
+      GBP: { symbol: '£', pos: 'pre', label: 'British Pound' },
+      CAD: { symbol: 'C$', pos: 'pre', label: 'Canadian Dollar' },
+      AUD: { symbol: 'A$', pos: 'pre', label: 'Australian Dollar' },
+      JPY: { symbol: '¥', pos: 'pre', label: 'Japanese Yen' },
+      CHF: { symbol: 'CHF', pos: 'pre', label: 'Swiss Franc' },
+      SEK: { symbol: 'kr', pos: 'suf', label: 'Swedish Krona' },
+      DKK: { symbol: 'kr', pos: 'suf', label: 'Danish Krone' },
+      NOK: { symbol: 'kr', pos: 'suf', label: 'Norwegian Krone' },
+      CZK: { symbol: 'Kč', pos: 'suf', label: 'Czech Koruna' },
+      PLN: { symbol: 'zł', pos: 'suf', label: 'Polish Złoty' },
+      HKD: { symbol: 'HK$', pos: 'pre', label: 'Hong Kong Dollar' },
+      SGD: { symbol: 'S$', pos: 'pre', label: 'Singapore Dollar' },
+      BRL: { symbol: 'R$', pos: 'pre', label: 'Brazilian Real' },
+      MXN: { symbol: 'MX$', pos: 'pre', label: 'Mexican Peso' },
+      INR: { symbol: '₹', pos: 'pre', label: 'Indian Rupee' },
+      CNY: { symbol: '¥', pos: 'pre', label: 'Chinese Yuan' },
+    };
+    function currencySymbol(venue) { return (CURRENCY_CONFIG[nativeCurrency(venue)] || CURRENCY_CONFIG.USD).symbol; }
+    function formatCurrencyAmount(val, currCode) {
+      if (!val && val !== 0) return '—';
+      const cfg = CURRENCY_CONFIG[currCode] || CURRENCY_CONFIG.USD;
+      const num = Math.round(Math.abs(val)).toLocaleString();
+      const sign = val < 0 ? '-' : '';
+      return cfg.pos === 'suf' ? sign + num + ' ' + cfg.symbol : sign + cfg.symbol + num;
+    }
+    function convertAmount(amount, fromCurr, toCurr, rates) {
+      if (!amount || !rates || fromCurr === toCurr) return amount;
+      // rates are relative to USD
+      const inUSD = fromCurr === 'USD' ? amount : amount / (rates[fromCurr] || 1);
+      return toCurr === 'USD' ? inUSD : inUSD * (rates[toCurr] || 1);
+    }
 
     function formatEventName(name) {
       if (!name) return name;
@@ -7040,7 +7074,13 @@
 
     // ── Tracking Entry Row ────────────────────────────────────
 
-    function TrackingEntryRow({ entry, onEdit, onDelete, isEditing, onUpdate, onCancelEdit }) {
+    function TrackingEntryRow({ entry, onEdit, onDelete, isEditing, onUpdate, onCancelEdit, displayCurrency, exchangeRates }) {
+      const from = nativeCurrency(entry.venue);
+      const to = displayCurrency === 'NATIVE' ? from : displayCurrency;
+      const cv = (val) => convertAmount(val, from, to, exchangeRates);
+      const fmt = (val) => formatCurrencyAmount(val, to);
+      const fmtSigned = (val) => { const c = cv(val); return (c >= 0 ? '+' : '') + formatCurrencyAmount(c, to); };
+
       const totalCost = (entry.buyin || 0) * (entry.num_entries || 1);
       const profit = (entry.cash_amount || 0) - totalCost;
       const poyEligible = isPOYEligible(entry);
@@ -7083,7 +7123,7 @@
             <div style={{textAlign:'right',flexShrink:0}}>
               <div style={{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:'1rem',fontWeight:700}}
                 className={profit >= 0 && entry.cashed ? 'tracking-profit-pos' : 'tracking-profit-neg'}>
-                {profit >= 0 && entry.cashed ? `+${formatBuyin(profit, entry.venue)}` : formatBuyin(profit, entry.venue)}
+                {fmtSigned(profit)}
               </div>
             </div>
           </div>
@@ -7091,7 +7131,7 @@
           <div className="cal-detail-grid" style={{marginBottom:'8px'}}>
             <div className="cal-detail-item">
               <span className="cal-detail-label">Cost</span>
-              <span className="cal-detail-value">{formatBuyin(totalCost, entry.venue)}</span>
+              <span className="cal-detail-value">{fmt(cv(totalCost))}</span>
             </div>
             <div className="cal-detail-item">
               <span className="cal-detail-label">Entries</span>
@@ -7101,7 +7141,7 @@
               <React.Fragment>
                 <div className="cal-detail-item">
                   <span className="cal-detail-label">Cashed</span>
-                  <span className="cal-detail-value">{formatBuyin(entry.cash_amount, entry.venue)}</span>
+                  <span className="cal-detail-value">{fmt(cv(entry.cash_amount))}</span>
                 </div>
                 <div className="cal-detail-item">
                   <span className="cal-detail-label">Finish</span>
@@ -7150,20 +7190,33 @@
       const [pendingFormId, setPendingFormId] = useState(null);
       const [showShareMenu, setShowShareMenu] = useState(false);
       const [showWrapUp, setShowWrapUp] = useState(false);
-      const [displayCurrency, setDisplayCurrency] = useState('USD');
+      const [displayCurrency, setDisplayCurrency] = useState(
+        () => localStorage.getItem('trackingCurrency') || 'NATIVE'
+      );
+      const [exchangeRates, setExchangeRates] = useState(null);
+      const [ratesStale, setRatesStale] = useState(false);
 
-      const hasEuroEntries = useMemo(() => trackingData.some(e => currencySymbol(e.venue) === '€'), [trackingData]);
+      useEffect(() => {
+        fetch(API_URL + '/exchange-rates')
+          .then(r => r.json())
+          .then(data => { setExchangeRates(data.rates); setRatesStale(data.stale); })
+          .catch(() => { setExchangeRates({ EUR:0.91, GBP:0.79, CAD:1.36, AUD:1.53, JPY:149.5, USD:1 }); setRatesStale(true); });
+      }, []);
+
+      const onCurrencyChange = useCallback((c) => {
+        setDisplayCurrency(c);
+        localStorage.setItem('trackingCurrency', c);
+      }, []);
 
       const stats = useMemo(() => {
         let totalBuyins = 0, totalCashes = 0, eventsCashed = 0;
         const poyScores = [];
         for (const e of trackingData) {
-          const isEuro = currencySymbol(e.venue) === '€';
-          const rate = isEuro
-            ? (displayCurrency === 'EUR' ? 1 : EUR_TO_USD)
-            : (displayCurrency === 'EUR' ? 1 / EUR_TO_USD : 1);
-          totalBuyins += (e.buyin || 0) * (e.num_entries || 1) * rate;
-          if (e.cashed) { totalCashes += (e.cash_amount || 0) * rate; eventsCashed++; }
+          const from = nativeCurrency(e.venue);
+          const to = displayCurrency === 'NATIVE' ? from : displayCurrency;
+          const cost = (e.buyin || 0) * (e.num_entries || 1);
+          totalBuyins += convertAmount(cost, from, to, exchangeRates);
+          if (e.cashed) { totalCashes += convertAmount(e.cash_amount || 0, from, to, exchangeRates); eventsCashed++; }
           if (isPOYEligible(e)) {
             const pts = calculatePOYPoints(e.buyin, e.finish_place, e.total_entries, !!e.cashed, e.event_name);
             if (pts !== null) poyScores.push(pts);
@@ -7175,9 +7228,12 @@
         const totalPOY = poyScores.slice(0, 15).reduce((s, p) => s + p, 0);
         return { totalBuyins, totalCashes, profit, roi, totalEntries: trackingData.length, eventsCashed,
                  totalPOY, poyEventCount: poyScores.length, hasMoreThan15: poyScores.length > 15 };
-      }, [trackingData, displayCurrency]);
+      }, [trackingData, displayCurrency, exchangeRates]);
 
-      const fmtStat = (val) => (displayCurrency === 'EUR' ? '€' : '$') + Math.round(Math.abs(val)).toLocaleString();
+      const fmtStat = (val) => {
+        const code = displayCurrency === 'NATIVE' ? 'USD' : displayCurrency;
+        return formatCurrencyAmount(val, code);
+      };
 
       const existingEntryIds = useMemo(() => new Set(trackingData.map(e => e.tournament_id)), [trackingData]);
 
@@ -7215,17 +7271,15 @@
             <div className="tracking-card" style={{padding:'16px',marginBottom:'12px'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
                 <span style={{fontSize:'0.7rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em'}}>Summary</span>
-                {hasEuroEntries && (
-                  <div style={{display:'flex',gap:'2px',background:'var(--border)',borderRadius:'6px',padding:'2px'}}>
-                    {['USD','EUR'].map(c => (
-                      <button key={c} onClick={() => setDisplayCurrency(c)}
-                        style={{fontSize:'0.68rem',padding:'2px 8px',border:'none',borderRadius:'4px',cursor:'pointer',fontWeight:600,
-                          background: displayCurrency === c ? 'var(--accent)' : 'transparent',
-                          color: displayCurrency === c ? '#fff' : 'var(--text-muted)'}}>
-                        {c === 'USD' ? '$ USD' : '€ EUR'}
-                      </button>
+                {exchangeRates && (
+                  <select value={displayCurrency} onChange={e => onCurrencyChange(e.target.value)}
+                    style={{fontSize:'0.7rem',padding:'3px 6px',border:'1px solid var(--border)',borderRadius:'6px',
+                      background:'var(--surface)',color:'var(--text)',cursor:'pointer',fontWeight:600}}>
+                    <option value="NATIVE">Native</option>
+                    {(exchangeRates ? Object.keys(CURRENCY_CONFIG) : ['USD','EUR']).map(c => (
+                      <option key={c} value={c}>{(CURRENCY_CONFIG[c]||{}).symbol} {c}</option>
                     ))}
-                  </div>
+                  </select>
                 )}
               </div>
               <div className="tracking-stats">
@@ -7259,7 +7313,9 @@
               <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginTop:'8px'}}>
                 {stats.totalEntries} event{stats.totalEntries !== 1 ? 's' : ''} played · {stats.eventsCashed} cash{stats.eventsCashed !== 1 ? 'es' : ''}
                 {stats.poyEventCount > 0 && <> · {stats.poyEventCount} POY event{stats.poyEventCount !== 1 ? 's' : ''}</>}
-                {hasEuroEntries && <> · converted at 1€ = {EUR_TO_USD}$</>}
+                {displayCurrency !== 'NATIVE' && exchangeRates && (
+                  <> · {ratesStale ? 'fallback rates' : 'live rates'}</>
+                )}
               </p>
             </div>
           )}
@@ -7326,6 +7382,8 @@
                 isEditing={editingId === entry.id}
                 onUpdate={(data) => { onUpdate(entry.id, data); setEditingId(null); }}
                 onCancelEdit={() => setEditingId(null)}
+                displayCurrency={displayCurrency}
+                exchangeRates={exchangeRates}
               />
             ))
           )}

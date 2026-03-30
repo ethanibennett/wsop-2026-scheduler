@@ -33,6 +33,43 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// ── Exchange rate cache ─────────────────────────────────────
+const SUPPORTED_CURRENCIES = ['USD','EUR','GBP','CAD','AUD','JPY','CHF','SEK','DKK','NOK','CZK','PLN','HKD','SGD','BRL','MXN','INR','CNY'];
+const RATE_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+const exchangeRateCache = { rates: null, base: 'USD', fetchedAt: 0, stale: false };
+const FALLBACK_RATES = { EUR:0.91, GBP:0.79, CAD:1.36, AUD:1.53, JPY:149.5, CHF:0.88, SEK:10.3, DKK:6.8, NOK:10.5, CZK:23.1, PLN:4.0, HKD:7.8, SGD:1.34, BRL:5.0, MXN:17.2, INR:83.1, CNY:7.24, USD:1 };
+async function fetchExchangeRates() {
+  if (exchangeRateCache.rates && Date.now() - exchangeRateCache.fetchedAt < RATE_CACHE_TTL) {
+    return exchangeRateCache;
+  }
+  try {
+    const resp = await fetch('https://open.er-api.com/v6/latest/USD');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const filtered = {};
+    for (const c of SUPPORTED_CURRENCIES) {
+      if (data.rates[c]) filtered[c] = data.rates[c];
+    }
+    exchangeRateCache.rates = filtered;
+    exchangeRateCache.fetchedAt = Date.now();
+    exchangeRateCache.stale = false;
+    console.log('Exchange rates updated');
+    return exchangeRateCache;
+  } catch (e) {
+    console.log('Exchange rate fetch failed:', e.message);
+    if (exchangeRateCache.rates) {
+      exchangeRateCache.stale = true;
+      return exchangeRateCache;
+    }
+    exchangeRateCache.rates = FALLBACK_RATES;
+    exchangeRateCache.fetchedAt = 0;
+    exchangeRateCache.stale = true;
+    return exchangeRateCache;
+  }
+}
+// Pre-fetch on startup (non-blocking)
+fetchExchangeRates().catch(() => {});
+
 // ── Secrets ──────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -674,6 +711,7 @@ async function initDatabase() {
     { file: 'turning-stone-events.json', label: 'Turning Stone', check: "venue = 'Turning Stone Casino'" },
     { file: 'tch-events.json', label: 'Texas Card House', check: "venue = 'Texas Card House'" },
     { file: 'wsope-events.json', label: 'WSOP Europe', check: "venue = 'WSOP Europe'" },
+    { file: 'wynn-events.json', label: 'Wynn Summer Classic', check: "venue = 'Wynn Las Vegas'" },
   ];
   for (const seed of seedFiles) {
     try {
@@ -1974,6 +2012,40 @@ async function initDatabase() {
         db.run("UPDATE tournaments SET category = 'side' WHERE stable_id = 'WSOPC-TCH-NLH-DEEPSTACK-April 26, 2026'");
         db.run("UPDATE tournaments SET category = 'side' WHERE stable_id = 'WSOPC-TCH-NLH-DEEPSTACK-May 2, 2026'");
         console.log('Fixed TCH Deepstack categories to side');
+      }
+    },
+    {
+      name: 'wynn-summer-classic-2026-03',
+      fn: () => {
+        // Clear any old Wynn placeholder events and re-seed with full schedule
+        db.run("DELETE FROM tournaments WHERE venue = 'Wynn Las Vegas' OR venue = 'Wynn'");
+        const d = db.getRowsModified();
+        if (d > 0) console.log(`Cleared ${d} old Wynn events`);
+        // Re-seed from wynn-events.json
+        const seedPath = path.join(__dirname, 'wynn-events.json');
+        if (require('fs').existsSync(seedPath)) {
+          const rows = JSON.parse(require('fs').readFileSync(seedPath, 'utf8'));
+          for (const t of rows) {
+            db.run(
+              `INSERT INTO tournaments (event_number, event_name, date, time, buyin,
+               starting_chips, level_duration, reentry, late_reg, late_reg_end,
+               game_variant, venue, notes, category, is_satellite, target_event,
+               is_restart, parent_event, prize_pool, house_fee, opt_add_on,
+               rake_pct, rake_dollars, source_pdf, is_deepstack)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                t.event_number || '', t.event_name, t.date, t.time, t.buyin,
+                t.starting_chips, t.level_duration, t.reentry,
+                t.late_reg, t.late_reg_end, t.game_variant, t.venue,
+                t.notes, t.category, t.is_satellite || 0, t.target_event,
+                t.is_restart || 0, t.parent_event, t.prize_pool, t.house_fee,
+                t.opt_add_on, t.rake_pct, t.rake_dollars, t.source_pdf,
+                t.is_deepstack || 0
+              ]
+            );
+          }
+          console.log(`Seeded ${rows.length} Wynn Summer Classic events`);
+        }
       }
     },
   ];
@@ -4096,6 +4168,18 @@ app.put('/api/tournaments/:id/total-entries', authenticateToken, requireRegister
     console.error(error);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
+});
+
+// ── Exchange rates endpoint ─────────────────────────────────
+app.get('/api/exchange-rates', async (req, res) => {
+  const cache = await fetchExchangeRates();
+  res.json({
+    base: 'USD',
+    rates: cache.rates,
+    currencies: SUPPORTED_CURRENCIES,
+    fetchedAt: cache.fetchedAt ? new Date(cache.fetchedAt).toISOString() : null,
+    stale: cache.stale
+  });
 });
 
 // ── Tracking endpoints ──────────────────────────────────────
