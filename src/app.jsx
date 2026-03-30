@@ -3464,11 +3464,11 @@
         ctx.save();
         ctx.globalAlpha = 0.18;
         ctx.fillStyle = '#ffffff';
-        ctx.font = `700 ${fh * 0.13}px "Libre Baskerville",Georgia,serif`;
+        ctx.font = `700 ${fh * 0.10}px "Libre Baskerville",Georgia,serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const feltCx = fx + fw / 2, feltBottom = fy + fh;
-        ctx.fillText('futurega.me', feltCx, feltBottom - fh * 0.22);
+        ctx.fillText('futurega.me', feltCx, feltBottom - fh * 0.15);
         ctx.restore();
 
         canvas.toBlob(blob => {
