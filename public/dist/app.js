@@ -3103,6 +3103,7 @@ function TableScanner() {
   const [availableTables, setAvailableTables] = useState(null);
   const [allParsedPlayers, setAllParsedPlayers] = useState([]);
   const [feltColor, setFeltColor] = useState("#1a5c2e");
+  const ovalRef = useRef(null);
   const fileRef = useRef(null);
   const colorRef = useRef(null);
   const SCANNER_LAYOUTS = {
@@ -3136,74 +3137,28 @@ function TableScanner() {
   }
   __name(getDisplayPlayers, "getDisplayPlayers");
   function handleExport() {
-    const EW = 1200, EH = 600;
-    const canvas = document.createElement("canvas");
-    canvas.width = EW;
-    canvas.height = EH;
-    const ctx = canvas.getContext("2d");
-    const cx = EW / 2, cy = EH / 2;
-    const rx = EW * 0.4, ry = EH * 0.32;
-    const RAIL = Math.round(EW * 0.012);
-    const hexToRgb = /* @__PURE__ */ __name((h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)], "hexToRgb");
-    const [fr, fg, fb] = hexToRgb(feltColor);
-    const darken = /* @__PURE__ */ __name((v, a) => Math.max(0, Math.round(v * a)), "darken");
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx + RAIL, ry + RAIL, 0, 0, 2 * Math.PI);
-    ctx.fillStyle = `rgb(${darken(fr, 0.7)},${darken(fg, 0.7)},${darken(fb, 0.7)})`;
-    ctx.fill();
-    const grad = ctx.createRadialGradient(cx, cy * 0.85, 0, cx, cy, Math.max(rx, ry));
-    grad.addColorStop(0, `rgba(${Math.min(255, fr + 40)},${Math.min(255, fg + 40)},${Math.min(255, fb + 40)},1)`);
-    grad.addColorStop(1, feltColor);
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-    ctx.fillStyle = grad;
-    ctx.fill();
-    const { display, seats } = getDisplayPlayers(players);
-    const CARD_W = 190, CARD_PAD = 10, CARD_CORNER = 8;
-    display.forEach((player, i) => {
-      const [px, py] = seats[i] || [50, 50];
-      const cardX_center = px / 100 * EW;
-      const cardY_center = py / 100 * EH;
-      ctx.font = "700 17px -apple-system,system-ui,sans-serif";
-      const nameLine = player.name;
-      const chipsLine = [player.chips, player.seat ? "Seat " + player.seat.split("-")[1] : null].filter(Boolean).join(" · ");
-      const cardH = chipsLine ? 54 : 36;
-      let cardX = cardX_center - CARD_W / 2;
-      if (px <= 5) cardX = cardX_center;
-      else if (px >= 95) cardX = cardX_center - CARD_W;
-      const cardY = cardY_center - cardH / 2;
-      ctx.save();
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(cardX, cardY, CARD_W, cardH, CARD_CORNER);
-      } else {
-        ctx.rect(cardX, cardY, CARD_W, cardH);
-      }
-      ctx.fillStyle = "rgba(18,22,28,0.93)";
-      ctx.fill();
-      if (player.isHero) {
-        ctx.strokeStyle = "rgb(16,185,129)";
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-      }
-      ctx.restore();
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "700 17px -apple-system,system-ui,sans-serif";
-      ctx.fillText(nameLine, cardX + CARD_PAD, cardY + 20, CARD_W - CARD_PAD * 2);
-      if (chipsLine) {
-        ctx.fillStyle = "rgba(180,190,200,0.85)";
-        ctx.font = "13px -apple-system,system-ui,sans-serif";
-        ctx.fillText(chipsLine, cardX + CARD_PAD, cardY + 40, CARD_W - CARD_PAD * 2);
-      }
-    });
-    canvas.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "table.png";
-      a.click();
-      URL.revokeObjectURL(url);
-    }, "image/png");
+    const el = ovalRef.current;
+    if (!el) return;
+    const doExport = /* @__PURE__ */ __name((h2c) => {
+      h2c(el, { backgroundColor: null, scale: 2, useCORS: true }).then((canvas) => {
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "table.png";
+          a.click();
+          URL.revokeObjectURL(url);
+        }, "image/png");
+      });
+    }, "doExport");
+    if (window.html2canvas) {
+      doExport(window.html2canvas);
+    } else {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      s.onload = () => doExport(window.html2canvas);
+      document.head.appendChild(s);
+    }
   }
   __name(handleExport, "handleExport");
   const handleFile = /* @__PURE__ */ __name(async (e) => {
@@ -3363,7 +3318,7 @@ function TableScanner() {
     setState("idle");
     setPlayers([]);
     setEventTitle("");
-  } }, "Rescan")), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-oval" }, /* @__PURE__ */ React.createElement(
+  } }, "Rescan")), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-oval", ref: ovalRef }, /* @__PURE__ */ React.createElement(
     "label",
     {
       className: "table-scanner-felt",
