@@ -3246,15 +3246,6 @@ function TableScanner() {
         ctx.fillText(chipsEl.textContent, bx + 8, by + nameSize + chipsSize + 4, bw - 16);
       }
     });
-    ctx.save();
-    ctx.globalAlpha = 0.18;
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `700 ${fh * 0.1}px "Libre Baskerville",Georgia,serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    const feltCx = fx + fw / 2, feltBottom = fy + fh;
-    ctx.fillText("futurega.me", feltCx, feltBottom - fh * 0.18);
-    ctx.restore();
     canvas.toBlob((blob) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
