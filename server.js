@@ -6680,7 +6680,7 @@ Extract every player row. For each return:
 Return ONLY valid JSON array with keys "name", "chips", "seat", "isHero". No markdown.
 Example: [{"name":"John Smith","chips":"30,000","seat":"12-5","isHero":false},{"name":"Ethan Bennett","chips":"32,700","seat":"13-7","isHero":true}]`,
 
-      wsop: `This is a WSOP+ poker tournament table screenshot showing players seated around a green felt table. Extract every visible player name label around the table.
+      wsop: `This is a WSOP Live poker tournament table screenshot showing players seated around a green felt table. Extract every visible player name label around the table.
 
 For each player return:
 - name: the player's name as shown

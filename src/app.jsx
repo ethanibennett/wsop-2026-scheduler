@@ -2834,7 +2834,7 @@
     // Pos. | Player (name + country) | Chips | Seat (e.g. "7-1") | Prize
     // Dark background, no green felt — pure tabular data.
 
-    // Detect whether screenshot is a green-felt table (WSOP+) or a list/table (PokerStars Live)
+    // Detect whether screenshot is a green-felt table (WSOP Live) or a list/table (PokerStars Live)
     function detectImageFormat(img) {
       var canvas = document.createElement('canvas');
       canvas.width = img.width;
@@ -2866,7 +2866,7 @@
       var aspectRatio = img.height / img.width;
       var isPortrait = aspectRatio > 1.3;
 
-      // If mostly green felt (>5%), it's WSOP+
+      // If mostly green felt (>5%), it's WSOP Live
       if (greenRatio > 0.05) return 'wsop';
       // Portrait with white bg or purple = PS Live list view
       if (isPortrait && (whiteRatio > 0.15 || purpleRatio > 0.02)) return 'pokerstars';
@@ -3588,7 +3588,7 @@
               setState('results');
             }
           } else {
-            // ── WSOP+ felt screenshot: use Claude Vision API via server ──
+            // ── WSOP Live felt screenshot: use Claude Vision API via server ──
             setProgress(30);
             const formData = new FormData();
             formData.append('image', file);
@@ -3644,7 +3644,7 @@
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                 <circle cx="12" cy="13" r="4"/>
               </svg>
-              Upload Table Screenshot (WSOP+ / PokerStars Live)
+              Upload Table Screenshot (WSOP Live / PokerStars Live)
             </button>
           )}
 
@@ -8301,7 +8301,7 @@
           {/* ── Table Scanner ── */}
           <div className="dashboard-section">
             <div className="dashboard-section-header">
-              <div className="dashboard-section-title">Table Scanner <span style={{fontWeight:400,fontSize:'0.7rem',color:'var(--text-muted)'}}>(WSOP+ / PokerStars Live)</span></div>
+              <div className="dashboard-section-title">Table Scanner <span style={{fontWeight:400,fontSize:'0.7rem',color:'var(--text-muted)'}}>(WSOP Live / PokerStars Live)</span></div>
             </div>
             <TableScanner />
           </div>
