@@ -6657,9 +6657,10 @@ app.post('/api/scan-table', authenticateToken, scanUpload.single('image'), async
   if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = new Anthropic({ apiKey, timeout: 30000 });
     const base64 = req.file.buffer.toString('base64');
     const mediaType = req.file.mimetype || 'image/jpeg';
+    console.log(`[ScanTable] Processing ${(req.file.size / 1024).toFixed(0)}KB image (${mediaType})`);
 
     const format = req.body?.format || 'pokerstars';
 
@@ -6720,8 +6721,12 @@ Example: [{"name":"John Smith","chips":"45,200","position":1},{"name":"Jane Doe"
 
     res.json({ players });
   } catch (err) {
-    console.error('[ScanTable] Anthropic API error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('[ScanTable] Error:', err.status || '', err.message, err.error?.message || '');
+    const msg = err.status === 401 ? 'API key invalid or expired'
+      : err.status === 429 ? 'Rate limit exceeded, try again shortly'
+      : err.status === 400 ? 'Image could not be processed'
+      : `Scan failed (${err.status || 500})`;
+    res.status(err.status || 500).json({ error: msg });
   }
 });
 
