@@ -3481,7 +3481,17 @@
           }
         });
 
-        canvas.toBlob(blob => {
+        // Use native share sheet on iOS (save to Photos), fallback to download
+        canvas.toBlob(async blob => {
+          try {
+            const file = new File([blob], 'table.png', { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file] });
+              return;
+            }
+          } catch (e) {
+            if (e.name === 'AbortError') return;
+          }
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url; a.download = 'table.png'; a.click();

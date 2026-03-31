@@ -3248,7 +3248,16 @@ function TableScanner() {
         ctx.fillText(chipsEl.textContent, bx + 8, by + nameSize + chipsSize + 4, bw - 16);
       }
     });
-    canvas.toBlob((blob) => {
+    canvas.toBlob(async (blob) => {
+      try {
+        const file = new File([blob], "table.png", { type: "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+          return;
+        }
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
