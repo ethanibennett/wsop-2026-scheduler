@@ -6455,7 +6455,7 @@ app.get('/api/admin/users-list', authenticateToken, requireRegistered, (req, res
 });
 
 // Admin: toggle hand replayer access
-app.put('/api/admin/users/:id/replayer-access', authenticateToken, requireRegistered, (req, res) => {
+app.put('/api/admin/users/:id/replayer-access', authenticateToken, requireRegistered, async (req, res) => {
   if (!['ham', 'ham5'].includes((req.user.username || '').toLowerCase())) {
     return res.status(403).json({ error: 'Forbidden' });
   }

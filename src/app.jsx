@@ -3316,6 +3316,7 @@
       const [availableTables, setAvailableTables] = useState(null); // { tableNum: [players] }
       const [allParsedPlayers, setAllParsedPlayers] = useState([]);
       const [feltColor, setFeltColor] = useState('#1a5c2e');
+      const [portrait, setPortrait] = useState(false);
       const ovalRef = useRef(null);
       const fileRef = useRef(null);
       const colorRef = useRef(null);
@@ -3344,11 +3345,26 @@
         });
         const n = Math.min(Math.max(sorted.length, 2), 10);
         const heroIdx = sorted.findIndex(p => p.isHero);
-        if (heroIdx < 0) return { display: sorted, n, seats: SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9] };
+        const PORTRAIT_LAYOUTS = {
+          2:  [[50,12],[50,88]],
+          3:  [[50,12],[75,65],[25,65]],
+          4:  [[50,12],[88,50],[50,88],[12,50]],
+          5:  [[50,10],[85,35],[75,85],[25,85],[15,35]],
+          6:  [[50,8],[85,30],[85,70],[50,92],[15,70],[15,30]],
+          7:  [[50,8],[82,22],[88,50],[72,85],[28,85],[12,50],[18,22]],
+          8:  [[35,8],[65,8],[88,30],[88,70],[65,92],[35,92],[12,70],[12,30]],
+          9:  [[50,6],[78,14],[88,38],[88,62],[70,88],[30,88],[12,62],[12,38],[22,14]],
+          10: [[35,6],[65,6],[88,20],[88,42],[88,64],[65,90],[35,90],[12,64],[12,42],[12,20]],
+        };
+        const rawSeats = portrait
+          ? (PORTRAIT_LAYOUTS[n] || PORTRAIT_LAYOUTS[9])
+          : (SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9]);
+        const seats = rawSeats;
+        if (heroIdx < 0) return { display: sorted, n, seats };
         const targetIdx = Math.floor(n / 2);
         const delta = (heroIdx - targetIdx + n) % n;
         const display = [...sorted.slice(delta), ...sorted.slice(0, delta)];
-        return { display, n, seats: SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9] };
+        return { display, n, seats };
       }
 
       function handleExport() {
@@ -3673,20 +3689,24 @@
                 <span style={{fontWeight:600,fontSize:'0.82rem',color:'var(--text)',flex:1,minWidth:0}}>
                   {eventTitle || `${players.length} player${players.length !== 1 ? 's' : ''} found`}
                 </span>
-                <button className="table-scanner-rescan" onClick={handleExport} style={{marginRight:'8px',padding:'4px 6px'}} title="Export as PNG">
+                <button className="table-scanner-rescan" onClick={() => setPortrait(p => !p)} style={{padding:'4px 6px',marginRight:'4px'}} title={portrait ? 'Landscape' : 'Portrait'}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                </button>
+                <button className="table-scanner-rescan" onClick={handleExport} style={{padding:'4px 6px',marginRight:'4px'}} title="Export as PNG">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </button>
                 <button className="table-scanner-rescan" onClick={() => { setState('idle'); setPlayers([]); setEventTitle(''); }}>
                   Rescan
                 </button>
               </div>
-              <div className="table-scanner-oval" ref={ovalRef}>
+              <div className="table-scanner-oval" ref={ovalRef} style={portrait ? {aspectRatio:'3 / 4'} : undefined}>
                 <label className="table-scanner-felt" title="Change felt colour"
                   style={{
-                    background: `radial-gradient(ellipse at 50% 40%, ${feltColor}cc 0%, ${feltColor} 100%)`,
+                    background: `radial-gradient(ellipse at ${portrait ? '40% 50%' : '50% 40%'}, ${feltColor}cc 0%, ${feltColor} 100%)`,
                     borderColor: feltColor,
                     cursor: 'pointer',
                     display: 'block',
+                    ...(portrait ? {inset:'10% 18%'} : {}),
                   }}>
                   <input type="color" value={feltColor}
                     onChange={e => setFeltColor(e.target.value)}
