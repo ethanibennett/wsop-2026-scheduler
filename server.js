@@ -88,7 +88,7 @@ app.use(helmet({
 // CORS — restrict to known origins
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3001', 'http://localhost:3000', 'capacitor://localhost', 'http://localhost', 'https://futurega.me'];
+  : ['http://localhost:3001', 'http://localhost:3000', 'capacitor://localhost', 'http://localhost', 'https://futurega.me', 'http://futurega.me', 'https://www.futurega.me', 'http://www.futurega.me'];
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, same-origin)
