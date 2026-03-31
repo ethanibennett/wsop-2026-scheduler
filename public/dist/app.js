@@ -3438,7 +3438,7 @@ function TableScanner() {
     setState("idle");
     setPlayers([]);
     setEventTitle("");
-  } }, "Rescan")), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-oval", ref: ovalRef, style: portrait ? { aspectRatio: "3 / 4" } : void 0 }, /* @__PURE__ */ React.createElement(
+  } }, "Rescan")), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-oval", ref: ovalRef, style: portrait ? { aspectRatio: "3 / 4", width: "75%", margin: "4px auto" } : void 0 }, /* @__PURE__ */ React.createElement(
     "label",
     {
       className: "table-scanner-felt",

@@ -3699,7 +3699,7 @@
                   Rescan
                 </button>
               </div>
-              <div className="table-scanner-oval" ref={ovalRef} style={portrait ? {aspectRatio:'3 / 4'} : undefined}>
+              <div className="table-scanner-oval" ref={ovalRef} style={portrait ? {aspectRatio:'3 / 4', width:'75%', margin:'4px auto'} : undefined}>
                 <label className="table-scanner-felt" title="Change felt colour"
                   style={{
                     background: `radial-gradient(ellipse at ${portrait ? '40% 50%' : '50% 40%'}, ${feltColor}cc 0%, ${feltColor} 100%)`,
