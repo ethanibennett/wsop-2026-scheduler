@@ -95,8 +95,8 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
-      console.log(`CORS: blocked request from ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      console.log(`CORS: unlisted origin ${origin}`);
+      callback(null, true); // Allow all origins — app is public
     }
   },
   credentials: true,
