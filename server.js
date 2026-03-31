@@ -88,15 +88,15 @@ app.use(helmet({
 // CORS — restrict to known origins
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3001', 'http://localhost:3000', 'capacitor://localhost', 'http://localhost'];
+  : ['http://localhost:3001', 'http://localhost:3000', 'capacitor://localhost', 'http://localhost', 'https://futurega.me'];
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, same-origin)
     if (!origin || ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow but log — tighten later if needed
-      console.log(`CORS: request from unlisted origin ${origin}`);
+      console.log(`CORS: blocked request from ${origin}`);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
@@ -6462,7 +6462,7 @@ app.put('/api/admin/users/:id/replayer-access', authenticateToken, requireRegist
   try {
     const { enabled } = req.body;
     db.run('UPDATE users SET hand_replayer_access = ? WHERE id = ?', [enabled ? 1 : 0, req.params.id]);
-    persist();
+    await saveDatabase();
     res.json({ success: true });
   } catch (error) {
     console.error('Admin replayer-access error:', error);

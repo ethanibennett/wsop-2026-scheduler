@@ -601,7 +601,7 @@ function formatLiveUpdate(u) {
       if (u.bb_ante || u.bbAnte) blindParts.push(formatChips(u.bb_ante || u.bbAnte));
       if (blindParts.length) s += " @ " + blindParts.join("/");
     }
-    const bbVal = Number(u.bb || u.bb);
+    const bbVal = Number(u.bb || 0);
     if (bbVal > 0) {
       const bbCount = (Number(u.stack) / bbVal).toFixed(1).replace(/\.0$/, "");
       s += " (" + bbCount + "bb)";
@@ -1035,6 +1035,7 @@ function LiveUpdateButton({ mySchedule, myActiveUpdates, onPost, onAddTracking }
       if (resp.ok) setStackHistory(await resp.json());
       else setStackHistory([]);
     } catch (e) {
+      console.error("Stack history fetch failed:", e);
       setStackHistory([]);
     }
     setCameraOpen(true);
@@ -1441,6 +1442,7 @@ function usePullToRefresh(scrollRef, onRefresh) {
       try {
         await onRefresh();
       } catch (e) {
+        console.error("Refresh failed:", e);
       }
       setRefreshing(false);
     }
@@ -3493,6 +3495,7 @@ function SwapModal({ buddy, tournament, token, onClose }) {
       setMsg("Sent!");
       setTimeout(onClose, 800);
     } catch (e) {
+      console.error("Send failed:", e);
       setMsg("Failed to send");
       setSending(false);
     }
@@ -5396,6 +5399,7 @@ function RealNamePrompt({ onSave, onDismiss }) {
       }
       onSave(data.realName);
     } catch (e) {
+      console.error("Profile save:", e);
       setErr("Network error");
       setSaving(false);
     }
@@ -5503,6 +5507,7 @@ function ForgotPasswordForm({ onBack, theme, toggleTheme }) {
         setSuccess(data.message);
       }
     } catch (e2) {
+      console.error("Forgot password:", e2);
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -5570,6 +5575,7 @@ function ResetPasswordForm({ resetToken, theme, toggleTheme }) {
         setSuccess(data.message);
       }
     } catch (e2) {
+      console.error("Reset password:", e2);
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -7804,6 +7810,7 @@ function App() {
         fetchMyGroups();
         setActiveGroupId((prev) => prev === d.groupId ? null : prev);
       } catch (e2) {
+        console.error("SSE group-removed:", e2);
       }
     });
     es.addEventListener("group-live-update", (e) => {
@@ -7887,6 +7894,7 @@ function App() {
       const data = await res.json();
       setTournaments(Array.isArray(data) ? data : []);
     } catch (e) {
+      console.error("Fetch tournaments:", e);
       toast.error("Failed to load tournaments");
     }
   }, "fetchTournaments");
@@ -7899,6 +7907,7 @@ function App() {
       const data = await res.json();
       setMySchedule(Array.isArray(data) ? data : []);
     } catch (e) {
+      console.error("Fetch schedule:", e);
       setMySchedule([]);
     }
   }, "fetchMySchedule");
@@ -7911,6 +7920,7 @@ function App() {
       const data = await res.json();
       setGameVariants(Array.isArray(data) ? data : []);
     } catch (e) {
+      console.error("Fetch game variants:", e);
     }
   }, "fetchGameVariants");
   const fetchVenues = /* @__PURE__ */ __name(async () => {
@@ -7922,6 +7932,7 @@ function App() {
       const data = await res.json();
       setVenues(Array.isArray(data) ? data : []);
     } catch (e) {
+      console.error("Fetch venues:", e);
     }
   }, "fetchVenues");
   const fetchTracking = /* @__PURE__ */ __name(async () => {
@@ -7932,6 +7943,7 @@ function App() {
       const data = await res.json();
       setTrackingData(Array.isArray(data) ? data : []);
     } catch (e) {
+      console.error("Fetch tracking:", e);
       toast.error("Failed to load tracking data");
     }
   }, "fetchTracking");
@@ -7944,6 +7956,7 @@ function App() {
       const data = await res.json();
       setMyActiveUpdates(Array.isArray(data) ? data : []);
     } catch (e) {
+      console.error("Fetch live updates:", e);
     }
   }, "fetchMyLiveUpdate");
   const postLiveUpdate = /* @__PURE__ */ __name(async (data) => {
@@ -7956,6 +7969,7 @@ function App() {
       });
       if (res.ok) fetchMyLiveUpdate();
     } catch (e) {
+      console.error("Post live update:", e);
     }
   }, "postLiveUpdate");
   const deleteLiveUpdate = /* @__PURE__ */ __name(async (updateId) => {

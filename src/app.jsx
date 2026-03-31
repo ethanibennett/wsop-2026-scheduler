@@ -922,7 +922,7 @@
           if (u.bb_ante || u.bbAnte) blindParts.push(formatChips(u.bb_ante || u.bbAnte));
           if (blindParts.length) s += ' @ ' + blindParts.join('/');
         }
-        const bbVal = Number(u.bb || u.bb);
+        const bbVal = Number(u.bb || 0);
         if (bbVal > 0) {
           const bbCount = (Number(u.stack) / bbVal).toFixed(1).replace(/\.0$/, '');
           s += ' (' + bbCount + 'bb)';
@@ -1351,7 +1351,7 @@
           });
           if (resp.ok) setStackHistory(await resp.json());
           else setStackHistory([]);
-        } catch { setStackHistory([]); }
+        } catch (e) { console.error('Stack history fetch failed:', e); setStackHistory([]); }
         setCameraOpen(true);
       };
 
@@ -1966,7 +1966,7 @@
             ptrIndicator.current.style.transform = 'translateX(-50%) translateY(40px)';
             ptrIndicator.current.classList.add('visible');
           }
-          try { await onRefresh(); } catch {}
+          try { await onRefresh(); } catch (e) { console.error('Refresh failed:', e); }
           setRefreshing(false);
         }
         if (ptrIndicator.current) {
@@ -3748,7 +3748,7 @@
           if (!res.ok) { setMsg(data.error || 'Failed'); setSending(false); return; }
           setMsg('Sent!');
           setTimeout(onClose, 800);
-        } catch { setMsg('Failed to send'); setSending(false); }
+        } catch (e) { console.error('Send failed:', e); setMsg('Failed to send'); setSending(false); }
       };
 
       return (
@@ -6192,7 +6192,7 @@
           const data = await res.json();
           if (!res.ok) { setErr(data.error || 'Failed to save'); setSaving(false); return; }
           onSave(data.realName);
-        } catch { setErr('Network error'); setSaving(false); }
+        } catch (e) { console.error('Profile save:', e); setErr('Network error'); setSaving(false); }
       };
 
       return ReactDOM.createPortal(
@@ -6324,7 +6324,8 @@
           const data = await res.json();
           if (!res.ok) { setError(data.error || 'Request failed'); }
           else { setSuccess(data.message); }
-        } catch {
+        } catch (e) {
+          console.error('Forgot password:', e);
           setError('Network error. Please try again.');
         } finally { setLoading(false); }
       };
@@ -6397,7 +6398,8 @@
           const data = await res.json();
           if (!res.ok) { setError(data.error || 'Reset failed'); }
           else { setSuccess(data.message); }
-        } catch {
+        } catch (e) {
+          console.error('Reset password:', e);
           setError('Network error. Please try again.');
         } finally { setLoading(false); }
       };
@@ -9277,7 +9279,7 @@
             const d = JSON.parse(e.data);
             fetchMyGroups();
             setActiveGroupId(prev => prev === d.groupId ? null : prev);
-          } catch {}
+          } catch (e) { console.error('SSE group-removed:', e); }
         });
         es.addEventListener('group-live-update', (e) => {
           try {
@@ -9363,7 +9365,7 @@
           if (!res) return;
           const data = await res.json();
           setTournaments(Array.isArray(data) ? data : []);
-        } catch { toast.error('Failed to load tournaments'); }
+        } catch (e) { console.error('Fetch tournaments:', e); toast.error('Failed to load tournaments'); }
       };
 
       const fetchMySchedule = async () => {
@@ -9374,7 +9376,7 @@
           if (!res) return;
           const data = await res.json();
           setMySchedule(Array.isArray(data) ? data : []);
-        } catch { setMySchedule([]); }
+        } catch (e) { console.error('Fetch schedule:', e); setMySchedule([]); }
       };
 
       const fetchGameVariants = async () => {
@@ -9385,7 +9387,7 @@
           if (!res) return;
           const data = await res.json();
           setGameVariants(Array.isArray(data) ? data : []);
-        } catch {}
+        } catch (e) { console.error('Fetch game variants:', e); }
       };
 
       const fetchVenues = async () => {
@@ -9396,7 +9398,7 @@
           if (!res) return;
           const data = await res.json();
           setVenues(Array.isArray(data) ? data : []);
-        } catch {}
+        } catch (e) { console.error('Fetch venues:', e); }
       };
 
       // ── Tracking functions ──
@@ -9407,7 +9409,7 @@
           });
           const data = await res.json();
           setTrackingData(Array.isArray(data) ? data : []);
-        } catch { toast.error('Failed to load tracking data'); }
+        } catch (e) { console.error('Fetch tracking:', e); toast.error('Failed to load tracking data'); }
       };
 
       const fetchMyLiveUpdate = async () => {
@@ -9418,7 +9420,7 @@
           if (!res) return;
           const data = await res.json();
           setMyActiveUpdates(Array.isArray(data) ? data : []);
-        } catch {}
+        } catch (e) { console.error('Fetch live updates:', e); }
       };
 
       const postLiveUpdate = async (data) => {
@@ -9430,7 +9432,7 @@
             body: JSON.stringify(data)
           });
           if (res.ok) fetchMyLiveUpdate();
-        } catch {}
+        } catch (e) { console.error('Post live update:', e); }
       };
 
       const deleteLiveUpdate = async (updateId) => {
