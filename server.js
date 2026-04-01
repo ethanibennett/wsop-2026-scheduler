@@ -6775,28 +6775,82 @@ Example output:
 
       const message = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 16384,
+        max_tokens: 32768,
         messages: [{ role: 'user', content }],
       });
 
+      const wasTruncated = message.stop_reason === 'max_tokens';
       const text = message.content[0]?.text?.trim() || '';
-      console.log(`[ParseSchedule] Response: ${text.length} chars, starts with: ${text.slice(0, 80)}`);
+      console.log(`[ParseSchedule] Response: ${text.length} chars, truncated: ${wasTruncated}, starts with: ${text.slice(0, 80)}`);
 
-      // Extract JSON array from response — handle code fences, preamble text, etc.
+      // Extract JSON array from response — handle code fences, preamble text, truncation
       let json = text;
-      const arrayMatch = text.match(/\[[\s\S]*\]/);
+
+      // Step 1: Strip code fences first (```json ... ```)
+      if (json.includes('```')) {
+        json = json.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim();
+      }
+
+      // Step 2: Try to extract the outermost JSON array
+      const arrayMatch = json.match(/\[[\s\S]*\]/);
       if (arrayMatch) {
         json = arrayMatch[0];
-      } else {
-        json = text.includes('```') ? text.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim() : text.trim();
+      } else if (json.includes('[')) {
+        // Response was likely truncated — no closing ], so extract from first [
+        json = json.slice(json.indexOf('['));
+      }
+
+      // Step 3: Attempt JSON repair if truncated (missing closing ] or incomplete last object)
+      function repairTruncatedJsonArray(str) {
+        // If it already parses, return as-is
+        try { return JSON.parse(str); } catch (_) {}
+
+        let s = str.trim();
+        // Ensure it starts with [
+        if (!s.startsWith('[')) return null;
+
+        // Try appending ] or }] to close truncated array
+        const repairs = [
+          s + ']',                          // just missing ]
+          s + '}]',                          // missing } and ]
+          s + '"}]',                         // missing closing quote, } and ]
+          s + 'null}]',                      // missing value, } and ]
+        ];
+        for (const attempt of repairs) {
+          try { return JSON.parse(attempt); } catch (_) {}
+        }
+
+        // More aggressive: find last complete object and close there
+        // Look for the last "},\n" or "}\n" pattern, trim to that, add ]
+        const lastCompleteObj = s.lastIndexOf('},');
+        if (lastCompleteObj > 0) {
+          const trimmed = s.slice(0, lastCompleteObj + 1) + ']';
+          try { return JSON.parse(trimmed); } catch (_) {}
+        }
+        const lastObj = s.lastIndexOf('}');
+        if (lastObj > 0) {
+          const trimmed = s.slice(0, lastObj + 1) + ']';
+          try { return JSON.parse(trimmed); } catch (_) {}
+        }
+
+        return null;
       }
 
       let events;
       try {
         events = JSON.parse(json);
       } catch (e) {
-        console.error(`[ParseSchedule] JSON parse error:`, json.slice(0, 500));
-        pageErrors.push({ page: 1, error: 'Failed to parse response', raw: text.slice(0, 500) });
+        console.warn(`[ParseSchedule] Direct JSON parse failed, attempting repair...`);
+        events = repairTruncatedJsonArray(json);
+        if (events) {
+          console.log(`[ParseSchedule] JSON repair succeeded with ${events.length} events`);
+          if (wasTruncated) {
+            pageErrors.push({ page: 1, error: 'Response was truncated — some events at the end may be missing' });
+          }
+        } else {
+          console.error(`[ParseSchedule] JSON parse error (unrepairable):`, json.slice(0, 500));
+          pageErrors.push({ page: 1, error: 'Failed to parse response', raw: text.slice(0, 500) });
+        }
       }
 
       if (events && Array.isArray(events)) {
@@ -6864,8 +6918,11 @@ Example output:
       }
 
       // Normalize event name using existing function
+      // Satellites and demographic events (Seniors, Ladies) don't get a variant prefix per WSOP convention
       if (ev.event_name) {
-        ev.event_name = normalizeEventName(ev.event_name, ev.game_variant);
+        const isSatOrDemo = ev.is_satellite ||
+          /\b(Satellite|Seniors|Ladies|Kings\s*&\s*Queens)\b/i.test(ev.event_name);
+        ev.event_name = normalizeEventName(ev.event_name, isSatOrDemo ? null : ev.game_variant);
       }
 
       // Normalize buyin to integer
