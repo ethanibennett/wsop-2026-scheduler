@@ -8916,6 +8916,7 @@
     // ── Settings View ──────────────────────────────────────────
 
     function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
+      const toast = useToast();
       const displayName = useDisplayName();
       const [debugInput, setDebugInput] = useState(_debugNow);
 
