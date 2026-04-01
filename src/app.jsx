@@ -4529,7 +4529,7 @@
 
     // ── Filters ────────────────────────────────────────────────
 
-    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount }) {
+    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount, onImport }) {
       const panelRef = useRef(null);
       const [whereOpen, setWhereOpen] = useState(false);
       const [howMuchOpen, setHowMuchOpen] = useState(false);
@@ -4591,7 +4591,13 @@
       return (
         <>
           <div className="filter-row" style={{gap:'8px',marginBottom:'0',width:'100%',alignItems:'center'}}>
-            {eventCount != null && <span style={{fontSize:'0.75rem',color:'var(--text-muted)',fontWeight:600,whiteSpace:'nowrap'}}>{eventCount} event{eventCount !== 1 ? 's' : ''}</span>}
+            {onImport && <button
+              onClick={onImport}
+              style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',padding:'3px 8px',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'4px',fontSize:'0.72rem',color:'var(--accent)',fontWeight:600,whiteSpace:'nowrap'}}
+              title="Import a tournament schedule"
+            >
+              <Icon.upload style={{width:12,height:12}} /> Import Schedule
+            </button>}
             <span style={{marginLeft:'auto',fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>Show:</span>
             <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
               <input type="checkbox" checked={!filters.hideSatellites}
@@ -5032,7 +5038,7 @@
 
     // ── Tournaments View ───────────────────────────────────────
 
-    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap }) {
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
         minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: ''
@@ -5278,7 +5284,7 @@
               </div>
             </div>
 
-            <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} />
+            <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} onImport={onImport} />
           </div>
 
           {filtered.length === 0 ? (
@@ -5312,6 +5318,7 @@
                   // Assign scroll ref to first group that is today or future
                   const needsRef = !scrollRefAssigned && group.date >= todayISO;
                   if (needsRef) scrollRefAssigned = true;
+                  const dayEventCount = group.events.filter(t => !t.is_restart).length;
                   return (
                     <div key={group.date} ref={needsRef ? todayScrollRef : undefined} data-today-scroll={needsRef ? 'true' : undefined} data-date-group={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                       <div className="schedule-date-break" style={{
@@ -5332,12 +5339,14 @@
                               <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: 'var(--bg)'}}>{dayNum}</span>
                               <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
                             </span>
+                            <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount}</span>
                             <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
                           </>
                         ) : (
                           <>
                             <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
                             <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
+                            <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount}</span>
                             <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
                           </>
                         )}
@@ -10442,6 +10451,7 @@
                 buddyEvents={buddyEvents}
                 buddyLiveUpdates={buddyLiveUpdates}
                 onBuddySwap={onBuddySwap}
+                onImport={() => setCurrentView('settings')}
               />
             )}
 
