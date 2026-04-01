@@ -5339,14 +5339,14 @@
                               <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: 'var(--bg)'}}>{dayNum}</span>
                               <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
                             </span>
-                            <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount}</span>
+                            <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount} event{dayEventCount !== 1 ? 's' : ''}</span>
                             <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
                           </>
                         ) : (
                           <>
                             <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
                             <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
-                            <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount}</span>
+                            <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount} event{dayEventCount !== 1 ? 's' : ''}</span>
                             <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
                           </>
                         )}
