@@ -9146,24 +9146,7 @@
           </div>
 
           <div className="settings-section">
-            <div className="settings-section-label">Import</div>
-            <div className="settings-card">
-              <div className="settings-row" style={{flexDirection:'column',alignItems:'stretch',gap:'8px'}}>
-                <span className="settings-row-label">Upload schedule PDF</span>
-                <p style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.4}}>
-                  Import a PDF schedule from any poker series. The format is auto-detected.
-                </p>
-                <input type="text" placeholder="Venue (optional — auto-detected from PDF)" value={uploadVenue} onChange={e => onUploadVenueChange(e.target.value)} style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.8rem',width:'100%',boxSizing:'border-box'}} />
-                <input type="file" id="pdf-upload-settings" className="file-input" accept=".pdf" onChange={onUpload} />
-                <label htmlFor="pdf-upload-settings" className="btn btn-ghost btn-sm" style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px'}}>
-                  <Icon.upload /> Choose PDF
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div className="settings-section">
-            <div className="settings-section-label">AI Schedule Scanner</div>
+            <div className="settings-section-label">Import Schedule</div>
             <div className="settings-card">
               <div className="settings-row" style={{flexDirection:'column',alignItems:'stretch',gap:'8px'}}>
                 <span className="settings-row-label">Upload schedule (PDF or image)</span>
