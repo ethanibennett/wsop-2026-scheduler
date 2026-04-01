@@ -8906,7 +8906,7 @@
 
     // ── Settings View ──────────────────────────────────────────
 
-    function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess }) {
+    function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
       const displayName = useDisplayName();
       const [debugInput, setDebugInput] = useState(_debugNow);
 
@@ -8914,6 +8914,87 @@
         setDebugInput(val);
         setDebugNow(val);
         if (onDebugTimeChange) onDebugTimeChange(val);
+      };
+
+      // Vision-based schedule upload state
+      const [visionFile, setVisionFile] = useState(null);
+      const [visionVenue, setVisionVenue] = useState('');
+      const [visionParsing, setVisionParsing] = useState(false);
+      const [visionResults, setVisionResults] = useState(null);
+      const [visionError, setVisionError] = useState('');
+      const [visionImporting, setVisionImporting] = useState(false);
+      const [visionEditIdx, setVisionEditIdx] = useState(-1);
+
+      const handleVisionUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setVisionFile(file);
+        setVisionError('');
+        setVisionResults(null);
+        setVisionParsing(true);
+
+        const fd = new FormData();
+        fd.append('file', file);
+        if (visionVenue) fd.append('venue', visionVenue);
+
+        try {
+          const res = await fetch(`${API_URL}/parse-schedule`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token },
+            body: fd
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Parse failed');
+          setVisionResults(data);
+          if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
+        } catch (err) {
+          setVisionError(err.message || 'Failed to parse schedule');
+        } finally {
+          setVisionParsing(false);
+          // Reset file input
+          e.target.value = '';
+        }
+      };
+
+      const removeVisionEvent = (idx) => {
+        if (!visionResults) return;
+        const newEvents = visionResults.events.filter((_, i) => i !== idx);
+        setVisionResults({ ...visionResults, events: newEvents, eventCount: newEvents.length });
+      };
+
+      const updateVisionEvent = (idx, field, value) => {
+        if (!visionResults) return;
+        const newEvents = [...visionResults.events];
+        newEvents[idx] = { ...newEvents[idx], [field]: value };
+        setVisionResults({ ...visionResults, events: newEvents });
+      };
+
+      const handleVisionImport = async () => {
+        if (!visionResults || !visionResults.events.length) return;
+        setVisionImporting(true);
+        setVisionError('');
+
+        try {
+          const res = await fetch(`${API_URL}/import-parsed-schedule`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              events: visionResults.events,
+              sourceFile: visionResults.sourceFile || 'Vision Upload'
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Import failed');
+          toast.success(`Imported ${data.inserted} events (${data.skipped} skipped)`);
+          setVisionResults(null);
+          setVisionFile(null);
+          setVisionVenue('');
+          if (onRefreshTournaments) onRefreshTournaments();
+        } catch (err) {
+          setVisionError(err.message || 'Failed to import events');
+        } finally {
+          setVisionImporting(false);
+        }
       };
 
       return (
@@ -9077,6 +9158,192 @@
                 <label htmlFor="pdf-upload-settings" className="btn btn-ghost btn-sm" style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px'}}>
                   <Icon.upload /> Choose PDF
                 </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <div className="settings-section-label">AI Schedule Scanner</div>
+            <div className="settings-card">
+              <div className="settings-row" style={{flexDirection:'column',alignItems:'stretch',gap:'8px'}}>
+                <span className="settings-row-label">Upload schedule (PDF or image)</span>
+                <p style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.4}}>
+                  Upload a tournament schedule PDF or image. AI vision extracts event data automatically.
+                </p>
+                <input
+                  type="text"
+                  placeholder="Venue (optional — auto-detected from document)"
+                  value={visionVenue}
+                  onChange={e => setVisionVenue(e.target.value)}
+                  style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.8rem',width:'100%',boxSizing:'border-box'}}
+                />
+                <input
+                  type="file"
+                  id="vision-schedule-upload"
+                  className="file-input"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp"
+                  onChange={handleVisionUpload}
+                  disabled={visionParsing}
+                />
+                <label
+                  htmlFor="vision-schedule-upload"
+                  className="btn btn-ghost btn-sm"
+                  style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px',opacity:visionParsing?0.5:1,pointerEvents:visionParsing?'none':'auto'}}
+                >
+                  <Icon.upload /> {visionParsing ? 'Scanning...' : 'Choose File'}
+                </label>
+
+                {visionParsing && (
+                  <div style={{display:'flex',alignItems:'center',gap:'8px',padding:'12px',background:'var(--surface)',borderRadius:'8px',border:'1px solid var(--border)'}}>
+                    <div className="spinner" style={{width:16,height:16,border:'2px solid var(--border)',borderTopColor:'var(--accent)',borderRadius:'50%',animation:'spin 1s linear infinite'}} />
+                    <span style={{fontSize:'0.8rem',color:'var(--text-muted)'}}>
+                      AI is analyzing the schedule... This may take 30-60 seconds for multi-page PDFs.
+                    </span>
+                  </div>
+                )}
+
+                {visionError && (
+                  <div style={{padding:'8px 12px',background:'rgba(220,38,38,0.1)',border:'1px solid rgba(220,38,38,0.3)',borderRadius:'6px',color:'#ef4444',fontSize:'0.8rem'}}>
+                    {visionError}
+                  </div>
+                )}
+
+                {visionResults && visionResults.events.length > 0 && (
+                  <div style={{marginTop:'8px'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                      <div>
+                        <span style={{fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:700,fontSize:'0.9rem',color:'var(--text)'}}>
+                          {visionResults.eventCount} Events Found
+                        </span>
+                        {visionResults.detectedVenue && (
+                          <span style={{fontSize:'0.75rem',color:'var(--text-muted)',marginLeft:'8px'}}>
+                            at {visionResults.detectedVenue}
+                          </span>
+                        )}
+                      </div>
+                      <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>
+                        {visionResults.pageCount} page{visionResults.pageCount !== 1 ? 's' : ''} scanned
+                      </span>
+                    </div>
+
+                    {visionResults.warnings.length > 0 && (
+                      <div style={{padding:'6px 10px',background:'rgba(234,179,8,0.1)',border:'1px solid rgba(234,179,8,0.3)',borderRadius:'6px',marginBottom:'8px',fontSize:'0.75rem',color:'#eab308'}}>
+                        {visionResults.warnings.length} warning{visionResults.warnings.length !== 1 ? 's' : ''}: {visionResults.warnings.slice(0, 3).map(w => w.warnings.join(', ')).join('; ')}
+                        {visionResults.warnings.length > 3 && ` (+${visionResults.warnings.length - 3} more)`}
+                      </div>
+                    )}
+
+                    <div style={{maxHeight:'400px',overflowY:'auto',border:'1px solid var(--border)',borderRadius:'8px'}}>
+                      <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.75rem'}}>
+                        <thead>
+                          <tr style={{borderBottom:'2px solid var(--border)',position:'sticky',top:0,background:'var(--bg)'}}>
+                            <th style={{padding:'6px 8px',textAlign:'left',color:'var(--text-muted)',fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:600,fontSize:'0.65rem',textTransform:'uppercase'}}>Date</th>
+                            <th style={{padding:'6px 8px',textAlign:'left',color:'var(--text-muted)',fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:600,fontSize:'0.65rem',textTransform:'uppercase'}}>Time</th>
+                            <th style={{padding:'6px 8px',textAlign:'left',color:'var(--text-muted)',fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:600,fontSize:'0.65rem',textTransform:'uppercase'}}>Event</th>
+                            <th style={{padding:'6px 8px',textAlign:'right',color:'var(--text-muted)',fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:600,fontSize:'0.65rem',textTransform:'uppercase'}}>Buy-in</th>
+                            <th style={{padding:'6px 4px',textAlign:'center',width:'30px'}}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visionResults.events.map((ev, i) => (
+                            <React.Fragment key={i}>
+                              <tr
+                                style={{borderBottom:'1px solid var(--border)',cursor:'pointer',background:visionEditIdx===i?'var(--surface)':'transparent'}}
+                                onClick={() => setVisionEditIdx(visionEditIdx === i ? -1 : i)}
+                              >
+                                <td style={{padding:'6px 8px',whiteSpace:'nowrap',color:'var(--text)',fontSize:'0.73rem'}}>{ev.date ? ev.date.replace(/, \d{4}$/, '') : '?'}</td>
+                                <td style={{padding:'6px 8px',whiteSpace:'nowrap',color:'var(--text-muted)',fontSize:'0.73rem'}}>{ev.time || '?'}</td>
+                                <td style={{padding:'6px 8px',color:'var(--text)',fontSize:'0.73rem',maxWidth:'180px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                                  {ev.event_name || '(unnamed)'}
+                                  {ev._warnings && ev._warnings.length > 0 && <span style={{color:'#eab308',marginLeft:'4px'}} title={ev._warnings.join(', ')}>!</span>}
+                                </td>
+                                <td style={{padding:'6px 8px',textAlign:'right',color:'var(--text)',fontWeight:600,fontSize:'0.73rem'}}>{ev.buyin != null ? `$${ev.buyin.toLocaleString()}` : '—'}</td>
+                                <td style={{padding:'6px 4px',textAlign:'center'}}>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeVisionEvent(i); }}
+                                    style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-muted)',fontSize:'0.7rem',padding:'2px 4px',lineHeight:1}}
+                                    title="Remove event"
+                                  >x</button>
+                                </td>
+                              </tr>
+                              {visionEditIdx === i && (
+                                <tr style={{borderBottom:'1px solid var(--border)',background:'var(--surface)'}}>
+                                  <td colSpan={5} style={{padding:'8px'}}>
+                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',fontSize:'0.75rem'}}>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Event Name</span>
+                                        <input type="text" value={ev.event_name || ''} onChange={e => updateVisionEvent(i, 'event_name', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Variant</span>
+                                        <input type="text" value={ev.game_variant || ''} onChange={e => updateVisionEvent(i, 'game_variant', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Date</span>
+                                        <input type="text" value={ev.date || ''} onChange={e => updateVisionEvent(i, 'date', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Time</span>
+                                        <input type="text" value={ev.time || ''} onChange={e => updateVisionEvent(i, 'time', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Buy-in ($)</span>
+                                        <input type="number" value={ev.buyin || 0} onChange={e => updateVisionEvent(i, 'buyin', parseInt(e.target.value) || 0)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Venue</span>
+                                        <input type="text" value={ev.venue || ''} onChange={e => updateVisionEvent(i, 'venue', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Starting Chips</span>
+                                        <input type="number" value={ev.starting_chips || ''} onChange={e => updateVisionEvent(i, 'starting_chips', parseInt(e.target.value) || null)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Guarantee ($)</span>
+                                        <input type="number" value={ev.guarantee || ''} onChange={e => updateVisionEvent(i, 'guarantee', parseInt(e.target.value) || null)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Level Duration</span>
+                                        <input type="text" value={ev.level_duration || ''} onChange={e => updateVisionEvent(i, 'level_duration', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Re-entry</span>
+                                        <input type="text" value={ev.reentry || ''} onChange={e => updateVisionEvent(i, 'reentry', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div style={{display:'flex',gap:'8px',marginTop:'12px',justifyContent:'flex-end'}}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => { setVisionResults(null); setVisionFile(null); }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={handleVisionImport}
+                        disabled={visionImporting || !visionResults.events.length}
+                        style={{display:'inline-flex',alignItems:'center',gap:'6px'}}
+                      >
+                        {visionImporting ? 'Importing...' : `Add ${visionResults.events.length} Events to Database`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {visionResults && visionResults.events.length === 0 && (
+                  <div style={{padding:'12px',background:'var(--surface)',borderRadius:'8px',border:'1px solid var(--border)',color:'var(--text-muted)',fontSize:'0.8rem',textAlign:'center'}}>
+                    No tournament events found in the uploaded file. Try a different file or check that it contains a tournament schedule.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -10146,6 +10413,8 @@
                 onRemoveBuddy={handleRemoveBuddy}
                 shareError={shareError}
                 shareSuccess={shareSuccess}
+                token={token}
+                onRefreshTournaments={fetchTournaments}
               />
             )}
 

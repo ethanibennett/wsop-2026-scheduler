@@ -6647,6 +6647,352 @@ async function sendPushToAdmin(title, body, url) {
   }
 }
 
+// ── Schedule Parser: extract tournament data from PDF/image via Claude Vision ──
+const scheduleUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+
+  const userVenue = req.body?.venue || '';
+
+  try {
+    const client = new Anthropic({ apiKey, timeout: 120000 });
+    const mime = req.file.mimetype || '';
+    const isImage = mime.startsWith('image/');
+    const isPdf = mime === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+
+    if (!isImage && !isPdf) {
+      return res.status(400).json({ error: 'File must be a PDF or image (PNG, JPG, WEBP)' });
+    }
+
+    console.log(`[ParseSchedule] Processing ${(req.file.size / 1024).toFixed(0)}KB ${isPdf ? 'PDF' : 'image'} (${mime})`);
+
+    // Build image buffers to send to Claude
+    const imageBuffers = []; // { base64, mediaType }
+
+    if (isImage) {
+      imageBuffers.push({
+        base64: req.file.buffer.toString('base64'),
+        mediaType: mime
+      });
+    } else {
+      // PDF: convert each page to an image using pdf-to-img
+      const pdfToImg = await import('pdf-to-img');
+      const doc = await pdfToImg.pdf(req.file.buffer, { scale: 2.0 });
+      let pageNum = 0;
+      for await (const page of doc) {
+        pageNum++;
+        if (pageNum > 20) break; // limit to 20 pages
+        const b64 = Buffer.from(page).toString('base64');
+        imageBuffers.push({ base64: b64, mediaType: 'image/png' });
+      }
+      console.log(`[ParseSchedule] Converted PDF to ${imageBuffers.length} page images`);
+    }
+
+    if (imageBuffers.length === 0) {
+      return res.status(400).json({ error: 'Could not extract any pages from file' });
+    }
+
+    const SCHEDULE_PROMPT = `You are a poker tournament schedule data extractor. Analyze this image of a poker tournament series schedule and extract EVERY tournament event listed.
+
+For EACH event, extract these fields (return null for any field you cannot determine):
+
+REQUIRED fields (reject event if ALL of date, time, and buyin are missing):
+- "date": normalized to "Month DD, YYYY" format (e.g. "June 15, 2026"). If year is not shown, assume 2026.
+- "time": normalized to "H:MM AM/PM" format (e.g. "11:00 AM", "7:00 PM"). Convert 24h times.
+- "buyin": integer in dollars (just the number, e.g. 600 not "$600"). Include the total entry fee.
+- "venue": the venue/casino name if detectable from the document header or content
+- "game_variant": one of: NLH, PLO, PLO8, O8, "Limit Hold'em", "Big O", "7-Card Stud", "Stud 8", Razz, HORSE, TORSE, "2-7 Triple Draw", "NL 2-7 Single Draw", Badugi, "Dealer's Choice", Mixed, "9-Game Mix", "8-Game Mix", "Mixed Triple Draw", OE, TOE, "5-Card PLO", "Big Bet Dealer's Choice", "PLO/NLH Mix", "Mixed PLO", "10-Game Mix". Default to "NLH" if it's a No-Limit Hold'em event.
+- "event_name": the event name, following these STRICT rules:
+  * Start with game variant prefix (NLH, PLO, Mixed, etc.) UNLESS the event is a demographic event (Seniors, Ladies, Kings & Queens) or a Satellite
+  * Do NOT include re-entry info in the name (no "Unlimited Re-Entry", "Single Re-Entry")
+  * Do NOT include GTD amounts in the name (no "$500,000 GTD")
+  * For multi-flight events: append " - Flight A", " - Flight B", etc.
+  * For continuation days: append " - Day 2", " - Day 3"
+  * For final tables: append " - Final"
+  * Examples: "NLH Deepstack", "PLO Championship", "Seniors 50+", "NLH Monster Stack - Flight A", "Satellite - Main Event"
+- "event_number": the event number if shown (e.g. "1", "2A", "15"). Return null if not present.
+- "starting_chips": integer chip count (e.g. 25000, 50000). Return null if not shown.
+- "level_duration": level duration in minutes as a string (e.g. "30", "40", "20,30" for escalating). Return null if not shown.
+- "guarantee": integer prize pool guarantee in dollars (e.g. 500000). Return null if not shown.
+
+OPTIONAL fields (include when available):
+- "reentry": re-entry policy text (e.g. "Unlimited", "1", "Freezeout"). Return null if not shown.
+- "late_reg": late registration info (e.g. "End of Level 10", "4 hours"). Return null if not shown.
+- "is_satellite": boolean, true if this is a satellite/qualifier event
+- "target_event": if satellite, what event it feeds into (e.g. "Main Event", "Event 15")
+- "is_multi_flight": boolean, true if this is a multi-flight event (Day 1A, 1B, etc.)
+- "flight_letter": the flight letter if multi-flight (e.g. "A", "B", "C")
+- "is_restart": boolean, true if this is a Day 2/3/Final Table continuation
+- "parent_event": for restarts, the parent event number or name
+- "category": one of "main", "side", "deepstack", or null
+- "table_size": one of "9-max", "8-max", "6-max", "heads-up", or null
+- "bounty_amount": integer bounty amount if bounty/knockout event, else null
+- "day_length": how many levels or hours the day runs (e.g. "12 levels", "8 hours")
+- "rake_pct": rake percentage as a number (e.g. 15.0)
+
+CRITICAL INSTRUCTIONS:
+1. Extract EVERY event on the page — do not skip any
+2. If the same event has multiple flights (Day 1A, 1B, 1C), create SEPARATE entries for each flight
+3. For Day 2/3/Final entries, set is_restart=true and link to parent_event
+4. Detect the venue from document headers, logos, or text content
+5. Return ONLY a valid JSON array. No markdown, no explanation, no code fences.
+6. If you see NO tournament events on this page (e.g. it's a rules page or advertisement), return an empty array []
+
+Example output:
+[{"date":"June 15, 2026","time":"11:00 AM","buyin":600,"venue":"Wynn Las Vegas","game_variant":"NLH","event_name":"NLH Deepstack","event_number":"1","starting_chips":30000,"level_duration":"30","guarantee":100000,"reentry":"Unlimited","late_reg":"End of Level 10","is_satellite":false,"target_event":null,"is_multi_flight":false,"flight_letter":null,"is_restart":false,"parent_event":null,"category":"side","table_size":"9-max","bounty_amount":null,"day_length":null,"rake_pct":null}]`;
+
+    // Process each page/image and collect results
+    const allEvents = [];
+    const pageErrors = [];
+
+    for (let i = 0; i < imageBuffers.length; i++) {
+      const img = imageBuffers[i];
+      try {
+        console.log(`[ParseSchedule] Processing page ${i + 1}/${imageBuffers.length}...`);
+        const message = await client.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 8192,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
+              },
+              { type: 'text', text: SCHEDULE_PROMPT },
+            ],
+          }],
+        });
+
+        const text = message.content[0]?.text?.trim() || '';
+        const json = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+        let events;
+        try {
+          events = JSON.parse(json);
+        } catch (e) {
+          console.error(`[ParseSchedule] Page ${i + 1} JSON parse error:`, text.slice(0, 200));
+          pageErrors.push({ page: i + 1, error: 'Failed to parse response', raw: text.slice(0, 500) });
+          continue;
+        }
+
+        if (!Array.isArray(events)) {
+          pageErrors.push({ page: i + 1, error: 'Response was not an array' });
+          continue;
+        }
+
+        // Tag each event with its source page
+        for (const ev of events) {
+          ev._sourcePage = i + 1;
+          allEvents.push(ev);
+        }
+
+        console.log(`[ParseSchedule] Page ${i + 1}: extracted ${events.length} events`);
+      } catch (err) {
+        console.error(`[ParseSchedule] Page ${i + 1} API error:`, err.message);
+        pageErrors.push({ page: i + 1, error: err.message });
+      }
+    }
+
+    // Post-process: normalize and validate
+    const processed = [];
+    const warnings = [];
+
+    for (const ev of allEvents) {
+      const w = [];
+
+      // Validate tier 1 fields
+      if (!ev.date) w.push('Missing date');
+      if (!ev.time) w.push('Missing time');
+      if (ev.buyin == null && !ev.is_restart) w.push('Missing buyin');
+      if (!ev.game_variant) { ev.game_variant = 'NLH'; w.push('Defaulted game variant to NLH'); }
+      if (!ev.event_name) w.push('Missing event name');
+
+      // Skip events missing all critical fields
+      if (!ev.date && !ev.time && ev.buyin == null) continue;
+
+      // Normalize venue
+      if (userVenue) {
+        ev.venue = userVenue;
+      } else if (ev.venue) {
+        // Try to match to known venues
+        const upper = ev.venue.toUpperCase();
+        const KNOWN_VENUES_MAP = {
+          'WYNN': 'Wynn Las Vegas', 'ENCORE': 'Wynn Las Vegas',
+          'VENETIAN': 'Venetian', 'PALAZZO': 'Venetian',
+          'ARIA': 'Aria', 'BELLAGIO': 'Bellagio',
+          'RESORTS WORLD': 'Resorts World',
+          'GOLDEN NUGGET': 'Golden Nugget',
+          'SOUTH POINT': 'South Point',
+          'ORLEANS': 'Orleans',
+          'HORSESHOE': 'Horseshoe / Paris Las Vegas',
+          'PARIS': 'Horseshoe / Paris Las Vegas',
+          'MGM NATIONAL HARBOR': 'MGM National Harbor',
+          'MGM GRAND': 'MGM Grand',
+          'SEMINOLE': 'Seminole Hard Rock',
+          'HARD ROCK': 'Seminole Hard Rock',
+          'BORGATA': 'Borgata',
+          'FOXWOODS': 'Foxwoods',
+          'THUNDER VALLEY': 'Thunder Valley',
+          'CAESARS': 'Caesars Palace',
+          'TURNING STONE': 'Turning Stone Casino',
+          'TEXAS CARD HOUSE': 'Texas Card House',
+        };
+        let matched = false;
+        for (const [key, val] of Object.entries(KNOWN_VENUES_MAP)) {
+          if (upper.includes(key)) { ev.venue = val; matched = true; break; }
+        }
+        if (!matched) w.push(`Unknown venue: ${ev.venue}`);
+      } else {
+        w.push('No venue detected');
+      }
+
+      // Normalize event name using existing function
+      if (ev.event_name) {
+        ev.event_name = normalizeEventName(ev.event_name, ev.game_variant);
+      }
+
+      // Normalize buyin to integer
+      if (ev.buyin != null) {
+        ev.buyin = parseInt(String(ev.buyin).replace(/[$,]/g, '')) || 0;
+      }
+      if (ev.is_restart) ev.buyin = 0;
+
+      // Normalize guarantee
+      if (ev.guarantee != null) {
+        ev.guarantee = parseInt(String(ev.guarantee).replace(/[$,]/g, '')) || null;
+      }
+
+      // Normalize starting chips
+      if (ev.starting_chips != null) {
+        ev.starting_chips = parseInt(String(ev.starting_chips).replace(/[,]/g, '')) || null;
+      }
+
+      // Normalize bounty
+      if (ev.bounty_amount != null) {
+        ev.bounty_amount = parseInt(String(ev.bounty_amount).replace(/[$,]/g, '')) || null;
+      }
+
+      // Normalize reentry
+      if (ev.reentry) {
+        ev.reentry = normalizeReentry(ev.reentry);
+      }
+
+      ev._warnings = w;
+      if (w.length > 0) warnings.push({ event: ev.event_name || '(unnamed)', warnings: w });
+      processed.push(ev);
+    }
+
+    // Deduplicate — same date + time + buyin + venue
+    const seen = new Set();
+    const deduplicated = [];
+    for (const ev of processed) {
+      const key = `${ev.date}|${ev.time}|${ev.buyin}|${ev.venue}|${(ev.event_name || '').slice(0, 30)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduplicated.push(ev);
+    }
+
+    console.log(`[ParseSchedule] Total: ${allEvents.length} raw -> ${deduplicated.length} deduplicated events`);
+
+    res.json({
+      events: deduplicated,
+      pageCount: imageBuffers.length,
+      rawCount: allEvents.length,
+      eventCount: deduplicated.length,
+      warnings,
+      pageErrors,
+      sourceFile: req.file.originalname,
+      detectedVenue: deduplicated.length > 0 ? deduplicated[0].venue : null,
+    });
+  } catch (err) {
+    console.error('[ParseSchedule] Error:', err.message);
+    res.status(err.status || 500).json({ error: `Schedule parsing failed: ${err.message}` });
+  }
+});
+
+// ── Import parsed schedule events into database ──
+app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, express.json({ limit: '5mb' }), async (req, res) => {
+  const { events, sourceFile } = req.body;
+  if (!events || !Array.isArray(events) || events.length === 0) {
+    return res.status(400).json({ error: 'No events provided' });
+  }
+
+  try {
+    let inserted = 0;
+    let skipped = 0;
+
+    for (const ev of events) {
+      if (!ev.date || !ev.venue || !ev.game_variant) {
+        skipped++;
+        continue;
+      }
+
+      const evName = ev.event_name || 'Unknown Event';
+      const evVenue = ev.venue;
+      const evNumber = ev.event_number || '';
+      const sid = generateStableId(evVenue, evNumber, evName, ev.date);
+
+      // Build notes from optional fields
+      const notes = [];
+      if (ev.guarantee) notes.push(`$${ev.guarantee.toLocaleString()} Guaranteed`);
+      if (ev.bounty_amount) notes.push(`$${ev.bounty_amount} Bounty`);
+      if (ev.table_size) notes.push(ev.table_size);
+      if (ev.category) notes.push(ev.category);
+
+      db.run(
+        `INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, prize_pool, day_length, uploaded_by, source_pdf, is_deepstack, category)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(stable_id) DO UPDATE SET
+           event_name=excluded.event_name, date=excluded.date, time=excluded.time,
+           buyin=excluded.buyin, starting_chips=excluded.starting_chips, level_duration=excluded.level_duration,
+           reentry=excluded.reentry, late_reg=excluded.late_reg, game_variant=excluded.game_variant,
+           venue=excluded.venue, notes=excluded.notes, is_satellite=excluded.is_satellite,
+           target_event=excluded.target_event, is_restart=excluded.is_restart, parent_event=excluded.parent_event,
+           prize_pool=excluded.prize_pool, day_length=excluded.day_length, category=excluded.category`,
+        [
+          sid,
+          evNumber,
+          evName,
+          ev.date,
+          ev.time || '12:00 PM',
+          ev.buyin || 0,
+          ev.starting_chips || null,
+          ev.level_duration || null,
+          ev.reentry || null,
+          ev.late_reg || null,
+          ev.game_variant,
+          evVenue,
+          notes.length > 0 ? notes.join(', ') : null,
+          ev.is_satellite ? 1 : 0,
+          ev.target_event || null,
+          ev.is_restart ? 1 : 0,
+          ev.parent_event || null,
+          ev.guarantee || null,
+          ev.day_length || null,
+          req.user.id,
+          sourceFile || 'Vision Upload',
+          (!evNumber && !ev.is_satellite && !ev.is_restart) ? 1 : 0,
+          ev.category || null
+        ]
+      );
+      inserted++;
+    }
+
+    await saveDatabase();
+
+    console.log(`[ImportSchedule] Inserted ${inserted}, skipped ${skipped} events from "${sourceFile}"`);
+    res.json({ inserted, skipped, total: events.length });
+  } catch (err) {
+    console.error('[ImportSchedule] Error:', err.message);
+    res.status(500).json({ error: 'Failed to import events: ' + err.message });
+  }
+});
+
 // ── Table Scanner: parse seating list image via Claude Vision ──
 const scanUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 

@@ -1466,6 +1466,7 @@
       animation: settingsFadeIn 0.15s ease-out;
     }
     @keyframes settingsFadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
     .replayer-settings-panel {
       position:fixed; bottom:0; left:0; right:0; z-index:101;
       background:var(--surface); border-radius:16px 16px 0 0;

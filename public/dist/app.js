@@ -7544,7 +7544,7 @@ function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
   )));
 }
 __name(BottomNav, "BottomNav");
-function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess }) {
+function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
   const displayName = useDisplayName();
   const [debugInput, setDebugInput] = useState(_debugNow);
   const applyDebugTime = /* @__PURE__ */ __name((val) => {
@@ -7552,6 +7552,77 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
     setDebugNow(val);
     if (onDebugTimeChange) onDebugTimeChange(val);
   }, "applyDebugTime");
+  const [visionFile, setVisionFile] = useState(null);
+  const [visionVenue, setVisionVenue] = useState("");
+  const [visionParsing, setVisionParsing] = useState(false);
+  const [visionResults, setVisionResults] = useState(null);
+  const [visionError, setVisionError] = useState("");
+  const [visionImporting, setVisionImporting] = useState(false);
+  const [visionEditIdx, setVisionEditIdx] = useState(-1);
+  const handleVisionUpload = /* @__PURE__ */ __name(async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setVisionFile(file);
+    setVisionError("");
+    setVisionResults(null);
+    setVisionParsing(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    if (visionVenue) fd.append("venue", visionVenue);
+    try {
+      const res = await fetch(`${API_URL}/parse-schedule`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+        body: fd
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Parse failed");
+      setVisionResults(data);
+      if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
+    } catch (err) {
+      setVisionError(err.message || "Failed to parse schedule");
+    } finally {
+      setVisionParsing(false);
+      e.target.value = "";
+    }
+  }, "handleVisionUpload");
+  const removeVisionEvent = /* @__PURE__ */ __name((idx) => {
+    if (!visionResults) return;
+    const newEvents = visionResults.events.filter((_, i) => i !== idx);
+    setVisionResults(__spreadProps(__spreadValues({}, visionResults), { events: newEvents, eventCount: newEvents.length }));
+  }, "removeVisionEvent");
+  const updateVisionEvent = /* @__PURE__ */ __name((idx, field, value) => {
+    if (!visionResults) return;
+    const newEvents = [...visionResults.events];
+    newEvents[idx] = __spreadProps(__spreadValues({}, newEvents[idx]), { [field]: value });
+    setVisionResults(__spreadProps(__spreadValues({}, visionResults), { events: newEvents }));
+  }, "updateVisionEvent");
+  const handleVisionImport = /* @__PURE__ */ __name(async () => {
+    if (!visionResults || !visionResults.events.length) return;
+    setVisionImporting(true);
+    setVisionError("");
+    try {
+      const res = await fetch(`${API_URL}/import-parsed-schedule`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          events: visionResults.events,
+          sourceFile: visionResults.sourceFile || "Vision Upload"
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import failed");
+      toast.success(`Imported ${data.inserted} events (${data.skipped} skipped)`);
+      setVisionResults(null);
+      setVisionFile(null);
+      setVisionVenue("");
+      if (onRefreshTournaments) onRefreshTournaments();
+    } catch (err) {
+      setVisionError(err.message || "Failed to import events");
+    } finally {
+      setVisionImporting(false);
+    }
+  }, "handleVisionImport");
   return /* @__PURE__ */ React.createElement("div", { className: "settings-view" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Account"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { gap: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "12px", flex: 1 } }, /* @__PURE__ */ React.createElement(Avatar, { src: avatar, username, size: 44 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.85rem", fontWeight: 600, color: "var(--text)" } }, realName || username), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "2px" } }, "@", username))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "6px", alignItems: "center" } }, /* @__PURE__ */ React.createElement("label", { className: "btn btn-ghost btn-sm", style: { cursor: "pointer", fontSize: "0.75rem", padding: "4px 10px" } }, avatar ? "Change" : "Add photo", /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/jpeg,image/png,image/webp", onChange: onAvatarUpload, style: { display: "none" } })), avatar && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { color: "#b91c1c", fontSize: "0.75rem", padding: "4px 10px" }, onClick: onAvatarRemove }, "Remove"))), /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Display names"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.72rem", color: "var(--text-muted)", margin: "2px 0 0" } }, "Show ", nameMode === "real" ? "real names" : "usernames", " throughout the app")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "4px", background: "var(--bg)", borderRadius: "6px", padding: "2px" } }, /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -7626,7 +7697,77 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
       className: `settings-toggle ${contrast === "high" ? "on" : ""}`,
       onClick: toggleContrast
     }
-  )))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Import"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Upload schedule PDF"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 } }, "Import a PDF schedule from any poker series. The format is auto-detected."), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "Venue (optional — auto-detected from PDF)", value: uploadVenue, onChange: (e) => onUploadVenueChange(e.target.value), style: { padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: "0.8rem", width: "100%", boxSizing: "border-box" } }), /* @__PURE__ */ React.createElement("input", { type: "file", id: "pdf-upload-settings", className: "file-input", accept: ".pdf", onChange: onUpload }), /* @__PURE__ */ React.createElement("label", { htmlFor: "pdf-upload-settings", className: "btn btn-ghost btn-sm", style: { alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "4px" } }, /* @__PURE__ */ React.createElement(Icon.upload, null), " Choose PDF")))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Debug Tools"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Simulated date & time"), /* @__PURE__ */ React.createElement(
+  )))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Import"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Upload schedule PDF"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 } }, "Import a PDF schedule from any poker series. The format is auto-detected."), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "Venue (optional — auto-detected from PDF)", value: uploadVenue, onChange: (e) => onUploadVenueChange(e.target.value), style: { padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: "0.8rem", width: "100%", boxSizing: "border-box" } }), /* @__PURE__ */ React.createElement("input", { type: "file", id: "pdf-upload-settings", className: "file-input", accept: ".pdf", onChange: onUpload }), /* @__PURE__ */ React.createElement("label", { htmlFor: "pdf-upload-settings", className: "btn btn-ghost btn-sm", style: { alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "4px" } }, /* @__PURE__ */ React.createElement(Icon.upload, null), " Choose PDF")))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "AI Schedule Scanner"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Upload schedule (PDF or image)"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 } }, "Upload a tournament schedule PDF or image. AI vision extracts event data automatically."), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "text",
+      placeholder: "Venue (optional — auto-detected from document)",
+      value: visionVenue,
+      onChange: (e) => setVisionVenue(e.target.value),
+      style: { padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: "0.8rem", width: "100%", boxSizing: "border-box" }
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "file",
+      id: "vision-schedule-upload",
+      className: "file-input",
+      accept: ".pdf,.png,.jpg,.jpeg,.webp",
+      onChange: handleVisionUpload,
+      disabled: visionParsing
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "label",
+    {
+      htmlFor: "vision-schedule-upload",
+      className: "btn btn-ghost btn-sm",
+      style: { alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "4px", opacity: visionParsing ? 0.5 : 1, pointerEvents: visionParsing ? "none" : "auto" }
+    },
+    /* @__PURE__ */ React.createElement(Icon.upload, null),
+    " ",
+    visionParsing ? "Scanning..." : "Choose File"
+  ), visionParsing && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", padding: "12px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { className: "spinner", style: { width: 16, height: 16, border: "2px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 1s linear infinite" } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", color: "var(--text-muted)" } }, "AI is analyzing the schedule... This may take 30-60 seconds for multi-page PDFs.")), visionError && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "6px", color: "#ef4444", fontSize: "0.8rem" } }, visionError), visionResults && visionResults.events.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" } }, visionResults.eventCount, " Events Found"), visionResults.detectedVenue && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "8px" } }, "at ", visionResults.detectedVenue)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)" } }, visionResults.pageCount, " page", visionResults.pageCount !== 1 ? "s" : "", " scanned")), visionResults.warnings.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 10px", background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)", borderRadius: "6px", marginBottom: "8px", fontSize: "0.75rem", color: "#eab308" } }, visionResults.warnings.length, " warning", visionResults.warnings.length !== 1 ? "s" : "", ": ", visionResults.warnings.slice(0, 3).map((w) => w.warnings.join(", ")).join("; "), visionResults.warnings.length > 3 && ` (+${visionResults.warnings.length - 3} more)`), /* @__PURE__ */ React.createElement("div", { style: { maxHeight: "400px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: "2px solid var(--border)", position: "sticky", top: 0, background: "var(--bg)" } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Date"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Time"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Event"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "right", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Buy-in"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 4px", textAlign: "center", width: "30px" } }))), /* @__PURE__ */ React.createElement("tbody", null, visionResults.events.map((ev, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: i }, /* @__PURE__ */ React.createElement(
+    "tr",
+    {
+      style: { borderBottom: "1px solid var(--border)", cursor: "pointer", background: visionEditIdx === i ? "var(--surface)" : "transparent" },
+      onClick: () => setVisionEditIdx(visionEditIdx === i ? -1 : i)
+    },
+    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", whiteSpace: "nowrap", color: "var(--text)", fontSize: "0.73rem" } }, ev.date ? ev.date.replace(/, \d{4}$/, "") : "?"),
+    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", whiteSpace: "nowrap", color: "var(--text-muted)", fontSize: "0.73rem" } }, ev.time || "?"),
+    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", color: "var(--text)", fontSize: "0.73rem", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, ev.event_name || "(unnamed)", ev._warnings && ev._warnings.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: "#eab308", marginLeft: "4px" }, title: ev._warnings.join(", ") }, "!")),
+    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", textAlign: "right", color: "var(--text)", fontWeight: 600, fontSize: "0.73rem" } }, ev.buyin != null ? `$${ev.buyin.toLocaleString()}` : "—"),
+    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 4px", textAlign: "center" } }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: (e) => {
+          e.stopPropagation();
+          removeVisionEvent(i);
+        },
+        style: { background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "0.7rem", padding: "2px 4px", lineHeight: 1 },
+        title: "Remove event"
+      },
+      "x"
+    ))
+  ), visionEditIdx === i && /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: "1px solid var(--border)", background: "var(--surface)" } }, /* @__PURE__ */ React.createElement("td", { colSpan: 5, style: { padding: "8px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Event Name"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.event_name || "", onChange: (e) => updateVisionEvent(i, "event_name", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Variant"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.game_variant || "", onChange: (e) => updateVisionEvent(i, "game_variant", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Date"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.date || "", onChange: (e) => updateVisionEvent(i, "date", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Time"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.time || "", onChange: (e) => updateVisionEvent(i, "time", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Buy-in ($)"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.buyin || 0, onChange: (e) => updateVisionEvent(i, "buyin", parseInt(e.target.value) || 0), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Venue"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.venue || "", onChange: (e) => updateVisionEvent(i, "venue", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Starting Chips"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.starting_chips || "", onChange: (e) => updateVisionEvent(i, "starting_chips", parseInt(e.target.value) || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Guarantee ($)"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.guarantee || "", onChange: (e) => updateVisionEvent(i, "guarantee", parseInt(e.target.value) || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Level Duration"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.level_duration || "", onChange: (e) => updateVisionEvent(i, "level_duration", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Re-entry"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.reentry || "", onChange: (e) => updateVisionEvent(i, "reentry", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })))))))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", marginTop: "12px", justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "btn btn-ghost btn-sm",
+      onClick: () => {
+        setVisionResults(null);
+        setVisionFile(null);
+      }
+    },
+    "Cancel"
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "btn btn-primary btn-sm",
+      onClick: handleVisionImport,
+      disabled: visionImporting || !visionResults.events.length,
+      style: { display: "inline-flex", alignItems: "center", gap: "6px" }
+    },
+    visionImporting ? "Importing..." : `Add ${visionResults.events.length} Events to Database`
+  ))), visionResults && visionResults.events.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "12px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)", color: "var(--text-muted)", fontSize: "0.8rem", textAlign: "center" } }, "No tournament events found in the uploaded file. Try a different file or check that it contains a tournament schedule.")))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Debug Tools"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Simulated date & time"), /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "settings-debug-input",
@@ -7673,7 +7814,7 @@ function App() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [gameVariants, setGameVariants] = useState([]);
   const [venues, setVenues] = useState([]);
-  const toast = useToast();
+  const toast2 = useToast();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [uploadError, setUploadError] = useState("");
@@ -7918,7 +8059,7 @@ function App() {
       setTournaments(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Fetch tournaments:", e);
-      toast.error("Failed to load tournaments");
+      toast2.error("Failed to load tournaments");
     }
   }, "fetchTournaments");
   const fetchMySchedule = /* @__PURE__ */ __name(async () => {
@@ -7967,7 +8108,7 @@ function App() {
       setTrackingData(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Fetch tracking:", e);
-      toast.error("Failed to load tracking data");
+      toast2.error("Failed to load tracking data");
     }
   }, "fetchTracking");
   const fetchMyLiveUpdate = /* @__PURE__ */ __name(async () => {
@@ -8182,14 +8323,14 @@ function App() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error);
+        toast2.error(data.error);
         return;
       }
-      toast.success(data.message);
+      toast2.success(data.message);
       e.target.reset();
       fetchShareBuddies();
     } catch (e2) {
-      toast.error("Failed to send request");
+      toast2.error("Failed to send request");
     }
   }, "handleSendShareRequest");
   const handleAcceptRequest = /* @__PURE__ */ __name(async (id) => {
@@ -8457,18 +8598,18 @@ function App() {
     fd.append("pdf", file);
     if (uploadVenue) fd.append("venue", uploadVenue);
     try {
-      toast.info("Uploading and parsing PDF…");
+      toast2.info("Uploading and parsing PDF…");
       const res = await fetch(`${API_URL}/upload-schedule`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd
       });
       const data = await res.json();
-      toast.success(`Imported ${data.tournamentsCount} tournaments from ${data.format === "wsop" ? "WSOP" : "generic"} format!`);
+      toast2.success(`Imported ${data.tournamentsCount} tournaments from ${data.format === "wsop" ? "WSOP" : "generic"} format!`);
       setUploadVenue("");
       fetchTournaments();
     } catch (e2) {
-      toast.error("Failed to upload schedule");
+      toast2.error("Failed to upload schedule");
     }
   }, "handleFileUpload");
   if (!token) {
@@ -8675,7 +8816,9 @@ function App() {
       shareBuddies,
       onRemoveBuddy: handleRemoveBuddy,
       shareError,
-      shareSuccess
+      shareSuccess,
+      token,
+      onRefreshTournaments: fetchTournaments
     }
   ), currentView === "admin" && ["ham", "ham5"].includes((username || "").toLowerCase()) && /* @__PURE__ */ React.createElement(AdminView, { token, onNavigate: (v) => {
     setCurrentView(v);
