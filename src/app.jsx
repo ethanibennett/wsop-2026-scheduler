@@ -9325,6 +9325,13 @@
                 {visionResults && visionResults.events.length === 0 && (
                   <div style={{padding:'12px',background:'var(--surface)',borderRadius:'8px',border:'1px solid var(--border)',color:'var(--text-muted)',fontSize:'0.8rem',textAlign:'center'}}>
                     No tournament events found in the uploaded file. Try a different file or check that it contains a tournament schedule.
+                    {visionResults.pageErrors && visionResults.pageErrors.length > 0 && (
+                      <div style={{marginTop:'8px',fontSize:'0.75rem',color:'var(--accent)',textAlign:'left'}}>
+                        {visionResults.pageErrors.map((pe, i) => (
+                          <div key={i}>⚠ {pe.error}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

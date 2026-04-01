@@ -6773,55 +6773,91 @@ Example output:
       }
       content.push({ type: 'text', text: SCHEDULE_PROMPT });
 
+      // Use assistant prefill to force response to start with [ (prevents code fences)
       const message = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 32768,
-        messages: [{ role: 'user', content }],
+        messages: [
+          { role: 'user', content },
+          { role: 'assistant', content: '[' },
+        ],
       });
 
       const wasTruncated = message.stop_reason === 'max_tokens';
-      const text = message.content[0]?.text?.trim() || '';
-      console.log(`[ParseSchedule] Response: ${text.length} chars, truncated: ${wasTruncated}, starts with: ${text.slice(0, 80)}`);
+      const rawText = message.content[0]?.text?.trim() || '';
+      // Prepend the [ we prefilled since the response continues from there
+      const text = '[' + rawText;
+      console.log(`[ParseSchedule] Response: ${text.length} chars, truncated: ${wasTruncated}, stop: ${message.stop_reason}`);
+      console.log(`[ParseSchedule] First 200 chars: ${text.slice(0, 200).replace(/\n/g, '\\n')}`);
+      console.log(`[ParseSchedule] Last 200 chars: ${text.slice(-200).replace(/\n/g, '\\n')}`);
 
-      // Extract JSON array from response — handle code fences, preamble text, truncation
+      // Extract JSON array from response
       let json = text;
 
-      // Step 1: Strip code fences first (```json ... ```)
+      // Strip code fences if they somehow appear
       if (json.includes('```')) {
-        json = json.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim();
+        json = json.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
       }
 
-      // Step 2: Try to extract the outermost JSON array
-      const arrayMatch = json.match(/\[[\s\S]*\]/);
-      if (arrayMatch) {
-        json = arrayMatch[0];
-      } else if (json.includes('[')) {
-        // Response was likely truncated — no closing ], so extract from first [
-        json = json.slice(json.indexOf('['));
+      // Find the JSON array
+      if (!json.startsWith('[')) {
+        const idx = json.indexOf('[');
+        if (idx >= 0) json = json.slice(idx);
       }
 
-      // Step 3: Attempt JSON repair if truncated (missing closing ] or incomplete last object)
+      // Robust JSON repair for truncated arrays
       function repairTruncatedJsonArray(str) {
-        // If it already parses, return as-is
         try { return JSON.parse(str); } catch (_) {}
 
         let s = str.trim();
-        // Ensure it starts with [
         if (!s.startsWith('[')) return null;
 
-        // Try appending ] or }] to close truncated array
-        const repairs = [
-          s + ']',                          // just missing ]
-          s + '}]',                          // missing } and ]
-          s + '"}]',                         // missing closing quote, } and ]
-          s + 'null}]',                      // missing value, } and ]
-        ];
-        for (const attempt of repairs) {
+        // Quick fixes for minor truncation
+        const quickRepairs = [s + ']', s + '}]', s + '"}]', s + 'null}]', s + '"null"}]'];
+        for (const attempt of quickRepairs) {
           try { return JSON.parse(attempt); } catch (_) {}
         }
 
-        // More aggressive: find last complete object and close there
-        // Look for the last "},\n" or "}\n" pattern, trim to that, add ]
+        // Find last complete JSON object by tracking brace depth outside strings
+        let lastSafeEnd = -1;
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+
+        for (let i = 0; i < s.length; i++) {
+          const ch = s[i];
+          if (escape) { escape = false; continue; }
+          if (ch === '\\' && inString) { escape = true; continue; }
+          if (ch === '"') { inString = !inString; continue; }
+          if (inString) continue;
+
+          if (ch === '[' || ch === '{') depth++;
+          else if (ch === ']' || ch === '}') {
+            depth--;
+            // When we close an object at depth 1 (direct child of the array), mark safe end
+            if (depth === 1 && ch === '}') {
+              // Check if next non-space is , or ]
+              let j = i + 1;
+              while (j < s.length && (s[j] === ' ' || s[j] === '\n' || s[j] === '\r' || s[j] === '\t')) j++;
+              if (j >= s.length || s[j] === ',' || s[j] === ']') {
+                lastSafeEnd = (s[j] === ',') ? j : i;
+              }
+            }
+          }
+        }
+
+        if (lastSafeEnd > 0) {
+          const trimmed = s.slice(0, lastSafeEnd + 1).replace(/,\s*$/, '') + ']';
+          try {
+            const parsed = JSON.parse(trimmed);
+            console.log(`[ParseSchedule] Repair succeeded: truncated at char ${lastSafeEnd}, recovered ${parsed.length} events`);
+            return parsed;
+          } catch (e) {
+            console.error(`[ParseSchedule] Repair parse failed at safe end ${lastSafeEnd}: ${e.message}`);
+          }
+        }
+
+        // Fallback: simple lastIndexOf approaches
         const lastCompleteObj = s.lastIndexOf('},');
         if (lastCompleteObj > 0) {
           const trimmed = s.slice(0, lastCompleteObj + 1) + ']';
@@ -6840,7 +6876,7 @@ Example output:
       try {
         events = JSON.parse(json);
       } catch (e) {
-        console.warn(`[ParseSchedule] Direct JSON parse failed, attempting repair...`);
+        console.warn(`[ParseSchedule] Direct JSON parse failed (${e.message}), attempting repair...`);
         events = repairTruncatedJsonArray(json);
         if (events) {
           console.log(`[ParseSchedule] JSON repair succeeded with ${events.length} events`);
@@ -6848,8 +6884,9 @@ Example output:
             pageErrors.push({ page: 1, error: 'Response was truncated — some events at the end may be missing' });
           }
         } else {
-          console.error(`[ParseSchedule] JSON parse error (unrepairable):`, json.slice(0, 500));
-          pageErrors.push({ page: 1, error: 'Failed to parse response', raw: text.slice(0, 500) });
+          console.error(`[ParseSchedule] JSON parse error (unrepairable), first 300 chars: ${json.slice(0, 300).replace(/\n/g, '\\n')}`);
+          console.error(`[ParseSchedule] Last 300 chars: ${json.slice(-300).replace(/\n/g, '\\n')}`);
+          pageErrors.push({ page: 1, error: 'Failed to parse AI response — try uploading again', raw: text.slice(0, 500) });
         }
       }
 

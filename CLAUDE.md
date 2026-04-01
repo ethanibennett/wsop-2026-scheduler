@@ -113,6 +113,15 @@ The `.claude/` directory is gitignored. For Claude Code preview tools, create `.
 }
 ```
 
+## Deployment (Render)
+- **Service**: futuregame (`srv-d6b8ujfgi27c73d5v3p0`)
+- **Dashboard**: https://dashboard.render.com/web/srv-d6b8ujfgi27c73d5v3p0
+- **Auto-deploy**: pushes to `master` branch trigger deploy
+- **Render config** stored at `.claude/projects/-Users-ethanibennett-WSOP-scheduler/render.env`
+- **Fetch logs**: `curl -s -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/logs?ownerId=tea-d6b8t3ali9vc73dcs4q0&resource=srv-d6b8ujfgi27c73d5v3p0&limit=100&direction=backward" | python3 -m json.tool`
+- **Filter logs**: add `&text=ParseSchedule` (or any keyword) to filter
+- **Render CLI**: `brew install render-oss/render/render` — installed, use `RENDER_API_KEY` env var for auth
+
 ## Database
 - Schema created by `init-db.js` — tables: users, tournaments, user_schedules, tracking, live_updates, shared_schedules, satellites, password_resets
 - `npm run seed` populates with sample WSOP tournament data
