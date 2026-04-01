@@ -1804,7 +1804,7 @@ async function initDatabase() {
           const date = row.date; // already YYYY-MM-DD
 
           // Extract event number
-          let evNum = (row.event_number || '').replace(/^(IPO-|WSOP-|#)/i, '').trim();
+          let evNum = String(row.event_number || '').replace(/^(IPO-|WSOP-|#)/i, '').trim();
 
           // Extract flight letter from event name
           const flightMatch = row.event_name.match(/Flight\s+([A-Z])\b/i) || row.event_name.match(/- ([A-Z])$/);
@@ -2203,7 +2203,7 @@ const VENUE_ABBR_MAP = {
 
 function generateStableId(venue, eventNumber, eventName, date) {
   const abbr = VENUE_ABBR_MAP[venue] || (venue || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
-  let evNum = (eventNumber || '').replace(/^(IPO-|WSOP-|#)/i, '').trim();
+  let evNum = String(eventNumber || '').replace(/^(IPO-|WSOP-|#)/i, '').trim();
   const flightMatch = eventName.match(/Flight\s+([A-Z])\b/i) || eventName.match(/- ([A-Z])$/);
   const flight = flightMatch ? flightMatch[1].toUpperCase() : '';
   const dayMatch = eventName.match(/Day\s+(\d+)/i);
