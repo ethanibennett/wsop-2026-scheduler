@@ -6681,24 +6681,12 @@ app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUp
     // Build image buffers to send to Claude
     const imageBuffers = []; // { base64, mediaType }
 
-    if (isImage) {
-      imageBuffers.push({
-        base64: req.file.buffer.toString('base64'),
-        mediaType: mime
-      });
-    } else {
-      // PDF: convert each page to an image using pdf-to-img
-      const pdfToImg = await import('pdf-to-img');
-      const doc = await pdfToImg.pdf(req.file.buffer, { scale: 2.0 });
-      let pageNum = 0;
-      for await (const page of doc) {
-        pageNum++;
-        if (pageNum > 20) break; // limit to 20 pages
-        const b64 = Buffer.from(page).toString('base64');
-        imageBuffers.push({ base64: b64, mediaType: 'image/png' });
-      }
-      console.log(`[ParseSchedule] Converted PDF to ${imageBuffers.length} page images`);
-    }
+    // Send file directly — Claude API accepts both images and PDFs natively
+    imageBuffers.push({
+      base64: req.file.buffer.toString('base64'),
+      mediaType: isPdf ? 'application/pdf' : mime
+    });
+    console.log(`[ParseSchedule] Prepared ${isPdf ? 'PDF' : 'image'} for Claude (${(req.file.size / 1024).toFixed(0)}KB)`);
 
     if (imageBuffers.length === 0) {
       return res.status(400).json({ error: 'Could not extract any pages from file' });
@@ -6771,10 +6759,17 @@ Example output:
       console.log(`[ParseSchedule] Sending ${imageBuffers.length} page(s) to Claude...`);
       const content = [];
       for (const img of imageBuffers) {
-        content.push({
-          type: 'image',
-          source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
-        });
+        if (img.mediaType === 'application/pdf') {
+          content.push({
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: img.base64 },
+          });
+        } else {
+          content.push({
+            type: 'image',
+            source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
+          });
+        }
       }
       content.push({ type: 'text', text: SCHEDULE_PROMPT });
 
