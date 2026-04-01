@@ -6763,57 +6763,47 @@ VARIANT DETECTION — read carefully:
 Example output:
 [{"date":"June 15, 2026","time":"11:00 AM","buyin":600,"venue":"Wynn Las Vegas","game_variant":"NLH","event_name":"NLH Deepstack","event_number":"1","starting_chips":30000,"level_duration":"30","guarantee":100000,"reentry":"Unlimited","late_reg":"End of Level 10","is_satellite":false,"target_event":null,"is_multi_flight":false,"flight_letter":null,"is_restart":false,"parent_event":null,"category":"side","table_size":"9-max","bounty_amount":null,"day_length":null,"rake_pct":null}]`;
 
-    // Process each page/image and collect results
+    // Send all pages in a single API call for speed
     const allEvents = [];
     const pageErrors = [];
 
-    for (let i = 0; i < imageBuffers.length; i++) {
-      const img = imageBuffers[i];
-      try {
-        console.log(`[ParseSchedule] Processing page ${i + 1}/${imageBuffers.length}...`);
-        const message = await client.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 8192,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
-              },
-              { type: 'text', text: SCHEDULE_PROMPT },
-            ],
-          }],
+    try {
+      console.log(`[ParseSchedule] Sending ${imageBuffers.length} page(s) to Claude...`);
+      const content = [];
+      for (const img of imageBuffers) {
+        content.push({
+          type: 'image',
+          source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
         });
-
-        const text = message.content[0]?.text?.trim() || '';
-        const json = text.includes('```') ? text.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim() : text.trim();
-
-        let events;
-        try {
-          events = JSON.parse(json);
-        } catch (e) {
-          console.error(`[ParseSchedule] Page ${i + 1} JSON parse error:`, text.slice(0, 200));
-          pageErrors.push({ page: i + 1, error: 'Failed to parse response', raw: text.slice(0, 500) });
-          continue;
-        }
-
-        if (!Array.isArray(events)) {
-          pageErrors.push({ page: i + 1, error: 'Response was not an array' });
-          continue;
-        }
-
-        // Tag each event with its source page
-        for (const ev of events) {
-          ev._sourcePage = i + 1;
-          allEvents.push(ev);
-        }
-
-        console.log(`[ParseSchedule] Page ${i + 1}: extracted ${events.length} events`);
-      } catch (err) {
-        console.error(`[ParseSchedule] Page ${i + 1} API error:`, err.message);
-        pageErrors.push({ page: i + 1, error: err.message });
       }
+      content.push({ type: 'text', text: SCHEDULE_PROMPT });
+
+      const message = await client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 16384,
+        messages: [{ role: 'user', content }],
+      });
+
+      const text = message.content[0]?.text?.trim() || '';
+      const json = text.includes('```') ? text.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim() : text.trim();
+
+      let events;
+      try {
+        events = JSON.parse(json);
+      } catch (e) {
+        console.error(`[ParseSchedule] JSON parse error:`, text.slice(0, 300));
+        pageErrors.push({ page: 1, error: 'Failed to parse response', raw: text.slice(0, 500) });
+      }
+
+      if (events && Array.isArray(events)) {
+        for (const ev of events) allEvents.push(ev);
+        console.log(`[ParseSchedule] Extracted ${events.length} events`);
+      } else if (events) {
+        pageErrors.push({ page: 1, error: 'Response was not an array' });
+      }
+    } catch (err) {
+      console.error(`[ParseSchedule] API error:`, err.message);
+      pageErrors.push({ page: 1, error: err.message });
     }
 
     // Post-process: normalize and validate
