@@ -6780,13 +6780,22 @@ Example output:
       });
 
       const text = message.content[0]?.text?.trim() || '';
-      const json = text.includes('```') ? text.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim() : text.trim();
+      // Extract JSON array from response — handle code fences, preamble text, etc.
+      let json = text;
+      // Try to find a JSON array in the response
+      const arrayMatch = text.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        json = arrayMatch[0];
+      } else {
+        // Fallback: strip code fences
+        json = text.includes('```') ? text.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim() : text.trim();
+      }
 
       let events;
       try {
         events = JSON.parse(json);
       } catch (e) {
-        console.error(`[ParseSchedule] JSON parse error:`, text.slice(0, 300));
+        console.error(`[ParseSchedule] JSON parse error:`, text.slice(0, 500));
         pageErrors.push({ page: 1, error: 'Failed to parse response', raw: text.slice(0, 500) });
       }
 
