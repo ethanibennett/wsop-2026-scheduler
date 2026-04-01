@@ -9287,7 +9287,9 @@
                               >
                                 <td style={{padding:'6px 8px',whiteSpace:'nowrap',color:'var(--text)',fontSize:'0.73rem'}}>{ev.date ? ev.date.replace(/, \d{4}$/, '') : '?'}</td>
                                 <td style={{padding:'6px 8px',whiteSpace:'nowrap',color:'var(--text-muted)',fontSize:'0.73rem'}}>{ev.time || '?'}</td>
-                                <td style={{padding:'6px 8px',color:'var(--text)',fontSize:'0.73rem',maxWidth:'180px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                                <td style={{padding:'6px 8px',color:'var(--text)',fontSize:'0.73rem',maxWidth:'220px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                                  {ev.is_satellite && <span style={{fontSize:'0.6rem',padding:'1px 4px',borderRadius:'3px',background:'rgba(139,92,246,0.2)',color:'#a78bfa',marginRight:'4px',fontWeight:600}}>SAT</span>}
+                                  {ev.is_restart && <span style={{fontSize:'0.6rem',padding:'1px 4px',borderRadius:'3px',background:'rgba(234,179,8,0.2)',color:'#eab308',marginRight:'4px',fontWeight:600}}>D2+</span>}
                                   {ev.event_name || '(unnamed)'}
                                   {ev._warnings && ev._warnings.length > 0 && <span style={{color:'#eab308',marginLeft:'4px'}} title={ev._warnings.join(', ')}>!</span>}
                                 </td>
@@ -9344,6 +9346,57 @@
                                         <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Re-entry</span>
                                         <input type="text" value={ev.reentry || ''} onChange={e => updateVisionEvent(i, 'reentry', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
                                       </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Event #</span>
+                                        <input type="text" value={ev.event_number || ''} onChange={e => updateVisionEvent(i, 'event_number', e.target.value || null)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                      </label>
+                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Category</span>
+                                        <select value={ev.category || ''} onChange={e => updateVisionEvent(i, 'category', e.target.value || null)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}}>
+                                          <option value="">—</option>
+                                          <option value="main">Main Event</option>
+                                          <option value="side">Side Event</option>
+                                          <option value="deepstack">Deepstack</option>
+                                        </select>
+                                      </label>
+                                    </div>
+                                    <div style={{display:'flex',flexWrap:'wrap',gap:'12px',marginTop:'8px',fontSize:'0.75rem'}}>
+                                      <label style={{display:'flex',alignItems:'center',gap:'4px',cursor:'pointer',color:'var(--text-muted)'}}>
+                                        <input type="checkbox" checked={!!ev.is_satellite} onChange={e => {
+                                          updateVisionEvent(i, 'is_satellite', e.target.checked);
+                                          if (e.target.checked) updateVisionEvent(i, 'is_restart', false);
+                                        }} />
+                                        Satellite
+                                      </label>
+                                      <label style={{display:'flex',alignItems:'center',gap:'4px',cursor:'pointer',color:'var(--text-muted)'}}>
+                                        <input type="checkbox" checked={!!ev.is_restart} onChange={e => {
+                                          updateVisionEvent(i, 'is_restart', e.target.checked);
+                                          if (e.target.checked) { updateVisionEvent(i, 'is_satellite', false); updateVisionEvent(i, 'buyin', 0); }
+                                        }} />
+                                        Restart (Day 2+)
+                                      </label>
+                                      <label style={{display:'flex',alignItems:'center',gap:'4px',cursor:'pointer',color:'var(--text-muted)'}}>
+                                        <input type="checkbox" checked={!!ev.is_multi_flight} onChange={e => updateVisionEvent(i, 'is_multi_flight', e.target.checked)} />
+                                        Multi-flight
+                                      </label>
+                                      {ev.is_satellite && (
+                                        <label style={{display:'flex',flexDirection:'column',gap:'2px',flex:1,minWidth:'120px'}}>
+                                          <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Target Event</span>
+                                          <input type="text" value={ev.target_event || ''} onChange={e => updateVisionEvent(i, 'target_event', e.target.value || null)} placeholder="e.g. Main Event" style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                        </label>
+                                      )}
+                                      {ev.is_restart && (
+                                        <label style={{display:'flex',flexDirection:'column',gap:'2px',flex:1,minWidth:'120px'}}>
+                                          <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Parent Event</span>
+                                          <input type="text" value={ev.parent_event || ''} onChange={e => updateVisionEvent(i, 'parent_event', e.target.value || null)} placeholder="e.g. Event 1" style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
+                                        </label>
+                                      )}
+                                      {ev.is_multi_flight && (
+                                        <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                                          <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Flight</span>
+                                          <input type="text" value={ev.flight_letter || ''} onChange={e => updateVisionEvent(i, 'flight_letter', e.target.value || null)} placeholder="A, B, C..." style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem',width:'50px'}} />
+                                        </label>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>

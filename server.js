@@ -6747,15 +6747,25 @@ For each event line, output a JSON object with these fields:
 - "guarantee": integer dollars, or null
 - "reentry": policy text (e.g. "Unlimited", "1", "Freezeout"), or null
 - "late_reg": as shown, or null
-- "is_satellite": true if Satellite/Qualifier/Mega/Super Satellite/Big 4/Big 5
-- "target_event": what satellite feeds into, or null
+- "is_satellite": true if the event is a satellite/qualifier. Detection clues:
+    • Name contains: Satellite, Qualifier, Mega, Super Satellite, Win Your Way, Big 4, Big 5, "Seat"
+    • Very low buy-in relative to the series (e.g. $65-$200 when most events are $300+)
+    • Guarantees a "seat" or "entry" to another event rather than a cash prize
+    • Even if not explicitly labeled, a $65 "Win Your Way" or $100 event in a $400+ series is almost certainly a satellite
+- "target_event": what the satellite feeds into (e.g. "Main Event", "Event 15"), or null
 - "is_multi_flight": true if multi-flight (Day 1A, 1B, etc.)
 - "flight_letter": "A", "B", "C", or null
-- "is_restart": true if Day 2/3/Final continuation
-- "parent_event": parent event number/name for restarts, or null
-- "category": "main", "side", "deepstack", or null
+- "is_restart": true if this is a continuation day (Day 2, Day 3, Final Table, Final Day). Detection clues:
+    • Name contains: Day 2, Day 3, Final, Final Table, Final Day
+    • No buy-in listed (or $0) — players already paid on Day 1
+    • Set buyin to 0 for all restarts
+- "parent_event": for restarts, the parent event number or name, or null
+- "category": Classify each event:
+    • "main" — the series Main Event (usually the highest buy-in multi-flight event, often explicitly named "Main Event" or "Championship")
+    • "deepstack" — events explicitly called "Deepstack" or with notably large starting stacks relative to blinds
+    • "side" — everything else (the default for most events)
 - "table_size": "9-max", "8-max", "6-max", "heads-up", or null
-- "bounty_amount": integer bounty if knockout, or null
+- "bounty_amount": integer bounty if knockout/bounty event, or null
 
 Return ONLY a JSON array. No markdown, no code fences, no explanation.`;
 
