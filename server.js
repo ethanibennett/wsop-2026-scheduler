@@ -6744,9 +6744,13 @@ SATELLITE DETECTION — be smart about this:
 9. Satellites do NOT get a game variant prefix in event_name. Name them like: "Satellite to Main Event", "Satellite to Deepstack Kick Off", "Big 4 Satellite"
 
 VARIANT DETECTION — read carefully:
-10. Determine the game variant from the ACTUAL game being played, not just keywords in the name. "PLO Big 4" is NOT a PLO event if "Big 4" is a satellite package format — it's an NLH satellite.
-11. Only set game_variant to PLO if the event is actually played as Pot-Limit Omaha (e.g. "PLO Championship", "PLO Deepstack", "PLO Double Board Bomb Pot").
-12. "Double Board Bomb Pot" is PLO. "Monster Stack" is NLH. "Survivor" is NLH. "C-Note" is NLH. "Frenzy" is NLH.
+10. If no specific variant is mentioned, ALWAYS default to NLH. Most poker tournaments are No-Limit Hold'em.
+11. Determine the game variant from the ACTUAL game being played, not just keywords in the name. "PLO Big 4" is NOT a PLO event if "Big 4" is a satellite package format — it's an NLH satellite.
+12. Only set game_variant to PLO if the event is actually played as Pot-Limit Omaha (e.g. "PLO Championship", "PLO Deepstack", "PLO Double Board Bomb Pot").
+13. "Omaha Hi-Lo", "Omaha H/L", "Omaha 8", "O/8" = game_variant "PLO8". Do NOT put redundant descriptions in the name — just use the variant prefix (e.g. "PLO8 Championship", NOT "PLO8 Omaha H/L High-Low").
+14. "Double Board Bomb Pot" is PLO. "Monster Stack" is NLH. "Survivor" is NLH. "C-Note" is NLH. "Frenzy" is NLH.
+15. "Hybrid" in a name (e.g. "BetMGM Poker Hybrid Championship") means the event starts online and finishes live — it is NLH, NOT Mixed. Do not confuse "Hybrid" with mixed games.
+16. Words like "Championship", "Classic", "Open", "Kickoff", "Closer" describe event FORMAT, not variant. If no variant is specified alongside these words, the event is NLH.
 
 Example output:
 [{"date":"June 15, 2026","time":"11:00 AM","buyin":600,"venue":"Wynn Las Vegas","game_variant":"NLH","event_name":"NLH Deepstack","event_number":"1","starting_chips":30000,"level_duration":"30","guarantee":100000,"reentry":"Unlimited","late_reg":"End of Level 10","is_satellite":false,"target_event":null,"is_multi_flight":false,"flight_letter":null,"is_restart":false,"parent_event":null,"category":"side","table_size":"9-max","bounty_amount":null,"day_length":null,"rake_pct":null}]`;
@@ -6952,6 +6956,22 @@ Example output:
         if (!matched) w.push(`Unknown venue: ${ev.venue}`);
       } else {
         w.push('No venue detected');
+      }
+
+      // Fix variant misclassifications before name normalization
+      if (ev.game_variant === 'Mixed' && ev.event_name && /\bhybrid\b/i.test(ev.event_name)) {
+        ev.game_variant = 'NLH'; // "Hybrid" = online-to-live format, not a mixed game
+      }
+
+      // Clean up redundant variant descriptions in event names
+      if (ev.event_name) {
+        // "PLO8 Omaha H/L High-Low" → just use variant prefix, strip redundant descriptions
+        ev.event_name = ev.event_name
+          .replace(/\b(Omaha\s*(?:Hi[\s/-]*Lo|H[\s/-]*L|8(?:-or-better)?|High[\s/-]*Low))\b/gi, '')
+          .replace(/\bPot[\s-]*Limit\s+Omaha\b/gi, '')
+          .replace(/\bNo[\s-]*Limit\s+Hold'?e?m\b/gi, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
       }
 
       // Normalize event name using existing function
