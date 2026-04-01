@@ -6701,7 +6701,7 @@ REQUIRED fields (reject event if ALL of date, time, and buyin are missing):
 - "time": normalized to "H:MM AM/PM" format (e.g. "11:00 AM", "7:00 PM"). Convert 24h times.
 - "buyin": integer in dollars (just the number, e.g. 600 not "$600"). Include the total entry fee.
 - "venue": the venue/casino name if detectable from the document header or content
-- "game_variant": one of: NLH, PLO, PLO8, O8, "Limit Hold'em", "Big O", "7-Card Stud", "Stud 8", Razz, HORSE, TORSE, "2-7 Triple Draw", "NL 2-7 Single Draw", Badugi, "Dealer's Choice", Mixed, "9-Game Mix", "8-Game Mix", "Mixed Triple Draw", OE, TOE, "5-Card PLO", "Big Bet Dealer's Choice", "PLO/NLH Mix", "Mixed PLO", "10-Game Mix". Default to "NLH" if it's a No-Limit Hold'em event.
+- "game_variant": one of: NLH, PLO, PLO8, O8, "Limit Hold'em", "Big O", "7-Card Stud", "Stud 8", Razz, HORSE, HOSE, TORSE, "2-7 Triple Draw", "NL 2-7 Single Draw", Badugi, "Dealer's Choice", Mixed, "9-Game Mix", "8-Game Mix", "Mixed Triple Draw", OE, TOE, "5-Card PLO", "Big Bet Dealer's Choice", "PLO/NLH Mix", "Mixed PLO", "10-Game Mix". Default to "NLH" if it's a No-Limit Hold'em event.
 - "event_name": the event name, following these STRICT rules:
   * Start with game variant prefix (NLH, PLO, Mixed, etc.) UNLESS the event is a demographic event (Seniors, Ladies, Kings & Queens) or a Satellite
   * Do NOT include re-entry info in the name (no "Unlimited Re-Entry", "Single Re-Entry")
@@ -6751,6 +6751,7 @@ VARIANT DETECTION — read carefully:
 14. "Double Board Bomb Pot" is PLO. "Monster Stack" is NLH. "Survivor" is NLH. "C-Note" is NLH. "Frenzy" is NLH.
 15. "Hybrid" in a name (e.g. "BetMGM Poker Hybrid Championship") means the event starts online and finishes live — it is NLH, NOT Mixed. Do not confuse "Hybrid" with mixed games.
 16. Words like "Championship", "Classic", "Open", "Kickoff", "Closer" describe event FORMAT, not variant. If no variant is specified alongside these words, the event is NLH.
+17. HOSE and HORSE are DIFFERENT games. HOSE = Hold'em/Omaha/Stud/Eight-or-better (4 games). HORSE = Hold'em/Omaha/Razz/Stud/Eight-or-better (5 games). Read the letters carefully — do NOT confuse them.
 
 Example output:
 [{"date":"June 15, 2026","time":"11:00 AM","buyin":600,"venue":"Wynn Las Vegas","game_variant":"NLH","event_name":"NLH Deepstack","event_number":"1","starting_chips":30000,"level_duration":"30","guarantee":100000,"reentry":"Unlimited","late_reg":"End of Level 10","is_satellite":false,"target_event":null,"is_multi_flight":false,"flight_letter":null,"is_restart":false,"parent_event":null,"category":"side","table_size":"9-max","bounty_amount":null,"day_length":null,"rake_pct":null}]`;
