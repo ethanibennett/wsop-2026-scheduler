@@ -8938,21 +8938,22 @@
         setVisionProgress(0);
         setVisionStage('Uploading...');
 
-        // Animated progress stages
+        // Animated progress stages (two-pass: transcribe then structure)
         const isPdf = file.name.toLowerCase().endsWith('.pdf');
         const stages = [
           { at: 5,  label: 'Uploading...' },
-          { at: 15, label: isPdf ? 'Reading PDF pages...' : 'Processing image...' },
-          { at: 30, label: 'AI analyzing schedule...' },
-          { at: 50, label: 'Extracting events...' },
-          { at: 70, label: 'Still working...' },
-          { at: 85, label: 'Almost there...' },
+          { at: 10, label: isPdf ? 'Reading PDF pages...' : 'Processing image...' },
+          { at: 20, label: 'Pass 1: Transcribing schedule...' },
+          { at: 40, label: 'Pass 1: Reading event details...' },
+          { at: 55, label: 'Pass 2: Structuring events...' },
+          { at: 70, label: 'Pass 2: Mapping variants...' },
+          { at: 82, label: 'Validating data...' },
           { at: 92, label: 'Finalizing...' },
         ];
         let stageIdx = 0;
         const startTime = Date.now();
-        // Estimate ~45s for PDF, ~20s for image
-        const estDuration = isPdf ? 45000 : 20000;
+        // Two-pass takes longer: ~60s for PDF, ~30s for image
+        const estDuration = isPdf ? 60000 : 30000;
 
         visionProgressRef.current = setInterval(() => {
           const elapsed = Date.now() - startTime;

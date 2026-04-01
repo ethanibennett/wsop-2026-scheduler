@@ -6692,205 +6692,186 @@ app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUp
       return res.status(400).json({ error: 'Could not extract any pages from file' });
     }
 
-    const SCHEDULE_PROMPT = `You are a poker tournament schedule data extractor. Your job is to READ EXACTLY what is printed on this schedule and transcribe it into structured JSON. Do NOT interpret, infer, or embellish — only extract what is explicitly written.
+    // ── Pass 1 prompt: verbatim transcription ──
+    const TRANSCRIBE_PROMPT = `Transcribe every tournament event row from this poker schedule into a plain text table. Read EXACTLY what is printed — do not interpret, rephrase, or add anything.
 
-GOLDEN RULE: Read literally. If the document says "HOSE", output "HOSE" — not "HORSE". If it says "Hybrid Championship", that's the name — don't reclassify it as "Mixed". If a field isn't shown on the page, return null. Never guess.
+For each event row, output one line in this pipe-delimited format:
+DATE | TIME | EVENT# | EVENT NAME (exactly as printed) | BUY-IN | STARTING CHIPS | LEVELS | GUARANTEE | RE-ENTRY | LATE REG | TABLE SIZE
 
-For EACH event, extract these fields:
+Rules:
+- Copy text EXACTLY as it appears. If it says "HOSE", write "HOSE" — not "HORSE". Count letters carefully.
+- If a field is not shown, write "—" (em dash)
+- Include EVERY event row — do not skip any, including satellites, Day 2s, and finals
+- Preserve the exact event name as printed on the schedule
+- For dates, use the format shown on the schedule
+- For buy-ins, include the dollar amount as shown
+- Also output the venue/series name from the document header on the FIRST line, prefixed with "VENUE:"
 
-REQUIRED (skip event only if ALL of date, time, and buyin are missing):
-- "date": normalize to "Month DD, YYYY" (e.g. "June 15, 2026"). Assume 2026 if year not shown.
-- "time": normalize to "H:MM AM/PM" (e.g. "11:00 AM"). Convert 24h times.
-- "buyin": integer in dollars (just the number, e.g. 600 not "$600"). Total entry fee.
-- "venue": the venue/casino name from the document header or content
-- "game_variant": Map what you read to ONE of these codes:
+Example:
+VENUE: Borgata Summer Poker Open
+Jun 3 | 11:00 AM | 1 | No-Limit Hold'em Deepstack | $600 | 30,000 | 30 min | $200,000 GTD | Unlimited | Level 10 | —
+Jun 3 | 7:00 PM | 2 | Pot-Limit Omaha | $1,100 | 50,000 | 40 min | — | Freezeout | — | 8-Max`;
+
+    // ── Pass 2 prompt: structure into JSON ──
+    const STRUCTURE_PROMPT = `Convert this raw transcription of a poker tournament schedule into a JSON array. The transcription was copied verbatim from a schedule document.
+
+For each event line, output a JSON object with these fields:
+- "date": normalize to "Month DD, YYYY" (assume 2026 if no year). e.g. "June 15, 2026"
+- "time": normalize to "H:MM AM/PM". e.g. "11:00 AM"
+- "buyin": integer dollars (just the number, no $). e.g. 600
+- "venue": from the VENUE: line
+- "game_variant": Map the event name to ONE of these codes:
     NLH, PLO, PLO8, O8, "Limit Hold'em", "Big O", "7-Card Stud", "Stud 8", Razz,
     HORSE, HOSE, TORSE, "2-7 Triple Draw", "NL 2-7 Single Draw", Badugi,
     "Dealer's Choice", Mixed, "9-Game Mix", "8-Game Mix", "Mixed Triple Draw",
     OE, TOE, "5-Card PLO", "Big Bet Dealer's Choice", "PLO/NLH Mix", "Mixed PLO", "10-Game Mix"
-  KEY RULES:
-    • If no variant is stated or it just says "Poker" / "Tournament", default to NLH
+  RULES:
+    • Default to NLH unless the name EXPLICITLY says otherwise
     • "No-Limit Hold'em" / "NLHE" / "Hold'em" → NLH
-    • "Pot-Limit Omaha" / "PLO" → PLO
-    • "Omaha Hi-Lo" / "Omaha H/L" / "Omaha 8" / "O/8" → PLO8
-    • "HOSE" → HOSE (NOT HORSE — these are different games, count the letters)
-    • "HORSE" → HORSE
-    • Words like "Championship", "Classic", "Open", "Hybrid", "Kickoff", "Closer", "Frenzy", "Monster Stack", "Survivor", "C-Note" describe EVENT FORMAT, not game variant — default to NLH
-- "event_name": the event name as printed, with these normalizations:
-    • Prepend the variant abbreviation (NLH, PLO, etc.) UNLESS it's a Satellite or demographic event (Seniors, Ladies)
-    • Strip re-entry info, GTD amounts, and buy-in amounts from the name
-    • For multi-flight events: append " - Flight A", " - Flight B", etc.
-    • For continuation days: append " - Day 2", " - Day 3"
-    • Don't repeat the variant in the descriptive part (e.g. "PLO8 Championship", NOT "PLO8 Omaha Hi-Lo Championship")
-- "event_number": as shown (e.g. "1", "2A", "15"), or null
-- "starting_chips": integer, or null if not shown
+    • "Pot-Limit Omaha" → PLO
+    • "Omaha Hi-Lo" / "Omaha H/L" / "Omaha 8" / "O/8" → PLO8 (this is NOT "O8" — O8 is limit)
+    • "HOSE" → "HOSE" (4 games — NOT HORSE)
+    • "HORSE" → "HORSE" (5 games)
+    • Words like Championship, Classic, Open, Hybrid, Kickoff, Closer, Frenzy, Monster Stack, Survivor, Bounty, C-Note, Mystery describe FORMAT — they do NOT indicate a variant. Default to NLH.
+    • "Hybrid" means online-to-live format — it is NLH, NOT Mixed
+- "event_name": Clean version of the event name:
+    • Prepend variant abbreviation (NLH, PLO, etc.) UNLESS it's a Satellite or demographic event (Seniors, Ladies, Kings & Queens)
+    • Strip re-entry policy, GTD amounts, and buy-in amounts from the name
+    • Don't repeat variant in the descriptive part ("PLO8 Championship", NOT "PLO8 Omaha Hi-Lo Championship")
+    • Multi-flight → append " - Flight A", " - Flight B"
+    • Continuation days → append " - Day 2", " - Day 3"
+    • Final tables → append " - Final"
+- "event_number": as shown, or null
+- "starting_chips": integer, or null
 - "level_duration": minutes as string (e.g. "30", "40", "20,30"), or null
-- "guarantee": integer prize pool guarantee in dollars, or null
-
-OPTIONAL (null if not shown):
-- "reentry": re-entry policy (e.g. "Unlimited", "1", "Freezeout")
-- "late_reg": late registration info
-- "is_satellite": true if satellite/qualifier event
-- "target_event": what satellite feeds into
-- "is_multi_flight": true if multi-flight event
-- "flight_letter": "A", "B", "C", etc.
+- "guarantee": integer dollars, or null
+- "reentry": policy text (e.g. "Unlimited", "1", "Freezeout"), or null
+- "late_reg": as shown, or null
+- "is_satellite": true if Satellite/Qualifier/Mega/Super Satellite/Big 4/Big 5
+- "target_event": what satellite feeds into, or null
+- "is_multi_flight": true if multi-flight (Day 1A, 1B, etc.)
+- "flight_letter": "A", "B", "C", or null
 - "is_restart": true if Day 2/3/Final continuation
-- "parent_event": parent event for restarts
+- "parent_event": parent event number/name for restarts, or null
 - "category": "main", "side", "deepstack", or null
 - "table_size": "9-max", "8-max", "6-max", "heads-up", or null
-- "bounty_amount": integer bounty if knockout event
-- "day_length": e.g. "12 levels", "8 hours"
-- "rake_pct": rake percentage as number
+- "bounty_amount": integer bounty if knockout, or null
 
-RULES:
-1. Extract EVERY event — do not skip any
-2. Multi-flight events (Day 1A, 1B, 1C) → SEPARATE entries per flight
-3. Day 2/3/Final → is_restart=true, link parent_event
-4. Satellites: "Satellite", "Qualifier", "Mega", "Super Satellite", "Big 4", "Big 5" → is_satellite=true, no variant prefix in name
-5. Return ONLY a JSON array — no markdown, no code fences, no explanation
-6. No events on page → return []
+Return ONLY a JSON array. No markdown, no code fences, no explanation.`;
 
-Example:
-[{"date":"June 15, 2026","time":"11:00 AM","buyin":600,"venue":"Wynn Las Vegas","game_variant":"NLH","event_name":"NLH Deepstack","event_number":"1","starting_chips":30000,"level_duration":"30","guarantee":100000,"reentry":"Unlimited","late_reg":"End of Level 10","is_satellite":false,"target_event":null,"is_multi_flight":false,"flight_letter":null,"is_restart":false,"parent_event":null,"category":"side","table_size":"9-max","bounty_amount":null,"day_length":null,"rake_pct":null}]`;
+    // ── Robust JSON repair ──
+    function repairTruncatedJsonArray(str) {
+      try { return JSON.parse(str); } catch (_) {}
+      let s = str.trim();
+      if (!s.startsWith('[')) return null;
 
-    // Send all pages in a single API call for speed
+      const quickRepairs = [s + ']', s + '}]', s + '"}]', s + 'null}]', s + '"null"}]'];
+      for (const attempt of quickRepairs) {
+        try { return JSON.parse(attempt); } catch (_) {}
+      }
+
+      // Character-level: find last complete object tracking brace depth outside strings
+      let lastSafeEnd = -1, depth = 0, inString = false, escape = false;
+      for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (escape) { escape = false; continue; }
+        if (ch === '\\' && inString) { escape = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (ch === '[' || ch === '{') depth++;
+        else if (ch === ']' || ch === '}') {
+          depth--;
+          if (depth === 1 && ch === '}') {
+            let j = i + 1;
+            while (j < s.length && ' \n\r\t'.includes(s[j])) j++;
+            if (j >= s.length || s[j] === ',' || s[j] === ']') lastSafeEnd = (s[j] === ',') ? j : i;
+          }
+        }
+      }
+      if (lastSafeEnd > 0) {
+        const trimmed = s.slice(0, lastSafeEnd + 1).replace(/,\s*$/, '') + ']';
+        try { const p = JSON.parse(trimmed); console.log(`[ParseSchedule] Repair: recovered ${p.length} events`); return p; } catch (_) {}
+      }
+      const lco = s.lastIndexOf('},');
+      if (lco > 0) { try { return JSON.parse(s.slice(0, lco + 1) + ']'); } catch (_) {} }
+      const lo = s.lastIndexOf('}');
+      if (lo > 0) { try { return JSON.parse(s.slice(0, lo + 1) + ']'); } catch (_) {} }
+      return null;
+    }
+
+    function extractJsonArray(text, wasTruncated) {
+      let json = text;
+      if (json.includes('```')) json = json.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+      if (!json.startsWith('[')) { const idx = json.indexOf('['); if (idx >= 0) json = json.slice(idx); }
+      try { return JSON.parse(json); } catch (e) {
+        console.warn(`[ParseSchedule] Direct parse failed (${e.message}), repairing...`);
+        const repaired = repairTruncatedJsonArray(json);
+        if (repaired) return repaired;
+        console.error(`[ParseSchedule] Unrepairable JSON, first 300: ${json.slice(0, 300).replace(/\n/g, '\\n')}`);
+        return null;
+      }
+    }
+
+    // ── Execute two-pass extraction ──
     const allEvents = [];
     const pageErrors = [];
 
     try {
-      console.log(`[ParseSchedule] Sending ${imageBuffers.length} page(s) to Claude...`);
-      const content = [];
+      // Pass 1: Verbatim transcription (Sonnet for accuracy)
+      console.log(`[ParseSchedule] Pass 1: Transcribing ${imageBuffers.length} page(s) with Sonnet...`);
+      const visionContent = [];
       for (const img of imageBuffers) {
         if (img.mediaType === 'application/pdf') {
-          content.push({
-            type: 'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: img.base64 },
-          });
+          visionContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: img.base64 } });
         } else {
-          content.push({
-            type: 'image',
-            source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
-          });
+          visionContent.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
         }
       }
-      content.push({ type: 'text', text: SCHEDULE_PROMPT });
+      visionContent.push({ type: 'text', text: TRANSCRIBE_PROMPT });
 
-      // Use assistant prefill to force response to start with [ (prevents code fences)
-      const message = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 32768,
-        messages: [
-          { role: 'user', content },
-          { role: 'assistant', content: '[' },
-        ],
+      const pass1 = await client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 16384,
+        messages: [{ role: 'user', content: visionContent }],
       });
 
-      const wasTruncated = message.stop_reason === 'max_tokens';
-      const rawText = message.content[0]?.text?.trim() || '';
-      // Prepend the [ we prefilled since the response continues from there
-      const text = '[' + rawText;
-      console.log(`[ParseSchedule] Response: ${text.length} chars, truncated: ${wasTruncated}, stop: ${message.stop_reason}`);
-      console.log(`[ParseSchedule] First 200 chars: ${text.slice(0, 200).replace(/\n/g, '\\n')}`);
-      console.log(`[ParseSchedule] Last 200 chars: ${text.slice(-200).replace(/\n/g, '\\n')}`);
+      const transcription = pass1.content[0]?.text?.trim() || '';
+      console.log(`[ParseSchedule] Pass 1 done: ${transcription.length} chars, ${transcription.split('\n').length} lines`);
+      console.log(`[ParseSchedule] Transcription preview: ${transcription.slice(0, 300).replace(/\n/g, '\\n')}`);
 
-      // Extract JSON array from response
-      let json = text;
+      if (!transcription || transcription.length < 20) {
+        pageErrors.push({ page: 1, error: 'Could not read any text from the document' });
+      } else {
+        // Pass 2: Structure into JSON (Haiku for speed — input is clean text now)
+        console.log(`[ParseSchedule] Pass 2: Structuring transcription into JSON...`);
 
-      // Strip code fences if they somehow appear
-      if (json.includes('```')) {
-        json = json.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-      }
+        const pass2 = await client.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 32768,
+          messages: [
+            { role: 'user', content: `Here is the raw transcription of a poker tournament schedule:\n\n${transcription}\n\n${STRUCTURE_PROMPT}` },
+            { role: 'assistant', content: '[' },
+          ],
+        });
 
-      // Find the JSON array
-      if (!json.startsWith('[')) {
-        const idx = json.indexOf('[');
-        if (idx >= 0) json = json.slice(idx);
-      }
+        const wasTruncated = pass2.stop_reason === 'max_tokens';
+        const rawText = pass2.content[0]?.text?.trim() || '';
+        const text = '[' + rawText;
+        console.log(`[ParseSchedule] Pass 2 done: ${text.length} chars, truncated: ${wasTruncated}`);
 
-      // Robust JSON repair for truncated arrays
-      function repairTruncatedJsonArray(str) {
-        try { return JSON.parse(str); } catch (_) {}
-
-        let s = str.trim();
-        if (!s.startsWith('[')) return null;
-
-        // Quick fixes for minor truncation
-        const quickRepairs = [s + ']', s + '}]', s + '"}]', s + 'null}]', s + '"null"}]'];
-        for (const attempt of quickRepairs) {
-          try { return JSON.parse(attempt); } catch (_) {}
-        }
-
-        // Find last complete JSON object by tracking brace depth outside strings
-        let lastSafeEnd = -1;
-        let depth = 0;
-        let inString = false;
-        let escape = false;
-
-        for (let i = 0; i < s.length; i++) {
-          const ch = s[i];
-          if (escape) { escape = false; continue; }
-          if (ch === '\\' && inString) { escape = true; continue; }
-          if (ch === '"') { inString = !inString; continue; }
-          if (inString) continue;
-
-          if (ch === '[' || ch === '{') depth++;
-          else if (ch === ']' || ch === '}') {
-            depth--;
-            // When we close an object at depth 1 (direct child of the array), mark safe end
-            if (depth === 1 && ch === '}') {
-              // Check if next non-space is , or ]
-              let j = i + 1;
-              while (j < s.length && (s[j] === ' ' || s[j] === '\n' || s[j] === '\r' || s[j] === '\t')) j++;
-              if (j >= s.length || s[j] === ',' || s[j] === ']') {
-                lastSafeEnd = (s[j] === ',') ? j : i;
-              }
-            }
-          }
-        }
-
-        if (lastSafeEnd > 0) {
-          const trimmed = s.slice(0, lastSafeEnd + 1).replace(/,\s*$/, '') + ']';
-          try {
-            const parsed = JSON.parse(trimmed);
-            console.log(`[ParseSchedule] Repair succeeded: truncated at char ${lastSafeEnd}, recovered ${parsed.length} events`);
-            return parsed;
-          } catch (e) {
-            console.error(`[ParseSchedule] Repair parse failed at safe end ${lastSafeEnd}: ${e.message}`);
-          }
-        }
-
-        // Fallback: simple lastIndexOf approaches
-        const lastCompleteObj = s.lastIndexOf('},');
-        if (lastCompleteObj > 0) {
-          const trimmed = s.slice(0, lastCompleteObj + 1) + ']';
-          try { return JSON.parse(trimmed); } catch (_) {}
-        }
-        const lastObj = s.lastIndexOf('}');
-        if (lastObj > 0) {
-          const trimmed = s.slice(0, lastObj + 1) + ']';
-          try { return JSON.parse(trimmed); } catch (_) {}
-        }
-
-        return null;
-      }
-
-      let events;
-      try {
-        events = JSON.parse(json);
-      } catch (e) {
-        console.warn(`[ParseSchedule] Direct JSON parse failed (${e.message}), attempting repair...`);
-        events = repairTruncatedJsonArray(json);
-        if (events) {
-          console.log(`[ParseSchedule] JSON repair succeeded with ${events.length} events`);
-          if (wasTruncated) {
-            pageErrors.push({ page: 1, error: 'Response was truncated — some events at the end may be missing' });
-          }
+        const events = extractJsonArray(text, wasTruncated);
+        if (events && Array.isArray(events)) {
+          for (const ev of events) allEvents.push(ev);
+          console.log(`[ParseSchedule] Extracted ${events.length} events`);
+          if (wasTruncated) pageErrors.push({ page: 1, error: 'Response was truncated — some events at the end may be missing' });
         } else {
-          console.error(`[ParseSchedule] JSON parse error (unrepairable), first 300 chars: ${json.slice(0, 300).replace(/\n/g, '\\n')}`);
-          console.error(`[ParseSchedule] Last 300 chars: ${json.slice(-300).replace(/\n/g, '\\n')}`);
-          pageErrors.push({ page: 1, error: 'Failed to parse AI response — try uploading again', raw: text.slice(0, 500) });
+          pageErrors.push({ page: 1, error: 'Failed to parse structured response — try uploading again' });
         }
       }
+    } catch (err) {
+      console.error(`[ParseSchedule] API error:`, err.message);
+      pageErrors.push({ page: 1, error: err.message });
+    }
 
       if (events && Array.isArray(events)) {
         for (const ev of events) allEvents.push(ev);
