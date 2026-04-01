@@ -6873,17 +6873,6 @@ Return ONLY a JSON array. No markdown, no code fences, no explanation.`;
       pageErrors.push({ page: 1, error: err.message });
     }
 
-      if (events && Array.isArray(events)) {
-        for (const ev of events) allEvents.push(ev);
-        console.log(`[ParseSchedule] Extracted ${events.length} events`);
-      } else if (events) {
-        pageErrors.push({ page: 1, error: 'Response was not an array' });
-      }
-    } catch (err) {
-      console.error(`[ParseSchedule] API error:`, err.message);
-      pageErrors.push({ page: 1, error: err.message });
-    }
-
     // Post-process: normalize and validate
     const processed = [];
     const warnings = [];
