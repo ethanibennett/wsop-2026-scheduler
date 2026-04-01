@@ -6692,68 +6692,65 @@ app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUp
       return res.status(400).json({ error: 'Could not extract any pages from file' });
     }
 
-    const SCHEDULE_PROMPT = `You are a poker tournament schedule data extractor. Analyze this image of a poker tournament series schedule and extract EVERY tournament event listed.
+    const SCHEDULE_PROMPT = `You are a poker tournament schedule data extractor. Your job is to READ EXACTLY what is printed on this schedule and transcribe it into structured JSON. Do NOT interpret, infer, or embellish — only extract what is explicitly written.
 
-For EACH event, extract these fields (return null for any field you cannot determine):
+GOLDEN RULE: Read literally. If the document says "HOSE", output "HOSE" — not "HORSE". If it says "Hybrid Championship", that's the name — don't reclassify it as "Mixed". If a field isn't shown on the page, return null. Never guess.
 
-REQUIRED fields (reject event if ALL of date, time, and buyin are missing):
-- "date": normalized to "Month DD, YYYY" format (e.g. "June 15, 2026"). If year is not shown, assume 2026.
-- "time": normalized to "H:MM AM/PM" format (e.g. "11:00 AM", "7:00 PM"). Convert 24h times.
-- "buyin": integer in dollars (just the number, e.g. 600 not "$600"). Include the total entry fee.
-- "venue": the venue/casino name if detectable from the document header or content
-- "game_variant": one of: NLH, PLO, PLO8, O8, "Limit Hold'em", "Big O", "7-Card Stud", "Stud 8", Razz, HORSE, HOSE, TORSE, "2-7 Triple Draw", "NL 2-7 Single Draw", Badugi, "Dealer's Choice", Mixed, "9-Game Mix", "8-Game Mix", "Mixed Triple Draw", OE, TOE, "5-Card PLO", "Big Bet Dealer's Choice", "PLO/NLH Mix", "Mixed PLO", "10-Game Mix". Default to "NLH" if it's a No-Limit Hold'em event.
-- "event_name": the event name, following these STRICT rules:
-  * Start with game variant prefix (NLH, PLO, Mixed, etc.) UNLESS the event is a demographic event (Seniors, Ladies, Kings & Queens) or a Satellite
-  * Do NOT include re-entry info in the name (no "Unlimited Re-Entry", "Single Re-Entry")
-  * Do NOT include GTD amounts in the name (no "$500,000 GTD")
-  * For multi-flight events: append " - Flight A", " - Flight B", etc.
-  * For continuation days: append " - Day 2", " - Day 3"
-  * For final tables: append " - Final"
-  * Examples: "NLH Deepstack", "PLO Championship", "Seniors 50+", "NLH Monster Stack - Flight A", "Satellite - Main Event"
-- "event_number": the event number if shown (e.g. "1", "2A", "15"). Return null if not present.
-- "starting_chips": integer chip count (e.g. 25000, 50000). Return null if not shown.
-- "level_duration": level duration in minutes as a string (e.g. "30", "40", "20,30" for escalating). Return null if not shown.
-- "guarantee": integer prize pool guarantee in dollars (e.g. 500000). Return null if not shown.
+For EACH event, extract these fields:
 
-OPTIONAL fields (include when available):
-- "reentry": re-entry policy text (e.g. "Unlimited", "1", "Freezeout"). Return null if not shown.
-- "late_reg": late registration info (e.g. "End of Level 10", "4 hours"). Return null if not shown.
-- "is_satellite": boolean, true if this is a satellite/qualifier event
-- "target_event": if satellite, what event it feeds into (e.g. "Main Event", "Event 15")
-- "is_multi_flight": boolean, true if this is a multi-flight event (Day 1A, 1B, etc.)
-- "flight_letter": the flight letter if multi-flight (e.g. "A", "B", "C")
-- "is_restart": boolean, true if this is a Day 2/3/Final Table continuation
-- "parent_event": for restarts, the parent event number or name
-- "category": one of "main", "side", "deepstack", or null
-- "table_size": one of "9-max", "8-max", "6-max", "heads-up", or null
-- "bounty_amount": integer bounty amount if bounty/knockout event, else null
-- "day_length": how many levels or hours the day runs (e.g. "12 levels", "8 hours")
-- "rake_pct": rake percentage as a number (e.g. 15.0)
+REQUIRED (skip event only if ALL of date, time, and buyin are missing):
+- "date": normalize to "Month DD, YYYY" (e.g. "June 15, 2026"). Assume 2026 if year not shown.
+- "time": normalize to "H:MM AM/PM" (e.g. "11:00 AM"). Convert 24h times.
+- "buyin": integer in dollars (just the number, e.g. 600 not "$600"). Total entry fee.
+- "venue": the venue/casino name from the document header or content
+- "game_variant": Map what you read to ONE of these codes:
+    NLH, PLO, PLO8, O8, "Limit Hold'em", "Big O", "7-Card Stud", "Stud 8", Razz,
+    HORSE, HOSE, TORSE, "2-7 Triple Draw", "NL 2-7 Single Draw", Badugi,
+    "Dealer's Choice", Mixed, "9-Game Mix", "8-Game Mix", "Mixed Triple Draw",
+    OE, TOE, "5-Card PLO", "Big Bet Dealer's Choice", "PLO/NLH Mix", "Mixed PLO", "10-Game Mix"
+  KEY RULES:
+    • If no variant is stated or it just says "Poker" / "Tournament", default to NLH
+    • "No-Limit Hold'em" / "NLHE" / "Hold'em" → NLH
+    • "Pot-Limit Omaha" / "PLO" → PLO
+    • "Omaha Hi-Lo" / "Omaha H/L" / "Omaha 8" / "O/8" → PLO8
+    • "HOSE" → HOSE (NOT HORSE — these are different games, count the letters)
+    • "HORSE" → HORSE
+    • Words like "Championship", "Classic", "Open", "Hybrid", "Kickoff", "Closer", "Frenzy", "Monster Stack", "Survivor", "C-Note" describe EVENT FORMAT, not game variant — default to NLH
+- "event_name": the event name as printed, with these normalizations:
+    • Prepend the variant abbreviation (NLH, PLO, etc.) UNLESS it's a Satellite or demographic event (Seniors, Ladies)
+    • Strip re-entry info, GTD amounts, and buy-in amounts from the name
+    • For multi-flight events: append " - Flight A", " - Flight B", etc.
+    • For continuation days: append " - Day 2", " - Day 3"
+    • Don't repeat the variant in the descriptive part (e.g. "PLO8 Championship", NOT "PLO8 Omaha Hi-Lo Championship")
+- "event_number": as shown (e.g. "1", "2A", "15"), or null
+- "starting_chips": integer, or null if not shown
+- "level_duration": minutes as string (e.g. "30", "40", "20,30"), or null
+- "guarantee": integer prize pool guarantee in dollars, or null
 
-CRITICAL INSTRUCTIONS:
-1. Extract EVERY event on the page — do not skip any
-2. If the same event has multiple flights (Day 1A, 1B, 1C), create SEPARATE entries for each flight
-3. For Day 2/3/Final entries, set is_restart=true and link to parent_event
-4. Detect the venue from document headers, logos, or text content
-5. Return ONLY a valid JSON array. No markdown, no explanation, no code fences.
-6. If you see NO tournament events on this page (e.g. it's a rules page or advertisement), return an empty array []
+OPTIONAL (null if not shown):
+- "reentry": re-entry policy (e.g. "Unlimited", "1", "Freezeout")
+- "late_reg": late registration info
+- "is_satellite": true if satellite/qualifier event
+- "target_event": what satellite feeds into
+- "is_multi_flight": true if multi-flight event
+- "flight_letter": "A", "B", "C", etc.
+- "is_restart": true if Day 2/3/Final continuation
+- "parent_event": parent event for restarts
+- "category": "main", "side", "deepstack", or null
+- "table_size": "9-max", "8-max", "6-max", "heads-up", or null
+- "bounty_amount": integer bounty if knockout event
+- "day_length": e.g. "12 levels", "8 hours"
+- "rake_pct": rake percentage as number
 
-SATELLITE DETECTION — be smart about this:
-7. Events with "Satellite", "Qualifier", "Mega", "Super Satellite", "Win Your Way", or very low buy-ins ($30-$50) feeding larger events are satellites. Set is_satellite=true.
-8. Event names like "Big 4" (win entry to 4 events) or "Big 5" are satellite/package formats — set is_satellite=true even if the name contains a variant keyword like PLO or NLH.
-9. Satellites do NOT get a game variant prefix in event_name. Name them like: "Satellite to Main Event", "Satellite to Deepstack Kick Off", "Big 4 Satellite"
+RULES:
+1. Extract EVERY event — do not skip any
+2. Multi-flight events (Day 1A, 1B, 1C) → SEPARATE entries per flight
+3. Day 2/3/Final → is_restart=true, link parent_event
+4. Satellites: "Satellite", "Qualifier", "Mega", "Super Satellite", "Big 4", "Big 5" → is_satellite=true, no variant prefix in name
+5. Return ONLY a JSON array — no markdown, no code fences, no explanation
+6. No events on page → return []
 
-VARIANT DETECTION — read carefully:
-10. If no specific variant is mentioned, ALWAYS default to NLH. Most poker tournaments are No-Limit Hold'em.
-11. Determine the game variant from the ACTUAL game being played, not just keywords in the name. "PLO Big 4" is NOT a PLO event if "Big 4" is a satellite package format — it's an NLH satellite.
-12. Only set game_variant to PLO if the event is actually played as Pot-Limit Omaha (e.g. "PLO Championship", "PLO Deepstack", "PLO Double Board Bomb Pot").
-13. "Omaha Hi-Lo", "Omaha H/L", "Omaha 8", "O/8" = game_variant "PLO8". Do NOT put redundant descriptions in the name — just use the variant prefix (e.g. "PLO8 Championship", NOT "PLO8 Omaha H/L High-Low").
-14. "Double Board Bomb Pot" is PLO. "Monster Stack" is NLH. "Survivor" is NLH. "C-Note" is NLH. "Frenzy" is NLH.
-15. "Hybrid" in a name (e.g. "BetMGM Poker Hybrid Championship") means the event starts online and finishes live — it is NLH, NOT Mixed. Do not confuse "Hybrid" with mixed games.
-16. Words like "Championship", "Classic", "Open", "Kickoff", "Closer" describe event FORMAT, not variant. If no variant is specified alongside these words, the event is NLH.
-17. HOSE and HORSE are DIFFERENT games. HOSE = Hold'em/Omaha/Stud/Eight-or-better (4 games). HORSE = Hold'em/Omaha/Razz/Stud/Eight-or-better (5 games). Read the letters carefully — do NOT confuse them.
-
-Example output:
+Example:
 [{"date":"June 15, 2026","time":"11:00 AM","buyin":600,"venue":"Wynn Las Vegas","game_variant":"NLH","event_name":"NLH Deepstack","event_number":"1","starting_chips":30000,"level_duration":"30","guarantee":100000,"reentry":"Unlimited","late_reg":"End of Level 10","is_satellite":false,"target_event":null,"is_multi_flight":false,"flight_letter":null,"is_restart":false,"parent_event":null,"category":"side","table_size":"9-max","bounty_amount":null,"day_length":null,"rake_pct":null}]`;
 
     // Send all pages in a single API call for speed
