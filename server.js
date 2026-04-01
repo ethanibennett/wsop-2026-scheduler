@@ -2058,6 +2058,14 @@ async function initDatabase() {
         console.log('Fixed Wynn event naming conventions (removed Mixed prefix from TORSE, TOE, Wynn Mix)');
       }
     },
+    {
+      name: 'remove-borgata-2026-04',
+      fn: () => {
+        db.run("DELETE FROM tournaments WHERE venue LIKE '%Borgata%' OR venue LIKE '%borgata%'");
+        const d = db.getRowsModified();
+        if (d > 0) console.log(`Removed ${d} Borgata events`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
