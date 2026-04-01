@@ -8924,6 +8924,9 @@
       const [visionError, setVisionError] = useState('');
       const [visionImporting, setVisionImporting] = useState(false);
       const [visionEditIdx, setVisionEditIdx] = useState(-1);
+      const [visionProgress, setVisionProgress] = useState(0);
+      const [visionStage, setVisionStage] = useState('');
+      const visionProgressRef = useRef(null);
 
       const handleVisionUpload = async (e) => {
         const file = e.target.files[0];
@@ -8932,6 +8935,36 @@
         setVisionError('');
         setVisionResults(null);
         setVisionParsing(true);
+        setVisionProgress(0);
+        setVisionStage('Uploading...');
+
+        // Animated progress stages
+        const isPdf = file.name.toLowerCase().endsWith('.pdf');
+        const stages = [
+          { at: 5,  label: 'Uploading...' },
+          { at: 15, label: isPdf ? 'Reading PDF pages...' : 'Processing image...' },
+          { at: 30, label: 'AI analyzing schedule...' },
+          { at: 50, label: 'Extracting events...' },
+          { at: 70, label: 'Still working...' },
+          { at: 85, label: 'Almost there...' },
+          { at: 92, label: 'Finalizing...' },
+        ];
+        let stageIdx = 0;
+        const startTime = Date.now();
+        // Estimate ~45s for PDF, ~20s for image
+        const estDuration = isPdf ? 45000 : 20000;
+
+        visionProgressRef.current = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          // Asymptotic progress: approaches 95% but never reaches it
+          const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
+          const pct = Math.min(95, Math.round(raw));
+          setVisionProgress(pct);
+          while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
+            setVisionStage(stages[stageIdx].label);
+            stageIdx++;
+          }
+        }, 200);
 
         const fd = new FormData();
         fd.append('file', file);
@@ -8945,13 +8978,21 @@
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Parse failed');
+          clearInterval(visionProgressRef.current);
+          setVisionProgress(100);
+          setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : 'No events found');
+          // Brief pause at 100% before showing results
+          await new Promise(r => setTimeout(r, 400));
           setVisionResults(data);
           if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
         } catch (err) {
+          clearInterval(visionProgressRef.current);
+          setVisionProgress(0);
+          setVisionStage('');
           setVisionError(err.message || 'Failed to parse schedule');
         } finally {
+          clearInterval(visionProgressRef.current);
           setVisionParsing(false);
-          // Reset file input
           e.target.value = '';
         }
       };
@@ -9177,11 +9218,20 @@
                 </label>
 
                 {visionParsing && (
-                  <div style={{display:'flex',alignItems:'center',gap:'8px',padding:'12px',background:'var(--surface)',borderRadius:'8px',border:'1px solid var(--border)'}}>
-                    <div className="spinner" style={{width:16,height:16,border:'2px solid var(--border)',borderTopColor:'var(--accent)',borderRadius:'50%',animation:'spin 1s linear infinite'}} />
-                    <span style={{fontSize:'0.8rem',color:'var(--text-muted)'}}>
-                      AI is analyzing the schedule... This may take 30-60 seconds for multi-page PDFs.
-                    </span>
+                  <div style={{padding:'12px',background:'var(--surface)',borderRadius:'8px',border:'1px solid var(--border)'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+                      <span style={{fontSize:'0.8rem',color:'var(--text-muted)'}}>{visionStage}</span>
+                      <span style={{fontSize:'0.75rem',color:'var(--text-muted)',fontVariantNumeric:'tabular-nums'}}>{visionProgress}%</span>
+                    </div>
+                    <div style={{height:'6px',background:'var(--border)',borderRadius:'3px',overflow:'hidden'}}>
+                      <div style={{
+                        height:'100%',
+                        width: visionProgress + '%',
+                        background:'linear-gradient(90deg, var(--accent), var(--accent-hover, var(--accent)))',
+                        borderRadius:'3px',
+                        transition: visionProgress === 100 ? 'width 0.3s ease' : 'width 0.4s ease-out',
+                      }} />
+                    </div>
                   </div>
                 )}
 
