@@ -6750,6 +6750,16 @@ CRITICAL INSTRUCTIONS:
 5. Return ONLY a valid JSON array. No markdown, no explanation, no code fences.
 6. If you see NO tournament events on this page (e.g. it's a rules page or advertisement), return an empty array []
 
+SATELLITE DETECTION — be smart about this:
+7. Events with "Satellite", "Qualifier", "Mega", "Super Satellite", "Win Your Way", or very low buy-ins ($30-$50) feeding larger events are satellites. Set is_satellite=true.
+8. Event names like "Big 4" (win entry to 4 events) or "Big 5" are satellite/package formats — set is_satellite=true even if the name contains a variant keyword like PLO or NLH.
+9. Satellites do NOT get a game variant prefix in event_name. Name them like: "Satellite to Main Event", "Satellite to Deepstack Kick Off", "Big 4 Satellite"
+
+VARIANT DETECTION — read carefully:
+10. Determine the game variant from the ACTUAL game being played, not just keywords in the name. "PLO Big 4" is NOT a PLO event if "Big 4" is a satellite package format — it's an NLH satellite.
+11. Only set game_variant to PLO if the event is actually played as Pot-Limit Omaha (e.g. "PLO Championship", "PLO Deepstack", "PLO Double Board Bomb Pot").
+12. "Double Board Bomb Pot" is PLO. "Monster Stack" is NLH. "Survivor" is NLH. "C-Note" is NLH. "Frenzy" is NLH.
+
 Example output:
 [{"date":"June 15, 2026","time":"11:00 AM","buyin":600,"venue":"Wynn Las Vegas","game_variant":"NLH","event_name":"NLH Deepstack","event_number":"1","starting_chips":30000,"level_duration":"30","guarantee":100000,"reentry":"Unlimited","late_reg":"End of Level 10","is_satellite":false,"target_event":null,"is_multi_flight":false,"flight_letter":null,"is_restart":false,"parent_event":null,"category":"side","table_size":"9-max","bounty_amount":null,"day_length":null,"rake_pct":null}]`;
 
