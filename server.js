@@ -6769,7 +6769,7 @@ Example output:
         });
 
         const text = message.content[0]?.text?.trim() || '';
-        const json = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        const json = text.includes('```') ? text.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim() : text.trim();
 
         let events;
         try {
@@ -7056,7 +7056,7 @@ Example: [{"name":"John Smith","chips":"45,200","position":1},{"name":"Jane Doe"
 
     const text = message.content[0]?.text?.trim() || '';
     // Strip markdown code fences if present
-    const json = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    const json = text.includes('```') ? text.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim() : text.trim();
     let players;
     try {
       players = JSON.parse(json);
