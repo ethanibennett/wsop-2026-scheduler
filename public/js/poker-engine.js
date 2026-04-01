@@ -464,3 +464,10 @@
       return assigned;
     }
 
+    // Export to window for use by bundled app.js
+    window.parseCardNotation = parseCardNotation;
+    window.evaluateHand = evaluateHand;
+    window.evaluateShowdown = evaluateShowdown;
+    window.assignNeutralSuits = assignNeutralSuits;
+    window.GAME_EVAL = GAME_EVAL;
+
