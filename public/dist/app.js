@@ -4035,9 +4035,11 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
     return { minDate, maxDate, totalDays };
   }, [tournaments]);
   const availableVenues = useMemo(() => {
+    const today = getToday();
     const countMap = {};
     (tournaments || []).forEach((t) => {
       const d = normaliseDate(t.date);
+      if (d < today) return;
       if (filters.dateFrom && d < filters.dateFrom) return;
       if (filters.dateTo && d > filters.dateTo) return;
       countMap[t.venue] = (countMap[t.venue] || 0) + 1;
@@ -7702,10 +7704,38 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
     setVisionResults(__spreadProps(__spreadValues({}, visionResults), { events: newEvents }));
   }, "updateVisionEvent");
   const handleVisionImport = /* @__PURE__ */ __name(async () => {
+    var _a;
     if (!visionResults || !visionResults.events.length) return;
     setVisionImporting(true);
     setVisionError("");
     try {
+      const checkRes = await fetch(`${API_URL}/check-schedule-duplicates`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ events: visionResults.events })
+      });
+      const dupCheck = await checkRes.json();
+      if (dupCheck.existing > 0 && dupCheck.new === 0) {
+        const proceed = window.confirm(
+          `All ${dupCheck.existing} events already exist in the schedule (${((_a = dupCheck.existingVenues) == null ? void 0 : _a.join(", ")) || "unknown venue"}). Importing will update them with the new data.
+
+Continue?`
+        );
+        if (!proceed) {
+          setVisionImporting(false);
+          return;
+        }
+      } else if (dupCheck.existing > 0) {
+        const proceed = window.confirm(
+          `${dupCheck.existing} of ${dupCheck.total} events already exist in the schedule. ${dupCheck.new} are new.
+
+Importing will add new events and update existing ones. Continue?`
+        );
+        if (!proceed) {
+          setVisionImporting(false);
+          return;
+        }
+      }
       const res = await fetch(`${API_URL}/import-parsed-schedule`, {
         method: "POST",
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
@@ -7716,7 +7746,11 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
-      toast.success(`Imported ${data.inserted} events (${data.skipped} skipped)`);
+      const parts = [];
+      if (data.inserted) parts.push(`${data.inserted} new`);
+      if (data.updated) parts.push(`${data.updated} updated`);
+      if (data.skipped) parts.push(`${data.skipped} skipped`);
+      toast.success(`Import complete: ${parts.join(", ")}`);
       setVisionResults(null);
       setVisionFile(null);
       setVisionVenue("");

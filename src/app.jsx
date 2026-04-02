@@ -4551,9 +4551,11 @@
       }, [tournaments]);
 
       const availableVenues = useMemo(() => {
+        const today = getToday();
         const countMap = {};
         (tournaments || []).forEach(t => {
           const d = normaliseDate(t.date);
+          if (d < today) return; // hide venues whose events have all passed
           if (filters.dateFrom && d < filters.dateFrom) return;
           if (filters.dateTo && d > filters.dateTo) return;
           countMap[t.venue] = (countMap[t.venue] || 0) + 1;
@@ -9087,6 +9089,26 @@
         setVisionError('');
 
         try {
+          // Check for duplicates first
+          const checkRes = await fetch(`${API_URL}/check-schedule-duplicates`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ events: visionResults.events })
+          });
+          const dupCheck = await checkRes.json();
+
+          if (dupCheck.existing > 0 && dupCheck.new === 0) {
+            const proceed = window.confirm(
+              `All ${dupCheck.existing} events already exist in the schedule (${dupCheck.existingVenues?.join(', ') || 'unknown venue'}). Importing will update them with the new data.\n\nContinue?`
+            );
+            if (!proceed) { setVisionImporting(false); return; }
+          } else if (dupCheck.existing > 0) {
+            const proceed = window.confirm(
+              `${dupCheck.existing} of ${dupCheck.total} events already exist in the schedule. ${dupCheck.new} are new.\n\nImporting will add new events and update existing ones. Continue?`
+            );
+            if (!proceed) { setVisionImporting(false); return; }
+          }
+
           const res = await fetch(`${API_URL}/import-parsed-schedule`, {
             method: 'POST',
             headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -9097,7 +9119,11 @@
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Import failed');
-          toast.success(`Imported ${data.inserted} events (${data.skipped} skipped)`);
+          const parts = [];
+          if (data.inserted) parts.push(`${data.inserted} new`);
+          if (data.updated) parts.push(`${data.updated} updated`);
+          if (data.skipped) parts.push(`${data.skipped} skipped`);
+          toast.success(`Import complete: ${parts.join(', ')}`);
           setVisionResults(null);
           setVisionFile(null);
           setVisionVenue('');

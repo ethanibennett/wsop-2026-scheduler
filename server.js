@@ -7208,6 +7208,45 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
   }
 });
 
+// ── Check for duplicate events before import ──
+app.post('/api/check-schedule-duplicates', authenticateToken, express.json({ limit: '5mb' }), async (req, res) => {
+  const { events } = req.body;
+  if (!events || !Array.isArray(events)) return res.json({ existing: 0, new: 0 });
+
+  try {
+    let existing = 0;
+    let newEvents = 0;
+    const existingVenues = new Set();
+
+    for (const ev of events) {
+      if (!ev.date || !ev.game_variant) continue;
+      if (!ev.venue) ev.venue = 'Unknown Venue';
+
+      let date = ev.date;
+      if (!/^\d{4}-\d{2}-\d{2}/.test(date)) {
+        const dt = new Date(date + ' 12:00:00');
+        if (!isNaN(dt.getTime())) date = dt.toISOString().slice(0, 10);
+      } else {
+        date = date.slice(0, 10);
+      }
+
+      const sid = generateStableId(ev.venue, ev.event_number || '', ev.event_name || '', date);
+      const row = db.prepare('SELECT stable_id, uploaded_by FROM tournaments WHERE stable_id = ?').get(sid);
+      if (row) {
+        existing++;
+        existingVenues.add(ev.venue);
+      } else {
+        newEvents++;
+      }
+    }
+
+    res.json({ existing, new: newEvents, total: events.length, existingVenues: [...existingVenues] });
+  } catch (err) {
+    console.error('[CheckDuplicates] Error:', err.message);
+    res.json({ existing: 0, new: events.length, total: events.length, existingVenues: [] });
+  }
+});
+
 // ── Import parsed schedule events into database ──
 app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, express.json({ limit: '5mb' }), async (req, res) => {
   const { events, sourceFile } = req.body;
@@ -7217,6 +7256,7 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
 
   try {
     let inserted = 0;
+    let updated = 0;
     let skipped = 0;
 
     for (const ev of events) {
@@ -7224,7 +7264,7 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
         skipped++;
         continue;
       }
-      // Use event venue, or fall back to sourceFile-derived venue
+      // Use event venue, or fall back
       if (!ev.venue) {
         ev.venue = 'Unknown Venue';
       }
@@ -7244,6 +7284,9 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
       const evVenue = ev.venue;
       const evNumber = ev.event_number || '';
       const sid = generateStableId(evVenue, evNumber, evName, date);
+
+      // Check if this event already exists
+      const existingRow = db.prepare('SELECT stable_id FROM tournaments WHERE stable_id = ?').get(sid);
 
       // Build notes from optional fields
       const notes = [];
@@ -7288,13 +7331,14 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
           ev.category || null
         ]
       );
-      inserted++;
+      if (existingRow) updated++;
+      else inserted++;
     }
 
     await saveDatabase();
 
-    console.log(`[ImportSchedule] Inserted ${inserted}, skipped ${skipped} events from "${sourceFile}"`);
-    res.json({ inserted, skipped, total: events.length });
+    console.log(`[ImportSchedule] ${inserted} new, ${updated} updated, ${skipped} skipped from "${sourceFile}"`);
+    res.json({ inserted, updated, skipped, total: events.length });
   } catch (err) {
     console.error('[ImportSchedule] Error:', err.message);
     res.status(500).json({ error: 'Failed to import events: ' + err.message });
