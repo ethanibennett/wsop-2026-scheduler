@@ -6800,18 +6800,41 @@ async function runTwoPassExtraction(client, visionContent, pageErrors) {
   const allEvents = [];
 
   // Pass 1: Verbatim transcription (Sonnet for accuracy)
+  // Use continuation loop to handle long schedules that exceed token limits
   console.log(`[ParseSchedule] Pass 1: Transcribing with Sonnet...`);
   visionContent.push({ type: 'text', text: TRANSCRIBE_PROMPT });
 
-  const pass1 = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 16384,
-    messages: [{ role: 'user', content: visionContent }],
-  });
+  let transcription = '';
+  let pass1Messages = [{ role: 'user', content: visionContent }];
+  let pass1Attempts = 0;
+  const MAX_CONTINUATIONS = 3;
 
-  const transcription = pass1.content[0]?.text?.trim() || '';
-  console.log(`[ParseSchedule] Pass 1 done: ${transcription.length} chars, ${transcription.split('\n').length} lines`);
+  while (pass1Attempts < MAX_CONTINUATIONS) {
+    pass1Attempts++;
+    const pass1 = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 32768,
+      messages: pass1Messages,
+    });
+
+    const chunk = pass1.content[0]?.text?.trim() || '';
+    transcription += (transcription ? '\n' : '') + chunk;
+    console.log(`[ParseSchedule] Pass 1 chunk ${pass1Attempts}: ${chunk.length} chars, stop: ${pass1.stop_reason}`);
+
+    if (pass1.stop_reason !== 'max_tokens') break;
+
+    // Continue from where it left off
+    console.log(`[ParseSchedule] Pass 1 truncated, requesting continuation...`);
+    pass1Messages = [
+      ...pass1Messages,
+      { role: 'assistant', content: chunk },
+      { role: 'user', content: 'Continue transcribing from where you left off. Do not repeat any events already listed above.' },
+    ];
+  }
+
+  console.log(`[ParseSchedule] Pass 1 done: ${transcription.length} chars, ${transcription.split('\n').length} lines (${pass1Attempts} chunk${pass1Attempts > 1 ? 's' : ''})`);
   console.log(`[ParseSchedule] Transcription preview: ${transcription.slice(0, 300).replace(/\n/g, '\\n')}`);
+  console.log(`[ParseSchedule] Transcription tail: ${transcription.slice(-200).replace(/\n/g, '\\n')}`);
 
   if (!transcription || transcription.length < 20) {
     pageErrors.push({ page: 1, error: 'Could not read any text from the document' });
@@ -6819,26 +6842,47 @@ async function runTwoPassExtraction(client, visionContent, pageErrors) {
   }
 
   // Pass 2: Structure into JSON (Haiku for speed)
+  // Also uses continuation loop for large event lists
   console.log(`[ParseSchedule] Pass 2: Structuring into JSON...`);
-  const pass2 = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 32768,
-    messages: [
+  let fullJsonText = '[';
+  let pass2Messages = [
+    { role: 'user', content: `Here is the raw transcription of a poker tournament schedule:\n\n${transcription}\n\n${STRUCTURE_PROMPT}` },
+    { role: 'assistant', content: '[' },
+  ];
+  let pass2Attempts = 0;
+
+  while (pass2Attempts < MAX_CONTINUATIONS) {
+    pass2Attempts++;
+    const pass2 = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 32768,
+      messages: pass2Messages,
+    });
+
+    const chunk = pass2.content[0]?.text?.trim() || '';
+    fullJsonText += chunk;
+    console.log(`[ParseSchedule] Pass 2 chunk ${pass2Attempts}: ${chunk.length} chars, stop: ${pass2.stop_reason}`);
+
+    if (pass2.stop_reason !== 'max_tokens') break;
+
+    // Continue — feed back the accumulated JSON and ask for more
+    console.log(`[ParseSchedule] Pass 2 truncated, requesting continuation...`);
+    pass2Messages = [
       { role: 'user', content: `Here is the raw transcription of a poker tournament schedule:\n\n${transcription}\n\n${STRUCTURE_PROMPT}` },
-      { role: 'assistant', content: '[' },
-    ],
-  });
+      { role: 'assistant', content: fullJsonText },
+      { role: 'user', content: 'The JSON array was cut off. Continue the JSON array from EXACTLY where it stopped. Do not repeat any events. Start your response with the next comma or closing bracket.' },
+      { role: 'assistant', content: ',' },
+    ];
+    fullJsonText += ',';
+  }
 
-  const wasTruncated = pass2.stop_reason === 'max_tokens';
-  const rawText = pass2.content[0]?.text?.trim() || '';
-  const text = '[' + rawText;
-  console.log(`[ParseSchedule] Pass 2 done: ${text.length} chars, truncated: ${wasTruncated}`);
+  console.log(`[ParseSchedule] Pass 2 done: ${fullJsonText.length} chars (${pass2Attempts} chunk${pass2Attempts > 1 ? 's' : ''})`);
 
-  const events = extractJsonArray(text);
+  const events = extractJsonArray(fullJsonText);
   if (events && Array.isArray(events)) {
     for (const ev of events) allEvents.push(ev);
     console.log(`[ParseSchedule] Extracted ${events.length} events`);
-    if (wasTruncated) pageErrors.push({ page: 1, error: 'Response was truncated — some events at the end may be missing' });
+    if (pass2Attempts >= MAX_CONTINUATIONS) pageErrors.push({ page: 1, error: 'Schedule was very long — some events at the end may be missing' });
   } else {
     pageErrors.push({ page: 1, error: 'Failed to parse structured response — try again' });
   }
@@ -7096,27 +7140,49 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
         const { STRUCTURE_PROMPT } = getSchedulePrompts();
 
         // For web pages, we skip Pass 1 (no vision needed) and go straight to structuring
+        // Uses continuation loop for long schedules
         const venueHint = userVenue ? `\nIMPORTANT: The venue for ALL events is "${userVenue}". Set venue to "${userVenue}" for every event.\n` : '';
         console.log(`[ParseURL] Structuring web page text into JSON...`);
-        const pass = await client.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 32768,
-          messages: [
-            { role: 'user', content: `Here is the text content extracted from a poker tournament schedule web page (${url}):\n${venueHint}\n${textContent}\n\n${STRUCTURE_PROMPT}` },
-            { role: 'assistant', content: '[' },
-          ],
-        });
+        const userPrompt = `Here is the text content extracted from a poker tournament schedule web page (${url}):\n${venueHint}\n${textContent}\n\n${STRUCTURE_PROMPT}`;
+        let fullJsonText = '[';
+        let htmlMessages = [
+          { role: 'user', content: userPrompt },
+          { role: 'assistant', content: '[' },
+        ];
+        let htmlAttempts = 0;
+        const MAX_HTML_CONTINUATIONS = 3;
 
-        const wasTruncated = pass.stop_reason === 'max_tokens';
-        const rawText = pass.content[0]?.text?.trim() || '';
-        const text = '[' + rawText;
-        console.log(`[ParseURL] Response: ${text.length} chars, truncated: ${wasTruncated}`);
+        while (htmlAttempts < MAX_HTML_CONTINUATIONS) {
+          htmlAttempts++;
+          const pass = await client.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 32768,
+            messages: htmlMessages,
+          });
 
-        const events = extractJsonArray(text);
+          const chunk = pass.content[0]?.text?.trim() || '';
+          fullJsonText += chunk;
+          console.log(`[ParseURL] Chunk ${htmlAttempts}: ${chunk.length} chars, stop: ${pass.stop_reason}`);
+
+          if (pass.stop_reason !== 'max_tokens') break;
+
+          console.log(`[ParseURL] Truncated, requesting continuation...`);
+          htmlMessages = [
+            { role: 'user', content: userPrompt },
+            { role: 'assistant', content: fullJsonText },
+            { role: 'user', content: 'The JSON array was cut off. Continue the JSON array from EXACTLY where it stopped. Do not repeat any events. Start your response with the next comma or closing bracket.' },
+            { role: 'assistant', content: ',' },
+          ];
+          fullJsonText += ',';
+        }
+
+        console.log(`[ParseURL] Response: ${fullJsonText.length} chars (${htmlAttempts} chunk${htmlAttempts > 1 ? 's' : ''})`);
+
+        const events = extractJsonArray(fullJsonText);
         if (events && Array.isArray(events)) {
           for (const ev of events) allEvents.push(ev);
           console.log(`[ParseURL] Extracted ${events.length} events`);
-          if (wasTruncated) pageErrors.push({ page: 1, error: 'Response was truncated — some events may be missing' });
+          if (htmlAttempts >= MAX_HTML_CONTINUATIONS) pageErrors.push({ page: 1, error: 'Schedule was very long — some events at the end may be missing' });
         } else {
           pageErrors.push({ page: 1, error: 'Failed to parse events from web page' });
         }
