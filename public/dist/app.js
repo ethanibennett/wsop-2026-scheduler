@@ -4014,7 +4014,7 @@ function GameVariantFilter({ selectedGames, setFilters }) {
   })));
 }
 __name(GameVariantFilter, "GameVariantFilter");
-function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount }) {
+function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount, onImport }) {
   const panelRef = useRef(null);
   const [whereOpen, setWhereOpen] = useState(false);
   const [howMuchOpen, setHowMuchOpen] = useState(false);
@@ -4065,7 +4065,16 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
   const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRanges && filters.buyinRanges.length > 0 || filters.rakeRanges && filters.rakeRanges.length > 0 || filters.selectedGames.length > 0 || filters.hiddenVenues && filters.hiddenVenues.length > 0 || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "filter-row", style: { gap: "8px", marginBottom: "0", width: "100%", alignItems: "center" } }, eventCount != null && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, whiteSpace: "nowrap" } }, eventCount, " event", eventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" } }, "Show:"), /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "filter-row", style: { gap: "8px", marginBottom: "0", width: "100%", alignItems: "center" } }, onImport && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: onImport,
+      style: { background: "none", border: "1px solid var(--border)", borderRadius: "6px", padding: "3px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" },
+      title: "Import a tournament schedule"
+    },
+    /* @__PURE__ */ React.createElement(Icon.upload, { style: { width: 12, height: 12 } }),
+    " Import Schedule"
+  ), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" } }, "Show:"), /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "checkbox",
@@ -4440,7 +4449,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
   ));
 }
 __name(Filters, "Filters");
-function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap }) {
+function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport }) {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({
     minBuyin: "",
@@ -4681,7 +4690,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "1rem", padding: "0 2px" }
     },
     "✕"
-  ))), /* @__PURE__ */ React.createElement(Filters, { filters, setFilters: setFiltersWithScroll, gameVariants, venues, buyinOptions, tournaments, open: filterPanelOpen, setOpen: setFilterPanelOpen, toggleRef: filterToggleRef, eventCount: filtered.filter((t) => !t.is_restart).length })), filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "empty-state" }, /* @__PURE__ */ React.createElement(Icon.empty, null), /* @__PURE__ */ React.createElement("h3", null, "No events found"), /* @__PURE__ */ React.createElement("p", null, "Try adjusting your search or filters")) : /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", paddingBottom: "60vh" } }, (() => {
+  ))), /* @__PURE__ */ React.createElement(Filters, { filters, setFilters: setFiltersWithScroll, gameVariants, venues, buyinOptions, tournaments, open: filterPanelOpen, setOpen: setFilterPanelOpen, toggleRef: filterToggleRef, eventCount: filtered.filter((t) => !t.is_restart).length, onImport })), filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "empty-state" }, /* @__PURE__ */ React.createElement(Icon.empty, null), /* @__PURE__ */ React.createElement("h3", null, "No events found"), /* @__PURE__ */ React.createElement("p", null, "Try adjusting your search or filters")) : /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", paddingBottom: "60vh" } }, (() => {
     const todayISO = getToday();
     const groups = [];
     let cur = null;
@@ -4703,6 +4712,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       const dayNum = String(dateObj.getDate()).padStart(2, "0");
       const needsRef = !scrollRefAssigned && group.date >= todayISO;
       if (needsRef) scrollRefAssigned = true;
+      const dayEventCount = group.events.filter((t) => !t.is_restart).length;
       return /* @__PURE__ */ React.createElement("div", { key: group.date, ref: needsRef ? todayScrollRef : void 0, "data-today-scroll": needsRef ? "true" : void 0, "data-date-group": group.date, style: { marginTop: gi === 0 ? 0 : "8px" } }, /* @__PURE__ */ React.createElement("div", { className: "schedule-date-break", style: {
         position: "sticky",
         top: dateBreakTop + "px",
@@ -4722,7 +4732,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         gap: "4px",
         padding: "4px 12px",
         borderRadius: "999px"
-      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map((t) => /* @__PURE__ */ React.createElement(
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map((t) => /* @__PURE__ */ React.createElement(
         CalendarEventRow,
         {
           key: t.id,
@@ -7545,6 +7555,7 @@ function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
 }
 __name(BottomNav, "BottomNav");
 function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
+  const toast = useToast();
   const displayName = useDisplayName();
   const [debugInput, setDebugInput] = useState(_debugNow);
   const applyDebugTime = /* @__PURE__ */ __name((val) => {
@@ -7554,11 +7565,15 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
   }, "applyDebugTime");
   const [visionFile, setVisionFile] = useState(null);
   const [visionVenue, setVisionVenue] = useState("");
+  const [visionUrl, setVisionUrl] = useState("");
   const [visionParsing, setVisionParsing] = useState(false);
   const [visionResults, setVisionResults] = useState(null);
   const [visionError, setVisionError] = useState("");
   const [visionImporting, setVisionImporting] = useState(false);
   const [visionEditIdx, setVisionEditIdx] = useState(-1);
+  const [visionProgress, setVisionProgress] = useState(0);
+  const [visionStage, setVisionStage] = useState("");
+  const visionProgressRef = useRef(null);
   const handleVisionUpload = /* @__PURE__ */ __name(async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -7566,6 +7581,32 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
     setVisionError("");
     setVisionResults(null);
     setVisionParsing(true);
+    setVisionProgress(0);
+    setVisionStage("Uploading...");
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
+    const stages = [
+      { at: 5, label: "Uploading..." },
+      { at: 10, label: isPdf ? "Reading PDF pages..." : "Processing image..." },
+      { at: 20, label: "Pass 1: Transcribing schedule..." },
+      { at: 40, label: "Pass 1: Reading event details..." },
+      { at: 55, label: "Pass 2: Structuring events..." },
+      { at: 70, label: "Pass 2: Mapping variants..." },
+      { at: 82, label: "Validating data..." },
+      { at: 92, label: "Finalizing..." }
+    ];
+    let stageIdx = 0;
+    const startTime = Date.now();
+    const estDuration = isPdf ? 6e4 : 3e4;
+    visionProgressRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
+      const pct = Math.min(95, Math.round(raw));
+      setVisionProgress(pct);
+      while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
+        setVisionStage(stages[stageIdx].label);
+        stageIdx++;
+      }
+    }, 200);
     const fd = new FormData();
     fd.append("file", file);
     if (visionVenue) fd.append("venue", visionVenue);
@@ -7577,15 +7618,78 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Parse failed");
+      clearInterval(visionProgressRef.current);
+      setVisionProgress(100);
+      setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : "No events found");
+      await new Promise((r) => setTimeout(r, 400));
       setVisionResults(data);
       if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
     } catch (err) {
+      clearInterval(visionProgressRef.current);
+      setVisionProgress(0);
+      setVisionStage("");
       setVisionError(err.message || "Failed to parse schedule");
     } finally {
+      clearInterval(visionProgressRef.current);
       setVisionParsing(false);
       e.target.value = "";
     }
   }, "handleVisionUpload");
+  const handleVisionUrl = /* @__PURE__ */ __name(async () => {
+    if (!visionUrl.trim()) return;
+    setVisionError("");
+    setVisionResults(null);
+    setVisionParsing(true);
+    setVisionProgress(0);
+    setVisionStage("Fetching URL...");
+    const isUrlPdf = visionUrl.toLowerCase().endsWith(".pdf");
+    const stages = [
+      { at: 5, label: "Fetching URL..." },
+      { at: 15, label: isUrlPdf ? "Reading PDF..." : "Extracting page content..." },
+      { at: 25, label: "Pass 1: Transcribing schedule..." },
+      { at: 45, label: "Pass 1: Reading event details..." },
+      { at: 60, label: "Pass 2: Structuring events..." },
+      { at: 75, label: "Pass 2: Mapping variants..." },
+      { at: 88, label: "Validating data..." },
+      { at: 94, label: "Finalizing..." }
+    ];
+    let stageIdx = 0;
+    const startTime = Date.now();
+    const estDuration = isUrlPdf ? 7e4 : 45e3;
+    visionProgressRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
+      const pct = Math.min(95, Math.round(raw));
+      setVisionProgress(pct);
+      while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
+        setVisionStage(stages[stageIdx].label);
+        stageIdx++;
+      }
+    }, 200);
+    try {
+      const res = await fetch(`${API_URL}/parse-schedule-url`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ url: visionUrl.trim(), venue: visionVenue })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Parse failed");
+      clearInterval(visionProgressRef.current);
+      setVisionProgress(100);
+      setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : "No events found");
+      await new Promise((r) => setTimeout(r, 400));
+      setVisionResults(data);
+      if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
+    } catch (err) {
+      clearInterval(visionProgressRef.current);
+      setVisionProgress(0);
+      setVisionStage("");
+      setVisionError(err.message || "Failed to parse URL");
+    } finally {
+      clearInterval(visionProgressRef.current);
+      setVisionParsing(false);
+    }
+  }, "handleVisionUrl");
   const removeVisionEvent = /* @__PURE__ */ __name((idx) => {
     if (!visionResults) return;
     const newEvents = visionResults.events.filter((_, i) => i !== idx);
@@ -7697,7 +7801,7 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
       className: `settings-toggle ${contrast === "high" ? "on" : ""}`,
       onClick: toggleContrast
     }
-  )))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Import Schedule"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Upload schedule (PDF or image)"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 } }, "Upload a tournament schedule PDF or image. AI vision extracts event data automatically."), /* @__PURE__ */ React.createElement(
+  )))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Import Schedule"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Import schedule"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 } }, "Upload a PDF/image or paste a web link. AI extracts event data automatically."), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "text",
@@ -7725,8 +7829,36 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
     },
     /* @__PURE__ */ React.createElement(Icon.upload, null),
     " ",
-    visionParsing ? "Scanning..." : "Choose File"
-  ), visionParsing && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", padding: "12px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { className: "spinner", style: { width: 16, height: 16, border: "2px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 1s linear infinite" } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", color: "var(--text-muted)" } }, "AI is analyzing the schedule... This may take 30-60 seconds for multi-page PDFs.")), visionError && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "6px", color: "#ef4444", fontSize: "0.8rem" } }, visionError), visionResults && visionResults.events.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" } }, visionResults.eventCount, " Events Found"), visionResults.detectedVenue && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "8px" } }, "at ", visionResults.detectedVenue)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)" } }, visionResults.pageCount, " page", visionResults.pageCount !== 1 ? "s" : "", " scanned")), visionResults.warnings.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 10px", background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)", borderRadius: "6px", marginBottom: "8px", fontSize: "0.75rem", color: "#eab308" } }, visionResults.warnings.length, " warning", visionResults.warnings.length !== 1 ? "s" : "", ": ", visionResults.warnings.slice(0, 3).map((w) => w.warnings.join(", ")).join("; "), visionResults.warnings.length > 3 && ` (+${visionResults.warnings.length - 3} more)`), /* @__PURE__ */ React.createElement("div", { style: { maxHeight: "400px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: "2px solid var(--border)", position: "sticky", top: 0, background: "var(--bg)" } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Date"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Time"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Event"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "right", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Buy-in"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 4px", textAlign: "center", width: "30px" } }))), /* @__PURE__ */ React.createElement("tbody", null, visionResults.events.map((ev, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: i }, /* @__PURE__ */ React.createElement(
+    visionParsing ? "Scanning..." : "Upload File"
+  ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", width: "100%" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 } }, "or"), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "text",
+      placeholder: "Paste schedule URL...",
+      value: visionUrl,
+      onChange: (e) => setVisionUrl(e.target.value),
+      onKeyDown: (e) => {
+        if (e.key === "Enter" && visionUrl.trim()) handleVisionUrl();
+      },
+      disabled: visionParsing,
+      style: { flex: 1, padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: "0.8rem", opacity: visionParsing ? 0.5 : 1 }
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "btn btn-ghost btn-sm",
+      onClick: handleVisionUrl,
+      disabled: visionParsing || !visionUrl.trim(),
+      style: { whiteSpace: "nowrap", opacity: visionParsing || !visionUrl.trim() ? 0.5 : 1 }
+    },
+    "Fetch"
+  )), visionParsing && /* @__PURE__ */ React.createElement("div", { style: { padding: "12px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", color: "var(--text-muted)" } }, visionStage), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" } }, visionProgress, "%")), /* @__PURE__ */ React.createElement("div", { style: { height: "6px", background: "var(--border)", borderRadius: "3px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
+    height: "100%",
+    width: visionProgress + "%",
+    background: "linear-gradient(90deg, var(--accent), var(--accent-hover, var(--accent)))",
+    borderRadius: "3px",
+    transition: visionProgress === 100 ? "width 0.3s ease" : "width 0.4s ease-out"
+  } }))), visionError && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "6px", color: "#ef4444", fontSize: "0.8rem" } }, visionError), visionResults && visionResults.events.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" } }, visionResults.eventCount, " Events Found"), visionResults.detectedVenue && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "8px" } }, "at ", visionResults.detectedVenue)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)" } }, visionResults.pageCount, " page", visionResults.pageCount !== 1 ? "s" : "", " scanned")), visionResults.warnings.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 10px", background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)", borderRadius: "6px", marginBottom: "8px", fontSize: "0.75rem", color: "#eab308" } }, visionResults.warnings.length, " warning", visionResults.warnings.length !== 1 ? "s" : "", ": ", visionResults.warnings.slice(0, 3).map((w) => w.warnings.join(", ")).join("; "), visionResults.warnings.length > 3 && ` (+${visionResults.warnings.length - 3} more)`), /* @__PURE__ */ React.createElement("div", { style: { maxHeight: "400px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: "2px solid var(--border)", position: "sticky", top: 0, background: "var(--bg)" } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Date"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Time"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Event"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "right", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Buy-in"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 4px", textAlign: "center", width: "30px" } }))), /* @__PURE__ */ React.createElement("tbody", null, visionResults.events.map((ev, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: i }, /* @__PURE__ */ React.createElement(
     "tr",
     {
       style: { borderBottom: "1px solid var(--border)", cursor: "pointer", background: visionEditIdx === i ? "var(--surface)" : "transparent" },
@@ -7734,7 +7866,7 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
     },
     /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", whiteSpace: "nowrap", color: "var(--text)", fontSize: "0.73rem" } }, ev.date ? ev.date.replace(/, \d{4}$/, "") : "?"),
     /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", whiteSpace: "nowrap", color: "var(--text-muted)", fontSize: "0.73rem" } }, ev.time || "?"),
-    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", color: "var(--text)", fontSize: "0.73rem", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, ev.event_name || "(unnamed)", ev._warnings && ev._warnings.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: "#eab308", marginLeft: "4px" }, title: ev._warnings.join(", ") }, "!")),
+    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", color: "var(--text)", fontSize: "0.73rem", maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, ev.is_satellite && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", padding: "1px 4px", borderRadius: "3px", background: "rgba(139,92,246,0.2)", color: "#a78bfa", marginRight: "4px", fontWeight: 600 } }, "SAT"), ev.is_restart && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", padding: "1px 4px", borderRadius: "3px", background: "rgba(234,179,8,0.2)", color: "#eab308", marginRight: "4px", fontWeight: 600 } }, "Restart"), ev.event_name || "(unnamed)", ev._warnings && ev._warnings.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: "#eab308", marginLeft: "4px" }, title: ev._warnings.join(", ") }, "!")),
     /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", textAlign: "right", color: "var(--text)", fontWeight: 600, fontSize: "0.73rem" } }, ev.buyin != null ? `$${ev.buyin.toLocaleString()}` : "—"),
     /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 4px", textAlign: "center" } }, /* @__PURE__ */ React.createElement(
       "button",
@@ -7748,7 +7880,16 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
       },
       "x"
     ))
-  ), visionEditIdx === i && /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: "1px solid var(--border)", background: "var(--surface)" } }, /* @__PURE__ */ React.createElement("td", { colSpan: 5, style: { padding: "8px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Event Name"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.event_name || "", onChange: (e) => updateVisionEvent(i, "event_name", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Variant"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.game_variant || "", onChange: (e) => updateVisionEvent(i, "game_variant", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Date"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.date || "", onChange: (e) => updateVisionEvent(i, "date", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Time"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.time || "", onChange: (e) => updateVisionEvent(i, "time", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Buy-in ($)"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.buyin || 0, onChange: (e) => updateVisionEvent(i, "buyin", parseInt(e.target.value) || 0), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Venue"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.venue || "", onChange: (e) => updateVisionEvent(i, "venue", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Starting Chips"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.starting_chips || "", onChange: (e) => updateVisionEvent(i, "starting_chips", parseInt(e.target.value) || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Guarantee ($)"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.guarantee || "", onChange: (e) => updateVisionEvent(i, "guarantee", parseInt(e.target.value) || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Level Duration"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.level_duration || "", onChange: (e) => updateVisionEvent(i, "level_duration", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Re-entry"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.reentry || "", onChange: (e) => updateVisionEvent(i, "reentry", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })))))))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", marginTop: "12px", justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(
+  ), visionEditIdx === i && /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: "1px solid var(--border)", background: "var(--surface)" } }, /* @__PURE__ */ React.createElement("td", { colSpan: 5, style: { padding: "8px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Event Name"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.event_name || "", onChange: (e) => updateVisionEvent(i, "event_name", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Variant"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.game_variant || "", onChange: (e) => updateVisionEvent(i, "game_variant", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Date"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.date || "", onChange: (e) => updateVisionEvent(i, "date", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Time"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.time || "", onChange: (e) => updateVisionEvent(i, "time", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Buy-in ($)"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.buyin || 0, onChange: (e) => updateVisionEvent(i, "buyin", parseInt(e.target.value) || 0), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Venue"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.venue || "", onChange: (e) => updateVisionEvent(i, "venue", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Starting Chips"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.starting_chips || "", onChange: (e) => updateVisionEvent(i, "starting_chips", parseInt(e.target.value) || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Guarantee ($)"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.guarantee || "", onChange: (e) => updateVisionEvent(i, "guarantee", parseInt(e.target.value) || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Level Duration"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.level_duration || "", onChange: (e) => updateVisionEvent(i, "level_duration", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Re-entry"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.reentry || "", onChange: (e) => updateVisionEvent(i, "reentry", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Event #"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.event_number || "", onChange: (e) => updateVisionEvent(i, "event_number", e.target.value || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Category"), /* @__PURE__ */ React.createElement("select", { value: ev.category || "", onChange: (e) => updateVisionEvent(i, "category", e.target.value || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "—"), /* @__PURE__ */ React.createElement("option", { value: "main" }, "Main Event"), /* @__PURE__ */ React.createElement("option", { value: "side" }, "Side Event"), /* @__PURE__ */ React.createElement("option", { value: "deepstack" }, "Deepstack")))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "12px", marginTop: "8px", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: "var(--text-muted)" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: !!ev.is_satellite, onChange: (e) => {
+    updateVisionEvent(i, "is_satellite", e.target.checked);
+    if (e.target.checked) updateVisionEvent(i, "is_restart", false);
+  } }), "Satellite"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: "var(--text-muted)" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: !!ev.is_restart, onChange: (e) => {
+    updateVisionEvent(i, "is_restart", e.target.checked);
+    if (e.target.checked) {
+      updateVisionEvent(i, "is_satellite", false);
+      updateVisionEvent(i, "buyin", 0);
+    }
+  } }), "Restart (Day 2+)"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: "var(--text-muted)" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: !!ev.is_multi_flight, onChange: (e) => updateVisionEvent(i, "is_multi_flight", e.target.checked) }), "Multi-flight"), ev.is_satellite && /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px", flex: 1, minWidth: "120px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Target Event"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.target_event || "", onChange: (e) => updateVisionEvent(i, "target_event", e.target.value || null), placeholder: "e.g. Main Event", style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), ev.is_restart && /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px", flex: 1, minWidth: "120px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Parent Event"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.parent_event || "", onChange: (e) => updateVisionEvent(i, "parent_event", e.target.value || null), placeholder: "e.g. Event 1", style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), ev.is_multi_flight && /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Flight"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.flight_letter || "", onChange: (e) => updateVisionEvent(i, "flight_letter", e.target.value || null), placeholder: "A, B, C...", style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem", width: "50px" } })))))))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", marginTop: "12px", justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn btn-ghost btn-sm",
@@ -7814,7 +7955,7 @@ function App() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [gameVariants, setGameVariants] = useState([]);
   const [venues, setVenues] = useState([]);
-  const toast2 = useToast();
+  const toast = useToast();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [uploadError, setUploadError] = useState("");
@@ -8059,7 +8200,7 @@ function App() {
       setTournaments(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Fetch tournaments:", e);
-      toast2.error("Failed to load tournaments");
+      toast.error("Failed to load tournaments");
     }
   }, "fetchTournaments");
   const fetchMySchedule = /* @__PURE__ */ __name(async () => {
@@ -8108,7 +8249,7 @@ function App() {
       setTrackingData(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Fetch tracking:", e);
-      toast2.error("Failed to load tracking data");
+      toast.error("Failed to load tracking data");
     }
   }, "fetchTracking");
   const fetchMyLiveUpdate = /* @__PURE__ */ __name(async () => {
@@ -8323,14 +8464,14 @@ function App() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast2.error(data.error);
+        toast.error(data.error);
         return;
       }
-      toast2.success(data.message);
+      toast.success(data.message);
       e.target.reset();
       fetchShareBuddies();
     } catch (e2) {
-      toast2.error("Failed to send request");
+      toast.error("Failed to send request");
     }
   }, "handleSendShareRequest");
   const handleAcceptRequest = /* @__PURE__ */ __name(async (id) => {
@@ -8598,18 +8739,18 @@ function App() {
     fd.append("pdf", file);
     if (uploadVenue) fd.append("venue", uploadVenue);
     try {
-      toast2.info("Uploading and parsing PDF…");
+      toast.info("Uploading and parsing PDF…");
       const res = await fetch(`${API_URL}/upload-schedule`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd
       });
       const data = await res.json();
-      toast2.success(`Imported ${data.tournamentsCount} tournaments from ${data.format === "wsop" ? "WSOP" : "generic"} format!`);
+      toast.success(`Imported ${data.tournamentsCount} tournaments from ${data.format === "wsop" ? "WSOP" : "generic"} format!`);
       setUploadVenue("");
       fetchTournaments();
     } catch (e2) {
-      toast2.error("Failed to upload schedule");
+      toast.error("Failed to upload schedule");
     }
   }, "handleFileUpload");
   if (!token) {
@@ -8762,7 +8903,8 @@ function App() {
       onSetPlannedEntries: setPlannedEntries,
       buddyEvents,
       buddyLiveUpdates,
-      onBuddySwap
+      onBuddySwap,
+      onImport: () => setCurrentView("settings")
     }
   )), currentView === "schedule" && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonSchedule, null) : /* @__PURE__ */ React.createElement(ScheduleView, { key: debugTimeKey, mySchedule, onToggle: toggleTournament, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest: handleAcceptRequest, onRejectRequest: handleRejectRequest, token, onSetCondition: setCondition, onRemoveCondition: removeCondition, allTournaments: tournaments, onToggleAnchor: toggleAnchor, onSetPlannedEntries: setPlannedEntries, onAddPersonalEvent: addPersonalEvent, onUpdatePersonalEvent: updatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap })), currentView === "calendar" && /* @__PURE__ */ React.createElement(CalendarView, { key: debugTimeKey, allTournaments: tournaments, mySchedule, onToggle: toggleTournament, gameVariants, venues, onSetCondition: setCondition, onRemoveCondition: removeCondition, onToggleAnchor: toggleAnchor, onSetPlannedEntries: setPlannedEntries, buddyEvents, buddyLiveUpdates }), currentView === "tracking" && /* @__PURE__ */ React.createElement(
     TrackingView,

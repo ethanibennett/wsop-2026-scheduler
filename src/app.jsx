@@ -8929,6 +8929,7 @@
       // Vision-based schedule upload state
       const [visionFile, setVisionFile] = useState(null);
       const [visionVenue, setVisionVenue] = useState('');
+      const [visionUrl, setVisionUrl] = useState('');
       const [visionParsing, setVisionParsing] = useState(false);
       const [visionResults, setVisionResults] = useState(null);
       const [visionError, setVisionError] = useState('');
@@ -9005,6 +9006,65 @@
           clearInterval(visionProgressRef.current);
           setVisionParsing(false);
           e.target.value = '';
+        }
+      };
+
+      const handleVisionUrl = async () => {
+        if (!visionUrl.trim()) return;
+        setVisionError('');
+        setVisionResults(null);
+        setVisionParsing(true);
+        setVisionProgress(0);
+        setVisionStage('Fetching URL...');
+
+        const isUrlPdf = visionUrl.toLowerCase().endsWith('.pdf');
+        const stages = [
+          { at: 5,  label: 'Fetching URL...' },
+          { at: 15, label: isUrlPdf ? 'Reading PDF...' : 'Extracting page content...' },
+          { at: 25, label: 'Pass 1: Transcribing schedule...' },
+          { at: 45, label: 'Pass 1: Reading event details...' },
+          { at: 60, label: 'Pass 2: Structuring events...' },
+          { at: 75, label: 'Pass 2: Mapping variants...' },
+          { at: 88, label: 'Validating data...' },
+          { at: 94, label: 'Finalizing...' },
+        ];
+        let stageIdx = 0;
+        const startTime = Date.now();
+        const estDuration = isUrlPdf ? 70000 : 45000;
+
+        visionProgressRef.current = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
+          const pct = Math.min(95, Math.round(raw));
+          setVisionProgress(pct);
+          while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
+            setVisionStage(stages[stageIdx].label);
+            stageIdx++;
+          }
+        }, 200);
+
+        try {
+          const res = await fetch(`${API_URL}/parse-schedule-url`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: visionUrl.trim(), venue: visionVenue })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Parse failed');
+          clearInterval(visionProgressRef.current);
+          setVisionProgress(100);
+          setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : 'No events found');
+          await new Promise(r => setTimeout(r, 400));
+          setVisionResults(data);
+          if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
+        } catch (err) {
+          clearInterval(visionProgressRef.current);
+          setVisionProgress(0);
+          setVisionStage('');
+          setVisionError(err.message || 'Failed to parse URL');
+        } finally {
+          clearInterval(visionProgressRef.current);
+          setVisionParsing(false);
         }
       };
 
@@ -9201,9 +9261,9 @@
             <div className="settings-section-label">Import Schedule</div>
             <div className="settings-card">
               <div className="settings-row" style={{flexDirection:'column',alignItems:'stretch',gap:'8px'}}>
-                <span className="settings-row-label">Upload schedule (PDF or image)</span>
+                <span className="settings-row-label">Import schedule</span>
                 <p style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.4}}>
-                  Upload a tournament schedule PDF or image. AI vision extracts event data automatically.
+                  Upload a PDF/image or paste a web link. AI extracts event data automatically.
                 </p>
                 <input
                   type="text"
@@ -9225,8 +9285,28 @@
                   className="btn btn-ghost btn-sm"
                   style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px',opacity:visionParsing?0.5:1,pointerEvents:visionParsing?'none':'auto'}}
                 >
-                  <Icon.upload /> {visionParsing ? 'Scanning...' : 'Choose File'}
+                  <Icon.upload /> {visionParsing ? 'Scanning...' : 'Upload File'}
                 </label>
+                <div style={{display:'flex',alignItems:'center',gap:'8px',width:'100%'}}>
+                  <span style={{fontSize:'0.75rem',color:'var(--text-muted)',fontWeight:600}}>or</span>
+                  <input
+                    type="text"
+                    placeholder="Paste schedule URL..."
+                    value={visionUrl}
+                    onChange={e => setVisionUrl(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && visionUrl.trim()) handleVisionUrl(); }}
+                    disabled={visionParsing}
+                    style={{flex:1,padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.8rem',opacity:visionParsing?0.5:1}}
+                  />
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={handleVisionUrl}
+                    disabled={visionParsing || !visionUrl.trim()}
+                    style={{whiteSpace:'nowrap',opacity:(visionParsing || !visionUrl.trim())?0.5:1}}
+                  >
+                    Fetch
+                  </button>
+                </div>
 
                 {visionParsing && (
                   <div style={{padding:'12px',background:'var(--surface)',borderRadius:'8px',border:'1px solid var(--border)'}}>

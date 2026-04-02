@@ -6658,42 +6658,10 @@ async function sendPushToAdmin(title, body, url) {
 // ── Schedule Parser: extract tournament data from PDF/image via Claude Vision ──
 const scheduleUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
-app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUpload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file provided' });
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
-
-  const userVenue = req.body?.venue || '';
-
-  try {
-    const client = new Anthropic({ apiKey, timeout: 120000 });
-    const mime = req.file.mimetype || '';
-    const isImage = mime.startsWith('image/');
-    const isPdf = mime === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
-
-    if (!isImage && !isPdf) {
-      return res.status(400).json({ error: 'File must be a PDF or image (PNG, JPG, WEBP)' });
-    }
-
-    console.log(`[ParseSchedule] Processing ${(req.file.size / 1024).toFixed(0)}KB ${isPdf ? 'PDF' : 'image'} (${mime})`);
-
-    // Build image buffers to send to Claude
-    const imageBuffers = []; // { base64, mediaType }
-
-    // Send file directly — Claude API accepts both images and PDFs natively
-    imageBuffers.push({
-      base64: req.file.buffer.toString('base64'),
-      mediaType: isPdf ? 'application/pdf' : mime
-    });
-    console.log(`[ParseSchedule] Prepared ${isPdf ? 'PDF' : 'image'} for Claude (${(req.file.size / 1024).toFixed(0)}KB)`);
-
-    if (imageBuffers.length === 0) {
-      return res.status(400).json({ error: 'Could not extract any pages from file' });
-    }
-
-    // ── Pass 1 prompt: verbatim transcription ──
-    const TRANSCRIBE_PROMPT = `Transcribe every tournament event row from this poker schedule into a plain text table. Read EXACTLY what is printed — do not interpret, rephrase, or add anything.
+// ── Shared schedule parsing helpers ──
+function getSchedulePrompts() {
+  // Pass 1: verbatim transcription
+  const TRANSCRIBE_PROMPT = `Transcribe every tournament event row from this poker schedule into a plain text table. Read EXACTLY what is printed — do not interpret, rephrase, or add anything.
 
 For each event row, output one line in this pipe-delimited format:
 DATE | TIME | EVENT# | EVENT NAME (exactly as printed) | BUY-IN | STARTING CHIPS | LEVELS | GUARANTEE | RE-ENTRY | LATE REG | TABLE SIZE
@@ -6712,8 +6680,8 @@ VENUE: Borgata Summer Poker Open
 Jun 3 | 11:00 AM | 1 | No-Limit Hold'em Deepstack | $600 | 30,000 | 30 min | $200,000 GTD | Unlimited | Level 10 | —
 Jun 3 | 7:00 PM | 2 | Pot-Limit Omaha | $1,100 | 50,000 | 40 min | — | Freezeout | — | 8-Max`;
 
-    // ── Pass 2 prompt: structure into JSON ──
-    const STRUCTURE_PROMPT = `Convert this raw transcription of a poker tournament schedule into a JSON array. The transcription was copied verbatim from a schedule document.
+  // Pass 2: structure into JSON
+  const STRUCTURE_PROMPT = `Convert this raw transcription of a poker tournament schedule into a JSON array. The transcription was copied verbatim from a schedule document.
 
 For each event line, output a JSON object with these fields:
 - "date": normalize to "Month DD, YYYY" (assume 2026 if no year). e.g. "June 15, 2026"
@@ -6769,237 +6737,238 @@ For each event line, output a JSON object with these fields:
 
 Return ONLY a JSON array. No markdown, no code fences, no explanation.`;
 
-    // ── Robust JSON repair ──
-    function repairTruncatedJsonArray(str) {
-      try { return JSON.parse(str); } catch (_) {}
-      let s = str.trim();
-      if (!s.startsWith('[')) return null;
+  return { TRANSCRIBE_PROMPT, STRUCTURE_PROMPT };
+}
 
-      const quickRepairs = [s + ']', s + '}]', s + '"}]', s + 'null}]', s + '"null"}]'];
-      for (const attempt of quickRepairs) {
-        try { return JSON.parse(attempt); } catch (_) {}
-      }
-
-      // Character-level: find last complete object tracking brace depth outside strings
-      let lastSafeEnd = -1, depth = 0, inString = false, escape = false;
-      for (let i = 0; i < s.length; i++) {
-        const ch = s[i];
-        if (escape) { escape = false; continue; }
-        if (ch === '\\' && inString) { escape = true; continue; }
-        if (ch === '"') { inString = !inString; continue; }
-        if (inString) continue;
-        if (ch === '[' || ch === '{') depth++;
-        else if (ch === ']' || ch === '}') {
-          depth--;
-          if (depth === 1 && ch === '}') {
-            let j = i + 1;
-            while (j < s.length && ' \n\r\t'.includes(s[j])) j++;
-            if (j >= s.length || s[j] === ',' || s[j] === ']') lastSafeEnd = (s[j] === ',') ? j : i;
-          }
-        }
-      }
-      if (lastSafeEnd > 0) {
-        const trimmed = s.slice(0, lastSafeEnd + 1).replace(/,\s*$/, '') + ']';
-        try { const p = JSON.parse(trimmed); console.log(`[ParseSchedule] Repair: recovered ${p.length} events`); return p; } catch (_) {}
-      }
-      const lco = s.lastIndexOf('},');
-      if (lco > 0) { try { return JSON.parse(s.slice(0, lco + 1) + ']'); } catch (_) {} }
-      const lo = s.lastIndexOf('}');
-      if (lo > 0) { try { return JSON.parse(s.slice(0, lo + 1) + ']'); } catch (_) {} }
-      return null;
-    }
-
-    function extractJsonArray(text, wasTruncated) {
-      let json = text;
-      if (json.includes('```')) json = json.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-      if (!json.startsWith('[')) { const idx = json.indexOf('['); if (idx >= 0) json = json.slice(idx); }
-      try { return JSON.parse(json); } catch (e) {
-        console.warn(`[ParseSchedule] Direct parse failed (${e.message}), repairing...`);
-        const repaired = repairTruncatedJsonArray(json);
-        if (repaired) return repaired;
-        console.error(`[ParseSchedule] Unrepairable JSON, first 300: ${json.slice(0, 300).replace(/\n/g, '\\n')}`);
-        return null;
+function repairTruncatedJsonArray(str) {
+  try { return JSON.parse(str); } catch (_) {}
+  let s = str.trim();
+  if (!s.startsWith('[')) return null;
+  const quickRepairs = [s + ']', s + '}]', s + '"}]', s + 'null}]', s + '"null"}]'];
+  for (const attempt of quickRepairs) { try { return JSON.parse(attempt); } catch (_) {} }
+  let lastSafeEnd = -1, depth = 0, inString = false, escape = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '[' || ch === '{') depth++;
+    else if (ch === ']' || ch === '}') {
+      depth--;
+      if (depth === 1 && ch === '}') {
+        let j = i + 1;
+        while (j < s.length && ' \n\r\t'.includes(s[j])) j++;
+        if (j >= s.length || s[j] === ',' || s[j] === ']') lastSafeEnd = (s[j] === ',') ? j : i;
       }
     }
+  }
+  if (lastSafeEnd > 0) {
+    const trimmed = s.slice(0, lastSafeEnd + 1).replace(/,\s*$/, '') + ']';
+    try { const p = JSON.parse(trimmed); console.log(`[ParseSchedule] Repair: recovered ${p.length} events`); return p; } catch (_) {}
+  }
+  const lco = s.lastIndexOf('},');
+  if (lco > 0) { try { return JSON.parse(s.slice(0, lco + 1) + ']'); } catch (_) {} }
+  const lo = s.lastIndexOf('}');
+  if (lo > 0) { try { return JSON.parse(s.slice(0, lo + 1) + ']'); } catch (_) {} }
+  return null;
+}
 
-    // ── Execute two-pass extraction ──
-    const allEvents = [];
+function extractJsonArray(text) {
+  let json = text;
+  if (json.includes('```')) json = json.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+  if (!json.startsWith('[')) { const idx = json.indexOf('['); if (idx >= 0) json = json.slice(idx); }
+  try { return JSON.parse(json); } catch (e) {
+    console.warn(`[ParseSchedule] Direct parse failed (${e.message}), repairing...`);
+    const repaired = repairTruncatedJsonArray(json);
+    if (repaired) return repaired;
+    console.error(`[ParseSchedule] Unrepairable JSON, first 300: ${json.slice(0, 300).replace(/\n/g, '\\n')}`);
+    return null;
+  }
+}
+
+async function runTwoPassExtraction(client, visionContent, pageErrors) {
+  const { TRANSCRIBE_PROMPT, STRUCTURE_PROMPT } = getSchedulePrompts();
+  const allEvents = [];
+
+  // Pass 1: Verbatim transcription (Sonnet for accuracy)
+  console.log(`[ParseSchedule] Pass 1: Transcribing with Sonnet...`);
+  visionContent.push({ type: 'text', text: TRANSCRIBE_PROMPT });
+
+  const pass1 = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 16384,
+    messages: [{ role: 'user', content: visionContent }],
+  });
+
+  const transcription = pass1.content[0]?.text?.trim() || '';
+  console.log(`[ParseSchedule] Pass 1 done: ${transcription.length} chars, ${transcription.split('\n').length} lines`);
+  console.log(`[ParseSchedule] Transcription preview: ${transcription.slice(0, 300).replace(/\n/g, '\\n')}`);
+
+  if (!transcription || transcription.length < 20) {
+    pageErrors.push({ page: 1, error: 'Could not read any text from the document' });
+    return allEvents;
+  }
+
+  // Pass 2: Structure into JSON (Haiku for speed)
+  console.log(`[ParseSchedule] Pass 2: Structuring into JSON...`);
+  const pass2 = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 32768,
+    messages: [
+      { role: 'user', content: `Here is the raw transcription of a poker tournament schedule:\n\n${transcription}\n\n${STRUCTURE_PROMPT}` },
+      { role: 'assistant', content: '[' },
+    ],
+  });
+
+  const wasTruncated = pass2.stop_reason === 'max_tokens';
+  const rawText = pass2.content[0]?.text?.trim() || '';
+  const text = '[' + rawText;
+  console.log(`[ParseSchedule] Pass 2 done: ${text.length} chars, truncated: ${wasTruncated}`);
+
+  const events = extractJsonArray(text);
+  if (events && Array.isArray(events)) {
+    for (const ev of events) allEvents.push(ev);
+    console.log(`[ParseSchedule] Extracted ${events.length} events`);
+    if (wasTruncated) pageErrors.push({ page: 1, error: 'Response was truncated — some events at the end may be missing' });
+  } else {
+    pageErrors.push({ page: 1, error: 'Failed to parse structured response — try again' });
+  }
+
+  return allEvents;
+}
+
+function postProcessEvents(allEvents, userVenue) {
+  const processed = [];
+  const warnings = [];
+
+  const KNOWN_VENUES_MAP = {
+    'WYNN': 'Wynn Las Vegas', 'ENCORE': 'Wynn Las Vegas',
+    'VENETIAN': 'Venetian', 'PALAZZO': 'Venetian',
+    'ARIA': 'Aria', 'BELLAGIO': 'Bellagio',
+    'RESORTS WORLD': 'Resorts World',
+    'GOLDEN NUGGET': 'Golden Nugget',
+    'SOUTH POINT': 'South Point',
+    'ORLEANS': 'Orleans',
+    'HORSESHOE': 'Horseshoe / Paris Las Vegas',
+    'PARIS': 'Horseshoe / Paris Las Vegas',
+    'MGM NATIONAL HARBOR': 'MGM National Harbor',
+    'MGM GRAND': 'MGM Grand',
+    'SEMINOLE': 'Seminole Hard Rock',
+    'HARD ROCK': 'Seminole Hard Rock',
+    'BORGATA': 'Borgata',
+    'FOXWOODS': 'Foxwoods',
+    'THUNDER VALLEY': 'Thunder Valley',
+    'CAESARS': 'Caesars Palace',
+    'TURNING STONE': 'Turning Stone Casino',
+    'TEXAS CARD HOUSE': 'Texas Card House',
+  };
+
+  for (const ev of allEvents) {
+    const w = [];
+    if (!ev.date) w.push('Missing date');
+    if (!ev.time) w.push('Missing time');
+    if (ev.buyin == null && !ev.is_restart) w.push('Missing buyin');
+    if (!ev.game_variant) { ev.game_variant = 'NLH'; w.push('Defaulted game variant to NLH'); }
+    if (!ev.event_name) w.push('Missing event name');
+    if (!ev.date && !ev.time && ev.buyin == null) continue;
+
+    if (userVenue) {
+      ev.venue = userVenue;
+    } else if (ev.venue) {
+      const upper = ev.venue.toUpperCase();
+      let matched = false;
+      for (const [key, val] of Object.entries(KNOWN_VENUES_MAP)) {
+        if (upper.includes(key)) { ev.venue = val; matched = true; break; }
+      }
+      if (!matched) w.push(`Unknown venue: ${ev.venue}`);
+    } else {
+      w.push('No venue detected');
+    }
+
+    if (ev.game_variant === 'Mixed' && ev.event_name && /\bhybrid\b/i.test(ev.event_name)) {
+      ev.game_variant = 'NLH';
+    }
+
+    if (ev.event_name) {
+      ev.event_name = ev.event_name
+        .replace(/\b(Omaha\s*(?:Hi[\s/-]*Lo|H[\s/-]*L|8(?:-or-better)?|High[\s/-]*Low))\b/gi, '')
+        .replace(/\bPot[\s-]*Limit\s+Omaha\b/gi, '')
+        .replace(/\bNo[\s-]*Limit\s+Hold'?e?m\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
+    if (ev.event_name) {
+      const isSatOrDemo = ev.is_satellite ||
+        /\b(Satellite|Seniors|Ladies|Kings\s*&\s*Queens)\b/i.test(ev.event_name);
+      ev.event_name = normalizeEventName(ev.event_name, isSatOrDemo ? null : ev.game_variant);
+    }
+
+    if (ev.buyin != null) ev.buyin = parseInt(String(ev.buyin).replace(/[$,]/g, '')) || 0;
+    if (ev.is_restart) ev.buyin = 0;
+    if (ev.guarantee != null) ev.guarantee = parseInt(String(ev.guarantee).replace(/[$,]/g, '')) || null;
+    if (ev.starting_chips != null) ev.starting_chips = parseInt(String(ev.starting_chips).replace(/[,]/g, '')) || null;
+    if (ev.bounty_amount != null) ev.bounty_amount = parseInt(String(ev.bounty_amount).replace(/[$,]/g, '')) || null;
+    if (ev.reentry) ev.reentry = normalizeReentry(ev.reentry);
+
+    ev._warnings = w;
+    if (w.length > 0) warnings.push({ event: ev.event_name || '(unnamed)', warnings: w });
+    processed.push(ev);
+  }
+
+  // Deduplicate
+  const seen = new Set();
+  const deduplicated = [];
+  for (const ev of processed) {
+    const key = `${ev.date}|${ev.time}|${ev.buyin}|${ev.venue}|${(ev.event_name || '').slice(0, 30)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduplicated.push(ev);
+  }
+
+  return { deduplicated, warnings };
+}
+
+// ── Parse schedule from file upload ──
+app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+
+  const userVenue = req.body?.venue || '';
+
+  try {
+    const client = new Anthropic({ apiKey, timeout: 120000 });
+    const mime = req.file.mimetype || '';
+    const isImage = mime.startsWith('image/');
+    const isPdf = mime === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+
+    if (!isImage && !isPdf) {
+      return res.status(400).json({ error: 'File must be a PDF or image (PNG, JPG, WEBP)' });
+    }
+
+    console.log(`[ParseSchedule] Processing ${(req.file.size / 1024).toFixed(0)}KB ${isPdf ? 'PDF' : 'image'} (${mime})`);
+
+    const imageBuffers = [];
+    imageBuffers.push({
+      base64: req.file.buffer.toString('base64'),
+      mediaType: isPdf ? 'application/pdf' : mime
+    });
+
     const pageErrors = [];
-
-    try {
-      // Pass 1: Verbatim transcription (Sonnet for accuracy)
-      console.log(`[ParseSchedule] Pass 1: Transcribing ${imageBuffers.length} page(s) with Sonnet...`);
-      const visionContent = [];
-      for (const img of imageBuffers) {
-        if (img.mediaType === 'application/pdf') {
-          visionContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: img.base64 } });
-        } else {
-          visionContent.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
-        }
-      }
-      visionContent.push({ type: 'text', text: TRANSCRIBE_PROMPT });
-
-      const pass1 = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 16384,
-        messages: [{ role: 'user', content: visionContent }],
-      });
-
-      const transcription = pass1.content[0]?.text?.trim() || '';
-      console.log(`[ParseSchedule] Pass 1 done: ${transcription.length} chars, ${transcription.split('\n').length} lines`);
-      console.log(`[ParseSchedule] Transcription preview: ${transcription.slice(0, 300).replace(/\n/g, '\\n')}`);
-
-      if (!transcription || transcription.length < 20) {
-        pageErrors.push({ page: 1, error: 'Could not read any text from the document' });
+    const visionContent = [];
+    for (const img of imageBuffers) {
+      if (img.mediaType === 'application/pdf') {
+        visionContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: img.base64 } });
       } else {
-        // Pass 2: Structure into JSON (Haiku for speed — input is clean text now)
-        console.log(`[ParseSchedule] Pass 2: Structuring transcription into JSON...`);
-
-        const pass2 = await client.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 32768,
-          messages: [
-            { role: 'user', content: `Here is the raw transcription of a poker tournament schedule:\n\n${transcription}\n\n${STRUCTURE_PROMPT}` },
-            { role: 'assistant', content: '[' },
-          ],
-        });
-
-        const wasTruncated = pass2.stop_reason === 'max_tokens';
-        const rawText = pass2.content[0]?.text?.trim() || '';
-        const text = '[' + rawText;
-        console.log(`[ParseSchedule] Pass 2 done: ${text.length} chars, truncated: ${wasTruncated}`);
-
-        const events = extractJsonArray(text, wasTruncated);
-        if (events && Array.isArray(events)) {
-          for (const ev of events) allEvents.push(ev);
-          console.log(`[ParseSchedule] Extracted ${events.length} events`);
-          if (wasTruncated) pageErrors.push({ page: 1, error: 'Response was truncated — some events at the end may be missing' });
-        } else {
-          pageErrors.push({ page: 1, error: 'Failed to parse structured response — try uploading again' });
-        }
+        visionContent.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
       }
-    } catch (err) {
-      console.error(`[ParseSchedule] API error:`, err.message);
-      pageErrors.push({ page: 1, error: err.message });
     }
 
-    // Post-process: normalize and validate
-    const processed = [];
-    const warnings = [];
-
-    for (const ev of allEvents) {
-      const w = [];
-
-      // Validate tier 1 fields
-      if (!ev.date) w.push('Missing date');
-      if (!ev.time) w.push('Missing time');
-      if (ev.buyin == null && !ev.is_restart) w.push('Missing buyin');
-      if (!ev.game_variant) { ev.game_variant = 'NLH'; w.push('Defaulted game variant to NLH'); }
-      if (!ev.event_name) w.push('Missing event name');
-
-      // Skip events missing all critical fields
-      if (!ev.date && !ev.time && ev.buyin == null) continue;
-
-      // Normalize venue
-      if (userVenue) {
-        ev.venue = userVenue;
-      } else if (ev.venue) {
-        // Try to match to known venues
-        const upper = ev.venue.toUpperCase();
-        const KNOWN_VENUES_MAP = {
-          'WYNN': 'Wynn Las Vegas', 'ENCORE': 'Wynn Las Vegas',
-          'VENETIAN': 'Venetian', 'PALAZZO': 'Venetian',
-          'ARIA': 'Aria', 'BELLAGIO': 'Bellagio',
-          'RESORTS WORLD': 'Resorts World',
-          'GOLDEN NUGGET': 'Golden Nugget',
-          'SOUTH POINT': 'South Point',
-          'ORLEANS': 'Orleans',
-          'HORSESHOE': 'Horseshoe / Paris Las Vegas',
-          'PARIS': 'Horseshoe / Paris Las Vegas',
-          'MGM NATIONAL HARBOR': 'MGM National Harbor',
-          'MGM GRAND': 'MGM Grand',
-          'SEMINOLE': 'Seminole Hard Rock',
-          'HARD ROCK': 'Seminole Hard Rock',
-          'BORGATA': 'Borgata',
-          'FOXWOODS': 'Foxwoods',
-          'THUNDER VALLEY': 'Thunder Valley',
-          'CAESARS': 'Caesars Palace',
-          'TURNING STONE': 'Turning Stone Casino',
-          'TEXAS CARD HOUSE': 'Texas Card House',
-        };
-        let matched = false;
-        for (const [key, val] of Object.entries(KNOWN_VENUES_MAP)) {
-          if (upper.includes(key)) { ev.venue = val; matched = true; break; }
-        }
-        if (!matched) w.push(`Unknown venue: ${ev.venue}`);
-      } else {
-        w.push('No venue detected');
-      }
-
-      // Fix variant misclassifications before name normalization
-      if (ev.game_variant === 'Mixed' && ev.event_name && /\bhybrid\b/i.test(ev.event_name)) {
-        ev.game_variant = 'NLH'; // "Hybrid" = online-to-live format, not a mixed game
-      }
-
-      // Clean up redundant variant descriptions in event names
-      if (ev.event_name) {
-        // "PLO8 Omaha H/L High-Low" → just use variant prefix, strip redundant descriptions
-        ev.event_name = ev.event_name
-          .replace(/\b(Omaha\s*(?:Hi[\s/-]*Lo|H[\s/-]*L|8(?:-or-better)?|High[\s/-]*Low))\b/gi, '')
-          .replace(/\bPot[\s-]*Limit\s+Omaha\b/gi, '')
-          .replace(/\bNo[\s-]*Limit\s+Hold'?e?m\b/gi, '')
-          .replace(/\s{2,}/g, ' ')
-          .trim();
-      }
-
-      // Normalize event name using existing function
-      // Satellites and demographic events (Seniors, Ladies) don't get a variant prefix per WSOP convention
-      if (ev.event_name) {
-        const isSatOrDemo = ev.is_satellite ||
-          /\b(Satellite|Seniors|Ladies|Kings\s*&\s*Queens)\b/i.test(ev.event_name);
-        ev.event_name = normalizeEventName(ev.event_name, isSatOrDemo ? null : ev.game_variant);
-      }
-
-      // Normalize buyin to integer
-      if (ev.buyin != null) {
-        ev.buyin = parseInt(String(ev.buyin).replace(/[$,]/g, '')) || 0;
-      }
-      if (ev.is_restart) ev.buyin = 0;
-
-      // Normalize guarantee
-      if (ev.guarantee != null) {
-        ev.guarantee = parseInt(String(ev.guarantee).replace(/[$,]/g, '')) || null;
-      }
-
-      // Normalize starting chips
-      if (ev.starting_chips != null) {
-        ev.starting_chips = parseInt(String(ev.starting_chips).replace(/[,]/g, '')) || null;
-      }
-
-      // Normalize bounty
-      if (ev.bounty_amount != null) {
-        ev.bounty_amount = parseInt(String(ev.bounty_amount).replace(/[$,]/g, '')) || null;
-      }
-
-      // Normalize reentry
-      if (ev.reentry) {
-        ev.reentry = normalizeReentry(ev.reentry);
-      }
-
-      ev._warnings = w;
-      if (w.length > 0) warnings.push({ event: ev.event_name || '(unnamed)', warnings: w });
-      processed.push(ev);
-    }
-
-    // Deduplicate — same date + time + buyin + venue
-    const seen = new Set();
-    const deduplicated = [];
-    for (const ev of processed) {
-      const key = `${ev.date}|${ev.time}|${ev.buyin}|${ev.venue}|${(ev.event_name || '').slice(0, 30)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      deduplicated.push(ev);
-    }
+    const allEvents = await runTwoPassExtraction(client, visionContent, pageErrors);
+    const { deduplicated, warnings } = postProcessEvents(allEvents, userVenue);
 
     console.log(`[ParseSchedule] Total: ${allEvents.length} raw -> ${deduplicated.length} deduplicated events`);
 
@@ -7016,6 +6985,123 @@ Return ONLY a JSON array. No markdown, no code fences, no explanation.`;
   } catch (err) {
     console.error('[ParseSchedule] Error:', err.message);
     res.status(err.status || 500).json({ error: `Schedule parsing failed: ${err.message}` });
+  }
+});
+
+// ── Parse schedule from URL ──
+app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, express.json(), async (req, res) => {
+  const { url, venue } = req.body || {};
+  if (!url) return res.status(400).json({ error: 'No URL provided' });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+
+  const userVenue = venue || '';
+
+  try {
+    const client = new Anthropic({ apiKey, timeout: 180000 });
+    console.log(`[ParseURL] Fetching ${url}`);
+
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FutureGame/1.0)' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!resp.ok) throw new Error(`Failed to fetch URL: HTTP ${resp.status}`);
+
+    const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+    const pageErrors = [];
+    let allEvents = [];
+
+    if (contentType.includes('application/pdf') || url.toLowerCase().endsWith('.pdf')) {
+      // PDF — download and run through vision pipeline
+      console.log(`[ParseURL] Detected PDF`);
+      const buffer = Buffer.from(await resp.arrayBuffer());
+      console.log(`[ParseURL] Downloaded ${(buffer.length / 1024).toFixed(0)}KB PDF`);
+      const visionContent = [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') } },
+      ];
+      allEvents = await runTwoPassExtraction(client, visionContent, pageErrors);
+
+    } else if (contentType.includes('image/')) {
+      // Image — download and run through vision pipeline
+      const imgType = contentType.includes('png') ? 'image/png' : contentType.includes('webp') ? 'image/webp' : 'image/jpeg';
+      console.log(`[ParseURL] Detected image (${imgType})`);
+      const buffer = Buffer.from(await resp.arrayBuffer());
+      console.log(`[ParseURL] Downloaded ${(buffer.length / 1024).toFixed(0)}KB image`);
+      const visionContent = [
+        { type: 'image', source: { type: 'base64', media_type: imgType, data: buffer.toString('base64') } },
+      ];
+      allEvents = await runTwoPassExtraction(client, visionContent, pageErrors);
+
+    } else {
+      // HTML web page — extract text and send to Claude for structuring
+      console.log(`[ParseURL] Detected HTML page`);
+      const html = await resp.text();
+      // Strip HTML tags to get text content (basic extraction)
+      const textContent = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, '\n')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#?\w+;/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+        .slice(0, 50000); // Cap at 50k chars
+
+      console.log(`[ParseURL] Extracted ${textContent.length} chars of text from HTML`);
+
+      if (textContent.length < 50) {
+        pageErrors.push({ page: 1, error: 'Could not extract meaningful text from the web page' });
+      } else {
+        const { STRUCTURE_PROMPT } = getSchedulePrompts();
+
+        // For web pages, we skip Pass 1 (no vision needed) and go straight to structuring
+        console.log(`[ParseURL] Structuring web page text into JSON...`);
+        const pass = await client.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 32768,
+          messages: [
+            { role: 'user', content: `Here is the text content extracted from a poker tournament schedule web page (${url}):\n\n${textContent}\n\n${STRUCTURE_PROMPT}` },
+            { role: 'assistant', content: '[' },
+          ],
+        });
+
+        const wasTruncated = pass.stop_reason === 'max_tokens';
+        const rawText = pass.content[0]?.text?.trim() || '';
+        const text = '[' + rawText;
+        console.log(`[ParseURL] Response: ${text.length} chars, truncated: ${wasTruncated}`);
+
+        const events = extractJsonArray(text);
+        if (events && Array.isArray(events)) {
+          for (const ev of events) allEvents.push(ev);
+          console.log(`[ParseURL] Extracted ${events.length} events`);
+          if (wasTruncated) pageErrors.push({ page: 1, error: 'Response was truncated — some events may be missing' });
+        } else {
+          pageErrors.push({ page: 1, error: 'Failed to parse events from web page' });
+        }
+      }
+    }
+
+    const { deduplicated, warnings } = postProcessEvents(allEvents, userVenue);
+    console.log(`[ParseURL] Total: ${allEvents.length} raw -> ${deduplicated.length} deduplicated events`);
+
+    res.json({
+      events: deduplicated,
+      pageCount: 1,
+      rawCount: allEvents.length,
+      eventCount: deduplicated.length,
+      warnings,
+      pageErrors,
+      sourceFile: url,
+      detectedVenue: deduplicated.length > 0 ? deduplicated[0].venue : null,
+    });
+  } catch (err) {
+    console.error('[ParseURL] Error:', err.message);
+    res.status(err.status || 500).json({ error: `URL parsing failed: ${err.message}` });
   }
 });
 
@@ -7036,10 +7122,21 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
         continue;
       }
 
+      // Normalize date to YYYY-MM-DD for consistency with seed data
+      let date = ev.date;
+      if (!/^\d{4}-\d{2}-\d{2}/.test(date)) {
+        const dt = new Date(date + ' 12:00:00');
+        if (!isNaN(dt.getTime())) {
+          date = dt.toISOString().slice(0, 10);
+        }
+      } else {
+        date = date.slice(0, 10);
+      }
+
       const evName = ev.event_name || 'Unknown Event';
       const evVenue = ev.venue;
       const evNumber = ev.event_number || '';
-      const sid = generateStableId(evVenue, evNumber, evName, ev.date);
+      const sid = generateStableId(evVenue, evNumber, evName, date);
 
       // Build notes from optional fields
       const notes = [];
@@ -7062,7 +7159,7 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
           sid,
           evNumber,
           evName,
-          ev.date,
+          date,
           ev.time || '12:00 PM',
           ev.buyin || 0,
           ev.starting_chips || null,
