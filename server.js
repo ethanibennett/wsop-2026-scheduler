@@ -7118,14 +7118,11 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
       // HTML web page — extract text and send to Claude for structuring
       console.log(`[ParseURL] Detected HTML page`);
       const html = await resp.text();
-      // Strip HTML tags to get text content (aggressive cleanup for schedule pages)
+      // Strip HTML tags to get text content (safe cleanup — only remove script/style)
       const textContent = html
         .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
         .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-        .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-        .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-        .replace(/<[^>]+>/g, '\n')
+        .replace(/<[^>]+>/g, ' ')
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
