@@ -7118,73 +7118,101 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
       // HTML web page — extract text and send to Claude for structuring
       console.log(`[ParseURL] Detected HTML page`);
       const html = await resp.text();
-      // Strip HTML tags to get text content (basic extraction)
+      // Strip HTML tags to get text content (aggressive cleanup for schedule pages)
       const textContent = html
         .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
         .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+        .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+        .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
         .replace(/<[^>]+>/g, '\n')
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&#?\w+;/g, '')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim()
-        .slice(0, 50000); // Cap at 50k chars
+        .replace(/[ \t]+/g, ' ')          // collapse horizontal whitespace
+        .replace(/\n\s*\n/g, '\n')        // collapse blank lines to single newline
+        .trim();
 
-      console.log(`[ParseURL] Extracted ${textContent.length} chars of text from HTML`);
+      console.log(`[ParseURL] Extracted ${textContent.length} chars of text from HTML (raw HTML was ${html.length} chars)`);
 
       if (textContent.length < 50) {
         pageErrors.push({ page: 1, error: 'Could not extract meaningful text from the web page' });
       } else {
         const { STRUCTURE_PROMPT } = getSchedulePrompts();
-
-        // For web pages, we skip Pass 1 (no vision needed) and go straight to structuring
-        // Uses continuation loop for long schedules
         const venueHint = userVenue ? `\nIMPORTANT: The venue for ALL events is "${userVenue}". Set venue to "${userVenue}" for every event.\n` : '';
-        console.log(`[ParseURL] Structuring web page text into JSON...`);
-        const userPrompt = `Here is the text content extracted from a poker tournament schedule web page (${url}):\n${venueHint}\n${textContent}\n\n${STRUCTURE_PROMPT}`;
-        let fullJsonText = '[';
-        let htmlMessages = [
-          { role: 'user', content: userPrompt },
-          { role: 'assistant', content: '[' },
-        ];
-        let htmlAttempts = 0;
-        const MAX_HTML_CONTINUATIONS = 3;
 
-        while (htmlAttempts < MAX_HTML_CONTINUATIONS) {
-          htmlAttempts++;
-          const pass = await client.messages.create({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 32768,
-            messages: htmlMessages,
-          });
-
-          const chunk = pass.content[0]?.text?.trim() || '';
-          fullJsonText += chunk;
-          console.log(`[ParseURL] Chunk ${htmlAttempts}: ${chunk.length} chars, stop: ${pass.stop_reason}`);
-
-          if (pass.stop_reason !== 'max_tokens') break;
-
-          console.log(`[ParseURL] Truncated, requesting continuation...`);
-          htmlMessages = [
-            { role: 'user', content: userPrompt },
-            { role: 'assistant', content: fullJsonText },
-            { role: 'user', content: 'The JSON array was cut off. Continue the JSON array from EXACTLY where it stopped. Do not repeat any events. Start your response with the next comma or closing bracket.' },
-            { role: 'assistant', content: ',' },
-          ];
-          fullJsonText += ',';
-        }
-
-        console.log(`[ParseURL] Response: ${fullJsonText.length} chars (${htmlAttempts} chunk${htmlAttempts > 1 ? 's' : ''})`);
-
-        const events = extractJsonArray(fullJsonText);
-        if (events && Array.isArray(events)) {
-          for (const ev of events) allEvents.push(ev);
-          console.log(`[ParseURL] Extracted ${events.length} events`);
-          if (htmlAttempts >= MAX_HTML_CONTINUATIONS) pageErrors.push({ page: 1, error: 'Schedule was very long — some events at the end may be missing' });
+        // Split long text into chunks to avoid losing events at the end
+        // Each chunk gets ~80k chars (well within Sonnet's 200k context window)
+        const CHUNK_SIZE = 80000;
+        const textChunks = [];
+        if (textContent.length <= CHUNK_SIZE) {
+          textChunks.push(textContent);
         } else {
-          pageErrors.push({ page: 1, error: 'Failed to parse events from web page' });
+          // Split at line boundaries to avoid cutting mid-event
+          let start = 0;
+          while (start < textContent.length) {
+            let end = Math.min(start + CHUNK_SIZE, textContent.length);
+            if (end < textContent.length) {
+              // Find last newline before the cutoff to avoid splitting an event
+              const lastNewline = textContent.lastIndexOf('\n', end);
+              if (lastNewline > start + CHUNK_SIZE * 0.5) end = lastNewline;
+            }
+            textChunks.push(textContent.slice(start, end));
+            start = end;
+          }
+        }
+        console.log(`[ParseURL] Split into ${textChunks.length} text chunk(s): ${textChunks.map(c => c.length + ' chars').join(', ')}`);
+
+        // Process each text chunk
+        for (let ci = 0; ci < textChunks.length; ci++) {
+          const chunkText = textChunks[ci];
+          const chunkLabel = textChunks.length > 1 ? ` (part ${ci + 1}/${textChunks.length})` : '';
+          console.log(`[ParseURL] Structuring text chunk ${ci + 1}/${textChunks.length} into JSON...`);
+
+          const userPrompt = `Here is the text content extracted from a poker tournament schedule web page${chunkLabel} (${url}):\n${venueHint}\n${chunkText}\n\n${STRUCTURE_PROMPT}`;
+          let fullJsonText = '[';
+          let htmlMessages = [
+            { role: 'user', content: userPrompt },
+            { role: 'assistant', content: '[' },
+          ];
+          let htmlAttempts = 0;
+          const MAX_HTML_CONTINUATIONS = 3;
+
+          while (htmlAttempts < MAX_HTML_CONTINUATIONS) {
+            htmlAttempts++;
+            const pass = await client.messages.create({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 32768,
+              messages: htmlMessages,
+            });
+
+            const chunk = pass.content[0]?.text?.trim() || '';
+            fullJsonText += chunk;
+            console.log(`[ParseURL] Chunk ${ci + 1}.${htmlAttempts}: ${chunk.length} chars, stop: ${pass.stop_reason}`);
+
+            if (pass.stop_reason !== 'max_tokens') break;
+
+            console.log(`[ParseURL] Truncated, requesting continuation...`);
+            htmlMessages = [
+              { role: 'user', content: userPrompt },
+              { role: 'assistant', content: fullJsonText },
+              { role: 'user', content: 'The JSON array was cut off. Continue the JSON array from EXACTLY where it stopped. Do not repeat any events. Start your response with the next comma or closing bracket.' },
+              { role: 'assistant', content: ',' },
+            ];
+            fullJsonText += ',';
+          }
+
+          console.log(`[ParseURL] Text chunk ${ci + 1} response: ${fullJsonText.length} chars (${htmlAttempts} API call${htmlAttempts > 1 ? 's' : ''})`);
+
+          const events = extractJsonArray(fullJsonText);
+          if (events && Array.isArray(events)) {
+            for (const ev of events) allEvents.push(ev);
+            console.log(`[ParseURL] Text chunk ${ci + 1}: extracted ${events.length} events`);
+          } else {
+            pageErrors.push({ page: ci + 1, error: `Failed to parse events from text chunk ${ci + 1}` });
+          }
         }
       }
     }
