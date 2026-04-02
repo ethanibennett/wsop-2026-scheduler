@@ -7658,7 +7658,7 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
     ];
     let stageIdx = 0;
     const startTime = Date.now();
-    const estDuration = isUrlPdf ? 12e4 : 15e4;
+    const estDuration = isUrlPdf ? 9e4 : 45e3;
     visionProgressRef.current = setInterval(() => {
       const elapsed = Date.now() - startTime;
       const raw = 95 * (1 - Math.exp(-2 * elapsed / estDuration));

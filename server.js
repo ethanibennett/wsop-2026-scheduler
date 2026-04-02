@@ -7162,47 +7162,53 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
         }
         console.log(`[ParseURL] Split into ${textChunks.length} text chunk(s): ${textChunks.map(c => c.length + ' chars').join(', ')}`);
 
-        // Process each text chunk
-        for (let ci = 0; ci < textChunks.length; ci++) {
-          const chunkText = textChunks[ci];
+        // Process text chunks in parallel for speed (Haiku is fast + cheap)
+        const chunkPromises = textChunks.map((chunkText, ci) => {
           const chunkLabel = textChunks.length > 1 ? ` (part ${ci + 1}/${textChunks.length})` : '';
           console.log(`[ParseURL] Structuring text chunk ${ci + 1}/${textChunks.length} into JSON...`);
 
-          const userPrompt = `Here is the text content extracted from a poker tournament schedule web page${chunkLabel} (${url}):\n${venueHint}\n${chunkText}\n\n${STRUCTURE_PROMPT}`;
-          let fullJsonText = '[';
-          let htmlMessages = [
-            { role: 'user', content: userPrompt },
-            { role: 'assistant', content: '[' },
-          ];
-          let htmlAttempts = 0;
-          const MAX_HTML_CONTINUATIONS = 3;
-
-          while (htmlAttempts < MAX_HTML_CONTINUATIONS) {
-            htmlAttempts++;
-            const pass = await client.messages.create({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 32768,
-              messages: htmlMessages,
-            });
-
-            const chunk = pass.content[0]?.text?.trim() || '';
-            fullJsonText += chunk;
-            console.log(`[ParseURL] Chunk ${ci + 1}.${htmlAttempts}: ${chunk.length} chars, stop: ${pass.stop_reason}`);
-
-            if (pass.stop_reason !== 'max_tokens') break;
-
-            console.log(`[ParseURL] Truncated, requesting continuation...`);
-            htmlMessages = [
+          return (async () => {
+            const userPrompt = `Here is the text content extracted from a poker tournament schedule web page${chunkLabel} (${url}):\n${venueHint}\n${chunkText}\n\n${STRUCTURE_PROMPT}`;
+            let fullJsonText = '[';
+            let htmlMessages = [
               { role: 'user', content: userPrompt },
-              { role: 'assistant', content: fullJsonText },
-              { role: 'user', content: 'The JSON array was cut off. Continue the JSON array from EXACTLY where it stopped. Do not repeat any events. Start your response with the next comma or closing bracket.' },
-              { role: 'assistant', content: ',' },
+              { role: 'assistant', content: '[' },
             ];
-            fullJsonText += ',';
-          }
+            let htmlAttempts = 0;
+            const MAX_HTML_CONTINUATIONS = 3;
 
-          console.log(`[ParseURL] Text chunk ${ci + 1} response: ${fullJsonText.length} chars (${htmlAttempts} API call${htmlAttempts > 1 ? 's' : ''})`);
+            while (htmlAttempts < MAX_HTML_CONTINUATIONS) {
+              htmlAttempts++;
+              const pass = await client.messages.create({
+                model: 'claude-haiku-4-5-20251001',
+                max_tokens: 32768,
+                messages: htmlMessages,
+              });
 
+              const chunk = pass.content[0]?.text?.trim() || '';
+              fullJsonText += chunk;
+              console.log(`[ParseURL] Chunk ${ci + 1}.${htmlAttempts}: ${chunk.length} chars, stop: ${pass.stop_reason}`);
+
+              if (pass.stop_reason !== 'max_tokens') break;
+
+              console.log(`[ParseURL] Chunk ${ci + 1} truncated, requesting continuation...`);
+              htmlMessages = [
+                { role: 'user', content: userPrompt },
+                { role: 'assistant', content: fullJsonText },
+                { role: 'user', content: 'The JSON array was cut off. Continue the JSON array from EXACTLY where it stopped. Do not repeat any events. Start your response with the next comma or closing bracket.' },
+                { role: 'assistant', content: ',' },
+              ];
+              fullJsonText += ',';
+            }
+
+            console.log(`[ParseURL] Text chunk ${ci + 1} response: ${fullJsonText.length} chars (${htmlAttempts} API call${htmlAttempts > 1 ? 's' : ''})`);
+            return { ci, fullJsonText };
+          })();
+        });
+
+        const chunkResults = await Promise.all(chunkPromises);
+
+        for (const { ci, fullJsonText } of chunkResults) {
           const events = extractJsonArray(fullJsonText);
           if (events && Array.isArray(events)) {
             for (const ev of events) allEvents.push(ev);

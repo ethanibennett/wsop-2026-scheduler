@@ -9033,7 +9033,7 @@
         ];
         let stageIdx = 0;
         const startTime = Date.now();
-        const estDuration = isUrlPdf ? 120000 : 150000; // HTML pages with large schedules take 2-3 min
+        const estDuration = isUrlPdf ? 90000 : 45000; // Haiku + parallel chunks makes HTML fast
 
         visionProgressRef.current = setInterval(() => {
           const elapsed = Date.now() - startTime;
