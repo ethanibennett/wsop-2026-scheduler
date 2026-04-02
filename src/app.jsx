@@ -9052,7 +9052,9 @@
             headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: visionUrl.trim(), venue: visionVenue })
           });
-          const data = await res.json();
+          const rawText = await res.text();
+          let data;
+          try { data = JSON.parse(rawText); } catch { throw new Error('Server error — please try again'); }
           if (!res.ok) throw new Error(data.error || 'Parse failed');
           clearInterval(visionProgressRef.current);
           setVisionProgress(100);
