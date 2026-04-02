@@ -9022,21 +9022,22 @@
         const isUrlPdf = visionUrl.toLowerCase().endsWith('.pdf');
         const stages = [
           { at: 5,  label: 'Fetching URL...' },
-          { at: 15, label: isUrlPdf ? 'Reading PDF...' : 'Extracting page content...' },
-          { at: 25, label: 'Pass 1: Transcribing schedule...' },
-          { at: 45, label: 'Pass 1: Reading event details...' },
-          { at: 60, label: 'Pass 2: Structuring events...' },
-          { at: 75, label: 'Pass 2: Mapping variants...' },
+          { at: 12, label: isUrlPdf ? 'Reading PDF...' : 'Extracting page content...' },
+          { at: 20, label: 'Analyzing schedule...' },
+          { at: 35, label: 'Reading event details...' },
+          { at: 50, label: 'Structuring events...' },
+          { at: 65, label: 'Processing events...' },
+          { at: 78, label: 'Mapping variants...' },
           { at: 88, label: 'Validating data...' },
           { at: 94, label: 'Finalizing...' },
         ];
         let stageIdx = 0;
         const startTime = Date.now();
-        const estDuration = isUrlPdf ? 70000 : 45000;
+        const estDuration = isUrlPdf ? 120000 : 150000; // HTML pages with large schedules take 2-3 min
 
         visionProgressRef.current = setInterval(() => {
           const elapsed = Date.now() - startTime;
-          const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
+          const raw = 95 * (1 - Math.exp(-2.0 * elapsed / estDuration));
           const pct = Math.min(95, Math.round(raw));
           setVisionProgress(pct);
           while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
