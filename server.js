@@ -6996,7 +6996,35 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
 
-  const userVenue = venue || '';
+  // Try to detect venue from URL if user didn't specify one
+  let userVenue = venue || '';
+  if (!userVenue) {
+    const urlLower = url.toLowerCase();
+    const URL_VENUE_MAP = {
+      'venetian': 'Venetian', 'palazzo': 'Venetian',
+      'borgata': 'Borgata',
+      'wynn': 'Wynn Las Vegas', 'encore': 'Wynn Las Vegas',
+      'aria': 'Aria', 'bellagio': 'Bellagio',
+      'resortsworld': 'Resorts World', 'resorts-world': 'Resorts World', 'rwlasvegas': 'Resorts World',
+      'goldennugget': 'Golden Nugget', 'golden-nugget': 'Golden Nugget',
+      'southpoint': 'South Point', 'south-point': 'South Point',
+      'orleans': 'Orleans',
+      'horseshoe': 'Horseshoe / Paris Las Vegas',
+      'mgmnationalharbor': 'MGM National Harbor', 'mgm-national-harbor': 'MGM National Harbor',
+      'mgmgrand': 'MGM Grand',
+      'seminole': 'Seminole Hard Rock', 'hardrock': 'Seminole Hard Rock',
+      'foxwoods': 'Foxwoods',
+      'thundervalley': 'Thunder Valley', 'thunder-valley': 'Thunder Valley',
+      'caesars': 'Caesars Palace',
+      'turningstone': 'Turning Stone Casino', 'turning-stone': 'Turning Stone Casino',
+      'texascardhouse': 'Texas Card House',
+      'wsop': 'Horseshoe / Paris Las Vegas',
+    };
+    for (const [key, val] of Object.entries(URL_VENUE_MAP)) {
+      if (urlLower.includes(key)) { userVenue = val; break; }
+    }
+    if (userVenue) console.log(`[ParseURL] Detected venue from URL: ${userVenue}`);
+  }
 
   try {
     const client = new Anthropic({ apiKey, timeout: 180000 });
@@ -7060,12 +7088,13 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
         const { STRUCTURE_PROMPT } = getSchedulePrompts();
 
         // For web pages, we skip Pass 1 (no vision needed) and go straight to structuring
+        const venueHint = userVenue ? `\nIMPORTANT: The venue for ALL events is "${userVenue}". Set venue to "${userVenue}" for every event.\n` : '';
         console.log(`[ParseURL] Structuring web page text into JSON...`);
         const pass = await client.messages.create({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 32768,
           messages: [
-            { role: 'user', content: `Here is the text content extracted from a poker tournament schedule web page (${url}):\n\n${textContent}\n\n${STRUCTURE_PROMPT}` },
+            { role: 'user', content: `Here is the text content extracted from a poker tournament schedule web page (${url}):\n${venueHint}\n${textContent}\n\n${STRUCTURE_PROMPT}` },
             { role: 'assistant', content: '[' },
           ],
         });
@@ -7117,9 +7146,13 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
     let skipped = 0;
 
     for (const ev of events) {
-      if (!ev.date || !ev.venue || !ev.game_variant) {
+      if (!ev.date || !ev.game_variant) {
         skipped++;
         continue;
+      }
+      // Use event venue, or fall back to sourceFile-derived venue
+      if (!ev.venue) {
+        ev.venue = 'Unknown Venue';
       }
 
       // Normalize date to YYYY-MM-DD for consistency with seed data
