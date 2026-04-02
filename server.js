@@ -6702,13 +6702,21 @@ For each event line, output a JSON object with these fields:
     • "HORSE" → "HORSE" (5 games)
     • Words like Championship, Classic, Open, Hybrid, Kickoff, Closer, Frenzy, Monster Stack, Survivor, Bounty, C-Note, Mystery describe FORMAT — they do NOT indicate a variant. Default to NLH.
     • "Hybrid" means online-to-live format — it is NLH, NOT Mixed
-- "event_name": Clean version of the event name:
+- "event_name": Build from ONLY what is printed on the schedule — NEVER invent words:
     • Prepend variant abbreviation (NLH, PLO, etc.) UNLESS it's a Satellite or demographic event (Seniors, Ladies, Kings & Queens)
-    • Strip re-entry policy, GTD amounts, and buy-in amounts from the name
-    • Don't repeat variant in the descriptive part ("PLO8 Championship", NOT "PLO8 Omaha Hi-Lo Championship")
-    • Multi-flight → append " - Flight A", " - Flight B"
-    • Continuation days → append " - Day 2", " - Day 3"
-    • Final tables → append " - Final"
+    • Strip: buy-in amounts, GTD amounts, re-entry policy, variant text (since it's in the prefix)
+    • After stripping, use ONLY the remaining descriptive words from the original text
+    • If no descriptive words remain after stripping, the name is JUST the variant prefix (e.g. "NLH")
+    • NEVER add words like "Championship", "Classic", "Open", "Tournament" unless they appear in the original text
+    • Multi-flight → append "Flight A", "Flight B" (parse "1A" as Flight A, "1B" as Flight B, etc.)
+    • Continuation days → append "Day 2", "Day 3"
+    • Final tables → append "Final"
+    Examples:
+      "$600 No Limit Hold'em 1A $150K GTD (2Day)" → "NLH Flight A" (event_number: "1")
+      "$400 PLO 8-Max" → "PLO 8-Max"
+      "$1,100 NLH Monster Stack" → "NLH Monster Stack"
+      "$300 Seniors No Limit Hold'em" → "Seniors"
+      "$2,200 NLH Championship" → "NLH Championship" (Championship IS in the original text)
 - "event_number": as shown, or null
 - "starting_chips": integer, or null
 - "level_duration": minutes as string (e.g. "30", "40", "20,30"), or null
