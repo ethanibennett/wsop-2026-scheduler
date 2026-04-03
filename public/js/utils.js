@@ -171,6 +171,7 @@
       'CAESARS':        '--venue-caesars',
       'HARD ROCK':      '--venue-hardrock',
       'WSOPE':          '--venue-wsope',
+      'Venetian':       '--venue-venetian',
     };
     function getVenueBrandColor(abbr) {
       const cssVar = VENUE_BRAND_VAR[abbr];
