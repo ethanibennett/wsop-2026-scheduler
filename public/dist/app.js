@@ -2955,7 +2955,7 @@ function parsePokerStarsTable(ocrData) {
 }
 __name(parsePokerStarsTable, "parsePokerStarsTable");
 function parsePokerStarsTableFromText(ocrText) {
-  const players = [];
+  const allPlayers = [];
   const seen = /* @__PURE__ */ new Set();
   const lines = ocrText.split("\n").map((l) => l.trim()).filter(Boolean);
   for (let i = 0; i < lines.length; i++) {
@@ -2999,11 +2999,11 @@ function parsePokerStarsTableFromText(ocrText) {
       if (seen.has("name:" + playerName.toLowerCase())) continue;
       seen.add("seat:" + seat);
       seen.add("name:" + playerName.toLowerCase());
-      players.push({ name: playerName, chips, seat, prize: null, country: null, position: players.length + 1, px: null, py: null });
+      allPlayers.push({ name: playerName, chips, seat, tableNum: lastMatch.tbl, prize: null, country: null, position: 0, px: null, py: null });
       break;
     }
   }
-  return players;
+  return allPlayers.map((p, i) => __spreadProps(__spreadValues({}, p), { position: i + 1 }));
 }
 __name(parsePokerStarsTableFromText, "parsePokerStarsTableFromText");
 function preprocessImage(file) {
@@ -3355,10 +3355,20 @@ function TableScanner() {
           return parseInt(a) - parseInt(b);
         });
         if (tableNums.length > 1) {
-          setAvailableTables(tableGroups);
-          setAllParsedPlayers(extracted);
-          setEventTitle("PokerStars Live");
-          setState("tableSelect");
+          var heroPlayer = extracted.find(function(p) {
+            return p.isHero;
+          });
+          var heroTable = heroPlayer && heroPlayer.seat && heroPlayer.seat.includes("-") ? heroPlayer.seat.split("-")[0] : null;
+          if (heroTable && tableGroups[heroTable]) {
+            setPlayers(tableGroups[heroTable]);
+            setEventTitle("Table " + heroTable);
+            setState("results");
+          } else {
+            setAvailableTables(tableGroups);
+            setAllParsedPlayers(extracted);
+            setEventTitle("PokerStars Live");
+            setState("tableSelect");
+          }
         } else if (extracted.length === 0) {
           setError("No players found in image. Make sure the full seating list is visible.");
           setState("idle");
@@ -4915,6 +4925,7 @@ function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, las
   const [showTravelPicker, setShowTravelPicker] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [schedDateTop, setSchedDateTop] = useState(0);
+  const [listVisible, setListVisible] = useState(false);
   useEffect(() => {
     const measure = /* @__PURE__ */ __name(() => {
       if (schedHeaderRef.current) {
@@ -4934,30 +4945,35 @@ function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, las
     const db = parseTournamentTime(b);
     return da - db;
   }), [mySchedule]);
-  useEffect(() => {
-    if (!hasScrolled.current && todayRef.current) {
-      hasScrolled.current = true;
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const el = todayRef.current;
-        if (!el) return;
-        const container = el.closest(".content-area") || document.querySelector(".content-area");
-        if (!container) return;
-        const caTop = container.getBoundingClientRect().top;
-        const sticky = container.querySelector(".schedule-sticky-header");
-        const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
-        const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-        container.scrollTo({ top: Math.max(0, elTop - stickyH) });
-        requestAnimationFrame(() => {
-          const firstCard = el.querySelector(".cal-event-row");
-          if (!firstCard) return;
-          const stickyBottom = measureStickyStack(container);
-          const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
-          if (cardVisualTop < stickyBottom + 2) {
-            container.scrollTop -= stickyBottom + 2 - cardVisualTop;
-          }
-        });
-      }));
+  React.useLayoutEffect(() => {
+    if (sorted.length === 0) return;
+    if (hasScrolled.current) return;
+    if (!todayRef.current) {
+      setListVisible(true);
+      return;
     }
+    hasScrolled.current = true;
+    const el = todayRef.current;
+    const container = el.closest(".content-area") || document.querySelector(".content-area");
+    if (!container) {
+      setListVisible(true);
+      return;
+    }
+    const caTop = container.getBoundingClientRect().top;
+    const sticky = container.querySelector(".schedule-sticky-header");
+    const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
+    const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+    container.scrollTop = Math.max(0, elTop - stickyH);
+    setListVisible(true);
+    requestAnimationFrame(() => {
+      const firstCard = el.querySelector(".cal-event-row");
+      if (!firstCard) return;
+      const stickyBottom = measureStickyStack(container);
+      const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
+      if (cardVisualTop < stickyBottom + 2) {
+        container.scrollTop -= stickyBottom + 2 - cardVisualTop;
+      }
+    });
   }, [sorted]);
   function findBestFlightSchedule(eventNum, sat) {
     const flights = sorted.filter((t) => t.event_number === eventNum);
@@ -4976,7 +4992,7 @@ function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, las
     marginBottom: "8px",
     fontSize: "0.85rem",
     color: "var(--text)"
-  } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: "8px" } }, /* @__PURE__ */ React.createElement(Avatar, { src: req.avatar, username: req.username, size: 26 }), /* @__PURE__ */ React.createElement("strong", null, displayName(req)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)" } }, "wants to share schedules")), /* @__PURE__ */ React.createElement("span", { style: { display: "flex", gap: "6px" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { color: "#22c55e", padding: "4px 10px", fontWeight: 600 }, onClick: () => onAcceptRequest(req.id) }, "Accept"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { color: "#b91c1c", padding: "4px 8px" }, onClick: () => onRejectRequest(req.id) }, "Decline"))))), sorted.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "empty-state" }, /* @__PURE__ */ React.createElement(Icon.star, null), /* @__PURE__ */ React.createElement("h3", null, "No events saved"), /* @__PURE__ */ React.createElement("p", null, 'Browse All Tournaments and tap "+ Add to My Schedule"')) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "schedule-sticky-header", ref: schedHeaderRef }, /* @__PURE__ */ React.createElement("div", { className: "section-header", style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: 0 } }, /* @__PURE__ */ React.createElement("h2", null, "My Schedule"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--text-muted)", flex: 1 } }, sorted.filter((t) => !t.is_restart).length, " event", sorted.filter((t) => !t.is_restart).length !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement(
+  } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: "8px" } }, /* @__PURE__ */ React.createElement(Avatar, { src: req.avatar, username: req.username, size: 26 }), /* @__PURE__ */ React.createElement("strong", null, displayName(req)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)" } }, "wants to share schedules")), /* @__PURE__ */ React.createElement("span", { style: { display: "flex", gap: "6px" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { color: "#22c55e", padding: "4px 10px", fontWeight: 600 }, onClick: () => onAcceptRequest(req.id) }, "Accept"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { color: "#b91c1c", padding: "4px 8px" }, onClick: () => onRejectRequest(req.id) }, "Decline"))))), sorted.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "empty-state" }, /* @__PURE__ */ React.createElement(Icon.star, null), /* @__PURE__ */ React.createElement("h3", null, "No events saved"), /* @__PURE__ */ React.createElement("p", null, 'Browse All Tournaments and tap "+ Add to My Schedule"')) : /* @__PURE__ */ React.createElement("div", { style: { opacity: listVisible ? 1 : 0 } }, /* @__PURE__ */ React.createElement("div", { className: "schedule-sticky-header", ref: schedHeaderRef }, /* @__PURE__ */ React.createElement("div", { className: "section-header", style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: 0 } }, /* @__PURE__ */ React.createElement("h2", null, "My Schedule"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--text-muted)", flex: 1 } }, sorted.filter((t) => !t.is_restart).length, " event", sorted.filter((t) => !t.is_restart).length !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn btn-ghost btn-sm",
@@ -5069,7 +5085,7 @@ function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, las
         gap: "4px",
         padding: "4px 12px",
         borderRadius: "999px"
-      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map(({ t, globalIdx: gIdx }) => /* @__PURE__ */ React.createElement("div", { key: t.id }, /* @__PURE__ */ React.createElement(
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map(({ t, globalIdx: gIdx }) => /* @__PURE__ */ React.createElement("div", { key: t.id, style: { contentVisibility: "auto", containIntrinsicSize: "auto 72px" } }, /* @__PURE__ */ React.createElement(
         CalendarEventRow,
         {
           tournament: t,

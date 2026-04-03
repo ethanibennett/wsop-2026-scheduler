@@ -3131,7 +3131,7 @@
 
     // Fallback text-based parser when word bounding boxes aren't available
     function parsePokerStarsTableFromText(ocrText) {
-      const players = [];
+      const allPlayers = [];
       const seen = new Set();
       const lines = ocrText.split('\n').map(l => l.trim()).filter(Boolean);
 
@@ -3187,11 +3187,13 @@
           if (seen.has('name:' + playerName.toLowerCase())) continue;
           seen.add('seat:' + seat);
           seen.add('name:' + playerName.toLowerCase());
-          players.push({ name: playerName, chips, seat, prize: null, country: null, position: players.length + 1, px: null, py: null });
+          allPlayers.push({ name: playerName, chips, seat, tableNum: lastMatch.tbl, prize: null, country: null, position: 0, px: null, py: null });
           break;
         }
       }
-      return players;
+
+      // Return all players with tableNum preserved for table picker filtering
+      return allPlayers.map((p, i) => ({ ...p, position: i + 1 }));
     }
 
     function preprocessImage(file) {
@@ -3590,10 +3592,20 @@
             var tableNums = Object.keys(tableGroups).sort(function(a, b) { return parseInt(a) - parseInt(b); });
 
             if (tableNums.length > 1) {
-              setAvailableTables(tableGroups);
-              setAllParsedPlayers(extracted);
-              setEventTitle('PokerStars Live');
-              setState('tableSelect');
+              // Auto-select the hero's table if we can detect it
+              var heroPlayer = extracted.find(function(p) { return p.isHero; });
+              var heroTable = heroPlayer && heroPlayer.seat && heroPlayer.seat.includes('-') ? heroPlayer.seat.split('-')[0] : null;
+              if (heroTable && tableGroups[heroTable]) {
+                // Auto-pick the hero's table — no need for manual selection
+                setPlayers(tableGroups[heroTable]);
+                setEventTitle('Table ' + heroTable);
+                setState('results');
+              } else {
+                setAvailableTables(tableGroups);
+                setAllParsedPlayers(extracted);
+                setEventTitle('PokerStars Live');
+                setState('tableSelect');
+              }
             } else if (extracted.length === 0) {
               setError('No players found in image. Make sure the full seating list is visible.');
               setState('idle');
@@ -5529,6 +5541,7 @@
       const [showTravelPicker, setShowTravelPicker] = useState(false);
       const [showExportModal, setShowExportModal] = useState(false);
       const [schedDateTop, setSchedDateTop] = useState(0);
+      const [listVisible, setListVisible] = useState(false);
 
       useEffect(() => {
         const measure = () => {
@@ -5553,33 +5566,39 @@
           return da - db;
         }), [mySchedule]);
 
-      // Auto-scroll to first event of today (or first upcoming event)
-      useEffect(() => {
-        if (!hasScrolled.current && todayRef.current) {
-          hasScrolled.current = true;
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            const el = todayRef.current;
-            if (!el) return;
-            const container = el.closest('.content-area') || document.querySelector('.content-area');
-            if (!container) return;
-            // Phase 1: rough scroll to get today's group near the top
-            const caTop = container.getBoundingClientRect().top;
-            const sticky = container.querySelector('.schedule-sticky-header');
-            const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
-            const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-            container.scrollTo({ top: Math.max(0, elTop - stickyH) });
-            // Phase 2: post-scroll correction using actual sticky positions
-            requestAnimationFrame(() => {
-              const firstCard = el.querySelector('.cal-event-row');
-              if (!firstCard) return;
-              const stickyBottom = measureStickyStack(container);
-              const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
-              if (cardVisualTop < stickyBottom + 2) {
-                container.scrollTop -= (stickyBottom + 2 - cardVisualTop);
-              }
-            });
-          }));
+      // Auto-scroll to first event of today (or first upcoming event).
+      // useLayoutEffect fires before paint so we can scroll + reveal atomically,
+      // preventing the flash of content at the top before scroll lands.
+      React.useLayoutEffect(() => {
+        if (sorted.length === 0) return;
+        if (hasScrolled.current) return;
+        if (!todayRef.current) {
+          // All events are in the past — no scroll needed, just reveal
+          setListVisible(true);
+          return;
         }
+        hasScrolled.current = true;
+        const el = todayRef.current;
+        const container = el.closest('.content-area') || document.querySelector('.content-area');
+        if (!container) { setListVisible(true); return; }
+        // Scroll synchronously (layout is complete at this point)
+        const caTop = container.getBoundingClientRect().top;
+        const sticky = container.querySelector('.schedule-sticky-header');
+        const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
+        const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+        container.scrollTop = Math.max(0, elTop - stickyH);
+        // Reveal list — this setState in useLayoutEffect is synchronous before paint
+        setListVisible(true);
+        // Phase 2: minor fine-correction after the first paint
+        requestAnimationFrame(() => {
+          const firstCard = el.querySelector('.cal-event-row');
+          if (!firstCard) return;
+          const stickyBottom = measureStickyStack(container);
+          const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
+          if (cardVisualTop < stickyBottom + 2) {
+            container.scrollTop -= (stickyBottom + 2 - cardVisualTop);
+          }
+        });
       }, [sorted]);
 
       // Find best flight: closest on or after satellite date within my schedule
@@ -5622,7 +5641,7 @@
               <p>Browse All Tournaments and tap "+ Add to My Schedule"</p>
             </div>
           ) : (
-          <>
+          <div style={{opacity: listVisible ? 1 : 0}}>
           <div className="schedule-sticky-header" ref={schedHeaderRef}>
             <div className="section-header" style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:0}}>
               <h2>My Schedule</h2>
@@ -5727,7 +5746,7 @@
                       )}
                     </div>
                     {group.events.map(({ t, globalIdx: gIdx }) => (
-                      <div key={t.id}>
+                      <div key={t.id} style={{contentVisibility:'auto', containIntrinsicSize:'auto 72px'}}>
                         <CalendarEventRow
                           tournament={t}
                           isInSchedule={true}
@@ -5760,7 +5779,7 @@
               });
             })()}
           </div>
-          </>
+          </div>
           )}
 
           {showExportModal && <ScheduleExportModal events={sorted} onClose={() => setShowExportModal(false)} />}
