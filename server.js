@@ -7341,6 +7341,15 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
       } else {
         date = date.slice(0, 10);
       }
+      // Fix wrong years — AI sometimes hallucinates past years from document headers
+      // All tournament schedules on this platform are for 2025-2027
+      if (date && /^\d{4}/.test(date)) {
+        const year = parseInt(date.slice(0, 4));
+        if (year < 2025) {
+          date = '2026' + date.slice(4);
+          console.log(`[ImportSchedule] Fixed past year ${year} -> 2026 for ${ev.event_name}`);
+        }
+      }
 
       const evName = ev.event_name || 'Unknown Event';
       const evVenue = ev.venue;

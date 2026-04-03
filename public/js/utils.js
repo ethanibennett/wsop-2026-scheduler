@@ -148,6 +148,7 @@
       'Caesars Palace':              { abbr: 'CAESARS', color: '#b8962e', longName: 'Caesars Palace' },
       'Seminole Hard Rock':          { abbr: 'HARD ROCK', color: '#1a9e9e', longName: 'Seminole Hard Rock' },
       'WSOP Europe':                 { abbr: 'WSOPE', color: '#1a3c6e', longName: 'WSOP Europe' },
+      'Borgata':                     { abbr: 'Borgata', color: '#8b6914', longName: 'Borgata Spring Poker Open' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -172,6 +173,7 @@
       'HARD ROCK':      '--venue-hardrock',
       'WSOPE':          '--venue-wsope',
       'Venetian':       '--venue-venetian',
+      'Borgata':        '--venue-borgata',
     };
     function getVenueBrandColor(abbr) {
       const cssVar = VENUE_BRAND_VAR[abbr];

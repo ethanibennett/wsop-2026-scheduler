@@ -78,6 +78,7 @@
       --venue-hardrock:      #1a9e9e;
       --venue-wsope:         #1a3c6e;
       --venue-venetian:      #3b0a0a;
+      --venue-borgata:       #8b6914;
     }
 
     [data-theme="light"] {
@@ -114,6 +115,7 @@
       --venue-hardrock:      #0d8a8a;
       --venue-wsope:         #1a4a8c;
       --venue-venetian:      #5a1515;
+      --venue-borgata:       #a07a1a;
     }
 
     /* Dusk theme — deep navy/blue dark variant */
@@ -151,6 +153,7 @@
       --venue-hardrock:      #1a9e9e;
       --venue-wsope:         #1a3c6e;
       --venue-venetian:      #3b0a0a;
+      --venue-borgata:       #8b6914;
     }
 
     /* Cloudy theme — muted grey light variant */
@@ -188,6 +191,7 @@
       --venue-hardrock:      #0d8a8a;
       --venue-wsope:         #1a4a8c;
       --venue-venetian:      #5a1515;
+      --venue-borgata:       #a07a1a;
     }
 
     /* High contrast — dark */

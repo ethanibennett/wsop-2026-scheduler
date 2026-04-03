@@ -477,6 +477,7 @@ const VENUE_TO_SERIES = {
   "South Point": "South Point Summer Poker",
   "Texas Card House": "WSOPC Austin",
   "Turning Stone Casino": "WSOPC Turning Stone",
+  "Borgata": "Borgata Spring Poker Open",
   "Venetian": "Venetian DeepStack Championship",
   "Wynn Las Vegas": "Wynn Summer Classic"
 };
