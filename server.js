@@ -2210,21 +2210,25 @@ const VENUE_ABBR_MAP = {
   'Caesars Palace': 'CAESARS', 'Seminole Hard Rock': 'SHR', 'WSOP Europe': 'WSOPE',
 };
 
-function generateStableId(venue, eventNumber, eventName, date) {
+function generateStableId(venue, eventNumber, eventName, date, time, buyin) {
   const abbr = VENUE_ABBR_MAP[venue] || (venue || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
   let evNum = String(eventNumber || '').replace(/^(IPO-|WSOP-|#)/i, '').trim();
   const flightMatch = eventName.match(/Flight\s+([A-Z])\b/i) || eventName.match(/- ([A-Z])$/);
   const flight = flightMatch ? flightMatch[1].toUpperCase() : '';
   const dayMatch = eventName.match(/Day\s+(\d+)/i);
   const day = dayMatch ? 'D' + dayMatch[1] : '';
+  // With event number: deterministic key regardless of AI-generated name
   if (evNum) return `${abbr}-${evNum}${flight}${day}-${date}`;
-  const namePart = eventName.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '-').slice(0, 40).toUpperCase();
-  return `${abbr}-${namePart}${flight}${day}-${date}`;
+  // Without event number: use date + time + buyin as objective identifiers
+  // This stays stable across re-parses even if the AI names things differently
+  const timeKey = (time || '').replace(/[^0-9APMapm]/g, '').toUpperCase() || 'NOTIME';
+  const buyinKey = buyin ? String(buyin) : '0';
+  return `${abbr}-${date}-${timeKey}-${buyinKey}${flight}${day}`;
 }
 
 // ── Upsert tournament (safe update — never deletes, preserves id) ──
 function upsertTournament(data) {
-  const sid = data.stable_id || generateStableId(data.venue, data.event_number, data.event_name, data.date);
+  const sid = data.stable_id || generateStableId(data.venue, data.event_number, data.event_name, data.date, data.time, data.buyin);
   db.run(`INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, late_reg_end, game_variant, venue, notes, category, is_satellite, target_event, is_restart, parent_event, day_length)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(stable_id) DO UPDATE SET
@@ -2590,7 +2594,7 @@ app.post('/api/upload-schedule', authenticateToken, requireRegistered, upload.si
     for (const tournament of tournaments) {
       const evName = normalizeEventName(tournament.eventName || 'Unknown Event', tournament.gameVariant);
       const evVenue = tournament.venue || 'Horseshoe / Paris Las Vegas';
-      const sid = generateStableId(evVenue, tournament.eventNumber, evName, tournament.date);
+      const sid = generateStableId(evVenue, tournament.eventNumber, evName, tournament.date, tournament.time, tournament.buyin);
       db.run(
         `INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, prize_pool, house_fee, opt_add_on, rake_pct, rake_dollars, uploaded_by, source_pdf, is_deepstack)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -6972,6 +6976,11 @@ function postProcessEvents(allEvents, userVenue) {
     if (ev.bounty_amount != null) ev.bounty_amount = parseInt(String(ev.bounty_amount).replace(/[$,]/g, '')) || null;
     if (ev.reentry) ev.reentry = normalizeReentry(ev.reentry);
 
+    // Generate stable_id so it persists across re-imports
+    if (!ev.stable_id && ev.venue && ev.date) {
+      ev.stable_id = generateStableId(ev.venue, ev.event_number || '', ev.event_name || '', ev.date, ev.time, ev.buyin);
+    }
+
     ev._warnings = w;
     if (w.length > 0) warnings.push({ event: ev.event_name || '(unnamed)', warnings: w });
     processed.push(ev);
@@ -7283,7 +7292,7 @@ app.post('/api/check-schedule-duplicates', authenticateToken, express.json({ lim
         date = date.slice(0, 10);
       }
 
-      const sid = generateStableId(ev.venue, ev.event_number || '', ev.event_name || '', date);
+      const sid = generateStableId(ev.venue, ev.event_number || '', ev.event_name || '', date, ev.time, ev.buyin);
       const row = db.prepare('SELECT stable_id, uploaded_by FROM tournaments WHERE stable_id = ?').get(sid);
       if (row) {
         existing++;
@@ -7336,7 +7345,7 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
       const evName = ev.event_name || 'Unknown Event';
       const evVenue = ev.venue;
       const evNumber = ev.event_number || '';
-      const sid = generateStableId(evVenue, evNumber, evName, date);
+      const sid = ev.stable_id || generateStableId(evVenue, evNumber, evName, date, ev.time, ev.buyin);
 
       // Check if this event already exists
       const existingRow = db.prepare('SELECT stable_id FROM tournaments WHERE stable_id = ?').get(sid);
