@@ -135,7 +135,7 @@
       'Aria':                        { abbr: 'ARIA',  color: '#999999', longName: 'Aria Resort & Casino' },
       'Aria Resort & Casino':        { abbr: 'ARIA',  color: '#999999', longName: 'Aria Resort & Casino' },
       'Resorts World':               { abbr: 'RESORTS WORLD', color: '#7a7a7a', longName: 'Resorts World Las Vegas' },
-      'Venetian':                    { abbr: 'VEN',   color: '#858585', longName: 'The Venetian' },
+      'Venetian':                    { abbr: 'Venetian',   color: '#858585', longName: 'Venetian DeepStack Championship' },
       'Golden Nugget':               { abbr: 'GOLDEN NUGGET', color: '#92700a', longName: 'Golden Nugget' },
       'South Point':                 { abbr: 'SOUTH POINT', color: '#6b4226', longName: 'South Point Hotel & Casino' },
       'Orleans':                     { abbr: 'ORLEANS', color: '#c2410c', longName: 'The Orleans' },
