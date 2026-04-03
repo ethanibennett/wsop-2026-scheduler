@@ -2092,6 +2092,32 @@ async function initDatabase() {
         if (d > 0) console.log(`Nuked all ${d} remaining Borgata events for clean re-import`);
       }
     },
+    {
+      name: 'fix-all-past-year-dates-2026-04',
+      fn: () => {
+        // AI hallucinated years like 2020, 2023 from PDF headers — fix all dates before 2025 to 2026
+        const rows = db.exec("SELECT id, date FROM tournaments WHERE date < '2025-01-01'");
+        if (!rows.length || !rows[0].values.length) return;
+        let fixed = 0;
+        for (const [id, date] of rows[0].values) {
+          if (date && /^\d{4}-/.test(date)) {
+            const newDate = '2026' + date.slice(4);
+            db.run("UPDATE tournaments SET date = ? WHERE id = ?", [newDate, id]);
+            fixed++;
+          }
+        }
+        if (fixed > 0) console.log(`Fixed ${fixed} tournament dates from past years to 2026`);
+      }
+    },
+    {
+      name: 'delete-events-before-april-2026',
+      fn: () => {
+        // After fixing years, remove any events that are still before April 2026 (clearly wrong)
+        db.run("DELETE FROM tournaments WHERE date < '2026-04-01' AND venue NOT IN ('Horseshoe / Paris Las Vegas', 'Personal')");
+        const d = db.getRowsModified();
+        if (d > 0) console.log(`Removed ${d} events dated before April 2026`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
