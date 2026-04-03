@@ -2118,6 +2118,45 @@ async function initDatabase() {
         if (d > 0) console.log(`Removed ${d} events dated before April 2026`);
       }
     },
+    {
+      name: 'smart-category-detection-2026-04',
+      fn: () => {
+        // Re-detect Main Events per venue instead of trusting AI category
+        // First reset all non-WSOP to side (WSOP seed data has correct categories)
+        db.run("UPDATE tournaments SET category = 'side' WHERE venue NOT IN ('Horseshoe / Paris Las Vegas') AND category = 'main'");
+        const reset = db.getRowsModified();
+
+        // For each non-WSOP venue, find the Main Event
+        const venueRows = db.exec("SELECT DISTINCT venue FROM tournaments WHERE venue NOT IN ('Horseshoe / Paris Las Vegas', 'Personal') AND venue IS NOT NULL");
+        if (!venueRows.length) return;
+        let mainCount = 0;
+        for (const [venue] of venueRows[0].values) {
+          // Check for explicitly named Main Event
+          const explicit = db.exec("SELECT event_number FROM tournaments WHERE venue = ? AND event_name LIKE '%Main Event%' AND is_satellite = 0 AND is_restart = 0 LIMIT 1", [venue]);
+          let mainNum = null;
+          if (explicit.length && explicit[0].values.length) {
+            mainNum = explicit[0].values[0][0];
+          } else {
+            // Pick highest buy-in event that has flights
+            const best = db.exec("SELECT event_number, buyin FROM tournaments WHERE venue = ? AND is_satellite = 0 AND is_restart = 0 AND (event_name LIKE '%Flight%' OR event_name LIKE '%Day 1%') ORDER BY buyin DESC LIMIT 1", [venue]);
+            if (best.length && best[0].values.length) {
+              mainNum = best[0].values[0][0];
+            } else {
+              // Fallback: highest buy-in event
+              const fallback = db.exec("SELECT event_number, buyin FROM tournaments WHERE venue = ? AND is_satellite = 0 AND is_restart = 0 ORDER BY buyin DESC LIMIT 1", [venue]);
+              if (fallback.length && fallback[0].values.length) {
+                mainNum = fallback[0].values[0][0];
+              }
+            }
+          }
+          if (mainNum) {
+            db.run("UPDATE tournaments SET category = 'main' WHERE venue = ? AND (event_number = ? OR (is_restart = 1 AND parent_event = ?))", [venue, mainNum, mainNum]);
+            mainCount += db.getRowsModified();
+          }
+        }
+        if (reset > 0 || mainCount > 0) console.log(`Smart category: reset ${reset} to side, marked ${mainCount} as main`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -6807,9 +6846,7 @@ For each event line, output a JSON object with these fields:
     • No buy-in listed (or $0) — players already paid on Day 1
     • Set buyin to 0 for all restarts
 - "parent_event": for restarts, the parent event number or name, or null
-- "category": Classify each event:
-    • "main" — the series Main Event (usually the highest buy-in multi-flight event, often explicitly named "Main Event" or "Championship")
-    • "side" — everything else (the default for most events)
+- "category": ALWAYS set to "side". The server will auto-detect the Main Event.
 - "table_size": "9-max", "8-max", "6-max", "heads-up", or null
 - "bounty_amount": integer bounty if knockout/bounty event, or null
 
@@ -7056,6 +7093,62 @@ function postProcessEvents(allEvents, userVenue) {
     if (seen.has(key)) continue;
     seen.add(key);
     deduplicated.push(ev);
+  }
+
+  // ── Smart category detection ──
+  // Don't trust AI for category — determine Main Event programmatically per venue
+  // A Main Event is: explicitly named "Main Event", OR the highest buy-in multi-flight event
+  const byVenue = {};
+  for (const ev of deduplicated) {
+    if (ev.is_satellite || ev.is_restart) continue;
+    const v = ev.venue || '_';
+    if (!byVenue[v]) byVenue[v] = [];
+    byVenue[v].push(ev);
+  }
+  for (const [venue, events] of Object.entries(byVenue)) {
+    // First pass: look for explicitly named Main Event
+    let mainEventNum = null;
+    for (const ev of events) {
+      const name = (ev.event_name || '').toLowerCase();
+      if (/\bmain\s*event\b/i.test(name)) {
+        mainEventNum = ev.event_number;
+        ev.category = 'main';
+      }
+    }
+    // Second pass: if no explicit Main Event, pick the highest buy-in multi-flight event
+    if (!mainEventNum) {
+      let best = null;
+      for (const ev of events) {
+        const buyin = Number(ev.buyin) || 0;
+        const isMultiFlight = ev.is_multi_flight || /flight\s+[a-z]/i.test(ev.event_name || '');
+        // Prefer multi-flight, then highest buy-in
+        if (!best ||
+            (isMultiFlight && !best.isMultiFlight) ||
+            (isMultiFlight === best.isMultiFlight && buyin > best.buyin)) {
+          best = { ev, buyin, isMultiFlight };
+        }
+      }
+      if (best && best.buyin > 0) {
+        mainEventNum = best.ev.event_number;
+        best.ev.category = 'main';
+      }
+    }
+    // Mark all flights/restarts of the main event as 'main' too
+    if (mainEventNum) {
+      for (const ev of deduplicated) {
+        if (ev.venue !== venue) continue;
+        if (ev.event_number === mainEventNum) ev.category = 'main';
+        if (ev.is_restart && ev.parent_event === mainEventNum) ev.category = 'main';
+      }
+    }
+    // Everything else defaults to 'side'
+    for (const ev of events) {
+      if (!ev.category) ev.category = 'side';
+    }
+  }
+  // Satellites and restarts without category
+  for (const ev of deduplicated) {
+    if (!ev.category) ev.category = 'side';
   }
 
   return { deduplicated, warnings };
