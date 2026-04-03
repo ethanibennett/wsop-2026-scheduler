@@ -7158,76 +7158,78 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
         const { STRUCTURE_PROMPT } = getSchedulePrompts();
         const venueHint = userVenue ? `\nIMPORTANT: The venue for ALL events is "${userVenue}". Set venue to "${userVenue}" for every event.\n` : '';
 
-        // Estimate expected event count from text (lines with dollar amounts + poker keywords)
+        // Estimate expected event count from text
         const estimatedEvents = (textContent.match(/\$\d[\d,]*\s+(?:No Limit|Pot.Limit|Limit|NL|PL|Hold|Omaha|PLO|Stud|Mixed|HORSE|HOSE|Bounty|Satellite|Mystery|Monster|Mega|Big|Seniors|Ladies)/gi) || []).length;
         console.log(`[ParseURL] Estimated ~${estimatedEvents} events in text`);
 
-        const userPrompt = `Here is the text content extracted from a poker tournament schedule web page (${url}):\n${venueHint}\nThis schedule contains approximately ${estimatedEvents} events. You MUST extract ALL of them — do not stop early.\n\n${textContent}\n\n${STRUCTURE_PROMPT}`;
+        // Split text into chunks of ~100 events worth for parallel processing
+        // Each chunk fits in a single Haiku call (no slow continuation needed)
+        const MAX_EVENTS_PER_CHUNK = 100;
+        const textLines = textContent.split('\n');
+        const textChunks = [];
 
-        // Use a single call with continuation loop (text fits in context window)
-        let fullJsonText = '[';
-        let htmlMessages = [
-          { role: 'user', content: userPrompt },
-          { role: 'assistant', content: '[' },
-        ];
-        let htmlAttempts = 0;
-        const MAX_HTML_CONTINUATIONS = 5; // More continuations for large schedules
+        if (estimatedEvents > MAX_EVENTS_PER_CHUNK) {
+          // Find date-line boundaries to split at
+          const dateLineIndices = [];
+          for (let i = 0; i < textLines.length; i++) {
+            if (/(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),/.test(textLines[i])) {
+              dateLineIndices.push(i);
+            }
+          }
+          // Split roughly in half by date lines
+          const numChunks = Math.ceil(estimatedEvents / MAX_EVENTS_PER_CHUNK);
+          const datesPerChunk = Math.ceil(dateLineIndices.length / numChunks);
+          for (let c = 0; c < numChunks; c++) {
+            const startDateIdx = c * datesPerChunk;
+            const endDateIdx = Math.min((c + 1) * datesPerChunk, dateLineIndices.length);
+            if (startDateIdx >= dateLineIndices.length) break;
+            const startLine = dateLineIndices[startDateIdx];
+            const endLine = endDateIdx < dateLineIndices.length ? dateLineIndices[endDateIdx] : textLines.length;
+            textChunks.push(textLines.slice(startLine, endLine).join('\n'));
+          }
+          console.log(`[ParseURL] Split into ${textChunks.length} chunks: ${textChunks.map(c => c.length + ' chars').join(', ')}`);
+        } else {
+          textChunks.push(textContent);
+        }
 
-        while (htmlAttempts < MAX_HTML_CONTINUATIONS) {
-          htmlAttempts++;
-          const pass = await client.messages.create({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 32768,
-            messages: htmlMessages,
-          });
+        // Process all chunks in parallel
+        const chunkPromises = textChunks.map((chunkText, ci) => {
+          const chunkLabel = textChunks.length > 1 ? ` (part ${ci + 1} of ${textChunks.length})` : '';
+          const chunkEventEst = Math.round(estimatedEvents / textChunks.length);
+          console.log(`[ParseURL] Starting chunk ${ci + 1}/${textChunks.length} (~${chunkEventEst} events)...`);
 
-          const chunk = pass.content[0]?.text?.trim() || '';
-          fullJsonText += chunk;
-          console.log(`[ParseURL] Call ${htmlAttempts}: ${chunk.length} chars, stop: ${pass.stop_reason}`);
+          return (async () => {
+            const prompt = `Here is a section of a poker tournament schedule from a web page${chunkLabel} (${url}):\n${venueHint}\nThis section contains approximately ${chunkEventEst} events. Extract ALL of them.\n\n${chunkText}\n\n${STRUCTURE_PROMPT}`;
+            const pass = await client.messages.create({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 32768,
+              messages: [
+                { role: 'user', content: prompt },
+                { role: 'assistant', content: '[' },
+              ],
+            });
+            const raw = '[' + (pass.content[0]?.text?.trim() || '');
+            console.log(`[ParseURL] Chunk ${ci + 1}: ${raw.length} chars, stop: ${pass.stop_reason}`);
+            return { ci, raw, truncated: pass.stop_reason === 'max_tokens' };
+          })();
+        });
 
-          // Parse what we have so far to check completeness
-          const partialEvents = extractJsonArray(fullJsonText);
-          const currentCount = partialEvents ? partialEvents.length : 0;
-          console.log(`[ParseURL] After call ${htmlAttempts}: ~${currentCount} events parsed so far`);
+        const chunkResults = await Promise.all(chunkPromises);
 
-          if (pass.stop_reason === 'max_tokens') {
-            // Hard truncation — continue from where it left off
-            console.log(`[ParseURL] Truncated at max_tokens, continuing...`);
-            htmlMessages = [
-              { role: 'user', content: userPrompt },
-              { role: 'assistant', content: fullJsonText },
-              { role: 'user', content: 'The JSON array was cut off. Continue the JSON array from EXACTLY where it stopped. Do not repeat any events already listed.' },
-              { role: 'assistant', content: ',' },
-            ];
-            fullJsonText += ',';
-          } else if (currentCount > 0 && currentCount < estimatedEvents * 0.85) {
-            // AI stopped early (end_turn) but we're missing a lot of events — force continuation
-            const lastEvent = partialEvents[partialEvents.length - 1];
-            const lastDate = lastEvent?.date || 'unknown';
-            const lastNum = lastEvent?.event_number || '?';
-            console.log(`[ParseURL] AI stopped early: ${currentCount}/${estimatedEvents} events. Last: #${lastNum} on ${lastDate}. Forcing continuation...`);
-            htmlMessages = [
-              { role: 'user', content: userPrompt },
-              { role: 'assistant', content: fullJsonText.replace(/\]\s*$/, ',') },
-              { role: 'user', content: `You stopped at event #${lastNum} (${lastDate}) but the schedule has ~${estimatedEvents} events total. Continue the JSON array with the REMAINING events after ${lastDate}. Do not repeat any events already listed.` },
-              { role: 'assistant', content: '{' },
-            ];
-            // Fix up our accumulated text to prepare for merge
-            fullJsonText = fullJsonText.replace(/\]\s*$/, ',{');
+        for (const { ci, raw, truncated } of chunkResults) {
+          const events = extractJsonArray(raw);
+          if (events && Array.isArray(events)) {
+            for (const ev of events) allEvents.push(ev);
+            console.log(`[ParseURL] Chunk ${ci + 1}: extracted ${events.length} events`);
+            if (truncated) pageErrors.push({ page: ci + 1, error: `Chunk ${ci + 1} was truncated — some events may be missing` });
           } else {
-            // Done — either we have enough events or the AI legitimately finished
-            break;
+            pageErrors.push({ page: ci + 1, error: `Failed to parse events from chunk ${ci + 1}` });
           }
         }
 
-        console.log(`[ParseURL] Response: ${fullJsonText.length} chars (${htmlAttempts} API calls)`);
-
-        const events = extractJsonArray(fullJsonText);
-        if (events && Array.isArray(events)) {
-          for (const ev of events) allEvents.push(ev);
-          console.log(`[ParseURL] Extracted ${events.length} events (expected ~${estimatedEvents})`);
-        } else {
-          pageErrors.push({ page: 1, error: 'Failed to parse events from web page' });
+        console.log(`[ParseURL] Total extracted: ${allEvents.length} events (expected ~${estimatedEvents})`);
+        if (allEvents.length < estimatedEvents * 0.8) {
+          pageErrors.push({ page: 0, error: `Found ${allEvents.length} events but expected ~${estimatedEvents} — some may be missing` });
         }
       }
     }
