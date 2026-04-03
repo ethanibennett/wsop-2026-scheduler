@@ -5043,7 +5043,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: ''
+        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: ''
       });
       const [filterPanelOpen, setFilterPanelOpen] = useState(false);
       const filterToggleRef = useRef(null);
@@ -5784,7 +5784,7 @@
         }
       }, [selectedDate]);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true
+        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false
       });
 
       const buyinOptions = useMemo(() =>
@@ -9475,7 +9475,6 @@
                                           <option value="">—</option>
                                           <option value="main">Main Event</option>
                                           <option value="side">Side Event</option>
-                                          <option value="deepstack">Deepstack</option>
                                         </select>
                                       </label>
                                     </div>

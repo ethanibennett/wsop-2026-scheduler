@@ -2066,6 +2066,15 @@ async function initDatabase() {
         if (d > 0) console.log(`Removed ${d} Borgata events`);
       }
     },
+    {
+      name: 'remove-deepstack-category-2026-04',
+      fn: () => {
+        // Convert all deepstack category events to side events
+        db.run("UPDATE tournaments SET category = 'side' WHERE category = 'deepstack'");
+        const d = db.getRowsModified();
+        if (d > 0) console.log(`Converted ${d} deepstack events to side`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -6738,7 +6747,6 @@ For each event line, output a JSON object with these fields:
 - "parent_event": for restarts, the parent event number or name, or null
 - "category": Classify each event:
     • "main" — the series Main Event (usually the highest buy-in multi-flight event, often explicitly named "Main Event" or "Championship")
-    • "deepstack" — events explicitly called "Deepstack" or with notably large starting stacks relative to blinds
     • "side" — everything else (the default for most events)
 - "table_size": "9-max", "8-max", "6-max", "heads-up", or null
 - "bounty_amount": integer bounty if knockout/bounty event, or null
@@ -7373,7 +7381,7 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
           req.user.id,
           sourceFile || 'Vision Upload',
           (!evNumber && !ev.is_satellite && !ev.is_restart) ? 1 : 0,
-          ev.category || null
+          (ev.category === 'deepstack' ? 'side' : ev.category) || null
         ]
       );
       if (existingRow) updated++;
