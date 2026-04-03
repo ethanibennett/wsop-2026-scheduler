@@ -2075,6 +2075,14 @@ async function initDatabase() {
         if (d > 0) console.log(`Converted ${d} deepstack events to side`);
       }
     },
+    {
+      name: 'remove-borgata-before-2026-04-03',
+      fn: () => {
+        db.run("DELETE FROM tournaments WHERE (venue LIKE '%Borgata%' OR venue LIKE '%borgata%') AND date < '2026-04-03'");
+        const d = db.getRowsModified();
+        if (d > 0) console.log(`Removed ${d} Borgata events before 2026-04-03`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -2208,6 +2216,10 @@ const VENUE_ABBR_MAP = {
   'Irish Poker Open': 'IPO', 'Personal': 'PERSONAL',
   'Turning Stone Casino': 'WSOPC-TS', 'Texas Card House': 'WSOPC-TCH',
   'Caesars Palace': 'CAESARS', 'Seminole Hard Rock': 'SHR', 'WSOP Europe': 'WSOPE',
+  'Foxwoods': 'FOX', 'Thunder Valley': 'TV', 'Bellagio': 'BEL',
+  'Lodge Poker Club': 'LODGE', 'bestbet Jacksonville': 'BESTBET',
+  "Bally's Lake Tahoe": 'BALLY', "Harrah's Cherokee": 'CHEROKEE',
+  'Choctaw Casino': 'CHOCTAW', 'Horseshoe Tunica': 'TUNICA',
 };
 
 function generateStableId(venue, eventNumber, eventName, date, time, buyin) {
@@ -6926,6 +6938,10 @@ function postProcessEvents(allEvents, userVenue) {
     'CAESARS': 'Caesars Palace',
     'TURNING STONE': 'Turning Stone Casino',
     'TEXAS CARD HOUSE': 'Texas Card House',
+    'LODGE': 'Lodge Poker Club',
+    'BESTBET': 'bestbet Jacksonville', "BALLY'S": "Bally's Lake Tahoe",
+    'CHEROKEE': "Harrah's Cherokee", 'CHOCTAW': 'Choctaw Casino',
+    'TUNICA': 'Horseshoe Tunica',
   };
 
   for (const ev of allEvents) {
@@ -7088,6 +7104,10 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
       'turningstone': 'Turning Stone Casino', 'turning-stone': 'Turning Stone Casino',
       'texascardhouse': 'Texas Card House',
       'wsop': 'Horseshoe / Paris Las Vegas',
+      'lodgepoker': 'Lodge Poker Club', 'thelodge': 'Lodge Poker Club',
+      'bestbet': 'bestbet Jacksonville', 'ballys': "Bally's Lake Tahoe",
+      'harrahs': "Harrah's Cherokee", 'cherokee': "Harrah's Cherokee",
+      'choctaw': 'Choctaw Casino', 'tunica': 'Horseshoe Tunica',
     };
     for (const [key, val] of Object.entries(URL_VENUE_MAP)) {
       if (urlLower.includes(key)) { userVenue = val; break; }
@@ -7268,6 +7288,185 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
     console.error('[ParseURL] Error:', err.message);
     res.status(err.status || 500).json({ error: `URL parsing failed: ${err.message}` });
   }
+});
+
+// ── Batch import schedules from multiple URLs ──
+app.post('/api/batch-import-urls', authenticateToken, requireRegistered, express.json(), async (req, res) => {
+  const { urls } = req.body || {};
+  if (!urls || !Array.isArray(urls) || urls.length === 0) {
+    return res.status(400).json({ error: 'No URLs provided. Expected { urls: [{ url, venue }, ...] }' });
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+
+  console.log(`[BatchImport] Starting batch import of ${urls.length} URLs`);
+  const results = [];
+
+  for (let i = 0; i < urls.length; i++) {
+    const { url, venue } = urls[i];
+    if (!url) {
+      results.push({ url: url || '(empty)', venue, success: false, error: 'No URL provided', eventCount: 0 });
+      continue;
+    }
+
+    console.log(`[BatchImport] Processing ${i + 1}/${urls.length}: ${url} (venue: ${venue || 'auto-detect'})`);
+
+    try {
+      // Build an internal request to the parse-schedule-url handler
+      const innerReqBody = JSON.stringify({ url, venue: venue || '' });
+      const internalResp = await new Promise((resolve, reject) => {
+        const mockRes = {
+          statusCode: 200,
+          _body: null,
+          status(code) { this.statusCode = code; return this; },
+          json(body) { this._body = body; resolve(this); },
+        };
+        const mockReq = {
+          body: { url, venue: venue || '' },
+          user: req.user,
+        };
+
+        // Re-use the same logic: detect venue from URL, fetch, parse
+        (async () => {
+          let userVenue = venue || '';
+          if (!userVenue) {
+            const urlLower = url.toLowerCase();
+            const URL_VENUE_MAP = {
+              'venetian': 'Venetian', 'palazzo': 'Venetian',
+              'borgata': 'Borgata',
+              'wynn': 'Wynn Las Vegas', 'encore': 'Wynn Las Vegas',
+              'aria': 'Aria', 'bellagio': 'Bellagio',
+              'resortsworld': 'Resorts World', 'resorts-world': 'Resorts World', 'rwlasvegas': 'Resorts World',
+              'goldennugget': 'Golden Nugget', 'golden-nugget': 'Golden Nugget',
+              'southpoint': 'South Point', 'south-point': 'South Point',
+              'orleans': 'Orleans',
+              'horseshoe': 'Horseshoe / Paris Las Vegas',
+              'mgmnationalharbor': 'MGM National Harbor', 'mgm-national-harbor': 'MGM National Harbor',
+              'mgmgrand': 'MGM Grand',
+              'seminole': 'Seminole Hard Rock', 'hardrock': 'Seminole Hard Rock',
+              'foxwoods': 'Foxwoods',
+              'thundervalley': 'Thunder Valley', 'thunder-valley': 'Thunder Valley',
+              'caesars': 'Caesars Palace',
+              'turningstone': 'Turning Stone Casino', 'turning-stone': 'Turning Stone Casino',
+              'texascardhouse': 'Texas Card House',
+              'wsop': 'Horseshoe / Paris Las Vegas',
+              'lodgepoker': 'Lodge Poker Club', 'thelodge': 'Lodge Poker Club',
+              'bestbet': 'bestbet Jacksonville', 'ballys': "Bally's Lake Tahoe",
+              'harrahs': "Harrah's Cherokee", 'cherokee': "Harrah's Cherokee",
+              'choctaw': 'Choctaw Casino', 'tunica': 'Horseshoe Tunica',
+            };
+            for (const [key, val] of Object.entries(URL_VENUE_MAP)) {
+              if (urlLower.includes(key)) { userVenue = val; break; }
+            }
+            if (userVenue) console.log(`[BatchImport] Detected venue from URL: ${userVenue}`);
+          }
+
+          const client = new Anthropic({ apiKey, timeout: 180000 });
+          const fetchResp = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FutureGame/1.0)' },
+            redirect: 'follow',
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!fetchResp.ok) throw new Error(`HTTP ${fetchResp.status}`);
+
+          const contentType = (fetchResp.headers.get('content-type') || '').toLowerCase();
+          const pageErrors = [];
+          let allEvents = [];
+
+          if (contentType.includes('application/pdf') || url.toLowerCase().endsWith('.pdf')) {
+            const buffer = Buffer.from(await fetchResp.arrayBuffer());
+            const visionContent = [
+              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') } },
+            ];
+            allEvents = await runTwoPassExtraction(client, visionContent, pageErrors);
+          } else if (contentType.includes('image/')) {
+            const imgType = contentType.includes('png') ? 'image/png' : contentType.includes('webp') ? 'image/webp' : 'image/jpeg';
+            const buffer = Buffer.from(await fetchResp.arrayBuffer());
+            const visionContent = [
+              { type: 'image', source: { type: 'base64', media_type: imgType, data: buffer.toString('base64') } },
+            ];
+            allEvents = await runTwoPassExtraction(client, visionContent, pageErrors);
+          } else {
+            const html = await fetchResp.text();
+            const tables = html.match(/<table[^>]*>[\s\S]*?<\/table>/gi) || [];
+            let relevantHtml = '';
+            for (const table of tables) {
+              const rows = (table.match(/<tr/gi) || []).length;
+              const hasDollarAmounts = (table.match(/\$\d/g) || []).length;
+              if (rows > 10 && hasDollarAmounts > 5) relevantHtml += table + '\n';
+            }
+            const sourceHtml = relevantHtml || html;
+            const textContent = sourceHtml
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#?\w+;/g, '')
+              .replace(/[ \t]+/g, ' ').replace(/\n\s*\n/g, '\n').trim();
+
+            if (textContent.length >= 50) {
+              const { STRUCTURE_PROMPT } = getSchedulePrompts();
+              const venueHint = userVenue ? `\nIMPORTANT: The venue for ALL events is "${userVenue}". Set venue to "${userVenue}" for every event.\n` : '';
+              const prompt = `Here is a poker tournament schedule from a web page (${url}):\n${venueHint}\n${textContent}\n\n${STRUCTURE_PROMPT}`;
+              const pass = await client.messages.create({
+                model: 'claude-haiku-4-5-20251001',
+                max_tokens: 32768,
+                messages: [
+                  { role: 'user', content: prompt },
+                  { role: 'assistant', content: '[' },
+                ],
+              });
+              const raw = '[' + (pass.content[0]?.text?.trim() || '');
+              const events = extractJsonArray(raw);
+              if (events && Array.isArray(events)) {
+                for (const ev of events) allEvents.push(ev);
+              }
+            }
+          }
+
+          const { deduplicated, warnings } = postProcessEvents(allEvents, userVenue);
+          resolve({
+            statusCode: 200,
+            _body: {
+              events: deduplicated,
+              rawCount: allEvents.length,
+              eventCount: deduplicated.length,
+              warnings,
+              pageErrors,
+              sourceFile: url,
+              detectedVenue: deduplicated.length > 0 ? deduplicated[0].venue : null,
+            },
+          });
+        })().catch(reject);
+      });
+
+      results.push({
+        url,
+        venue: internalResp._body.detectedVenue || venue || 'Unknown',
+        success: internalResp.statusCode === 200,
+        eventCount: internalResp._body.eventCount || 0,
+        events: internalResp._body.events || [],
+        warnings: internalResp._body.warnings || [],
+        pageErrors: internalResp._body.pageErrors || [],
+      });
+      console.log(`[BatchImport] ${i + 1}/${urls.length} done: ${internalResp._body.eventCount || 0} events from ${url}`);
+    } catch (err) {
+      console.error(`[BatchImport] ${i + 1}/${urls.length} failed: ${err.message}`);
+      results.push({ url, venue: venue || 'Unknown', success: false, error: err.message, eventCount: 0 });
+    }
+  }
+
+  const totalEvents = results.reduce((sum, r) => sum + (r.eventCount || 0), 0);
+  const successCount = results.filter(r => r.success).length;
+  console.log(`[BatchImport] Complete: ${successCount}/${urls.length} URLs succeeded, ${totalEvents} total events`);
+
+  res.json({
+    totalUrls: urls.length,
+    successCount,
+    failCount: urls.length - successCount,
+    totalEvents,
+    results,
+  });
 });
 
 // ── Check for duplicate events before import ──

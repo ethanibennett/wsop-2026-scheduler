@@ -79,6 +79,15 @@
       --venue-wsope:         #1a3c6e;
       --venue-venetian:      #3b0a0a;
       --venue-borgata:       #8b6914;
+      --venue-foxwoods:      #4a2d7a;
+      --venue-thunder-valley:#d4a017;
+      --venue-bellagio:      #c9a867;
+      --venue-lodge:         #2d5a27;
+      --venue-bestbet:       #1a73e8;
+      --venue-ballys:        #b91c1c;
+      --venue-cherokee:      #7c3aed;
+      --venue-choctaw:       #dc2626;
+      --venue-tunica:        #0d6efd;
     }
 
     [data-theme="light"] {
@@ -116,6 +125,15 @@
       --venue-wsope:         #1a4a8c;
       --venue-venetian:      #5a1515;
       --venue-borgata:       #a07a1a;
+      --venue-foxwoods:      #5b37a0;
+      --venue-thunder-valley:#c89c10;
+      --venue-bellagio:      #a08540;
+      --venue-lodge:         #1a8a1a;
+      --venue-bestbet:       #1565c0;
+      --venue-ballys:        #dc2626;
+      --venue-cherokee:      #6d28d9;
+      --venue-choctaw:       #e53935;
+      --venue-tunica:        #0d6efd;
     }
 
     /* Dusk theme — deep navy/blue dark variant */
@@ -154,6 +172,15 @@
       --venue-wsope:         #1a3c6e;
       --venue-venetian:      #3b0a0a;
       --venue-borgata:       #8b6914;
+      --venue-foxwoods:      #4a2d7a;
+      --venue-thunder-valley:#d4a017;
+      --venue-bellagio:      #c9a867;
+      --venue-lodge:         #2d5a27;
+      --venue-bestbet:       #1a73e8;
+      --venue-ballys:        #b91c1c;
+      --venue-cherokee:      #7c3aed;
+      --venue-choctaw:       #dc2626;
+      --venue-tunica:        #0d6efd;
     }
 
     /* Cloudy theme — muted grey light variant */
@@ -192,6 +219,15 @@
       --venue-wsope:         #1a4a8c;
       --venue-venetian:      #5a1515;
       --venue-borgata:       #a07a1a;
+      --venue-foxwoods:      #5b37a0;
+      --venue-thunder-valley:#c89c10;
+      --venue-bellagio:      #a08540;
+      --venue-lodge:         #1a8a1a;
+      --venue-bestbet:       #1565c0;
+      --venue-ballys:        #dc2626;
+      --venue-cherokee:      #6d28d9;
+      --venue-choctaw:       #e53935;
+      --venue-tunica:        #0d6efd;
     }
 
     /* High contrast — dark */

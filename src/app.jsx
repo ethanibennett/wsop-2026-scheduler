@@ -806,7 +806,20 @@
       'Turning Stone Casino': 'WSOPC Turning Stone',
       'Borgata': 'Borgata Spring Poker Open',
       'Venetian': 'Venetian DeepStack Championship',
-      'Wynn Las Vegas': 'Wynn Summer Classic'
+      'Wynn Las Vegas': 'Wynn Summer Classic',
+      'Foxwoods': 'Foxwoods Poker Classic',
+      'Thunder Valley': 'Thunder Valley Poker Series',
+      'Bellagio': 'Bellagio',
+      'Lodge Poker Club': 'Lodge Championship Series',
+      'bestbet Jacksonville': 'bestbet Jacksonville',
+      "Bally's Lake Tahoe": 'WSOPC Lake Tahoe',
+      "Harrah's Cherokee": 'WSOPC Cherokee',
+      'Choctaw Casino': 'WSOPC Choctaw',
+      'Horseshoe Tunica': 'Horseshoe Tunica',
+      'Caesars Palace': 'Caesars Palace',
+      'Seminole Hard Rock': 'Seminole Hard Rock',
+      'WSOP Europe': 'WSOP Europe',
+      'MGM National Harbor': 'MGM National Harbor'
     };
 
     function formatChips(n) {
@@ -4537,6 +4550,7 @@
       const [howMuchOpen, setHowMuchOpen] = useState(false);
       const [whichOpen, setWhichOpen] = useState(false);
       const [specialOpen, setSpecialOpen] = useState(false);
+      const [distanceOpen, setDistanceOpen] = useState(false);
       const dateBounds = useMemo(() => {
         const today = getToday();
         let earliest = null, latestDay1 = null;
@@ -4590,7 +4604,7 @@
       }, [open]);
 
       const hasActive = filters.minBuyin || filters.maxBuyin || (filters.buyinRanges && filters.buyinRanges.length > 0) || (filters.rakeRanges && filters.rakeRanges.length > 0) ||
-        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo;
+        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance;
 
       return (
         <>
@@ -4726,6 +4740,12 @@
                 <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, dateFrom:'', dateTo:''}))}>✕</span>
               </span>
             )}
+            {filters.maxDistance && (
+              <span className="filter-chip active">
+                Within {filters.maxDistance}mi
+                <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, maxDistance:'', userLocation:null}))}>✕</span>
+              </span>
+            )}
           </div>
 
           {open && ReactDOM.createPortal(
@@ -4834,9 +4854,56 @@
                 </div>)}
               </div>
               <div className="filter-group filter-span2">
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setDistanceOpen(d => !d)}>
+                  {'\uD83D\uDCCD'} Distance
+                  <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: distanceOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>{'\u25BC'}</span>
+                </label>
+                {distanceOpen && (<div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                  <select
+                    value={filters.maxDistance || ''}
+                    onChange={e => setFilters(f => ({...f, maxDistance: e.target.value}))}
+                    style={{padding:'6px 8px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.82rem',cursor:'pointer'}}
+                  >
+                    <option value="">Any distance</option>
+                    <option value="25">Within 25 miles</option>
+                    <option value="50">Within 50 miles</option>
+                    <option value="100">Within 100 miles</option>
+                    <option value="250">Within 250 miles</option>
+                    <option value="500">Within 500 miles</option>
+                    <option value="1000">Within 1000 miles</option>
+                  </select>
+                  {!filters.userLocation ? (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{fontSize:'0.78rem',padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'6px'}}
+                      onClick={() => {
+                        if (!navigator.geolocation) { alert('Geolocation not supported by your browser'); return; }
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => setFilters(f => ({...f, userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude }})),
+                          (err) => alert('Could not get location: ' + err.message),
+                          { enableHighAccuracy: false, timeout: 10000 }
+                        );
+                      }}
+                    >
+                      {'\uD83D\uDCCD'} Use My Location
+                    </button>
+                  ) : (
+                    <div style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.78rem',color:'var(--text-muted)'}}>
+                      <span>{'\u2705'} Location set ({filters.userLocation.lat.toFixed(2)}, {filters.userLocation.lng.toFixed(2)})</span>
+                      <span style={{cursor:'pointer',color:'var(--accent)'}} onClick={() => setFilters(f => ({...f, userLocation: null}))}>Reset</span>
+                    </div>
+                  )}
+                  {filters.maxDistance && !filters.userLocation && (
+                    <div style={{fontSize:'0.72rem',color:'var(--text-muted)',fontStyle:'italic'}}>
+                      Set your location to enable distance filtering
+                    </div>
+                  )}
+                </div>)}
+              </div>
+              <div className="filter-group filter-span2">
                 <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setHowMuchOpen(h => !h)}>
                   Buy-in / Rake
-                  <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: howMuchOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
+                  <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: howMuchOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>{'\u25BC'}</span>
                 </label>
                 {howMuchOpen && (() => {
                   const buyinOpts = [
@@ -5029,7 +5096,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,mysteryBountyOnly:false,headsUpOnly:false,tagTeamOnly:false,employeesOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],ladiesOnly:false,seniorsOnly:false,mixedOnly:false,dateFrom:'',dateTo:''})
+                    setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,mysteryBountyOnly:false,headsUpOnly:false,tagTeamOnly:false,employeesOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],ladiesOnly:false,seniorsOnly:false,mixedOnly:false,dateFrom:'',dateTo:'',maxDistance:'',userLocation:null})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -5045,7 +5112,7 @@
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport }) {
       const [search, setSearch] = useState('');
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: ''
+        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: '', maxDistance: '', userLocation: null
       });
       const [filterPanelOpen, setFilterPanelOpen] = useState(false);
       const filterToggleRef = useRef(null);
@@ -5189,6 +5256,13 @@
               if (!matchesGame && !matchesMixed) return false;
             }
             if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
+            if (filters.maxDistance && filters.userLocation) {
+              const coords = VENUE_COORDS[t.venue];
+              if (coords) {
+                const dist = haversineDistance(filters.userLocation.lat, filters.userLocation.lng, coords.lat, coords.lng);
+                if (dist > Number(filters.maxDistance)) return false;
+              }
+            }
             {
               const specialActive = filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || filters.ladiesOnly || filters.seniorsOnly;
               if (specialActive) {
@@ -5786,7 +5860,7 @@
         }
       }, [selectedDate]);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false
+        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false, maxDistance: '', userLocation: null
       });
 
       const buyinOptions = useMemo(() =>
@@ -5877,6 +5951,13 @@
             }
             if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
             if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
+            if (filters.maxDistance && filters.userLocation) {
+              const coords = VENUE_COORDS[t.venue];
+              if (coords) {
+                const dist = haversineDistance(filters.userLocation.lat, filters.userLocation.lng, coords.lat, coords.lng);
+                if (dist > Number(filters.maxDistance)) return false;
+              }
+            }
             {
               const specialActive = filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || filters.ladiesOnly || filters.seniorsOnly;
               if (specialActive) {

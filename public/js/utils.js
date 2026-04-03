@@ -149,6 +149,15 @@
       'Seminole Hard Rock':          { abbr: 'HARD ROCK', color: '#1a9e9e', longName: 'Seminole Hard Rock' },
       'WSOP Europe':                 { abbr: 'WSOPE', color: '#1a3c6e', longName: 'WSOP Europe' },
       'Borgata':                     { abbr: 'Borgata', color: '#8b6914', longName: 'Borgata Spring Poker Open' },
+      'Foxwoods':                    { abbr: 'FOXWOODS', color: '#4a2d7a', longName: 'Foxwoods Poker Classic' },
+      'Thunder Valley':              { abbr: 'THUNDER VALLEY', color: '#d4a017', longName: 'Thunder Valley Poker Series' },
+      'Bellagio':                    { abbr: 'BELLAGIO', color: '#c9a867', longName: 'Bellagio' },
+      'Lodge Poker Club':            { abbr: 'LODGE', color: '#2d5a27', longName: 'Lodge Championship Series' },
+      'bestbet Jacksonville':        { abbr: 'BESTBET', color: '#1a73e8', longName: 'bestbet Jacksonville' },
+      "Bally's Lake Tahoe":          { abbr: 'BALLY\'S', color: '#b91c1c', longName: 'WSOPC Lake Tahoe' },
+      "Harrah's Cherokee":           { abbr: 'CHEROKEE', color: '#7c3aed', longName: 'WSOPC Cherokee' },
+      'Choctaw Casino':              { abbr: 'CHOCTAW', color: '#dc2626', longName: 'WSOPC Choctaw' },
+      'Horseshoe Tunica':            { abbr: 'TUNICA', color: '#0d6efd', longName: 'Horseshoe Tunica' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -174,6 +183,15 @@
       'WSOPE':          '--venue-wsope',
       'Venetian':       '--venue-venetian',
       'Borgata':        '--venue-borgata',
+      'FOXWOODS':       '--venue-foxwoods',
+      'THUNDER VALLEY': '--venue-thunder-valley',
+      'BELLAGIO':       '--venue-bellagio',
+      'LODGE':          '--venue-lodge',
+      'BESTBET':        '--venue-bestbet',
+      'BALLY\'S':       '--venue-ballys',
+      'CHEROKEE':       '--venue-cherokee',
+      'CHOCTAW':        '--venue-choctaw',
+      'TUNICA':         '--venue-tunica',
     };
     function getVenueBrandColor(abbr) {
       const cssVar = VENUE_BRAND_VAR[abbr];
@@ -227,10 +245,66 @@
       'Seminole Hard Rock': 'America/New_York',
       'Texas Card House': 'America/Chicago',
       'Turning Stone Casino': 'America/New_York',
+      'Foxwoods': 'America/New_York',
+      'Thunder Valley': 'America/Los_Angeles',
+      'Bellagio': 'America/Los_Angeles',
+      'Lodge Poker Club': 'America/Chicago',
+      'bestbet Jacksonville': 'America/New_York',
+      "Bally's Lake Tahoe": 'America/Los_Angeles',
+      "Harrah's Cherokee": 'America/New_York',
+      'Choctaw Casino': 'America/Chicago',
+      'Horseshoe Tunica': 'America/Chicago',
+      'Borgata': 'America/New_York',
+      'MGM National Harbor': 'America/New_York',
     };
 
     function getVenueTimezone(venue) {
       return VENUE_TIMEZONES[venue] || 'America/Los_Angeles';
+    }
+
+    // ── Venue GPS Coordinates ─────────────────────────────────
+    const VENUE_COORDS = {
+      'Horseshoe / Paris Las Vegas': { lat: 36.1162, lng: -115.1745 },
+      'Horseshoe Las Vegas':         { lat: 36.1162, lng: -115.1745 },
+      'Paris Las Vegas':             { lat: 36.1162, lng: -115.1745 },
+      'Wynn Las Vegas':              { lat: 36.1267, lng: -115.1624 },
+      'Wynn':                        { lat: 36.1267, lng: -115.1624 },
+      'Aria':                        { lat: 36.1073, lng: -115.1765 },
+      'Aria Resort & Casino':        { lat: 36.1073, lng: -115.1765 },
+      'Resorts World':               { lat: 36.1247, lng: -115.1697 },
+      'Venetian':                    { lat: 36.1212, lng: -115.1696 },
+      'Golden Nugget':               { lat: 36.1711, lng: -115.1447 },
+      'South Point':                 { lat: 36.0118, lng: -115.1720 },
+      'Orleans':                     { lat: 36.1020, lng: -115.2013 },
+      'MGM Grand':                   { lat: 36.1024, lng: -115.1696 },
+      'MGM National Harbor':         { lat: 38.7828, lng: -77.0189 },
+      'Irish Poker Open':            { lat: 53.3438, lng: -6.2530 },
+      'Turning Stone Casino':        { lat: 43.1215, lng: -75.5130 },
+      'Texas Card House':            { lat: 30.3553, lng: -97.7069 },
+      'Caesars Palace':              { lat: 36.1162, lng: -115.1745 },
+      'Seminole Hard Rock':          { lat: 26.0512, lng: -80.2109 },
+      'WSOP Europe':                 { lat: 50.0880, lng: 14.4208 },
+      'Borgata':                     { lat: 39.3772, lng: -74.4378 },
+      'Foxwoods':                    { lat: 41.4719, lng: -71.9699 },
+      'Thunder Valley':              { lat: 38.8023, lng: -121.2268 },
+      'Bellagio':                    { lat: 36.1129, lng: -115.1765 },
+      'Lodge Poker Club':            { lat: 30.6023, lng: -97.8603 },
+      'bestbet Jacksonville':        { lat: 30.3568, lng: -81.6085 },
+      "Bally's Lake Tahoe":          { lat: 38.9574, lng: -119.9459 },
+      "Harrah's Cherokee":           { lat: 35.4617, lng: -83.3225 },
+      'Choctaw Casino':              { lat: 34.0289, lng: -96.3931 },
+      'Horseshoe Tunica':            { lat: 34.6965, lng: -90.3398 },
+    };
+
+    // ── Haversine distance (miles) ────────────────────────────
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 3958.8; // Earth radius in miles
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     function getVenueTzAbbr(venue) {
@@ -515,6 +589,8 @@
     window.getVenueClass = getVenueClass;
     window.getMaxEntries = getMaxEntries;
     window.VENUE_TIMEZONES = VENUE_TIMEZONES;
+    window.VENUE_COORDS = VENUE_COORDS;
+    window.haversineDistance = haversineDistance;
     window.getVenueTimezone = getVenueTimezone;
     window.getVenueTzAbbr = getVenueTzAbbr;
     window.parseDateTimeInTz = parseDateTimeInTz;

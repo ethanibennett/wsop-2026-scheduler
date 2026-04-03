@@ -479,7 +479,20 @@ const VENUE_TO_SERIES = {
   "Turning Stone Casino": "WSOPC Turning Stone",
   "Borgata": "Borgata Spring Poker Open",
   "Venetian": "Venetian DeepStack Championship",
-  "Wynn Las Vegas": "Wynn Summer Classic"
+  "Wynn Las Vegas": "Wynn Summer Classic",
+  "Foxwoods": "Foxwoods Poker Classic",
+  "Thunder Valley": "Thunder Valley Poker Series",
+  "Bellagio": "Bellagio",
+  "Lodge Poker Club": "Lodge Championship Series",
+  "bestbet Jacksonville": "bestbet Jacksonville",
+  "Bally's Lake Tahoe": "WSOPC Lake Tahoe",
+  "Harrah's Cherokee": "WSOPC Cherokee",
+  "Choctaw Casino": "WSOPC Choctaw",
+  "Horseshoe Tunica": "Horseshoe Tunica",
+  "Caesars Palace": "Caesars Palace",
+  "Seminole Hard Rock": "Seminole Hard Rock",
+  "WSOP Europe": "WSOP Europe",
+  "MGM National Harbor": "MGM National Harbor"
 };
 function formatChips(n) {
   if (n == null) return "";
@@ -4022,6 +4035,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
   const [howMuchOpen, setHowMuchOpen] = useState(false);
   const [whichOpen, setWhichOpen] = useState(false);
   const [specialOpen, setSpecialOpen] = useState(false);
+  const [distanceOpen, setDistanceOpen] = useState(false);
   const dateBounds = useMemo(() => {
     const today = getToday();
     let earliest = null, latestDay1 = null;
@@ -4068,7 +4082,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
-  const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRanges && filters.buyinRanges.length > 0 || filters.rakeRanges && filters.rakeRanges.length > 0 || filters.selectedGames.length > 0 || filters.hiddenVenues && filters.hiddenVenues.length > 0 || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo;
+  const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRanges && filters.buyinRanges.length > 0 || filters.rakeRanges && filters.rakeRanges.length > 0 || filters.selectedGames.length > 0 || filters.hiddenVenues && filters.hiddenVenues.length > 0 || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance;
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "filter-row", style: { gap: "8px", marginBottom: "0", width: "100%", alignItems: "center" } }, onImport && /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -4165,7 +4179,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { hiddenVenues: [] }))
     },
     "✕"
-  )), filters.ladiesOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Ladies Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { ladiesOnly: false })) }, "✕")), filters.seniorsOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Seniors Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { seniorsOnly: false })) }, "✕")), filters.mixedOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Mixed", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { mixedOnly: false })) }, "✕")), (filters.dateFrom || filters.dateTo) && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.dateFrom && filters.dateTo ? `${fmtShortDate(filters.dateFrom)} — ${fmtShortDate(filters.dateTo)}` : filters.dateFrom ? `From ${fmtShortDate(filters.dateFrom)}` : `Until ${fmtShortDate(filters.dateTo)}`, /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { dateFrom: "", dateTo: "" })) }, "✕"))), open && ReactDOM.createPortal(
+  )), filters.ladiesOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Ladies Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { ladiesOnly: false })) }, "✕")), filters.seniorsOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Seniors Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { seniorsOnly: false })) }, "✕")), filters.mixedOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Mixed", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { mixedOnly: false })) }, "✕")), (filters.dateFrom || filters.dateTo) && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.dateFrom && filters.dateTo ? `${fmtShortDate(filters.dateFrom)} — ${fmtShortDate(filters.dateTo)}` : filters.dateFrom ? `From ${fmtShortDate(filters.dateFrom)}` : `Until ${fmtShortDate(filters.dateTo)}`, /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { dateFrom: "", dateTo: "" })) }, "✕")), filters.maxDistance && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Within ", filters.maxDistance, "mi", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { maxDistance: "", userLocation: null })) }, "✕"))), open && ReactDOM.createPortal(
     /* @__PURE__ */ React.createElement("div", { className: "dropdown-backdrop", onClick: () => setOpen(false) }),
     document.body
   ), open && ReactDOM.createPortal(
@@ -4274,7 +4288,40 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
           style: { marginTop: "1px", flexShrink: 0 }
         }
       ), /* @__PURE__ */ React.createElement("span", { style: { lineHeight: 1.3 } }, series));
-    })))), /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }, onClick: () => setHowMuchOpen((h) => !h) }, "Buy-in / Rake", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", transition: "transform 0.15s", transform: howMuchOpen ? "rotate(180deg)" : "rotate(0deg)" } }, "▼")), howMuchOpen && (() => {
+    })))), /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }, onClick: () => setDistanceOpen((d) => !d) }, "📍", " Distance", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", transition: "transform 0.15s", transform: distanceOpen ? "rotate(180deg)" : "rotate(0deg)" } }, "▼")), distanceOpen && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "8px" } }, /* @__PURE__ */ React.createElement(
+      "select",
+      {
+        value: filters.maxDistance || "",
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { maxDistance: e.target.value })),
+        style: { padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: "0.82rem", cursor: "pointer" }
+      },
+      /* @__PURE__ */ React.createElement("option", { value: "" }, "Any distance"),
+      /* @__PURE__ */ React.createElement("option", { value: "25" }, "Within 25 miles"),
+      /* @__PURE__ */ React.createElement("option", { value: "50" }, "Within 50 miles"),
+      /* @__PURE__ */ React.createElement("option", { value: "100" }, "Within 100 miles"),
+      /* @__PURE__ */ React.createElement("option", { value: "250" }, "Within 250 miles"),
+      /* @__PURE__ */ React.createElement("option", { value: "500" }, "Within 500 miles"),
+      /* @__PURE__ */ React.createElement("option", { value: "1000" }, "Within 1000 miles")
+    ), !filters.userLocation ? /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn btn-ghost btn-sm",
+        style: { fontSize: "0.78rem", padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "6px" },
+        onClick: () => {
+          if (!navigator.geolocation) {
+            alert("Geolocation not supported by your browser");
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            (pos) => setFilters((f) => __spreadProps(__spreadValues({}, f), { userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude } })),
+            (err) => alert("Could not get location: " + err.message),
+            { enableHighAccuracy: false, timeout: 1e4 }
+          );
+        }
+      },
+      "📍",
+      " Use My Location"
+    ) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "0.78rem", color: "var(--text-muted)" } }, /* @__PURE__ */ React.createElement("span", null, "✅", " Location set (", filters.userLocation.lat.toFixed(2), ", ", filters.userLocation.lng.toFixed(2), ")"), /* @__PURE__ */ React.createElement("span", { style: { cursor: "pointer", color: "var(--accent)" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { userLocation: null })) }, "Reset")), filters.maxDistance && !filters.userLocation && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--text-muted)", fontStyle: "italic" } }, "Set your location to enable distance filtering"))), /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }, onClick: () => setHowMuchOpen((h) => !h) }, "Buy-in / Rake", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", transition: "transform 0.15s", transform: howMuchOpen ? "rotate(180deg)" : "rotate(0deg)" } }, "▼")), howMuchOpen && (() => {
       const buyinOpts = [
         { key: "0-500", label: "Under $500" },
         { key: "500-1500", label: "$500 – $1.5K" },
@@ -4448,7 +4495,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { employeesOnly: e.target.checked })),
         style: { marginTop: "1px" }
       }
-    ), " Casino Employees"))), hasActive && /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: () => setFilters({ minBuyin: "", maxBuyin: "", buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: "", dateTo: "" }) }, "Clear all filters"))),
+    ), " Casino Employees"))), hasActive && /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: () => setFilters({ minBuyin: "", maxBuyin: "", buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: "", dateTo: "", maxDistance: "", userLocation: null }) }, "Clear all filters"))),
     document.body
   ));
 }
@@ -4475,7 +4522,9 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     seniorsOnly: false,
     mixedOnly: false,
     dateFrom: "",
-    dateTo: ""
+    dateTo: "",
+    maxDistance: "",
+    userLocation: null
   });
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const filterToggleRef = useRef(null);
@@ -4606,6 +4655,13 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         if (!matchesGame && !matchesMixed) return false;
       }
       if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
+      if (filters.maxDistance && filters.userLocation) {
+        const coords = VENUE_COORDS[t.venue];
+        if (coords) {
+          const dist = haversineDistance(filters.userLocation.lat, filters.userLocation.lng, coords.lat, coords.lng);
+          if (dist > Number(filters.maxDistance)) return false;
+        }
+      }
       {
         const specialActive = filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || filters.ladiesOnly || filters.seniorsOnly;
         if (specialActive) {
@@ -5130,7 +5186,9 @@ function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venu
     employeesOnly: false,
     hideSatellites: true,
     hideRestarts: true,
-    hideSideEvents: false
+    hideSideEvents: false,
+    maxDistance: "",
+    userLocation: null
   });
   const buyinOptions = useMemo(
     () => [...new Set(allTournaments.map((t) => parseInt(t.buyin, 10)).filter((n) => n > 0 && !isNaN(n)))].sort((a, b) => a - b),
@@ -5211,6 +5269,13 @@ function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venu
       }
       if (filters.selectedGames.length > 0 && !filters.selectedGames.includes(t.game_variant)) return false;
       if (filters.hiddenVenues && filters.hiddenVenues.length > 0 && filters.hiddenVenues.includes(t.venue)) return false;
+      if (filters.maxDistance && filters.userLocation) {
+        const coords = VENUE_COORDS[t.venue];
+        if (coords) {
+          const dist = haversineDistance(filters.userLocation.lat, filters.userLocation.lng, coords.lat, coords.lng);
+          if (dist > Number(filters.maxDistance)) return false;
+        }
+      }
       {
         const specialActive = filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || filters.ladiesOnly || filters.seniorsOnly;
         if (specialActive) {
