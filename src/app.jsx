@@ -393,7 +393,7 @@
 
       // ── Pre-start countdown ──────────────────────────────────
       if (date) {
-        const startMs = venue ? parseDateTimeInTz(date, time, venue) : new Date(`${date} ${time || '12:00 AM'}`).getTime();
+        const startMs = venue ? parseDateTimeInTz(date, time, venue) : parseDateTime(date, time || '12:00 AM');
         if (now < startMs) {
           const totalSec = Math.floor((startMs - now) / 1000);
           const d = Math.floor(totalSec / 86400);
@@ -485,7 +485,7 @@
 
       // Before start — show countdown to start (hidden in openOnly mode)
       if (date) {
-        const startMs = venue ? parseDateTimeInTz(date, time, venue) : new Date(`${date} ${time || '12:00 AM'}`).getTime();
+        const startMs = venue ? parseDateTimeInTz(date, time, venue) : parseDateTime(date, time || '12:00 AM');
         if (now < startMs) {
           if (openOnly) return null;
           const totalSec = Math.floor((startMs - now) / 1000);
@@ -5239,8 +5239,8 @@
           })
           .sort((a, b) => {
             // Primary: chronological by date, then time
-            const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
-            const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+            const da = parseTournamentTime(a);
+            const db = parseTournamentTime(b);
             if (da.getTime() !== db.getTime()) return da - db;
             // Tiebreak: numeric event number (SAT-xxx sorted after main events, restarts after those)
             const na = a.event_number.startsWith('SAT') ? 10000 + parseInt(a.event_number.slice(4)) : (parseInt(a.event_number) || 9999);
@@ -5546,8 +5546,8 @@
 
       const sorted = useMemo(() =>
         [...mySchedule].sort((a, b) => {
-          const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
-          const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+          const da = parseTournamentTime(a);
+          const db = parseTournamentTime(b);
           return da - db;
         }), [mySchedule]);
 
@@ -6128,8 +6128,8 @@
 
       const todayISO = getToday();
       const sorted = [...data.tournaments].sort((a, b) => {
-        const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
-        const db2 = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
+        const da = parseTournamentTime(a);
+        const db2 = parseTournamentTime(b);
         return da - db2;
       });
 

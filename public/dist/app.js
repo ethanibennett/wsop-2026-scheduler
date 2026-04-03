@@ -195,7 +195,7 @@ function LateRegBar({ lateRegEnd, date, time, venueAbbr, venue }) {
     return () => clearInterval(id);
   }, []);
   if (date) {
-    const startMs = venue ? parseDateTimeInTz(date, time, venue) : (/* @__PURE__ */ new Date(`${date} ${time || "12:00 AM"}`)).getTime();
+    const startMs = venue ? parseDateTimeInTz(date, time, venue) : parseDateTime(date, time || "12:00 AM");
     if (now < startMs) {
       const totalSec = Math.floor((startMs - now) / 1e3);
       const d = Math.floor(totalSec / 86400);
@@ -257,7 +257,7 @@ function MiniLateRegBar({ lateRegEnd, date, time, venueAbbr, openOnly, venue }) 
     return () => clearInterval(id);
   }, []);
   if (date) {
-    const startMs = venue ? parseDateTimeInTz(date, time, venue) : (/* @__PURE__ */ new Date(`${date} ${time || "12:00 AM"}`)).getTime();
+    const startMs = venue ? parseDateTimeInTz(date, time, venue) : parseDateTime(date, time || "12:00 AM");
     if (now < startMs) {
       if (openOnly) return null;
       const totalSec = Math.floor((startMs - now) / 1e3);
@@ -4654,8 +4654,8 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       if (filters.dateTo && normaliseDate(t.date) > filters.dateTo) return false;
       return true;
     }).sort((a, b) => {
-      const da = /* @__PURE__ */ new Date(`${a.date} ${a.time && a.time !== "TBD" ? a.time : "12:00 AM"}`);
-      const db = /* @__PURE__ */ new Date(`${b.date} ${b.time && b.time !== "TBD" ? b.time : "12:00 AM"}`);
+      const da = parseTournamentTime(a);
+      const db = parseTournamentTime(b);
       if (da.getTime() !== db.getTime()) return da - db;
       const na = a.event_number.startsWith("SAT") ? 1e4 + parseInt(a.event_number.slice(4)) : parseInt(a.event_number) || 9999;
       const nb = b.event_number.startsWith("SAT") ? 1e4 + parseInt(b.event_number.slice(4)) : parseInt(b.event_number) || 9999;
@@ -4930,8 +4930,8 @@ function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, las
   }, []);
   const todayISO = getToday();
   const sorted = useMemo(() => [...mySchedule].sort((a, b) => {
-    const da = /* @__PURE__ */ new Date(`${a.date} ${a.time && a.time !== "TBD" ? a.time : "12:00 AM"}`);
-    const db = /* @__PURE__ */ new Date(`${b.date} ${b.time && b.time !== "TBD" ? b.time : "12:00 AM"}`);
+    const da = parseTournamentTime(a);
+    const db = parseTournamentTime(b);
     return da - db;
   }), [mySchedule]);
   useEffect(() => {
@@ -5359,8 +5359,8 @@ function SharedScheduleView({ shareToken }) {
   if (error || !data) return /* @__PURE__ */ React.createElement("div", { className: "auth-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "auth-card", style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { className: "auth-logo" }, /* @__PURE__ */ React.createElement("h1", null, "futurega.me"), /* @__PURE__ */ React.createElement("p", null, "spring/summer 2026")), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-muted)", marginTop: "16px" } }, error || "Schedule not found")));
   const todayISO = getToday();
   const sorted = [...data.tournaments].sort((a, b) => {
-    const da = /* @__PURE__ */ new Date(`${a.date} ${a.time && a.time !== "TBD" ? a.time : "12:00 AM"}`);
-    const db2 = /* @__PURE__ */ new Date(`${b.date} ${b.time && b.time !== "TBD" ? b.time : "12:00 AM"}`);
+    const da = parseTournamentTime(a);
+    const db2 = parseTournamentTime(b);
     return da - db2;
   });
   return /* @__PURE__ */ React.createElement("div", { className: "app-shell" }, /* @__PURE__ */ React.createElement("header", { className: "top-bar" }, /* @__PURE__ */ React.createElement("div", { className: "top-bar-title" }, /* @__PURE__ */ React.createElement("h1", null, "futurega.me"), /* @__PURE__ */ React.createElement("small", null, data.real_name || data.username, "'s schedule")), /* @__PURE__ */ React.createElement("div", { className: "top-bar-actions" }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: "6px" } }, /* @__PURE__ */ React.createElement(Avatar, { src: data.avatar, username: data.username, size: 22 })), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: () => setTheme((t) => {
