@@ -4740,12 +4740,7 @@
                 <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, dateFrom:'', dateTo:''}))}>✕</span>
               </span>
             )}
-            {filters.maxDistance && (
-              <span className="filter-chip active">
-                Within {filters.maxDistance}mi
-                <span style={{marginLeft:'4px',cursor:'pointer'}} onClick={() => setFilters(f => ({...f, maxDistance:'', userLocation:null}))}>✕</span>
-              </span>
-            )}
+            {/* Distance chip hidden for now */}
           </div>
 
           {open && ReactDOM.createPortal(
@@ -4853,53 +4848,7 @@
                   </div>
                 </div>)}
               </div>
-              <div className="filter-group filter-span2">
-                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setDistanceOpen(d => !d)}>
-                  {'\uD83D\uDCCD'} Distance
-                  <span style={{fontSize:'0.7rem',transition:'transform 0.15s',transform: distanceOpen ? 'rotate(180deg)' : 'rotate(0deg)'}}>{'\u25BC'}</span>
-                </label>
-                {distanceOpen && (<div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-                  <select
-                    value={filters.maxDistance || ''}
-                    onChange={e => setFilters(f => ({...f, maxDistance: e.target.value}))}
-                    style={{padding:'6px 8px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.82rem',cursor:'pointer'}}
-                  >
-                    <option value="">Any distance</option>
-                    <option value="25">Within 25 miles</option>
-                    <option value="50">Within 50 miles</option>
-                    <option value="100">Within 100 miles</option>
-                    <option value="250">Within 250 miles</option>
-                    <option value="500">Within 500 miles</option>
-                    <option value="1000">Within 1000 miles</option>
-                  </select>
-                  {!filters.userLocation ? (
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      style={{fontSize:'0.78rem',padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'6px'}}
-                      onClick={() => {
-                        if (!navigator.geolocation) { alert('Geolocation not supported by your browser'); return; }
-                        navigator.geolocation.getCurrentPosition(
-                          (pos) => setFilters(f => ({...f, userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude }})),
-                          (err) => alert('Could not get location: ' + err.message),
-                          { enableHighAccuracy: false, timeout: 10000 }
-                        );
-                      }}
-                    >
-                      {'\uD83D\uDCCD'} Use My Location
-                    </button>
-                  ) : (
-                    <div style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.78rem',color:'var(--text-muted)'}}>
-                      <span>{'\u2705'} Location set ({filters.userLocation.lat.toFixed(2)}, {filters.userLocation.lng.toFixed(2)})</span>
-                      <span style={{cursor:'pointer',color:'var(--accent)'}} onClick={() => setFilters(f => ({...f, userLocation: null}))}>Reset</span>
-                    </div>
-                  )}
-                  {filters.maxDistance && !filters.userLocation && (
-                    <div style={{fontSize:'0.72rem',color:'var(--text-muted)',fontStyle:'italic'}}>
-                      Set your location to enable distance filtering
-                    </div>
-                  )}
-                </div>)}
-              </div>
+              {/* Distance filter — hidden for now */}
               <div className="filter-group filter-span2">
                 <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}} onClick={() => setHowMuchOpen(h => !h)}>
                   Buy-in / Rake
