@@ -2157,6 +2157,22 @@ async function initDatabase() {
         if (reset > 0 || mainCount > 0) console.log(`Smart category: reset ${reset} to side, marked ${mainCount} as main`);
       }
     },
+    {
+      name: 'primary-side-categories-2026-04',
+      fn: () => {
+        // Reclassify: numbered events → primary, unnumbered → side
+        // Satellites stay side, restarts → primary (continuation of numbered events)
+        db.run("UPDATE tournaments SET category = 'primary' WHERE event_number IS NOT NULL AND event_number != '' AND is_satellite = 0");
+        const primary = db.getRowsModified();
+        db.run("UPDATE tournaments SET category = 'side' WHERE (event_number IS NULL OR event_number = '') AND is_satellite = 0 AND is_restart = 0");
+        const side = db.getRowsModified();
+        db.run("UPDATE tournaments SET category = 'primary' WHERE is_restart = 1");
+        const restarts = db.getRowsModified();
+        db.run("UPDATE tournaments SET category = 'side' WHERE is_satellite = 1");
+        const sats = db.getRowsModified();
+        console.log(`Categories: ${primary} primary, ${side} side, ${restarts} restarts→primary, ${sats} satellites→side`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -6846,7 +6862,7 @@ For each event line, output a JSON object with these fields:
     • No buy-in listed (or $0) — players already paid on Day 1
     • Set buyin to 0 for all restarts
 - "parent_event": for restarts, the parent event number or name, or null
-- "category": ALWAYS set to "side". The server will auto-detect the Main Event.
+- "category": ALWAYS set to "side". The server determines this automatically.
 - "table_size": "9-max", "8-max", "6-max", "heads-up", or null
 - "bounty_amount": integer bounty if knockout/bounty event, or null
 
@@ -7095,68 +7111,33 @@ function postProcessEvents(allEvents, userVenue) {
     deduplicated.push(ev);
   }
 
-  // ── Smart category detection ──
-  // Don't trust AI for category — determine Main Event programmatically per venue
-  // A Main Event is: explicitly named "Main Event", OR the highest buy-in multi-flight event
-  const byVenue = {};
+  // ── Category detection: "primary" vs "side" ──
+  // primary = numbered events in the series schedule (the events you plan your trip around)
+  // side = unnumbered dailies, turbos, extras
+  // Satellites are already flagged with is_satellite — they get "side"
   for (const ev of deduplicated) {
-    if (ev.is_satellite || ev.is_restart) continue;
-    const v = ev.venue || '_';
-    if (!byVenue[v]) byVenue[v] = [];
-    byVenue[v].push(ev);
-  }
-  for (const [venue, events] of Object.entries(byVenue)) {
-    // First pass: look for explicitly named Main Event
-    let mainEventNum = null;
-    for (const ev of events) {
-      const name = (ev.event_name || '').toLowerCase();
-      if (/\bmain\s*event\b/i.test(name)) {
-        mainEventNum = ev.event_number;
-        ev.category = 'main';
-      }
+    if (ev.is_satellite) {
+      ev.category = 'side';
+    } else if (ev.is_restart) {
+      // Restarts inherit their parent's category — default to primary since
+      // Day 2/3/Final are continuations of numbered events
+      ev.category = 'primary';
+    } else if (ev.event_number && ev.event_number.trim()) {
+      // Has an event number → part of the primary series schedule
+      ev.category = 'primary';
+    } else {
+      // No event number → side event (daily, turbo, etc.)
+      ev.category = 'side';
     }
-    // Second pass: if no explicit Main Event, pick the highest buy-in multi-flight event
-    if (!mainEventNum) {
-      let best = null;
-      for (const ev of events) {
-        const buyin = Number(ev.buyin) || 0;
-        const isMultiFlight = ev.is_multi_flight || /flight\s+[a-z]/i.test(ev.event_name || '');
-        // Prefer multi-flight, then highest buy-in
-        if (!best ||
-            (isMultiFlight && !best.isMultiFlight) ||
-            (isMultiFlight === best.isMultiFlight && buyin > best.buyin)) {
-          best = { ev, buyin, isMultiFlight };
-        }
-      }
-      if (best && best.buyin > 0) {
-        mainEventNum = best.ev.event_number;
-        best.ev.category = 'main';
-      }
-    }
-    // Mark all flights/restarts of the main event as 'main' too
-    if (mainEventNum) {
-      for (const ev of deduplicated) {
-        if (ev.venue !== venue) continue;
-        if (ev.event_number === mainEventNum) ev.category = 'main';
-        if (ev.is_restart && ev.parent_event === mainEventNum) ev.category = 'main';
-      }
-    }
-    // Everything else defaults to 'side'
-    for (const ev of events) {
-      if (!ev.category) ev.category = 'side';
-    }
-  }
-  // Satellites and restarts without category
-  for (const ev of deduplicated) {
-    if (!ev.category) ev.category = 'side';
   }
 
   return { deduplicated, warnings };
 }
 
 // ── Parse schedule from file upload ──
-app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUpload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file provided' });
+app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUpload.array('file', 20), async (req, res) => {
+  const files = req.files || (req.file ? [req.file] : []);
+  if (files.length === 0) return res.status(400).json({ error: 'No files provided' });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
@@ -7164,46 +7145,49 @@ app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUp
   const userVenue = req.body?.venue || '';
 
   try {
-    const client = new Anthropic({ apiKey, timeout: 120000 });
-    const mime = req.file.mimetype || '';
-    const isImage = mime.startsWith('image/');
-    const isPdf = mime === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+    const client = new Anthropic({ apiKey, timeout: 180000 });
 
-    if (!isImage && !isPdf) {
-      return res.status(400).json({ error: 'File must be a PDF or image (PNG, JPG, WEBP)' });
-    }
-
-    console.log(`[ParseSchedule] Processing ${(req.file.size / 1024).toFixed(0)}KB ${isPdf ? 'PDF' : 'image'} (${mime})`);
-
-    const imageBuffers = [];
-    imageBuffers.push({
-      base64: req.file.buffer.toString('base64'),
-      mediaType: isPdf ? 'application/pdf' : mime
-    });
-
-    const pageErrors = [];
     const visionContent = [];
-    for (const img of imageBuffers) {
-      if (img.mediaType === 'application/pdf') {
-        visionContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: img.base64 } });
+    const sourceNames = [];
+    for (const file of files) {
+      const mime = file.mimetype || '';
+      const isImage = mime.startsWith('image/');
+      const isPdf = mime === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf');
+
+      if (!isImage && !isPdf) {
+        console.log(`[ParseSchedule] Skipping unsupported file: ${file.originalname} (${mime})`);
+        continue;
+      }
+
+      console.log(`[ParseSchedule] Processing ${(file.size / 1024).toFixed(0)}KB ${isPdf ? 'PDF' : 'image'} (${mime}): ${file.originalname}`);
+      sourceNames.push(file.originalname);
+
+      const base64 = file.buffer.toString('base64');
+      if (isPdf) {
+        visionContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } });
       } else {
-        visionContent.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
+        visionContent.push({ type: 'image', source: { type: 'base64', media_type: mime, data: base64 } });
       }
     }
 
+    if (visionContent.length === 0) {
+      return res.status(400).json({ error: 'No valid PDF or image files found' });
+    }
+
+    const pageErrors = [];
     const allEvents = await runTwoPassExtraction(client, visionContent, pageErrors);
     const { deduplicated, warnings } = postProcessEvents(allEvents, userVenue);
 
-    console.log(`[ParseSchedule] Total: ${allEvents.length} raw -> ${deduplicated.length} deduplicated events`);
+    console.log(`[ParseSchedule] Total: ${allEvents.length} raw -> ${deduplicated.length} deduplicated events from ${visionContent.length} file(s)`);
 
     res.json({
       events: deduplicated,
-      pageCount: imageBuffers.length,
+      pageCount: visionContent.length,
       rawCount: allEvents.length,
       eventCount: deduplicated.length,
       warnings,
       pageErrors,
-      sourceFile: req.file.originalname,
+      sourceFile: sourceNames.join(', '),
       detectedVenue: deduplicated.length > 0 ? deduplicated[0].venue : null,
     });
   } catch (err) {
@@ -7291,9 +7275,75 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
       allEvents = await runTwoPassExtraction(client, visionContent, pageErrors);
 
     } else {
-      // HTML web page — extract text and send to Claude for structuring
+      // HTML web page — extract images and/or text
       console.log(`[ParseURL] Detected HTML page`);
       const html = await resp.text();
+
+      // ── Extract embedded images (tweets, social media posts, etc.) ──
+      const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+      const ogImageMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+      const twitterImageMatch = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+      const candidateUrls = new Set();
+
+      // Add og:image and twitter:image (high priority for tweets)
+      if (ogImageMatch) candidateUrls.add(ogImageMatch[1]);
+      if (twitterImageMatch) candidateUrls.add(twitterImageMatch[1]);
+
+      // Add img src URLs that look like schedule images (large images, not icons/avatars)
+      let imgMatch;
+      while ((imgMatch = imgRegex.exec(html)) !== null) {
+        const src = imgMatch[1];
+        // Skip tiny icons, avatars, tracking pixels, emojis
+        if (/avatar|icon|emoji|pixel|logo|badge|button|\.svg/i.test(src)) continue;
+        if (/width=["']?\d{1,2}['"px]/i.test(imgMatch[0])) continue; // tiny images
+        candidateUrls.add(src);
+      }
+
+      // Resolve relative URLs
+      const baseUrl = new URL(url);
+      const resolvedUrls = [...candidateUrls].map(u => {
+        try { return new URL(u, baseUrl).href; } catch { return null; }
+      }).filter(Boolean);
+
+      console.log(`[ParseURL] Found ${resolvedUrls.length} candidate image URLs`);
+
+      // Download images and check if they're large enough to be schedule images
+      const scheduleImages = [];
+      for (const imgUrl of resolvedUrls.slice(0, 10)) { // cap at 10 to avoid abuse
+        try {
+          const imgResp = await fetch(imgUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FutureGame/1.0)' },
+            redirect: 'follow',
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!imgResp.ok) continue;
+          const imgCt = (imgResp.headers.get('content-type') || '').toLowerCase();
+          if (!imgCt.includes('image/')) continue;
+          const imgBuf = Buffer.from(await imgResp.arrayBuffer());
+          // Skip small images (< 20KB — probably not a schedule)
+          if (imgBuf.length < 20000) {
+            console.log(`[ParseURL] Skipping small image (${(imgBuf.length / 1024).toFixed(0)}KB): ${imgUrl.slice(0, 80)}`);
+            continue;
+          }
+          const imgType = imgCt.includes('png') ? 'image/png' : imgCt.includes('webp') ? 'image/webp' : 'image/jpeg';
+          console.log(`[ParseURL] Downloaded schedule image (${(imgBuf.length / 1024).toFixed(0)}KB): ${imgUrl.slice(0, 80)}`);
+          scheduleImages.push({ type: 'image', source: { type: 'base64', media_type: imgType, data: imgBuf.toString('base64') } });
+        } catch (e) {
+          console.log(`[ParseURL] Failed to download image: ${imgUrl.slice(0, 80)} — ${e.message}`);
+        }
+      }
+
+      // If we found schedule images, run them through vision pipeline
+      if (scheduleImages.length > 0) {
+        console.log(`[ParseURL] Running ${scheduleImages.length} image(s) through vision pipeline`);
+        allEvents = await runTwoPassExtraction(client, scheduleImages, pageErrors);
+        if (allEvents.length > 0) {
+          console.log(`[ParseURL] Vision extracted ${allEvents.length} events from images`);
+        }
+      }
+
+      // If vision didn't find events (or no images), fall back to text extraction
+      if (allEvents.length === 0) {
       // Try to extract just the schedule table(s) first — much cleaner than full page text
       const tables = html.match(/<table[^>]*>[\s\S]*?<\/table>/gi) || [];
       let relevantHtml = '';
@@ -7408,6 +7458,7 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
           pageErrors.push({ page: 0, error: `Found ${allEvents.length} events but expected ~${estimatedEvents} — some may be missing` });
         }
       }
+      } // end if (allEvents.length === 0) text fallback
     }
 
     const { deduplicated, warnings } = postProcessEvents(allEvents, userVenue);
@@ -7826,6 +7877,7 @@ Example: [{"name":"John Smith","chips":"45,200","position":1},{"name":"Jane Doe"
       return res.status(422).json({ error: 'Could not parse player data from image', raw: text });
     }
 
+    console.log(`[ScanTable] Extracted ${players.length} players:`, players.map(p => `${p.name} seat=${p.seat} hero=${p.isHero}`).join(', '));
     res.json({ players });
   } catch (err) {
     console.error('[ScanTable] Error:', err.status || '', err.message, err.error?.message || '');

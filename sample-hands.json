@@ -1,0 +1,780 @@
+[
+  {
+    "title": "NLH: Hero rivers nut flush",
+    "gameType": "NLH",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 50000 },
+      { "name": "Jason Blodgett", "position": "SB", "startingStack": 48000 },
+      { "name": "Keith McCormack", "position": "BB", "startingStack": 52000 },
+      { "name": "Alex Charron", "position": "UTG", "startingStack": 45000 },
+      { "name": "Kevin DiPasquale", "position": "HJ", "startingStack": 55000 },
+      { "name": "Cristian Gutierrez", "position": "CO", "startingStack": 47000 }
+    ],
+    "blinds": { "sb": 100, "bb": 200, "ante": 25 },
+    "streets": [
+      {
+        "name": "Preflop",
+        "cards": {
+          "hero": "AhKh",
+          "opponents": ["", "", "", "", ""],
+          "board": ""
+        },
+        "actions": [
+          { "playerIdx": 3, "action": "fold" },
+          { "playerIdx": 4, "action": "raise", "amount": 500 },
+          { "playerIdx": 5, "action": "fold" },
+          { "playerIdx": 0, "action": "call", "amount": 500 },
+          { "playerIdx": 1, "action": "fold" },
+          { "playerIdx": 2, "action": "call", "amount": 300 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Flop",
+        "cards": {
+          "hero": "",
+          "opponents": ["", "", "", "", ""],
+          "board": "Qh7h2d"
+        },
+        "actions": [
+          { "playerIdx": 2, "action": "check" },
+          { "playerIdx": 4, "action": "bet", "amount": 900 },
+          { "playerIdx": 0, "action": "call", "amount": 900 },
+          { "playerIdx": 2, "action": "fold" }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Turn",
+        "cards": {
+          "hero": "",
+          "opponents": ["", "", "", "", ""],
+          "board": "5c"
+        },
+        "actions": [
+          { "playerIdx": 4, "action": "bet", "amount": 2200 },
+          { "playerIdx": 0, "action": "call", "amount": 2200 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "River",
+        "cards": {
+          "hero": "",
+          "opponents": ["", "", "", "", ""],
+          "board": "3h"
+        },
+        "actions": [
+          { "playerIdx": 4, "action": "bet", "amount": 5000 },
+          { "playerIdx": 0, "action": "raise", "amount": 15000 },
+          { "playerIdx": 4, "action": "call", "amount": 10000 }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 37650, "handName": "Flush, Ace-high" }
+  },
+  {
+    "title": "NLH: Wheel (A-5 straight) wins",
+    "gameType": "NLH",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 30000 },
+      { "name": "Jason Blodgett", "position": "SB", "startingStack": 32000 },
+      { "name": "Keith McCormack", "position": "BB", "startingStack": 28000 }
+    ],
+    "blinds": { "sb": 150, "bb": 300, "ante": 0 },
+    "streets": [
+      {
+        "name": "Preflop",
+        "cards": {
+          "hero": "5h4d",
+          "opponents": ["KsQd", ""],
+          "board": ""
+        },
+        "actions": [
+          { "playerIdx": 0, "action": "raise", "amount": 700 },
+          { "playerIdx": 1, "action": "call", "amount": 550 },
+          { "playerIdx": 2, "action": "fold" }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Flop",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "Ah2c3s" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 800 },
+          { "playerIdx": 1, "action": "call", "amount": 800 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Turn",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "9d" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 2000 },
+          { "playerIdx": 1, "action": "call", "amount": 2000 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "River",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "Th" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 5000 },
+          { "playerIdx": 1, "action": "call", "amount": 5000 }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 17300, "handName": "Wheel" }
+  },
+  {
+    "title": "NLH: Split pot (both play the board)",
+    "gameType": "NLH",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 25000 },
+      { "name": "Jason Blodgett", "position": "BB", "startingStack": 25000 }
+    ],
+    "blinds": { "sb": 100, "bb": 200, "ante": 0 },
+    "streets": [
+      {
+        "name": "Preflop",
+        "cards": { "hero": "2h3d", "opponents": ["2d3h"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "call", "amount": 100 },
+          { "playerIdx": 1, "action": "check" }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Flop",
+        "cards": { "hero": "", "opponents": [""], "board": "AhKsQdJcTh" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "check" }
+        ],
+        "draws": []
+      },
+      { "name": "Turn", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [], "draws": [] },
+      { "name": "River", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [], "draws": [] }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": -1, "amount": 400, "handName": "Straight, Ace-high (split pot)" }
+  },
+  {
+    "title": "PLO: Hero makes nut straight using exactly 2 hole cards",
+    "gameType": "PLO",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 40000 },
+      { "name": "Jason Blodgett", "position": "SB", "startingStack": 42000 },
+      { "name": "Keith McCormack", "position": "BB", "startingStack": 38000 }
+    ],
+    "blinds": { "sb": 200, "bb": 400, "ante": 0 },
+    "streets": [
+      {
+        "name": "Preflop",
+        "cards": {
+          "hero": "AhKs8d7d",
+          "opponents": ["QhQd9c3c", ""],
+          "board": ""
+        },
+        "actions": [
+          { "playerIdx": 0, "action": "raise", "amount": 1200 },
+          { "playerIdx": 1, "action": "call", "amount": 1000 },
+          { "playerIdx": 2, "action": "fold" }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Flop",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "QcJdTh" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 1800 },
+          { "playerIdx": 1, "action": "call", "amount": 1800 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Turn",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "5s" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 4500 },
+          { "playerIdx": 1, "action": "call", "amount": 4500 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "River",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "2c" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 10000 },
+          { "playerIdx": 1, "action": "call", "amount": 10000 }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 35400, "handName": "Straight, Ace-high" }
+  },
+  {
+    "title": "PLO: Cannot use 3 hole cards for flush",
+    "gameType": "PLO",
+    "players": [
+      { "name": "Hero", "position": "SB", "startingStack": 50000 },
+      { "name": "Jason Blodgett", "position": "BB", "startingStack": 50000 }
+    ],
+    "blinds": { "sb": 250, "bb": 500, "ante": 0 },
+    "streets": [
+      {
+        "name": "Preflop",
+        "cards": {
+          "hero": "AhKhQhJd",
+          "opponents": ["Kd9s8h7c"],
+          "board": ""
+        },
+        "actions": [
+          { "playerIdx": 0, "action": "raise", "amount": 1500 },
+          { "playerIdx": 1, "action": "call", "amount": 1000 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Flop",
+        "cards": { "hero": "", "opponents": [""], "board": "Th7h2d" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 2000 },
+          { "playerIdx": 1, "action": "call", "amount": 2000 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Turn",
+        "cards": { "hero": "", "opponents": [""], "board": "5c" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "check" }
+        ],
+        "draws": []
+      },
+      {
+        "name": "River",
+        "cards": { "hero": "", "opponents": [""], "board": "3s" },
+        "actions": [
+          { "playerIdx": 1, "action": "bet", "amount": 4000 },
+          { "playerIdx": 0, "action": "fold" }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 1, "amount": 11000, "handName": "Hero folds (cannot make flush with only 1 board heart)" }
+  },
+  {
+    "title": "PLO8: Hi-Lo split pot",
+    "gameType": "PLO8",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 30000 },
+      { "name": "Jason Blodgett", "position": "SB", "startingStack": 28000 },
+      { "name": "Keith McCormack", "position": "BB", "startingStack": 32000 }
+    ],
+    "blinds": { "sb": 200, "bb": 400, "ante": 0 },
+    "streets": [
+      {
+        "name": "Preflop",
+        "cards": {
+          "hero": "Ah2dKhQh",
+          "opponents": ["9s8s7c6c", ""],
+          "board": ""
+        },
+        "actions": [
+          { "playerIdx": 0, "action": "raise", "amount": 1200 },
+          { "playerIdx": 1, "action": "call", "amount": 1000 },
+          { "playerIdx": 2, "action": "fold" }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Flop",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "3h5d8d" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 1500 },
+          { "playerIdx": 1, "action": "call", "amount": 1500 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Turn",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "Ts" },
+        "actions": [
+          { "playerIdx": 1, "action": "bet", "amount": 3000 },
+          { "playerIdx": 0, "action": "call", "amount": 3000 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "River",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "4c" },
+        "actions": [
+          { "playerIdx": 1, "action": "bet", "amount": 6000 },
+          { "playerIdx": 0, "action": "call", "amount": 6000 }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": {
+      "winner": -1,
+      "amount": 23800,
+      "handName": "Split: Opp wins high (Straight, Ten-high), Hero wins low (5-3-2-A low)"
+    }
+  },
+  {
+    "title": "PLO8: No qualifying low - high scoops",
+    "gameType": "PLO8",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 50000 },
+      { "name": "Jason Blodgett", "position": "BB", "startingStack": 50000 }
+    ],
+    "blinds": { "sb": 300, "bb": 600, "ante": 0 },
+    "streets": [
+      {
+        "name": "Preflop",
+        "cards": { "hero": "AhKhQdJs", "opponents": ["TdTc9h8h"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "raise", "amount": 1800 },
+          { "playerIdx": 1, "action": "call", "amount": 1200 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Flop",
+        "cards": { "hero": "", "opponents": [""], "board": "KdTsJc" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 2500 },
+          { "playerIdx": 1, "action": "raise", "amount": 7500 },
+          { "playerIdx": 0, "action": "call", "amount": 5000 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "Turn",
+        "cards": { "hero": "", "opponents": [""], "board": "9c" },
+        "actions": [
+          { "playerIdx": 1, "action": "bet", "amount": 15000 },
+          { "playerIdx": 0, "action": "call", "amount": 15000 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "River",
+        "cards": { "hero": "", "opponents": [""], "board": "Qh" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 20000 },
+          { "playerIdx": 1, "action": "call", "amount": 20000 }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 89400, "handName": "Straight, Ace-high (no qualifying low, hero scoops)" }
+  },
+  {
+    "title": "Stud Hi: Full house over flush",
+    "gameType": "Stud Hi",
+    "players": [
+      { "name": "Hero", "position": "", "startingStack": 20000 },
+      { "name": "Jason Blodgett", "position": "", "startingStack": 22000 }
+    ],
+    "blinds": { "sb": 0, "bb": 0, "ante": 100 },
+    "streets": [
+      {
+        "name": "3rd Street",
+        "cards": { "hero": "AhAdAc", "opponents": ["KhQhJh"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 200 },
+          { "playerIdx": 1, "action": "call", "amount": 200 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "4th Street",
+        "cards": { "hero": "Ks", "opponents": ["Th"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 400 },
+          { "playerIdx": 1, "action": "call", "amount": 400 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "5th Street",
+        "cards": { "hero": "Kd", "opponents": ["9h"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 800 },
+          { "playerIdx": 1, "action": "call", "amount": 800 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "6th Street",
+        "cards": { "hero": "3s", "opponents": ["8d"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 800 },
+          { "playerIdx": 1, "action": "call", "amount": 800 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "7th Street",
+        "cards": { "hero": "4d", "opponents": ["7s"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 1600 },
+          { "playerIdx": 1, "action": "call", "amount": 1600 }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 7800, "handName": "Aces full of Kings" }
+  },
+  {
+    "title": "Razz: Wheel vs 7-low",
+    "gameType": "Razz",
+    "players": [
+      { "name": "Hero", "position": "", "startingStack": 15000 },
+      { "name": "Jason Blodgett", "position": "", "startingStack": 15000 }
+    ],
+    "blinds": { "sb": 0, "bb": 0, "ante": 50 },
+    "streets": [
+      {
+        "name": "3rd Street",
+        "cards": { "hero": "Ah2d3c", "opponents": ["2h3d5c"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 100 },
+          { "playerIdx": 1, "action": "call", "amount": 100 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "4th Street",
+        "cards": { "hero": "4s", "opponents": ["6h"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 200 },
+          { "playerIdx": 1, "action": "call", "amount": 200 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "5th Street",
+        "cards": { "hero": "5h", "opponents": ["7d"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 400 },
+          { "playerIdx": 1, "action": "call", "amount": 400 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "6th Street",
+        "cards": { "hero": "Kd", "opponents": ["Ks"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 400 },
+          { "playerIdx": 1, "action": "call", "amount": 400 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "7th Street",
+        "cards": { "hero": "Qh", "opponents": ["Jc"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "bet", "amount": 800 },
+          { "playerIdx": 1, "action": "call", "amount": 800 }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 3900, "handName": "5-4-3-2-A low (Wheel)" }
+  },
+  {
+    "title": "2-7 TD: Number-one hand (7-5-4-3-2) vs 8-low",
+    "gameType": "2-7 TD",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 20000 },
+      { "name": "Jason Blodgett", "position": "SB", "startingStack": 20000 },
+      { "name": "Keith McCormack", "position": "BB", "startingStack": 20000 }
+    ],
+    "blinds": { "sb": 100, "bb": 200, "ante": 0 },
+    "streets": [
+      {
+        "name": "Pre-Draw",
+        "cards": { "hero": "7h5d4c3s2d", "opponents": ["8h6d5c4s2h", ""], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "raise", "amount": 400 },
+          { "playerIdx": 1, "action": "call", "amount": 300 },
+          { "playerIdx": 2, "action": "fold" }
+        ],
+        "draws": [
+          { "playerIdx": 0, "numCards": 0 },
+          { "playerIdx": 1, "numCards": 0 }
+        ]
+      },
+      {
+        "name": "Draw 1",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 200 },
+          { "playerIdx": 1, "action": "call", "amount": 200 }
+        ],
+        "draws": [
+          { "playerIdx": 0, "numCards": 0 },
+          { "playerIdx": 1, "numCards": 0 }
+        ]
+      },
+      {
+        "name": "Draw 2",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 400 },
+          { "playerIdx": 1, "action": "call", "amount": 400 }
+        ],
+        "draws": [
+          { "playerIdx": 0, "numCards": 0 },
+          { "playerIdx": 1, "numCards": 0 }
+        ]
+      },
+      {
+        "name": "Draw 3",
+        "cards": { "hero": "", "opponents": ["", ""], "board": "" },
+        "actions": [
+          { "playerIdx": 1, "action": "check" },
+          { "playerIdx": 0, "action": "bet", "amount": 400 },
+          { "playerIdx": 1, "action": "call", "amount": 400 }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 3000, "handName": "7-5-4-3-2 low" }
+  },
+  {
+    "title": "2-7 TD: Straight is bad (7-6-5-4-3)",
+    "gameType": "2-7 TD",
+    "players": [
+      { "name": "Hero", "position": "SB", "startingStack": 15000 },
+      { "name": "Jason Blodgett", "position": "BB", "startingStack": 15000 }
+    ],
+    "blinds": { "sb": 100, "bb": 200, "ante": 0 },
+    "streets": [
+      {
+        "name": "Pre-Draw",
+        "cards": { "hero": "7h6d5c4s3d", "opponents": ["8h5d4c3s2h"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "call", "amount": 100 },
+          { "playerIdx": 1, "action": "check" }
+        ],
+        "draws": [
+          { "playerIdx": 0, "numCards": 0 },
+          { "playerIdx": 1, "numCards": 0 }
+        ]
+      },
+      { "name": "Draw 1", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [
+        { "playerIdx": 1, "action": "bet", "amount": 200 },
+        { "playerIdx": 0, "action": "call", "amount": 200 }
+      ], "draws": [] },
+      { "name": "Draw 2", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [], "draws": [] },
+      { "name": "Draw 3", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [], "draws": [] }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 1, "amount": 600, "handName": "Opp wins with 8-5-4-3-2 low (hero had straight)" }
+  },
+  {
+    "title": "Badugi: 4-card Badugi vs 3-card",
+    "gameType": "Badugi",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 10000 },
+      { "name": "Jason Blodgett", "position": "SB", "startingStack": 10000 },
+      { "name": "Keith McCormack", "position": "BB", "startingStack": 10000 }
+    ],
+    "blinds": { "sb": 50, "bb": 100, "ante": 0 },
+    "streets": [
+      {
+        "name": "Pre-Draw",
+        "cards": { "hero": "Ah2d3c4s", "opponents": ["Kh2h3c5s", ""], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "raise", "amount": 200 },
+          { "playerIdx": 1, "action": "call", "amount": 150 },
+          { "playerIdx": 2, "action": "fold" }
+        ],
+        "draws": [
+          { "playerIdx": 0, "numCards": 0 },
+          { "playerIdx": 1, "numCards": 1 }
+        ]
+      },
+      { "name": "Draw 1", "cards": { "hero": "", "opponents": ["", ""], "board": "" }, "actions": [
+        { "playerIdx": 1, "action": "check" },
+        { "playerIdx": 0, "action": "bet", "amount": 100 },
+        { "playerIdx": 1, "action": "call", "amount": 100 }
+      ], "draws": [
+        { "playerIdx": 0, "numCards": 0 },
+        { "playerIdx": 1, "numCards": 1 }
+      ] },
+      { "name": "Draw 2", "cards": { "hero": "", "opponents": ["", ""], "board": "" }, "actions": [
+        { "playerIdx": 1, "action": "check" },
+        { "playerIdx": 0, "action": "bet", "amount": 200 },
+        { "playerIdx": 1, "action": "call", "amount": 200 }
+      ], "draws": [] },
+      { "name": "Draw 3", "cards": { "hero": "", "opponents": ["", ""], "board": "" }, "actions": [
+        { "playerIdx": 1, "action": "check" },
+        { "playerIdx": 0, "action": "bet", "amount": 200 },
+        { "playerIdx": 1, "action": "fold" }
+      ], "draws": [] }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 1150, "handName": "A-2-3-4 Badugi" }
+  },
+  {
+    "title": "Stud 8: Hi-Lo split between two players",
+    "gameType": "Stud 8",
+    "players": [
+      { "name": "Hero", "position": "", "startingStack": 20000 },
+      { "name": "Jason Blodgett", "position": "", "startingStack": 20000 }
+    ],
+    "blinds": { "sb": 0, "bb": 0, "ante": 100 },
+    "streets": [
+      {
+        "name": "3rd Street",
+        "cards": { "hero": "Ah2d3c", "opponents": ["KhKd9s"], "board": "" },
+        "actions": [
+          { "playerIdx": 1, "action": "bet", "amount": 200 },
+          { "playerIdx": 0, "action": "call", "amount": 200 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "4th Street",
+        "cards": { "hero": "4s", "opponents": ["Kc"], "board": "" },
+        "actions": [
+          { "playerIdx": 1, "action": "bet", "amount": 400 },
+          { "playerIdx": 0, "action": "call", "amount": 400 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "5th Street",
+        "cards": { "hero": "5h", "opponents": ["Qs"], "board": "" },
+        "actions": [
+          { "playerIdx": 1, "action": "bet", "amount": 800 },
+          { "playerIdx": 0, "action": "call", "amount": 800 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "6th Street",
+        "cards": { "hero": "Jd", "opponents": ["Th"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "check" },
+          { "playerIdx": 1, "action": "bet", "amount": 800 },
+          { "playerIdx": 0, "action": "call", "amount": 800 }
+        ],
+        "draws": []
+      },
+      {
+        "name": "7th Street",
+        "cards": { "hero": "Qd", "opponents": ["8d"], "board": "" },
+        "actions": [
+          { "playerIdx": 1, "action": "bet", "amount": 1600 },
+          { "playerIdx": 0, "action": "call", "amount": 1600 }
+        ],
+        "draws": []
+      }
+    ],
+    "heroIdx": 0,
+    "result": {
+      "winner": -1,
+      "amount": 7800,
+      "handName": "Split: Opp wins high (Three Kings), Hero wins low (5-4-3-2-A)"
+    }
+  },
+  {
+    "title": "Badeucy: Hero scoops with strong badugi + 2-7 low",
+    "gameType": "Badeucy",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 10000 },
+      { "name": "Jason Blodgett", "position": "BB", "startingStack": 10000 }
+    ],
+    "blinds": { "sb": 50, "bb": 100, "ante": 0 },
+    "streets": [
+      {
+        "name": "Pre-Draw",
+        "cards": { "hero": "7h5d4c3s2d", "opponents": ["9h6d5c4s3h"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "raise", "amount": 200 },
+          { "playerIdx": 1, "action": "call", "amount": 100 }
+        ],
+        "draws": [
+          { "playerIdx": 0, "numCards": 0 },
+          { "playerIdx": 1, "numCards": 1 }
+        ]
+      },
+      { "name": "Draw 1", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [
+        { "playerIdx": 1, "action": "check" },
+        { "playerIdx": 0, "action": "bet", "amount": 100 },
+        { "playerIdx": 1, "action": "call", "amount": 100 }
+      ], "draws": [] },
+      { "name": "Draw 2", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [], "draws": [] },
+      { "name": "Draw 3", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [
+        { "playerIdx": 1, "action": "check" },
+        { "playerIdx": 0, "action": "bet", "amount": 200 },
+        { "playerIdx": 1, "action": "call", "amount": 200 }
+      ], "draws": [] }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 1200, "handName": "Hero scoops: 2-3-4-5 Badugi + 7-5-4-3-2 low" }
+  },
+  {
+    "title": "A-5 TD: Suited wheel still wins (flushes ignored)",
+    "gameType": "A-5 TD",
+    "players": [
+      { "name": "Hero", "position": "BTN", "startingStack": 8000 },
+      { "name": "Jason Blodgett", "position": "BB", "startingStack": 8000 }
+    ],
+    "blinds": { "sb": 50, "bb": 100, "ante": 0 },
+    "streets": [
+      {
+        "name": "Pre-Draw",
+        "cards": { "hero": "Ah2h3h4h5h", "opponents": ["2d3c4s5h6d"], "board": "" },
+        "actions": [
+          { "playerIdx": 0, "action": "raise", "amount": 200 },
+          { "playerIdx": 1, "action": "call", "amount": 100 }
+        ],
+        "draws": []
+      },
+      { "name": "Draw 1", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [
+        { "playerIdx": 1, "action": "check" },
+        { "playerIdx": 0, "action": "bet", "amount": 200 },
+        { "playerIdx": 1, "action": "call", "amount": 200 }
+      ], "draws": [] },
+      { "name": "Draw 2", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [], "draws": [] },
+      { "name": "Draw 3", "cards": { "hero": "", "opponents": [""], "board": "" }, "actions": [
+        { "playerIdx": 1, "action": "check" },
+        { "playerIdx": 0, "action": "bet", "amount": 400 },
+        { "playerIdx": 1, "action": "call", "amount": 400 }
+      ], "draws": [] }
+    ],
+    "heroIdx": 0,
+    "result": { "winner": 0, "amount": 1700, "handName": "5-4-3-2-A low (Wheel, flush ignored)" }
+  }
+]

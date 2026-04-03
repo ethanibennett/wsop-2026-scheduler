@@ -3579,6 +3579,8 @@
             })).filter(p => p.name.length > 1);
 
             console.log('[TableScanner] Claude found', extracted.length, 'players');
+            console.log('[TableScanner] Seats:', extracted.map(p => p.seat).join(', '));
+            console.log('[TableScanner] Hero:', extracted.find(p => p.isHero)?.name || 'none');
 
             // Group by table number
             const tableGroups = {};
@@ -3590,25 +3592,32 @@
               }
             });
             var tableNums = Object.keys(tableGroups).sort(function(a, b) { return parseInt(a) - parseInt(b); });
+            console.log('[TableScanner] Table groups:', tableNums.map(t => t + ':' + tableGroups[t].length).join(', ') || 'none');
 
             if (tableNums.length > 1) {
-              // Auto-select the hero's table if we can detect it
-              var heroPlayer = extracted.find(function(p) { return p.isHero; });
-              var heroTable = heroPlayer && heroPlayer.seat && heroPlayer.seat.includes('-') ? heroPlayer.seat.split('-')[0] : null;
-              if (heroTable && tableGroups[heroTable]) {
-                // Auto-pick the hero's table — no need for manual selection
-                setPlayers(tableGroups[heroTable]);
-                setEventTitle('Table ' + heroTable);
-                setState('results');
-              } else {
+              // Multiple tables detected — always show the table picker
+              // Pre-select hero's table visually but let user confirm
+              setAvailableTables(tableGroups);
+              setAllParsedPlayers(extracted);
+              setEventTitle('PokerStars Live');
+              setState('tableSelect');
+            } else if (extracted.length === 0) {
+              setError('No players found in image. Make sure the full seating list is visible.');
+              setState('idle');
+            } else if (extracted.length > 11 && tableNums.length <= 1) {
+              // Too many players for one table — AI probably merged adjacent tables
+              // Show table picker if we have at least one group, otherwise show all with warning
+              if (tableNums.length === 1) {
                 setAvailableTables(tableGroups);
                 setAllParsedPlayers(extracted);
                 setEventTitle('PokerStars Live');
                 setState('tableSelect');
+              } else {
+                // No table-seat format at all — show all but warn
+                setEventTitle('PokerStars Live');
+                setPlayers(extracted);
+                setState('results');
               }
-            } else if (extracted.length === 0) {
-              setError('No players found in image. Make sure the full seating list is visible.');
-              setState('idle');
             } else {
               setEventTitle('PokerStars Live');
               setPlayers(extracted);
@@ -3688,23 +3697,29 @@
           {state === 'tableSelect' && availableTables && (
             <div className="table-scanner-table-select">
               <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--text)',marginBottom:'8px'}}>
-                Multiple tables found — select yours:
+                Multiple tables detected — select yours:
               </div>
               <div style={{display:'flex',flexWrap:'wrap',gap:'8px'}}>
-                {Object.keys(availableTables).sort(function(a, b) { return parseInt(a) - parseInt(b); }).map(function(tbl) {
-                  return React.createElement('button', {
-                    key: tbl,
-                    className: 'btn btn-primary btn-sm',
-                    style: {minWidth:'60px',padding:'8px 16px'},
-                    onClick: function() {
-                      var tablePlayers = availableTables[tbl];
-                      setPlayers(tablePlayers);
-                      setEventTitle('Table ' + tbl);
-                      setAvailableTables(null);
-                      setState('results');
-                    }
-                  }, 'Table ' + tbl + ' (' + availableTables[tbl].length + ')');
-                })}
+                {(function() {
+                  // Find the hero's table to highlight it
+                  var heroP = (allParsedPlayers || []).find(function(p) { return p.isHero; });
+                  var heroTbl = heroP && heroP.seat && heroP.seat.includes('-') ? heroP.seat.split('-')[0] : null;
+                  return Object.keys(availableTables).sort(function(a, b) { return parseInt(a) - parseInt(b); }).map(function(tbl) {
+                    var isHeroTable = tbl === heroTbl;
+                    return React.createElement('button', {
+                      key: tbl,
+                      className: isHeroTable ? 'btn btn-accent btn-sm' : 'btn btn-primary btn-sm',
+                      style: {minWidth:'60px',padding:'8px 16px', border: isHeroTable ? '2px solid var(--accent)' : undefined},
+                      onClick: function() {
+                        var tablePlayers = availableTables[tbl];
+                        setPlayers(tablePlayers);
+                        setEventTitle('Table ' + tbl);
+                        setAvailableTables(null);
+                        setState('results');
+                      }
+                    }, 'Table ' + tbl + ' (' + availableTables[tbl].length + ')' + (isHeroTable ? ' ★' : ''));
+                  });
+                })()}
               </div>
               <button className="btn btn-ghost btn-sm" style={{marginTop:'8px'}} onClick={function() { setState('idle'); setAvailableTables(null); }}>Cancel</button>
             </div>
@@ -3999,11 +4014,11 @@
       return bottom;
     }
 
-    // Scroll a row to just below all sticky headers (filters + date break)
-    function scrollBelowSticky(el, gap) {
+    // Calculate the exact scrollTop to place el just below all sticky headers
+    function calcStickyTarget(el, gap) {
       const offset = gap != null ? gap : 2;
       const container = el.closest('.content-area');
-      if (!container) return;
+      if (!container) return null;
       const savedScroll = container.scrollTop;
       // Phase 1: jump to approximate target
       const stickyBottom = measureStickyStack(container);
@@ -4017,9 +4032,19 @@
         if (Math.abs(correction) < 0.5) break;
         container.scrollTop += correction;
       }
-      // Phase 3: restore and smooth scroll to the converged-correct position
       const target = container.scrollTop;
       container.scrollTop = savedScroll;
+      return target;
+    }
+
+    // Scroll a row to just below all sticky headers (filters + date break)
+    function scrollBelowSticky(el, gap) {
+      const container = el.closest('.content-area');
+      if (!container) return;
+      const target = calcStickyTarget(el, gap);
+      if (target == null) return;
+      // Skip scroll if already within 3px of target (prevents sub-pixel drift)
+      if (Math.abs(container.scrollTop - target) < 3) return;
       container.scrollTo({ top: target, behavior: 'smooth' });
     }
 
@@ -4036,14 +4061,13 @@
       useEffect(() => {
         if (focusEventId && tournament.id === focusEventId) {
           setOpen(true);
-          // Scroll is handled by the [open] useEffect
         }
       }, [focusEventId]);
 
-      // Scroll expanded event to just below sticky header
+      // Scroll expanded event to just below sticky header (after 400ms expand animation)
       useEffect(() => {
         if (open && rowRef.current) {
-          const tid = setTimeout(() => scrollBelowSticky(rowRef.current), 180);
+          const tid = setTimeout(() => scrollBelowSticky(rowRef.current), 420);
           return () => clearTimeout(tid);
         }
       }, [open]);
@@ -4073,13 +4097,13 @@
       const stripTextColor = venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)';
 
       return (
-        <div ref={rowRef} className={rowClasses} style={isInSchedule ? {borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor, ...(isAnchor ? {boxShadow: `inset 0 0 0 1.5px ${stripColor}`} : {})} : undefined}>
+        <div ref={rowRef} className={rowClasses} style={isInSchedule && isAnchor ? {boxShadow: `inset 0 0 0 1.5px ${stripColor}`} : undefined}>
           <div
             className={`cal-venue-strip venue-strip-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}
             style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
             onClick={() => setOpen(o => !o)}
           >{open && venue.longName ? venue.longName : venue.abbr}</div>
-          <div className="cal-event-row-content" style={isInSchedule && conditions && conditions.length > 0 ? {borderColor: venue.abbr === 'WSOP' ? 'var(--venue-wsop-cond)' : stripColor} : undefined}>
+          <div className="cal-event-row-content" style={isInSchedule ? {borderColor: conditions && conditions.length > 0 ? (venue.abbr === 'WSOP' ? 'var(--venue-wsop-cond)' : stripColor) : stripColor} : undefined}>
             {/* Collapsed bar — always visible */}
             <div className="cal-event-bar" onClick={() => setOpen(o => !o)}>
               {tournament.venue === 'Personal' ? (
@@ -5268,32 +5292,17 @@
         return best ? best.id : null;
       }
 
-      // Auto-scroll to today's date group on first render
-      useEffect(() => {
+      // Auto-scroll to today's date group before first paint
+      React.useLayoutEffect(() => {
         if (!hasScrolled.current && todayScrollRef.current) {
           hasScrolled.current = true;
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            const el = todayScrollRef.current;
-            if (!el) return;
-            const container = el.closest('.content-area') || document.querySelector('.content-area');
-            if (!container) return;
-            // Phase 1: rough scroll to get today's group near the top
-            const caTop = container.getBoundingClientRect().top;
-            const sticky = container.querySelector('.sticky-filters');
-            const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
-            const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-            container.scrollTo({ top: Math.max(0, elTop - stickyH) });
-            // Phase 2: post-scroll correction using actual sticky positions
-            requestAnimationFrame(() => {
-              const firstCard = el.querySelector('.cal-event-row');
-              if (!firstCard) return;
-              const stickyBottom = measureStickyStack(container);
-              const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
-              if (cardVisualTop < stickyBottom + 2) {
-                container.scrollTop -= (stickyBottom + 2 - cardVisualTop);
-              }
-            });
-          }));
+          const firstCard = todayScrollRef.current.querySelector('.cal-event-row');
+          if (!firstCard) return;
+          const container = firstCard.closest('.content-area');
+          if (!container) return;
+          // Use the exact same calculation as scrollBelowSticky so there's zero drift
+          const target = calcStickyTarget(firstCard);
+          if (target != null) container.scrollTop = target;
         }
       }, [filtered]);
 
@@ -5392,7 +5401,7 @@
                         )}
                       </div>
                       {group.events.map(t => (
-                        <div key={t.id} style={{contentVisibility:'auto', containIntrinsicSize:'auto 72px'}}>
+                        <div key={t.id}>
                           <CalendarEventRow
                             tournament={t}
                             isInSchedule={scheduleIds.has(t.id)}
@@ -8995,9 +9004,9 @@
       const visionProgressRef = useRef(null);
 
       const handleVisionUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setVisionFile(file);
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+        setVisionFile(files.length === 1 ? files[0] : { name: `${files.length} files` });
         setVisionError('');
         setVisionResults(null);
         setVisionParsing(true);
@@ -9005,10 +9014,10 @@
         setVisionStage('Uploading...');
 
         // Animated progress stages (two-pass: transcribe then structure)
-        const isPdf = file.name.toLowerCase().endsWith('.pdf');
+        const hasPdf = files.some(f => f.name.toLowerCase().endsWith('.pdf'));
         const stages = [
-          { at: 5,  label: 'Uploading...' },
-          { at: 10, label: isPdf ? 'Reading PDF pages...' : 'Processing image...' },
+          { at: 5,  label: `Uploading ${files.length > 1 ? files.length + ' files' : 'file'}...` },
+          { at: 10, label: hasPdf ? 'Reading PDF pages...' : `Processing ${files.length > 1 ? files.length + ' images' : 'image'}...` },
           { at: 20, label: 'Pass 1: Transcribing schedule...' },
           { at: 40, label: 'Pass 1: Reading event details...' },
           { at: 55, label: 'Pass 2: Structuring events...' },
@@ -9018,8 +9027,8 @@
         ];
         let stageIdx = 0;
         const startTime = Date.now();
-        // Two-pass takes longer: ~60s for PDF, ~30s for image
-        const estDuration = isPdf ? 60000 : 30000;
+        // More files = longer estimate
+        const estDuration = hasPdf ? 60000 : Math.max(30000, files.length * 15000);
 
         visionProgressRef.current = setInterval(() => {
           const elapsed = Date.now() - startTime;
@@ -9034,7 +9043,9 @@
         }, 200);
 
         const fd = new FormData();
-        fd.append('file', file);
+        for (const file of files) {
+          fd.append('file', file);
+        }
         if (visionVenue) fd.append('venue', visionVenue);
 
         try {
@@ -9359,6 +9370,7 @@
                   id="vision-schedule-upload"
                   className="file-input"
                   accept=".pdf,.png,.jpg,.jpeg,.webp"
+                  multiple
                   onChange={handleVisionUpload}
                   disabled={visionParsing}
                 />
@@ -9367,7 +9379,7 @@
                   className="btn btn-ghost btn-sm"
                   style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px',opacity:visionParsing?0.5:1,pointerEvents:visionParsing?'none':'auto'}}
                 >
-                  <Icon.upload /> {visionParsing ? 'Scanning...' : 'Upload File'}
+                  <Icon.upload /> {visionParsing ? 'Scanning...' : 'Upload File(s)'}
                 </label>
                 <div style={{display:'flex',alignItems:'center',gap:'8px',width:'100%'}}>
                   <span style={{fontSize:'0.75rem',color:'var(--text-muted)',fontWeight:600}}>or</span>

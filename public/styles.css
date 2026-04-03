@@ -1976,8 +1976,8 @@
       height: 100%;
     }
     @keyframes viewFadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
     /* ── Pull-to-refresh ── */
     .ptr-container {
@@ -2864,8 +2864,7 @@
     /* ── Calendar event rows (collapsible) ── */
     .cal-event-row {
       background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-left: none;
+      border: none;
       border-radius: var(--radius-sm);
       margin-bottom: 6px;
       overflow: hidden;
@@ -2876,6 +2875,9 @@
     .cal-event-row-content {
       flex: 1;
       min-width: 0;
+      border: 1.5px solid var(--border);
+      border-left: none;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     }
 
     .cal-venue-strip {
@@ -2916,10 +2918,10 @@
     /* Venue backgrounds removed — all cards use var(--surface) for consistency */
 
     /* Bracelet events only get special border when saved */
-    .cal-event-row.bracelet.saved {
+    .cal-event-row.bracelet.saved .cal-event-row-content {
       border-color: #c0c0c0;
     }
-    :is([data-theme="light"],[data-theme="cloudy"]) .cal-event-row.bracelet.saved {
+    :is([data-theme="light"],[data-theme="cloudy"]) .cal-event-row.bracelet.saved .cal-event-row-content {
       border-color: #000000;
     }
 
@@ -2928,16 +2930,8 @@
     }
 
     /* ── Conditional events ── */
-    .cal-event-row.conditional {
-      border-top: none;
-      border-right: none;
-      border-bottom: none;
-    }
     .cal-event-row.conditional .cal-event-row-content {
-      border-top: 1.5px dashed var(--border);
-      border-right: 1.5px dashed var(--border);
-      border-bottom: 1.5px dashed var(--border);
-      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      border-style: dashed;
     }
     /* Anchor / must-play events — inset bold border (no size change) */
     .cal-event-row.anchor {

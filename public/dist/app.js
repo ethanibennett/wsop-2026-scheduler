@@ -3297,7 +3297,7 @@ function TableScanner() {
   }
   __name(handleExport, "handleExport");
   const handleFile = /* @__PURE__ */ __name(async (e) => {
-    var _a;
+    var _a, _b;
     const file = (_a = e.target.files) == null ? void 0 : _a[0];
     if (!file) return;
     setState("processing");
@@ -3343,6 +3343,8 @@ function TableScanner() {
           py: null
         })).filter((p) => p.name.length > 1);
         console.log("[TableScanner] Claude found", extracted.length, "players");
+        console.log("[TableScanner] Seats:", extracted.map((p) => p.seat).join(", "));
+        console.log("[TableScanner] Hero:", ((_b = extracted.find((p) => p.isHero)) == null ? void 0 : _b.name) || "none");
         const tableGroups = {};
         extracted.forEach(function(p) {
           if (p.seat && p.seat.includes("-")) {
@@ -3354,24 +3356,26 @@ function TableScanner() {
         var tableNums = Object.keys(tableGroups).sort(function(a, b) {
           return parseInt(a) - parseInt(b);
         });
+        console.log("[TableScanner] Table groups:", tableNums.map((t) => t + ":" + tableGroups[t].length).join(", ") || "none");
         if (tableNums.length > 1) {
-          var heroPlayer = extracted.find(function(p) {
-            return p.isHero;
-          });
-          var heroTable = heroPlayer && heroPlayer.seat && heroPlayer.seat.includes("-") ? heroPlayer.seat.split("-")[0] : null;
-          if (heroTable && tableGroups[heroTable]) {
-            setPlayers(tableGroups[heroTable]);
-            setEventTitle("Table " + heroTable);
-            setState("results");
-          } else {
+          setAvailableTables(tableGroups);
+          setAllParsedPlayers(extracted);
+          setEventTitle("PokerStars Live");
+          setState("tableSelect");
+        } else if (extracted.length === 0) {
+          setError("No players found in image. Make sure the full seating list is visible.");
+          setState("idle");
+        } else if (extracted.length > 11 && tableNums.length <= 1) {
+          if (tableNums.length === 1) {
             setAvailableTables(tableGroups);
             setAllParsedPlayers(extracted);
             setEventTitle("PokerStars Live");
             setState("tableSelect");
+          } else {
+            setEventTitle("PokerStars Live");
+            setPlayers(extracted);
+            setState("results");
           }
-        } else if (extracted.length === 0) {
-          setError("No players found in image. Make sure the full seating list is visible.");
-          setState("idle");
         } else {
           setEventTitle("PokerStars Live");
           setPlayers(extracted);
@@ -3441,22 +3445,29 @@ function TableScanner() {
     },
     /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "13", r: "4" })),
     "Upload Table Screenshot (WSOP Live / PokerStars Live)"
-  ), state === "processing" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress-label" }, "Scanning image…"), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-bar-fill", style: { width: progress + "%" } })), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress-pct" }, progress, "%")), state === "tableSelect" && availableTables && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-table-select" }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "0.9rem", color: "var(--text)", marginBottom: "8px" } }, "Multiple tables found — select yours:"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px" } }, Object.keys(availableTables).sort(function(a, b) {
-    return parseInt(a) - parseInt(b);
-  }).map(function(tbl) {
-    return React.createElement("button", {
-      key: tbl,
-      className: "btn btn-primary btn-sm",
-      style: { minWidth: "60px", padding: "8px 16px" },
-      onClick: /* @__PURE__ */ __name(function() {
-        var tablePlayers = availableTables[tbl];
-        setPlayers(tablePlayers);
-        setEventTitle("Table " + tbl);
-        setAvailableTables(null);
-        setState("results");
-      }, "onClick")
-    }, "Table " + tbl + " (" + availableTables[tbl].length + ")");
-  })), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { marginTop: "8px" }, onClick: function() {
+  ), state === "processing" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress-label" }, "Scanning image…"), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-bar-fill", style: { width: progress + "%" } })), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-progress-pct" }, progress, "%")), state === "tableSelect" && availableTables && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-table-select" }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "0.9rem", color: "var(--text)", marginBottom: "8px" } }, "Multiple tables detected — select yours:"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px" } }, (function() {
+    var heroP = (allParsedPlayers || []).find(function(p) {
+      return p.isHero;
+    });
+    var heroTbl = heroP && heroP.seat && heroP.seat.includes("-") ? heroP.seat.split("-")[0] : null;
+    return Object.keys(availableTables).sort(function(a, b) {
+      return parseInt(a) - parseInt(b);
+    }).map(function(tbl) {
+      var isHeroTable = tbl === heroTbl;
+      return React.createElement("button", {
+        key: tbl,
+        className: isHeroTable ? "btn btn-accent btn-sm" : "btn btn-primary btn-sm",
+        style: { minWidth: "60px", padding: "8px 16px", border: isHeroTable ? "2px solid var(--accent)" : void 0 },
+        onClick: /* @__PURE__ */ __name(function() {
+          var tablePlayers = availableTables[tbl];
+          setPlayers(tablePlayers);
+          setEventTitle("Table " + tbl);
+          setAvailableTables(null);
+          setState("results");
+        }, "onClick")
+      }, "Table " + tbl + " (" + availableTables[tbl].length + ")" + (isHeroTable ? " ★" : ""));
+    });
+  })()), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { marginTop: "8px" }, onClick: function() {
     setState("idle");
     setAvailableTables(null);
   } }, "Cancel")), state === "results" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results-header" }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--text)", flex: 1, minWidth: 0 } }, eventTitle || `${players.length} player${players.length !== 1 ? "s" : ""} found`), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => setPortrait((p) => !p), style: { padding: "4px 6px", marginRight: "4px" }, title: portrait ? "Landscape" : "Portrait" }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M1 4v6h6" }), /* @__PURE__ */ React.createElement("path", { d: "M3.51 15a9 9 0 1 0 2.13-9.36L1 10" }))), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: handleExport, style: { padding: "4px 6px", marginRight: "4px" }, title: "Export as PNG" }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" }))), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => {
@@ -3736,10 +3747,10 @@ function measureStickyStack(container) {
   return bottom;
 }
 __name(measureStickyStack, "measureStickyStack");
-function scrollBelowSticky(el, gap) {
+function calcStickyTarget(el, gap) {
   const offset = gap != null ? gap : 2;
   const container = el.closest(".content-area");
-  if (!container) return;
+  if (!container) return null;
   const savedScroll = container.scrollTop;
   const stickyBottom = measureStickyStack(container);
   const elAbsTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
@@ -3753,6 +3764,15 @@ function scrollBelowSticky(el, gap) {
   }
   const target = container.scrollTop;
   container.scrollTop = savedScroll;
+  return target;
+}
+__name(calcStickyTarget, "calcStickyTarget");
+function scrollBelowSticky(el, gap) {
+  const container = el.closest(".content-area");
+  if (!container) return;
+  const target = calcStickyTarget(el, gap);
+  if (target == null) return;
+  if (Math.abs(container.scrollTop - target) < 3) return;
   container.scrollTo({ top: target, behavior: "smooth" });
 }
 __name(scrollBelowSticky, "scrollBelowSticky");
@@ -3769,7 +3789,7 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
   }, [focusEventId]);
   useEffect(() => {
     if (open && rowRef.current) {
-      const tid = setTimeout(() => scrollBelowSticky(rowRef.current), 180);
+      const tid = setTimeout(() => scrollBelowSticky(rowRef.current), 420);
       return () => clearTimeout(tid);
     }
   }, [open]);
@@ -3794,7 +3814,7 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
   ].filter(Boolean).join(" ");
   const stripColor = getVenueBrandColor(venue.abbr);
   const stripTextColor = venue.abbr === "WSOP" ? "var(--bg)" : "rgba(255,255,255,0.85)";
-  return /* @__PURE__ */ React.createElement("div", { ref: rowRef, className: rowClasses, style: isInSchedule ? __spreadValues({ borderTopColor: stripColor, borderRightColor: stripColor, borderBottomColor: stripColor }, isAnchor ? { boxShadow: `inset 0 0 0 1.5px ${stripColor}` } : {}) : void 0 }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { ref: rowRef, className: rowClasses, style: isInSchedule && isAnchor ? { boxShadow: `inset 0 0 0 1.5px ${stripColor}` } : void 0 }, /* @__PURE__ */ React.createElement(
     "div",
     {
       className: `cal-venue-strip venue-strip-${venue.abbr.toLowerCase().replace(/\s+/g, "-")}`,
@@ -3802,7 +3822,7 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
       onClick: () => setOpen((o) => !o)
     },
     open && venue.longName ? venue.longName : venue.abbr
-  ), /* @__PURE__ */ React.createElement("div", { className: "cal-event-row-content", style: isInSchedule && conditions && conditions.length > 0 ? { borderColor: venue.abbr === "WSOP" ? "var(--venue-wsop-cond)" : stripColor } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "cal-event-bar", onClick: () => setOpen((o) => !o) }, tournament.venue === "Personal" ? /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2", style: { display: "flex", alignItems: "center", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name", style: { fontSize: "0.88rem" } }, tournament.event_name === "Travel Day" ? "✈️" : "🏖️", " ", tournament.event_name), tournament.notes && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--text-muted)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "— ", tournament.notes)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row1" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-time" }, timeLabel), /* @__PURE__ */ React.createElement("span", { className: "cal-event-buyin" }, currencySymbol(tournament.venue), Number(tournament.buyin).toLocaleString())), /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name" }, formatEventName(tournament.event_name)), isBounty && !isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.crosshairs, null)), isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.satellite, null)), isRestart && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.restart, null)), bracelet && /* @__PURE__ */ React.createElement("span", { className: "cal-bracelet-icon" }, /* @__PURE__ */ React.createElement(Icon.bracelet, null)), isRingEvent && /* @__PURE__ */ React.createElement("span", { className: "cal-ring-icon" }, /* @__PURE__ */ React.createElement(Icon.ring, null))))), showMiniLateReg && !open && /* @__PURE__ */ React.createElement(MiniLateRegBar, { lateRegEnd: tournament.late_reg_end, date: tournament.date, time: tournament.time, venueAbbr: venue.abbr, venue: tournament.venue, openOnly: true }), /* @__PURE__ */ React.createElement("div", { className: `cal-event-chevron ${open ? "open" : ""}`, onClick: () => setOpen((o) => !o) }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" }))), /* @__PURE__ */ React.createElement("div", { className: `cal-event-detail-wrap ${open ? "open" : ""}`, onClick: (e) => {
+  ), /* @__PURE__ */ React.createElement("div", { className: "cal-event-row-content", style: isInSchedule ? { borderColor: conditions && conditions.length > 0 ? venue.abbr === "WSOP" ? "var(--venue-wsop-cond)" : stripColor : stripColor } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "cal-event-bar", onClick: () => setOpen((o) => !o) }, tournament.venue === "Personal" ? /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2", style: { display: "flex", alignItems: "center", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name", style: { fontSize: "0.88rem" } }, tournament.event_name === "Travel Day" ? "✈️" : "🏖️", " ", tournament.event_name), tournament.notes && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--text-muted)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "— ", tournament.notes)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row1" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-time" }, timeLabel), /* @__PURE__ */ React.createElement("span", { className: "cal-event-buyin" }, currencySymbol(tournament.venue), Number(tournament.buyin).toLocaleString())), /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name" }, formatEventName(tournament.event_name)), isBounty && !isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.crosshairs, null)), isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.satellite, null)), isRestart && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.restart, null)), bracelet && /* @__PURE__ */ React.createElement("span", { className: "cal-bracelet-icon" }, /* @__PURE__ */ React.createElement(Icon.bracelet, null)), isRingEvent && /* @__PURE__ */ React.createElement("span", { className: "cal-ring-icon" }, /* @__PURE__ */ React.createElement(Icon.ring, null))))), showMiniLateReg && !open && /* @__PURE__ */ React.createElement(MiniLateRegBar, { lateRegEnd: tournament.late_reg_end, date: tournament.date, time: tournament.time, venueAbbr: venue.abbr, venue: tournament.venue, openOnly: true }), /* @__PURE__ */ React.createElement("div", { className: `cal-event-chevron ${open ? "open" : ""}`, onClick: () => setOpen((o) => !o) }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" }))), /* @__PURE__ */ React.createElement("div", { className: `cal-event-detail-wrap ${open ? "open" : ""}`, onClick: (e) => {
     const tag = e.target.tagName;
     if (tag === "A" || tag === "BUTTON" || tag === "INPUT") return;
     if (e.target.closest(".badge-clickable") || e.target.closest(".condition-picker") || e.target.closest(".cal-action-row")) return;
@@ -4679,29 +4699,15 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     return best ? best.id : null;
   }
   __name(findBestFlight, "findBestFlight");
-  useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!hasScrolled.current && todayScrollRef.current) {
       hasScrolled.current = true;
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const el = todayScrollRef.current;
-        if (!el) return;
-        const container = el.closest(".content-area") || document.querySelector(".content-area");
-        if (!container) return;
-        const caTop = container.getBoundingClientRect().top;
-        const sticky = container.querySelector(".sticky-filters");
-        const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
-        const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-        container.scrollTo({ top: Math.max(0, elTop - stickyH) });
-        requestAnimationFrame(() => {
-          const firstCard = el.querySelector(".cal-event-row");
-          if (!firstCard) return;
-          const stickyBottom = measureStickyStack(container);
-          const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
-          if (cardVisualTop < stickyBottom + 2) {
-            container.scrollTop -= stickyBottom + 2 - cardVisualTop;
-          }
-        });
-      }));
+      const firstCard = todayScrollRef.current.querySelector(".cal-event-row");
+      if (!firstCard) return;
+      const container = firstCard.closest(".content-area");
+      if (!container) return;
+      const target = calcStickyTarget(firstCard);
+      if (target != null) container.scrollTop = target;
     }
   }, [filtered]);
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sticky-filters", ref: stickyFiltersRef }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement(
@@ -4770,7 +4776,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         gap: "4px",
         padding: "4px 12px",
         borderRadius: "999px"
-      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id, style: { contentVisibility: "auto", containIntrinsicSize: "auto 72px" } }, /* @__PURE__ */ React.createElement(
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id }, /* @__PURE__ */ React.createElement(
         CalendarEventRow,
         {
           tournament: t,
@@ -7627,18 +7633,18 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
   const [visionStage, setVisionStage] = useState("");
   const visionProgressRef = useRef(null);
   const handleVisionUpload = /* @__PURE__ */ __name(async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setVisionFile(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setVisionFile(files.length === 1 ? files[0] : { name: `${files.length} files` });
     setVisionError("");
     setVisionResults(null);
     setVisionParsing(true);
     setVisionProgress(0);
     setVisionStage("Uploading...");
-    const isPdf = file.name.toLowerCase().endsWith(".pdf");
+    const hasPdf = files.some((f) => f.name.toLowerCase().endsWith(".pdf"));
     const stages = [
-      { at: 5, label: "Uploading..." },
-      { at: 10, label: isPdf ? "Reading PDF pages..." : "Processing image..." },
+      { at: 5, label: `Uploading ${files.length > 1 ? files.length + " files" : "file"}...` },
+      { at: 10, label: hasPdf ? "Reading PDF pages..." : `Processing ${files.length > 1 ? files.length + " images" : "image"}...` },
       { at: 20, label: "Pass 1: Transcribing schedule..." },
       { at: 40, label: "Pass 1: Reading event details..." },
       { at: 55, label: "Pass 2: Structuring events..." },
@@ -7648,7 +7654,7 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
     ];
     let stageIdx = 0;
     const startTime = Date.now();
-    const estDuration = isPdf ? 6e4 : 3e4;
+    const estDuration = hasPdf ? 6e4 : Math.max(3e4, files.length * 15e3);
     visionProgressRef.current = setInterval(() => {
       const elapsed = Date.now() - startTime;
       const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
@@ -7660,7 +7666,9 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
       }
     }, 200);
     const fd = new FormData();
-    fd.append("file", file);
+    for (const file of files) {
+      fd.append("file", file);
+    }
     if (visionVenue) fd.append("venue", visionVenue);
     try {
       const res = await fetch(`${API_URL}/parse-schedule`, {
@@ -7908,6 +7916,7 @@ Importing will add new events and update existing ones. Continue?`
       id: "vision-schedule-upload",
       className: "file-input",
       accept: ".pdf,.png,.jpg,.jpeg,.webp",
+      multiple: true,
       onChange: handleVisionUpload,
       disabled: visionParsing
     }
@@ -7920,7 +7929,7 @@ Importing will add new events and update existing ones. Continue?`
     },
     /* @__PURE__ */ React.createElement(Icon.upload, null),
     " ",
-    visionParsing ? "Scanning..." : "Upload File"
+    visionParsing ? "Scanning..." : "Upload File(s)"
   ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", width: "100%" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 } }, "or"), /* @__PURE__ */ React.createElement(
     "input",
     {
