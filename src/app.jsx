@@ -5241,7 +5241,7 @@
             // Primary: chronological by date, then time
             const da = parseTournamentTime(a);
             const db = parseTournamentTime(b);
-            if (da.getTime() !== db.getTime()) return da - db;
+            if (da !== db) return da - db;
             // Tiebreak: numeric event number (SAT-xxx sorted after main events, restarts after those)
             const na = a.event_number.startsWith('SAT') ? 10000 + parseInt(a.event_number.slice(4)) : (parseInt(a.event_number) || 9999);
             const nb = b.event_number.startsWith('SAT') ? 10000 + parseInt(b.event_number.slice(4)) : (parseInt(b.event_number) || 9999);

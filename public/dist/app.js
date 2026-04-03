@@ -4656,7 +4656,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     }).sort((a, b) => {
       const da = parseTournamentTime(a);
       const db = parseTournamentTime(b);
-      if (da.getTime() !== db.getTime()) return da - db;
+      if (da !== db) return da - db;
       const na = a.event_number.startsWith("SAT") ? 1e4 + parseInt(a.event_number.slice(4)) : parseInt(a.event_number) || 9999;
       const nb = b.event_number.startsWith("SAT") ? 1e4 + parseInt(b.event_number.slice(4)) : parseInt(b.event_number) || 9999;
       return na - nb;
