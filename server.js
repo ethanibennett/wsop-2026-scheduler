@@ -2083,6 +2083,15 @@ async function initDatabase() {
         if (d > 0) console.log(`Removed ${d} Borgata events before 2026-04-03`);
       }
     },
+    {
+      name: 'nuke-all-borgata-2026-04-03',
+      fn: () => {
+        // All Borgata imports had bad data from AI hallucinating wrong years — wipe clean for re-import
+        db.run("DELETE FROM tournaments WHERE venue LIKE '%Borgata%' OR venue LIKE '%borgata%'");
+        const d = db.getRowsModified();
+        if (d > 0) console.log(`Nuked all ${d} remaining Borgata events for clean re-import`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
