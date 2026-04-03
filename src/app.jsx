@@ -5060,6 +5060,7 @@
 
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport }) {
       const [search, setSearch] = useState('');
+      const deferredSearch = React.useDeferredValue(search);
       const [filters, setFilters] = useState({
         minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: '', maxDistance: '', userLocation: null
       });
@@ -5167,8 +5168,8 @@
         return tournaments
           .filter(t => {
             if (endedVenues.has(t.venue)) return false;
-            if (search) {
-              const q = search.toLowerCase();
+            if (deferredSearch) {
+              const q = deferredSearch.toLowerCase();
               if (!t.event_name?.toLowerCase().includes(q) &&
                   !String(t.event_number).includes(q) &&
                   !t.game_variant?.toLowerCase().includes(q)) return false;
@@ -5247,7 +5248,7 @@
             const nb = b.event_number.startsWith('SAT') ? 10000 + parseInt(b.event_number.slice(4)) : (parseInt(b.event_number) || 9999);
             return na - nb;
           });
-      }, [tournaments, search, filters]);
+      }, [tournaments, deferredSearch, filters, endedVenues]);
 
       function findBestFlight(eventNum, satTournament) {
         const flights = filtered.filter(t => t.event_number === eventNum);
@@ -5379,31 +5380,32 @@
                         )}
                       </div>
                       {group.events.map(t => (
-                        <CalendarEventRow
-                          key={t.id}
-                          tournament={t}
-                          isInSchedule={scheduleIds.has(t.id)}
-                          onToggle={onToggle}
-                          isPast={past}
-                          showMiniLateReg={!past}
-                          focusEventId={focusEventId}
-                          onNavigateToEvent={(num, sat) => {
-                            const targetId = findBestFlight(num, sat);
-                            if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
-                          }}
-                          conditions={conditionMap[t.id] || []}
-                          onSetCondition={onSetCondition}
-                          onRemoveCondition={onRemoveCondition}
-                          allTournaments={tournaments}
-                          isAnchor={anchorSet.has(t.id)}
-                          onToggleAnchor={onToggleAnchor}
-                          plannedEntries={plannedEntriesMap[t.id] || 1}
-                          onSetPlannedEntries={onSetPlannedEntries}
-                          buddyEvents={buddyEvents}
-                          buddyLiveUpdates={buddyLiveUpdates}
-                          onBuddySwap={onBuddySwap}
-                          scheduleIds={scheduleIds}
-                        />
+                        <div key={t.id} style={{contentVisibility:'auto', containIntrinsicSize:'auto 72px'}}>
+                          <CalendarEventRow
+                            tournament={t}
+                            isInSchedule={scheduleIds.has(t.id)}
+                            onToggle={onToggle}
+                            isPast={past}
+                            showMiniLateReg={!past}
+                            focusEventId={focusEventId}
+                            onNavigateToEvent={(num, sat) => {
+                              const targetId = findBestFlight(num, sat);
+                              if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
+                            }}
+                            conditions={conditionMap[t.id] || []}
+                            onSetCondition={onSetCondition}
+                            onRemoveCondition={onRemoveCondition}
+                            allTournaments={tournaments}
+                            isAnchor={anchorSet.has(t.id)}
+                            onToggleAnchor={onToggleAnchor}
+                            plannedEntries={plannedEntriesMap[t.id] || 1}
+                            onSetPlannedEntries={onSetPlannedEntries}
+                            buddyEvents={buddyEvents}
+                            buddyLiveUpdates={buddyLiveUpdates}
+                            onBuddySwap={onBuddySwap}
+                            scheduleIds={scheduleIds}
+                          />
+                        </div>
                       ))}
                     </div>
                   );

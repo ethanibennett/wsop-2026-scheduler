@@ -3,6 +3,8 @@
 ## Recent Changes
 <!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
 <!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-04-02**: URL-based schedule import — new `/api/parse-schedule-url` endpoint fetches PDFs, images, or HTML pages from URLs and runs through AI extraction pipeline. Shared parser helpers extracted (getSchedulePrompts, repairTruncatedJsonArray, extractJsonArray, runTwoPassExtraction, postProcessEvents). Fixed imported events not appearing by normalizing human-readable dates to ISO format. Frontend URL input with Fetch button and progress bar.
+- **2026-04-02**: Schedule parser improvements — two-pass AI extraction (Sonnet vision → Haiku structuring), assistant prefill to prevent code fences, character-level JSON repair, asymptotic progress bar, scan editor checkboxes (satellite/restart/category), per-day event counts in date headers, Import Schedule button in filters bar.
 - **2026-03-08**: User search in Social tab — `GET /api/users/search?q=` endpoint with prefix matching on username/real_name, excludes self and existing connections. Debounced auto-suggest dropdown in SocialView with Connect button.
 - **2026-03-08**: Hand Replayer activated — wired up `HandReplayerView` component (was "Coming Soon" placeholder). Custom game type support, manual winner selection, split-pot seat highlighting.
 - **2026-03-08**: PDF download fix — `buyinRight` was NaN because `doc.lastAutoTable.columns[4].x` doesn't exist in jspdf-autotable 3.8.4. Fixed by summing column widths from left margin. Added try/catch to `handlePDF` with error alert.

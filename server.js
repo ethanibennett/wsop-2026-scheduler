@@ -2231,6 +2231,15 @@ async function initDatabase() {
   // Enable foreign key enforcement
   db.run('PRAGMA foreign_keys = ON');
 
+  // Performance indexes for common tournament queries
+  db.run('CREATE INDEX IF NOT EXISTS idx_tournaments_date ON tournaments(date)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tournaments_buyin ON tournaments(buyin)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tournaments_game_variant ON tournaments(game_variant)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tournaments_venue ON tournaments(venue)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tournaments_venue_date ON tournaments(venue, date)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_user_schedules_user_id ON user_schedules(user_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_user_schedules_tournament_id ON user_schedules(tournament_id)');
+
   console.log('Database initialized');
 }
 
@@ -2694,7 +2703,9 @@ app.post('/api/upload-schedule', authenticateToken, requireRegistered, upload.si
     });
   } catch (error) {
     console.error('Upload error:', error);
-    console.error(error);
+    if (req.file?.path) {
+      try { await fs.unlink(req.file.path); } catch (_) {}
+    }
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });

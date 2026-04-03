@@ -4469,6 +4469,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
 __name(Filters, "Filters");
 function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport }) {
   const [search, setSearch] = useState("");
+  const deferredSearch = React.useDeferredValue(search);
   const [filters, setFilters] = useState({
     minBuyin: "",
     maxBuyin: "",
@@ -4586,8 +4587,8 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     return tournaments.filter((t) => {
       var _a, _b;
       if (endedVenues.has(t.venue)) return false;
-      if (search) {
-        const q = search.toLowerCase();
+      if (deferredSearch) {
+        const q = deferredSearch.toLowerCase();
         if (!((_a = t.event_name) == null ? void 0 : _a.toLowerCase().includes(q)) && !String(t.event_number).includes(q) && !((_b = t.game_variant) == null ? void 0 : _b.toLowerCase().includes(q))) return false;
       }
       if (filters.buyinRanges && filters.buyinRanges.length > 0) {
@@ -4661,7 +4662,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       const nb = b.event_number.startsWith("SAT") ? 1e4 + parseInt(b.event_number.slice(4)) : parseInt(b.event_number) || 9999;
       return na - nb;
     });
-  }, [tournaments, search, filters]);
+  }, [tournaments, deferredSearch, filters, endedVenues]);
   function findBestFlight(eventNum, satTournament) {
     const flights = filtered.filter((t) => t.event_number === eventNum);
     const best = findClosestFlight(flights, parseTournamentTime(satTournament));
@@ -4759,10 +4760,9 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         gap: "4px",
         padding: "4px 12px",
         borderRadius: "999px"
-      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map((t) => /* @__PURE__ */ React.createElement(
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id, style: { contentVisibility: "auto", containIntrinsicSize: "auto 72px" } }, /* @__PURE__ */ React.createElement(
         CalendarEventRow,
         {
-          key: t.id,
           tournament: t,
           isInSchedule: scheduleIds.has(t.id),
           onToggle,
@@ -4789,7 +4789,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
           onBuddySwap,
           scheduleIds
         }
-      )));
+      ))));
     });
   })()));
 }
