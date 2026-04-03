@@ -148,7 +148,7 @@
       'Caesars Palace':              { abbr: 'CAESARS', color: '#b8962e', longName: 'Caesars Palace' },
       'Seminole Hard Rock':          { abbr: 'HARD ROCK', color: '#1a9e9e', longName: 'Seminole Hard Rock' },
       'WSOP Europe':                 { abbr: 'WSOPE', color: '#1a3c6e', longName: 'WSOP Europe' },
-      'Borgata':                     { abbr: 'Borgata', color: '#8b6914', longName: 'Borgata Spring Poker Open' },
+      'Borgata':                     { abbr: 'Borgata', color: '#6b21a8', longName: 'Borgata Spring Poker Open' },
       'Foxwoods':                    { abbr: 'FOXWOODS', color: '#4a2d7a', longName: 'Foxwoods Poker Classic' },
       'Thunder Valley':              { abbr: 'THUNDER VALLEY', color: '#d4a017', longName: 'Thunder Valley Poker Series' },
       'Bellagio':                    { abbr: 'BELLAGIO', color: '#c9a867', longName: 'Bellagio' },
