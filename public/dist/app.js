@@ -3776,11 +3776,14 @@ function scrollBelowSticky(el) {
   container.scrollTo({ top: target, behavior: "smooth" });
 }
 __name(scrollBelowSticky, "scrollBelowSticky");
-function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, scheduleIds }) {
+function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, scheduleIds, isAdmin, onAdminEdit }) {
   const [open, setOpen] = useState(false);
   const [showConditionUI, setShowConditionUI] = useState(false);
   const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
   const [travelNotes, setTravelNotes] = useState(tournament.notes || "");
+  const [editing, setEditing] = useState(false);
+  const [editFields, setEditFields] = useState({});
+  const [saving, setSaving] = useState(false);
   const rowRef = React.useRef(null);
   useEffect(() => {
     if (focusEventId && tournament.id === focusEventId) {
@@ -3882,7 +3885,48 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
       className: "cal-structure-link"
     },
     "View Structure Sheet ↗"
-  ), !readOnly && /* @__PURE__ */ React.createElement("div", { className: "cal-action-row" }, /* @__PURE__ */ React.createElement(
+  ), isAdmin && editing && (() => {
+    const f = __spreadValues(__spreadValues({}, tournament), editFields);
+    const field = /* @__PURE__ */ __name((label, key, type) => {
+      var _a;
+      return /* @__PURE__ */ React.createElement("div", { className: "cal-detail-item", key }, /* @__PURE__ */ React.createElement("span", { className: "cal-detail-label" }, label), type === "select-category" ? /* @__PURE__ */ React.createElement(
+        "select",
+        {
+          value: f[key] || "",
+          onChange: (e) => setEditFields((p) => __spreadProps(__spreadValues({}, p), { [key]: e.target.value })),
+          style: { fontSize: "0.83rem", padding: "4px 8px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }
+        },
+        /* @__PURE__ */ React.createElement("option", { value: "primary" }, "Primary"),
+        /* @__PURE__ */ React.createElement("option", { value: "side" }, "Side")
+      ) : /* @__PURE__ */ React.createElement(
+        "input",
+        {
+          type: type || "text",
+          value: (_a = f[key]) != null ? _a : "",
+          onChange: (e) => setEditFields((p) => __spreadProps(__spreadValues({}, p), { [key]: e.target.value })),
+          style: { width: "100%", fontSize: "0.83rem", padding: "4px 8px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", outline: "none" }
+        }
+      ));
+    }, "field");
+    return /* @__PURE__ */ React.createElement("div", { className: "admin-edit-panel", onClick: (e) => e.stopPropagation(), style: { marginBottom: "10px", padding: "10px", borderRadius: "8px", background: "var(--surface)", border: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "8px" } }, "Admin Edit"), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-grid", style: { gap: "8px" } }, field("Event Name", "event_name"), field("Event #", "event_number"), field("Buy-in", "buyin", "number"), field("Game Variant", "game_variant"), field("Date", "date", "date"), field("Time", "time"), field("Starting Chips", "starting_chips", "number"), field("Level Duration", "level_duration"), field("Re-entry", "reentry"), field("Late Reg", "late_reg"), field("Venue", "venue"), field("Category", "category", "select-category"), field("Notes", "notes")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", marginTop: "10px" } }, /* @__PURE__ */ React.createElement("button", { disabled: saving, onClick: async () => {
+      if (Object.keys(editFields).length === 0) {
+        setEditing(false);
+        return;
+      }
+      setSaving(true);
+      try {
+        await onAdminEdit(tournament.id, editFields);
+        setEditing(false);
+        setEditFields({});
+      } catch (e) {
+        alert("Save failed: " + e.message);
+      }
+      setSaving(false);
+    }, style: { flex: 1, padding: "8px", borderRadius: "6px", border: "none", background: "var(--accent)", color: "#fff", fontWeight: 600, fontSize: "0.83rem", cursor: "pointer", opacity: saving ? 0.6 : 1 } }, saving ? "Saving…" : "Save"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+      setEditing(false);
+      setEditFields({});
+    }, style: { padding: "8px 16px", borderRadius: "6px", border: "1px solid var(--border)", background: "transparent", color: "var(--text)", fontSize: "0.83rem", cursor: "pointer" } }, "Cancel")));
+  })(), !readOnly && /* @__PURE__ */ React.createElement("div", { className: "cal-action-row" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: `cal-action-btn ${isInSchedule ? "remove" : ""}`,
@@ -3898,6 +3942,14 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
     },
     /* @__PURE__ */ React.createElement("span", { className: "cal-action-icon" }, "🔒"),
     /* @__PURE__ */ React.createElement("span", { className: "cal-action-label" }, "Priority")
+  ), isAdmin && onAdminEdit && !editing && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cal-action-btn",
+      onClick: () => setEditing(true)
+    },
+    /* @__PURE__ */ React.createElement("span", { className: "cal-action-icon" }, "✎"),
+    /* @__PURE__ */ React.createElement("span", { className: "cal-action-label" }, "Edit")
   ), isInSchedule && onSetCondition && /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -4497,7 +4549,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
   ));
 }
 __name(Filters, "Filters");
-function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport }) {
+function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport, isAdmin, onAdminEdit }) {
   const [search, setSearch] = useState("");
   const deferredSearch = React.useDeferredValue(search);
   const [filters, setFilters] = useState({
@@ -4803,7 +4855,9 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
           buddyEvents,
           buddyLiveUpdates,
           onBuddySwap,
-          scheduleIds
+          scheduleIds,
+          isAdmin,
+          onAdminEdit
         }
       ))));
     });
@@ -4919,7 +4973,7 @@ function TravelDayPicker({ onSave, onCancel }) {
   )));
 }
 __name(TravelDayPicker, "TravelDayPicker");
-function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap }) {
+function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, isAdmin, onAdminEdit }) {
   const displayName = useDisplayName();
   const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
   const scheduleIds = useMemo(() => new Set(mySchedule.map((t) => t.id)), [mySchedule]);
@@ -5119,7 +5173,9 @@ function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, las
           buddyEvents,
           buddyLiveUpdates,
           onBuddySwap,
-          scheduleIds
+          scheduleIds,
+          isAdmin,
+          onAdminEdit
         }
       ))));
     });
@@ -8044,9 +8100,40 @@ function App() {
   const [currentView, _setCurrentView] = useState("dashboard");
   const [viewKey, setViewKey] = useState(0);
   const [showExportFromMore, setShowExportFromMore] = useState(false);
+  const [visitedTabs, setVisitedTabs] = useState(/* @__PURE__ */ new Set(["dashboard"]));
+  const scrollPositions = useRef({});
   const setCurrentView = useCallback((v) => {
     _setCurrentView((prev) => {
-      if (v !== prev) setViewKey((k) => k + 1);
+      if (v !== prev) {
+        const container = document.querySelector(".content-area");
+        if (container) scrollPositions.current[prev] = container.scrollTop;
+        setVisitedTabs((s) => {
+          const n = new Set(s);
+          n.add(v);
+          return n;
+        });
+        requestAnimationFrame(() => {
+          const c = document.querySelector(".content-area");
+          if (c && scrollPositions.current[v] != null) {
+            c.scrollTop = scrollPositions.current[v];
+          } else if (v === "tournaments" && c) {
+            const todayEl = c.querySelector("[data-today-scroll]");
+            if (todayEl) {
+              const firstCard = todayEl.querySelector(".cal-event-row");
+              if (firstCard) {
+                const target = calcStickyTarget(firstCard);
+                if (target != null) c.scrollTop = target;
+              }
+            }
+          }
+          const panel = c && c.querySelector(".tab-panel.tab-active");
+          if (panel) {
+            panel.style.animation = "none";
+            panel.offsetHeight;
+            panel.style.animation = "";
+          }
+        });
+      }
       return v;
     });
   }, []);
@@ -8727,6 +8814,21 @@ function App() {
     } catch (e) {
     }
   }, "handleAvatarRemove");
+  const adminEditTournament = /* @__PURE__ */ __name(async (tournamentId, fields) => {
+    const res = await fetch(`/api/tournaments/${tournamentId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(fields)
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.error || "Failed to save");
+    }
+    const updated = await res.json();
+    setTournaments((prev) => prev.map((t) => t.id === tournamentId ? __spreadValues(__spreadValues({}, t), updated) : t));
+    setMySchedule((prev) => prev.map((t) => t.id === tournamentId ? __spreadValues(__spreadValues({}, t), updated) : t));
+    toast("Event updated");
+  }, "adminEditTournament");
   const toggleTournament = /* @__PURE__ */ __name(async (tournamentId) => {
     haptic();
     const existing = mySchedule.find((t) => t.id === tournamentId);
@@ -8957,7 +9059,7 @@ function App() {
       fetchShareBuddies,
       fetchMyGroups
     }
-  ), /* @__PURE__ */ React.createElement("main", __spreadValues({ className: "content-area ptr-container", ref: contentAreaRef }, ptrProps), /* @__PURE__ */ React.createElement("div", { className: "ptr-indicator" + (refreshing ? " visible" : ""), ref: ptrIndicator }, /* @__PURE__ */ React.createElement("div", { className: "ptr-spinner" + (refreshing ? " spinning" : "") })), /* @__PURE__ */ React.createElement("div", { className: "view-fade", key: viewKey }, currentView === "dashboard" && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonDashboard, null) : /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("main", __spreadValues({ className: "content-area ptr-container", ref: contentAreaRef }, ptrProps), /* @__PURE__ */ React.createElement("div", { className: "ptr-indicator" + (refreshing ? " visible" : ""), ref: ptrIndicator }, /* @__PURE__ */ React.createElement("div", { className: "ptr-spinner" + (refreshing ? " spinning" : "") })), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "dashboard" ? " tab-active" : ""), "data-tab": "dashboard", style: { display: currentView === "dashboard" ? void 0 : "none", height: currentView === "dashboard" ? "100%" : void 0 } }, visitedTabs.has("dashboard") && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonDashboard, null) : /* @__PURE__ */ React.createElement(
     DashboardView,
     {
       key: debugTimeKey,
@@ -8984,11 +9086,9 @@ function App() {
           return;
         }
         setCurrentView(v);
-        const el = document.querySelector(".content-area");
-        if (el) el.scrollTop = 0;
       }
     }
-  )), currentView === "tournaments" && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonSchedule, null) : /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "tournaments" ? " tab-active" : ""), "data-tab": "tournaments", style: { display: currentView === "tournaments" ? void 0 : "none", height: currentView === "tournaments" ? "100%" : void 0 } }, visitedTabs.has("tournaments") && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonSchedule, null) : /* @__PURE__ */ React.createElement(
     TournamentsView,
     {
       key: debugTimeKey,
@@ -9004,9 +9104,11 @@ function App() {
       buddyEvents,
       buddyLiveUpdates,
       onBuddySwap,
-      onImport: () => setCurrentView("settings")
+      onImport: () => setCurrentView("settings"),
+      isAdmin: ["ham", "ham5"].includes((username || "").toLowerCase()),
+      onAdminEdit: adminEditTournament
     }
-  )), currentView === "schedule" && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonSchedule, null) : /* @__PURE__ */ React.createElement(ScheduleView, { key: debugTimeKey, mySchedule, onToggle: toggleTournament, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest: handleAcceptRequest, onRejectRequest: handleRejectRequest, token, onSetCondition: setCondition, onRemoveCondition: removeCondition, allTournaments: tournaments, onToggleAnchor: toggleAnchor, onSetPlannedEntries: setPlannedEntries, onAddPersonalEvent: addPersonalEvent, onUpdatePersonalEvent: updatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap })), currentView === "calendar" && /* @__PURE__ */ React.createElement(CalendarView, { key: debugTimeKey, allTournaments: tournaments, mySchedule, onToggle: toggleTournament, gameVariants, venues, onSetCondition: setCondition, onRemoveCondition: removeCondition, onToggleAnchor: toggleAnchor, onSetPlannedEntries: setPlannedEntries, buddyEvents, buddyLiveUpdates }), currentView === "tracking" && /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "schedule" ? " tab-active" : ""), "data-tab": "schedule", style: { display: currentView === "schedule" ? void 0 : "none", height: currentView === "schedule" ? "100%" : void 0 } }, visitedTabs.has("schedule") && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonSchedule, null) : /* @__PURE__ */ React.createElement(ScheduleView, { key: debugTimeKey, mySchedule, onToggle: toggleTournament, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest: handleAcceptRequest, onRejectRequest: handleRejectRequest, token, onSetCondition: setCondition, onRemoveCondition: removeCondition, allTournaments: tournaments, onToggleAnchor: toggleAnchor, onSetPlannedEntries: setPlannedEntries, onAddPersonalEvent: addPersonalEvent, onUpdatePersonalEvent: updatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, isAdmin: ["ham", "ham5"].includes((username || "").toLowerCase()), onAdminEdit: adminEditTournament }))), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "calendar" ? " tab-active" : ""), "data-tab": "calendar", style: { display: currentView === "calendar" ? void 0 : "none", height: currentView === "calendar" ? "100%" : void 0 } }, visitedTabs.has("calendar") && /* @__PURE__ */ React.createElement(CalendarView, { key: debugTimeKey, allTournaments: tournaments, mySchedule, onToggle: toggleTournament, gameVariants, venues, onSetCondition: setCondition, onRemoveCondition: removeCondition, onToggleAnchor: toggleAnchor, onSetPlannedEntries: setPlannedEntries, buddyEvents, buddyLiveUpdates })), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "tracking" ? " tab-active" : ""), "data-tab": "tracking", style: { display: currentView === "tracking" ? void 0 : "none", height: currentView === "tracking" ? "100%" : void 0 } }, visitedTabs.has("tracking") && /* @__PURE__ */ React.createElement(
     TrackingView,
     {
       trackingData,
@@ -9017,7 +9119,7 @@ function App() {
       onDelete: deleteTracking,
       myActiveUpdates
     }
-  ), currentView === "hands" && (["ham", "ham5"].includes((username || "").toLowerCase()) ? /* @__PURE__ */ React.createElement(HandReplayerView, { token, heroName: realName || username || "Hero", cardSplay }) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2.5rem", marginBottom: "12px" } }, "🃏"), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "'Univers Condensed', 'Univers', sans-serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--text)", margin: "0 0 8px" } }, "Hand Replayer"), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 } }, "Coming Soon"))), currentView === "settings" && /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "hands" ? " tab-active" : ""), "data-tab": "hands", style: { display: currentView === "hands" ? void 0 : "none", height: currentView === "hands" ? "100%" : void 0 } }, visitedTabs.has("hands") && (["ham", "ham5"].includes((username || "").toLowerCase()) ? /* @__PURE__ */ React.createElement(HandReplayerView, { token, heroName: realName || username || "Hero", cardSplay }) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2.5rem", marginBottom: "12px" } }, "🃏"), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "'Univers Condensed', 'Univers', sans-serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--text)", margin: "0 0 8px" } }, "Hand Replayer"), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 } }, "Coming Soon")))), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "settings" ? " tab-active" : ""), "data-tab": "settings", style: { display: currentView === "settings" ? void 0 : "none", height: currentView === "settings" ? "100%" : void 0 } }, visitedTabs.has("settings") && /* @__PURE__ */ React.createElement(
     SettingsView,
     {
       username,
@@ -9062,11 +9164,9 @@ function App() {
       token,
       onRefreshTournaments: fetchTournaments
     }
-  ), currentView === "admin" && ["ham", "ham5"].includes((username || "").toLowerCase()) && /* @__PURE__ */ React.createElement(AdminView, { token, onNavigate: (v) => {
+  )), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "admin" ? " tab-active" : ""), "data-tab": "admin", style: { display: currentView === "admin" ? void 0 : "none", height: currentView === "admin" ? "100%" : void 0 } }, visitedTabs.has("admin") && ["ham", "ham5"].includes((username || "").toLowerCase()) && /* @__PURE__ */ React.createElement(AdminView, { token, onNavigate: (v) => {
     setCurrentView(v);
-    const el = document.querySelector(".content-area");
-    if (el) el.scrollTop = 0;
-  } }), currentView === "staking" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2.5rem", marginBottom: "12px" } }, "💰"), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "'Univers Condensed', 'Univers', sans-serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--text)", margin: "0 0 8px" } }, "Staking"), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 } }, "Coming Soon")), currentView === "social" && /* @__PURE__ */ React.createElement(
+  } })), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "staking" ? " tab-active" : ""), "data-tab": "staking", style: { display: currentView === "staking" ? void 0 : "none", height: currentView === "staking" ? "100%" : void 0 } }, visitedTabs.has("staking") && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2.5rem", marginBottom: "12px" } }, "💰"), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "'Univers Condensed', 'Univers', sans-serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--text)", margin: "0 0 8px" } }, "Staking"), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 } }, "Coming Soon"))), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "social" ? " tab-active" : ""), "data-tab": "social", style: { display: currentView === "social" ? void 0 : "none", height: currentView === "social" ? "100%" : void 0 } }, visitedTabs.has("social") && /* @__PURE__ */ React.createElement(
     SocialView,
     {
       shareBuddies,
@@ -9085,24 +9185,20 @@ function App() {
       fetchShareBuddies,
       onNavigate: (v) => {
         setCurrentView(v);
-        const el = document.querySelector(".content-area");
-        if (el) el.scrollTop = 0;
       }
     }
-  ), currentView === "more" && /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "more" ? " tab-active" : ""), "data-tab": "more", style: { display: currentView === "more" ? void 0 : "none", height: currentView === "more" ? "100%" : void 0 } }, visitedTabs.has("more") && /* @__PURE__ */ React.createElement(
     MoreView,
     {
       onNavigate: (v) => {
         setCurrentView(v);
-        const el = document.querySelector(".content-area");
-        if (el) el.scrollTop = 0;
       },
       onExport: () => setShowExportFromMore(true),
       hasSchedule: mySchedule && mySchedule.length > 0,
       isAdmin: ["ham", "ham5"].includes((username || "").toLowerCase()),
       handReplayerAccess
     }
-  ), showExportFromMore && /* @__PURE__ */ React.createElement(ScheduleExportModal, { events: mySchedule, onClose: () => setShowExportFromMore(false) }), swapModalData && /* @__PURE__ */ React.createElement(
+  )), showExportFromMore && /* @__PURE__ */ React.createElement(ScheduleExportModal, { events: mySchedule, onClose: () => setShowExportFromMore(false) }), swapModalData && /* @__PURE__ */ React.createElement(
     SwapModal,
     {
       buddy: swapModalData.buddy,
@@ -9110,7 +9206,7 @@ function App() {
       token,
       onClose: () => setSwapModalData(null)
     }
-  ))), /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement(
     BottomNav,
     {
       current: ["tracking", "calendar", "settings", "schedule"].includes(currentView) ? "more" : currentView,
@@ -9137,8 +9233,6 @@ function App() {
           return;
         }
         setCurrentView(v);
-        const el = document.querySelector(".content-area");
-        if (el) el.scrollTop = 0;
       },
       scheduleCount: mySchedule.filter((t) => !t.is_restart).length,
       newShareCount

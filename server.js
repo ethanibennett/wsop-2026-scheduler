@@ -2173,6 +2173,24 @@ async function initDatabase() {
         console.log(`Categories: ${primary} primary, ${side} side, ${restarts} restarts→primary, ${sats} satellites→side`);
       }
     },
+    {
+      name: 'orleans-summer-open-2026-04',
+      fn: () => {
+        // Rename "Orleans Open" → "Orleans Summer Open" in event names
+        db.run("UPDATE tournaments SET event_name = REPLACE(event_name, 'Orleans Open', 'Orleans Summer Open') WHERE event_name LIKE '%Orleans Open%'");
+        const renamed = db.getRowsModified();
+        console.log(`Orleans Open → Orleans Summer Open: ${renamed} events renamed`);
+
+        // All Orleans events except "Bankroll Builder" are primary (not side events)
+        db.run("UPDATE tournaments SET category = 'primary' WHERE venue LIKE '%Orleans%' AND event_name NOT LIKE '%Bankroll%' AND is_satellite = 0 AND is_restart = 0");
+        const primary = db.getRowsModified();
+
+        // Bankroll Builder events stay as side events
+        db.run("UPDATE tournaments SET category = 'side' WHERE venue LIKE '%Orleans%' AND event_name LIKE '%Bankroll%'");
+        const side = db.getRowsModified();
+        console.log(`Orleans categories: ${primary} → primary, ${side} bankroll builders → side`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -6600,6 +6618,45 @@ app.put('/api/admin/users/:id/replayer-access', authenticateToken, requireRegist
     res.json({ success: true });
   } catch (error) {
     console.error('Admin replayer-access error:', error);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// Admin: update tournament fields
+app.put('/api/tournaments/:id', authenticateToken, requireRegistered, async (req, res) => {
+  if (!['ham', 'ham5'].includes((req.user.username || '').toLowerCase())) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const id = parseInt(req.params.id);
+    const allowedFields = [
+      'event_name', 'event_number', 'date', 'time', 'buyin', 'game_variant',
+      'starting_chips', 'level_duration', 'reentry', 'late_reg', 'late_reg_end',
+      'venue', 'notes', 'category', 'is_satellite', 'is_restart', 'rake_pct',
+      'rake_dollars', 'house_fee', 'opt_add_on', 'prize_pool', 'total_entries'
+    ];
+    const updates = [];
+    const values = [];
+    for (const [key, val] of Object.entries(req.body)) {
+      if (allowedFields.includes(key)) {
+        updates.push(`${key} = ?`);
+        values.push(val === '' ? null : val);
+      }
+    }
+    if (updates.length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+    values.push(id);
+    db.run(`UPDATE tournaments SET ${updates.join(', ')} WHERE id = ?`, values);
+    if (db.getRowsModified() === 0) return res.status(404).json({ error: 'Tournament not found' });
+    await saveDatabase();
+    // Return updated tournament
+    const stmt = db.prepare('SELECT * FROM tournaments WHERE id = ?');
+    stmt.bind([id]);
+    let updated = null;
+    if (stmt.step()) updated = stmt.getAsObject();
+    stmt.free();
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin update tournament error:', error);
     res.status(500).json({ error: 'Internal error' });
   }
 });

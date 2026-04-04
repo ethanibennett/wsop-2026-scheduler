@@ -4049,11 +4049,14 @@
 
     // ── Calendar Event Row (collapsible) ──────────────────────
 
-    function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, scheduleIds }) {
+    function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, scheduleIds, isAdmin, onAdminEdit }) {
       const [open, setOpen] = useState(false);
       const [showConditionUI, setShowConditionUI] = useState(false);
       const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
       const [travelNotes, setTravelNotes] = useState(tournament.notes || '');
+      const [editing, setEditing] = useState(false);
+      const [editFields, setEditFields] = useState({});
+      const [saving, setSaving] = useState(false);
       const rowRef = React.useRef(null);
 
       // Auto-expand and scroll when this event is the focus target
@@ -4290,6 +4293,61 @@
                     </a>
                   )}
 
+                  {isAdmin && editing && (() => {
+                    const f = { ...tournament, ...editFields };
+                    const field = (label, key, type) => (
+                      <div className="cal-detail-item" key={key}>
+                        <span className="cal-detail-label">{label}</span>
+                        {type === 'select-category' ? (
+                          <select value={f[key] || ''} onChange={e => setEditFields(p => ({...p, [key]: e.target.value}))}
+                            style={{fontSize:'0.83rem', padding:'4px 8px', borderRadius:'6px', border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)'}}>
+                            <option value="primary">Primary</option>
+                            <option value="side">Side</option>
+                          </select>
+                        ) : (
+                          <input type={type || 'text'} value={f[key] ?? ''} onChange={e => setEditFields(p => ({...p, [key]: e.target.value}))}
+                            style={{width:'100%', fontSize:'0.83rem', padding:'4px 8px', borderRadius:'6px', border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)', outline:'none'}} />
+                        )}
+                      </div>
+                    );
+                    return (
+                      <div className="admin-edit-panel" onClick={e => e.stopPropagation()} style={{marginBottom:'10px', padding:'10px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)'}}>
+                        <div style={{fontSize:'0.75rem', fontWeight:700, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'8px'}}>Admin Edit</div>
+                        <div className="cal-detail-grid" style={{gap:'8px'}}>
+                          {field('Event Name', 'event_name')}
+                          {field('Event #', 'event_number')}
+                          {field('Buy-in', 'buyin', 'number')}
+                          {field('Game Variant', 'game_variant')}
+                          {field('Date', 'date', 'date')}
+                          {field('Time', 'time')}
+                          {field('Starting Chips', 'starting_chips', 'number')}
+                          {field('Level Duration', 'level_duration')}
+                          {field('Re-entry', 'reentry')}
+                          {field('Late Reg', 'late_reg')}
+                          {field('Venue', 'venue')}
+                          {field('Category', 'category', 'select-category')}
+                          {field('Notes', 'notes')}
+                        </div>
+                        <div style={{display:'flex', gap:'8px', marginTop:'10px'}}>
+                          <button disabled={saving} onClick={async () => {
+                            if (Object.keys(editFields).length === 0) { setEditing(false); return; }
+                            setSaving(true);
+                            try {
+                              await onAdminEdit(tournament.id, editFields);
+                              setEditing(false);
+                              setEditFields({});
+                            } catch(e) { alert('Save failed: ' + e.message); }
+                            setSaving(false);
+                          }} style={{flex:1, padding:'8px', borderRadius:'6px', border:'none', background:'var(--accent)', color:'#fff', fontWeight:600, fontSize:'0.83rem', cursor:'pointer', opacity: saving ? 0.6 : 1}}>
+                            {saving ? 'Saving…' : 'Save'}
+                          </button>
+                          <button onClick={() => { setEditing(false); setEditFields({}); }} style={{padding:'8px 16px', borderRadius:'6px', border:'1px solid var(--border)', background:'transparent', color:'var(--text)', fontSize:'0.83rem', cursor:'pointer'}}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {!readOnly && (
                   <div className="cal-action-row">
@@ -4307,6 +4365,15 @@
                       >
                         <span className="cal-action-icon">🔒</span>
                         <span className="cal-action-label">Priority</span>
+                      </button>
+                    )}
+                    {isAdmin && onAdminEdit && !editing && (
+                      <button
+                        className="cal-action-btn"
+                        onClick={() => setEditing(true)}
+                      >
+                        <span className="cal-action-icon">✎</span>
+                        <span className="cal-action-label">Edit</span>
                       </button>
                     )}
                     {isInSchedule && onSetCondition && (
@@ -5093,7 +5160,7 @@
 
     // ── Tournaments View ───────────────────────────────────────
 
-    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport }) {
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport, isAdmin, onAdminEdit }) {
       const [search, setSearch] = useState('');
       const deferredSearch = React.useDeferredValue(search);
       const [filters, setFilters] = useState({
@@ -5423,6 +5490,8 @@
                             buddyLiveUpdates={buddyLiveUpdates}
                             onBuddySwap={onBuddySwap}
                             scheduleIds={scheduleIds}
+                            isAdmin={isAdmin}
+                            onAdminEdit={onAdminEdit}
                           />
                         </div>
                       ))}
@@ -5536,7 +5605,7 @@
 
     // ── My Schedule View ───────────────────────────────────────
 
-    function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap }) {
+    function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest, onRejectRequest, token, onSetCondition, onRemoveCondition, allTournaments, onToggleAnchor, onSetPlannedEntries, onAddPersonalEvent, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, isAdmin, onAdminEdit }) {
       const displayName = useDisplayName();
       const { conflicts, expectedConflicts } = useMemo(() => detectConflicts(mySchedule), [mySchedule]);
       const scheduleIds = useMemo(() => new Set(mySchedule.map(t => t.id)), [mySchedule]);
@@ -5778,6 +5847,8 @@
                           buddyLiveUpdates={buddyLiveUpdates}
                           onBuddySwap={onBuddySwap}
                           scheduleIds={scheduleIds}
+                          isAdmin={isAdmin}
+                          onAdminEdit={onAdminEdit}
                         />
                       </div>
                     ))}
@@ -9681,9 +9752,43 @@
       const [currentView, _setCurrentView] = useState('dashboard');
       const [viewKey, setViewKey] = useState(0);
       const [showExportFromMore, setShowExportFromMore] = useState(false);
+      const [visitedTabs, setVisitedTabs] = useState(new Set(['dashboard']));
+      const scrollPositions = useRef({});
       const setCurrentView = useCallback((v) => {
         _setCurrentView(prev => {
-          if (v !== prev) setViewKey(k => k + 1);
+          if (v !== prev) {
+            // Save scroll position of outgoing tab
+            const container = document.querySelector('.content-area');
+            if (container) scrollPositions.current[prev] = container.scrollTop;
+            // Mark tab as visited so it stays mounted
+            setVisitedTabs(s => { const n = new Set(s); n.add(v); return n; });
+            // Restore scroll position after React renders the new tab
+            requestAnimationFrame(() => {
+              const c = document.querySelector('.content-area');
+              if (c && scrollPositions.current[v] != null) {
+                c.scrollTop = scrollPositions.current[v];
+              } else if (v === 'tournaments' && c) {
+                // First visit to Schedule tab — useLayoutEffect scroll-to-today
+                // may have been clobbered by display:none → visible reflow.
+                // Re-trigger scroll-to-today here.
+                const todayEl = c.querySelector('[data-today-scroll]');
+                if (todayEl) {
+                  const firstCard = todayEl.querySelector('.cal-event-row');
+                  if (firstCard) {
+                    const target = calcStickyTarget(firstCard);
+                    if (target != null) c.scrollTop = target;
+                  }
+                }
+              }
+              // Restart fade animation on the active tab panel
+              const panel = c && c.querySelector('.tab-panel.tab-active');
+              if (panel) {
+                panel.style.animation = 'none';
+                panel.offsetHeight; // force reflow
+                panel.style.animation = '';
+              }
+            });
+          }
           return v;
         });
       }, []);
@@ -10347,6 +10452,21 @@
         } catch {}
       };
 
+      const adminEditTournament = async (tournamentId, fields) => {
+        const res = await fetch(`/api/tournaments/${tournamentId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(fields),
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed to save'); }
+        const updated = await res.json();
+        // Update local tournaments state
+        setTournaments(prev => prev.map(t => t.id === tournamentId ? { ...t, ...updated } : t));
+        // Also update mySchedule if this event is in user's schedule
+        setMySchedule(prev => prev.map(t => t.id === tournamentId ? { ...t, ...updated } : t));
+        toast('Event updated');
+      };
+
       const toggleTournament = async (tournamentId) => {
         haptic();
         const existing = mySchedule.find(t => t.id === tournamentId);
@@ -10574,8 +10694,9 @@
             <div className={'ptr-indicator' + (refreshing ? ' visible' : '')} ref={ptrIndicator}>
               <div className={'ptr-spinner' + (refreshing ? ' spinning' : '')} />
             </div>
-            <div className="view-fade" key={viewKey}>
-            {currentView === 'dashboard' && (!dataLoaded ? <SkeletonDashboard /> :
+            {/* ── Tab panels: visited tabs stay mounted, only active is visible ── */}
+            <div className={'tab-panel' + (currentView === 'dashboard' ? ' tab-active' : '')} data-tab="dashboard" style={{display: currentView === 'dashboard' ? undefined : 'none', height: currentView === 'dashboard' ? '100%' : undefined}}>
+            {visitedTabs.has('dashboard') && (!dataLoaded ? <SkeletonDashboard /> :
               <DashboardView
                 key={debugTimeKey}
                 mySchedule={mySchedule}
@@ -10591,9 +10712,7 @@
                 tournaments={tournaments}
                 onToggle={toggleTournament}
                 onNavigate={(v) => {
-                  // Handle special navigation targets from dashboard quick actions
                   if (v === '_liveUpdate') {
-                    // Open the live update panel by clicking its button
                     const btn = document.querySelector('.live-update-btn');
                     if (btn) btn.click();
                     return;
@@ -10603,12 +10722,13 @@
                     return;
                   }
                   setCurrentView(v);
-                  const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
                 }}
               />
             )}
+            </div>
 
-            {currentView === 'tournaments' && (!dataLoaded ? <SkeletonSchedule /> :
+            <div className={'tab-panel' + (currentView === 'tournaments' ? ' tab-active' : '')} data-tab="tournaments" style={{display: currentView === 'tournaments' ? undefined : 'none', height: currentView === 'tournaments' ? '100%' : undefined}}>
+            {visitedTabs.has('tournaments') && (!dataLoaded ? <SkeletonSchedule /> :
               <TournamentsView
                 key={debugTimeKey}
                 tournaments={tournaments}
@@ -10624,18 +10744,26 @@
                 buddyLiveUpdates={buddyLiveUpdates}
                 onBuddySwap={onBuddySwap}
                 onImport={() => setCurrentView('settings')}
+                isAdmin={['ham', 'ham5'].includes((username || '').toLowerCase())}
+                onAdminEdit={adminEditTournament}
               />
             )}
+            </div>
 
-            {currentView === 'schedule' && (!dataLoaded ? <SkeletonSchedule /> :
-              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} onBuddySwap={onBuddySwap} />
+            <div className={'tab-panel' + (currentView === 'schedule' ? ' tab-active' : '')} data-tab="schedule" style={{display: currentView === 'schedule' ? undefined : 'none', height: currentView === 'schedule' ? '100%' : undefined}}>
+            {visitedTabs.has('schedule') && (!dataLoaded ? <SkeletonSchedule /> :
+              <ScheduleView key={debugTimeKey} mySchedule={mySchedule} onToggle={toggleTournament} shareBuddies={shareBuddies} pendingIncoming={pendingIncoming} lastSeenShares={lastSeenShares} onAcceptRequest={handleAcceptRequest} onRejectRequest={handleRejectRequest} token={token} onSetCondition={setCondition} onRemoveCondition={removeCondition} allTournaments={tournaments} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} onAddPersonalEvent={addPersonalEvent} onUpdatePersonalEvent={updatePersonalEvent} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} onBuddySwap={onBuddySwap} isAdmin={['ham', 'ham5'].includes((username || '').toLowerCase())} onAdminEdit={adminEditTournament} />
             )}
+            </div>
 
-            {currentView === 'calendar' && (
+            <div className={'tab-panel' + (currentView === 'calendar' ? ' tab-active' : '')} data-tab="calendar" style={{display: currentView === 'calendar' ? undefined : 'none', height: currentView === 'calendar' ? '100%' : undefined}}>
+            {visitedTabs.has('calendar') && (
               <CalendarView key={debugTimeKey} allTournaments={tournaments} mySchedule={mySchedule} onToggle={toggleTournament} gameVariants={gameVariants} venues={venues} onSetCondition={setCondition} onRemoveCondition={removeCondition} onToggleAnchor={toggleAnchor} onSetPlannedEntries={setPlannedEntries} buddyEvents={buddyEvents} buddyLiveUpdates={buddyLiveUpdates} />
             )}
+            </div>
 
-            {currentView === 'tracking' && (
+            <div className={'tab-panel' + (currentView === 'tracking' ? ' tab-active' : '')} data-tab="tracking" style={{display: currentView === 'tracking' ? undefined : 'none', height: currentView === 'tracking' ? '100%' : undefined}}>
+            {visitedTabs.has('tracking') && (
               <TrackingView
                 trackingData={trackingData}
                 tournaments={tournaments}
@@ -10646,8 +10774,10 @@
                 myActiveUpdates={myActiveUpdates}
               />
             )}
+            </div>
 
-            {currentView === 'hands' && (
+            <div className={'tab-panel' + (currentView === 'hands' ? ' tab-active' : '')} data-tab="hands" style={{display: currentView === 'hands' ? undefined : 'none', height: currentView === 'hands' ? '100%' : undefined}}>
+            {visitedTabs.has('hands') && (
               ['ham', 'ham5'].includes((username || '').toLowerCase())
                 ? <HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} />
                 : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
@@ -10656,8 +10786,10 @@
                     <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
                   </div>
             )}
+            </div>
 
-            {currentView === 'settings' && (
+            <div className={'tab-panel' + (currentView === 'settings' ? ' tab-active' : '')} data-tab="settings" style={{display: currentView === 'settings' ? undefined : 'none', height: currentView === 'settings' ? '100%' : undefined}}>
+            {visitedTabs.has('settings') && (
               <SettingsView
                 username={username}
                 avatar={avatar}
@@ -10693,19 +10825,26 @@
                 onRefreshTournaments={fetchTournaments}
               />
             )}
+            </div>
 
-            {currentView === 'admin' && ['ham', 'ham5'].includes((username || '').toLowerCase()) && (
-              <AdminView token={token} onNavigate={(v) => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }} />
+            <div className={'tab-panel' + (currentView === 'admin' ? ' tab-active' : '')} data-tab="admin" style={{display: currentView === 'admin' ? undefined : 'none', height: currentView === 'admin' ? '100%' : undefined}}>
+            {visitedTabs.has('admin') && ['ham', 'ham5'].includes((username || '').toLowerCase()) && (
+              <AdminView token={token} onNavigate={(v) => { setCurrentView(v); }} />
             )}
+            </div>
 
-            {currentView === 'staking' && (
+            <div className={'tab-panel' + (currentView === 'staking' ? ' tab-active' : '')} data-tab="staking" style={{display: currentView === 'staking' ? undefined : 'none', height: currentView === 'staking' ? '100%' : undefined}}>
+            {visitedTabs.has('staking') && (
               <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
                 <div style={{fontSize:'2.5rem',marginBottom:'12px'}}>💰</div>
                 <h2 style={{fontFamily:"'Univers Condensed', 'Univers', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Staking</h2>
                 <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
               </div>
             )}
-            {currentView === 'social' && (
+            </div>
+
+            <div className={'tab-panel' + (currentView === 'social' ? ' tab-active' : '')} data-tab="social" style={{display: currentView === 'social' ? undefined : 'none', height: currentView === 'social' ? '100%' : undefined}}>
+            {visitedTabs.has('social') && (
               <SocialView
                 shareBuddies={shareBuddies}
                 buddyLiveUpdates={buddyLiveUpdates}
@@ -10721,21 +10860,21 @@
                 token={token}
                 onRemoveBuddy={handleRemoveBuddy}
                 fetchShareBuddies={fetchShareBuddies}
-                onNavigate={(v) => { setCurrentView(v); const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0; }}
+                onNavigate={(v) => { setCurrentView(v); }}
               />
             )}
+            </div>
 
-            {currentView === 'more' && (
-              <MoreView onNavigate={(v) => {
-                setCurrentView(v);
-                const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
-              }}
+            <div className={'tab-panel' + (currentView === 'more' ? ' tab-active' : '')} data-tab="more" style={{display: currentView === 'more' ? undefined : 'none', height: currentView === 'more' ? '100%' : undefined}}>
+            {visitedTabs.has('more') && (
+              <MoreView onNavigate={(v) => { setCurrentView(v); }}
               onExport={() => setShowExportFromMore(true)}
               hasSchedule={mySchedule && mySchedule.length > 0}
               isAdmin={['ham', 'ham5'].includes((username || '').toLowerCase())}
               handReplayerAccess={handReplayerAccess}
               />
             )}
+            </div>
 
             {showExportFromMore && (
               <ScheduleExportModal events={mySchedule} onClose={() => setShowExportFromMore(false)} />
@@ -10748,7 +10887,6 @@
                 onClose={() => setSwapModalData(null)}
               />
             )}
-            </div>
           </main>
 
           <BottomNav
@@ -10778,7 +10916,6 @@
                 return;
               }
               setCurrentView(v);
-              const el = document.querySelector('.content-area'); if (el) el.scrollTop = 0;
             }}
             scheduleCount={mySchedule.filter(t => !t.is_restart).length}
             newShareCount={newShareCount}
