@@ -4037,14 +4037,13 @@
       return target;
     }
 
-    // Scroll a row to just below all sticky headers (filters + date break)
-    function scrollBelowSticky(el, gap) {
+    // Scroll expanded card just below sticky headers.
+    function scrollBelowSticky(el) {
       const container = el.closest('.content-area');
       if (!container) return;
-      const target = calcStickyTarget(el, gap);
+      const target = calcStickyTarget(el, 0);
       if (target == null) return;
-      // Skip scroll if already within 3px of target (prevents sub-pixel drift)
-      if (Math.abs(container.scrollTop - target) < 3) return;
+      if (Math.abs(container.scrollTop - target) <= 2) return;
       container.scrollTo({ top: target, behavior: 'smooth' });
     }
 
@@ -5300,7 +5299,6 @@
           if (!firstCard) return;
           const container = firstCard.closest('.content-area');
           if (!container) return;
-          // Use the exact same calculation as scrollBelowSticky so there's zero drift
           const target = calcStickyTarget(firstCard);
           if (target != null) container.scrollTop = target;
         }

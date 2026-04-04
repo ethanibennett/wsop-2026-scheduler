@@ -3767,12 +3767,12 @@ function calcStickyTarget(el, gap) {
   return target;
 }
 __name(calcStickyTarget, "calcStickyTarget");
-function scrollBelowSticky(el, gap) {
+function scrollBelowSticky(el) {
   const container = el.closest(".content-area");
   if (!container) return;
-  const target = calcStickyTarget(el, gap);
+  const target = calcStickyTarget(el, 0);
   if (target == null) return;
-  if (Math.abs(container.scrollTop - target) < 3) return;
+  if (Math.abs(container.scrollTop - target) <= 2) return;
   container.scrollTo({ top: target, behavior: "smooth" });
 }
 __name(scrollBelowSticky, "scrollBelowSticky");
