@@ -2018,7 +2018,7 @@
       to { transform: rotate(360deg); }
     }
 
-    .content-area:has(.dashboard-view) {
+    .content-area:has(.tab-panel.tab-active .dashboard-view) {
       overflow: hidden;
       padding-bottom: 12px;
     }

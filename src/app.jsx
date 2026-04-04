@@ -5362,12 +5362,13 @@
       React.useLayoutEffect(() => {
         if (!hasScrolled.current && todayScrollRef.current) {
           hasScrolled.current = true;
-          const firstCard = todayScrollRef.current.querySelector('.cal-event-row');
-          if (!firstCard) return;
-          const container = firstCard.closest('.content-area');
+          const container = todayScrollRef.current.closest('.content-area');
           if (!container) return;
-          const target = calcStickyTarget(firstCard);
-          if (target != null) container.scrollTop = target;
+          // Scroll so the date group top aligns with the sticky filters bottom
+          const filters = container.querySelector('.sticky-filters');
+          const filtersH = filters ? filters.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+          const groupAbsTop = todayScrollRef.current.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+          container.scrollTop = Math.max(0, groupAbsTop - filtersH);
         }
       }, [filtered]);
 
@@ -9768,16 +9769,13 @@
               if (c && scrollPositions.current[v] != null) {
                 c.scrollTop = scrollPositions.current[v];
               } else if (v === 'tournaments' && c) {
-                // First visit to Schedule tab — useLayoutEffect scroll-to-today
-                // may have been clobbered by display:none → visible reflow.
-                // Re-trigger scroll-to-today here.
+                // First visit to Schedule tab — scroll date group to top
                 const todayEl = c.querySelector('[data-today-scroll]');
                 if (todayEl) {
-                  const firstCard = todayEl.querySelector('.cal-event-row');
-                  if (firstCard) {
-                    const target = calcStickyTarget(firstCard);
-                    if (target != null) c.scrollTop = target;
-                  }
+                  const filters = c.querySelector('.sticky-filters');
+                  const filtersH = filters ? filters.getBoundingClientRect().bottom - c.getBoundingClientRect().top : 0;
+                  const groupAbsTop = todayEl.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop;
+                  c.scrollTop = Math.max(0, groupAbsTop - filtersH);
                 }
               }
               // Restart fade animation on the active tab panel
