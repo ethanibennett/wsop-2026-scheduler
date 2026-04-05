@@ -5598,6 +5598,9 @@
                 }
               }}
             >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'14px',height:'14px'}}>
+                <polyline points="18 15 12 9 6 15"/>
+              </svg>
               Today
             </button>
           )}
