@@ -4732,7 +4732,7 @@
       }, [open]);
 
       const hasActive = filters.minBuyin || filters.maxBuyin || (filters.buyinRanges && filters.buyinRanges.length > 0) || (filters.rakeRanges && filters.rakeRanges.length > 0) ||
-        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance || filters.locationRegion;
+        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance || filters.locationRegion || filters.userLocation;
 
       return (
         <>
@@ -5173,7 +5173,7 @@
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
-                    setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,mysteryBountyOnly:false,headsUpOnly:false,tagTeamOnly:false,employeesOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],ladiesOnly:false,seniorsOnly:false,mixedOnly:false,dateFrom:'',dateTo:'',maxDistance:'',userLocation:null})
+                    setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,mysteryBountyOnly:false,headsUpOnly:false,tagTeamOnly:false,employeesOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],ladiesOnly:false,seniorsOnly:false,mixedOnly:false,dateFrom:'',dateTo:'',maxDistance:'',userLocation:null,locationRegion:null})
                   }>Clear all filters</button>
                 </div>
               )}
@@ -5528,7 +5528,7 @@
               </button>
               <button
                 ref={locationBtnRef}
-                className={`filter-chip ${filters.locationRegion ? 'active' : ''}`}
+                className={`filter-chip ${filters.locationRegion || filters.userLocation ? 'active' : ''}`}
                 onClick={() => setLocationDropdownOpen(o => !o)}
                 style={{flexShrink:0,height:'44px'}}
                 title="Filter by location"
@@ -5566,9 +5566,59 @@
                   borderRadius:'var(--radius)', padding:'6px 0', minWidth:'180px',
                   boxShadow:'0 8px 24px rgba(0,0,0,0.3)',
                 }}>
+                  {/* Current Location */}
+                  <button onClick={() => {
+                    if (filters.userLocation) {
+                      // Already active — toggle off
+                      setFiltersWithScroll(f => ({...f, userLocation: null, maxDistance: '', locationRegion: null}));
+                      setLocationDropdownOpen(false);
+                    } else {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setFiltersWithScroll(f => ({...f, userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude }, maxDistance: f.maxDistance || '100', locationRegion: null}));
+                          },
+                          () => { toast.error('Could not get your location'); },
+                          { enableHighAccuracy: false, timeout: 10000 }
+                        );
+                      } else {
+                        toast.error('Geolocation not supported');
+                      }
+                    }
+                  }} style={{
+                    display:'flex', alignItems:'center', gap:'8px', width:'100%',
+                    padding:'10px 14px', background:'none', border:'none',
+                    color: filters.userLocation ? 'var(--accent)' : 'var(--text)',
+                    fontWeight: filters.userLocation ? 700 : 400,
+                    fontSize:'0.85rem', cursor:'pointer', textAlign:'left',
+                  }}>
+                    <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.crosshairs /></span>
+                    Current Location
+                    {filters.userLocation && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>✓</span>}
+                  </button>
+                  {filters.userLocation && (
+                    <div style={{padding:'4px 14px 8px', display:'flex', alignItems:'center', gap:'8px'}}>
+                      <span style={{fontSize:'0.78rem', color:'var(--text-muted)', whiteSpace:'nowrap'}}>Radius</span>
+                      <input
+                        type="number"
+                        value={filters.maxDistance}
+                        onChange={e => setFiltersWithScroll(f => ({...f, maxDistance: e.target.value}))}
+                        style={{
+                          width:'60px', padding:'4px 8px', fontSize:'0.82rem',
+                          background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)',
+                          borderRadius:'var(--radius)',
+                        }}
+                        min="1"
+                        placeholder="100"
+                      />
+                      <span style={{fontSize:'0.78rem', color:'var(--text-muted)'}}>mi</span>
+                    </div>
+                  )}
+                  <div style={{height:1,background:'var(--border)',margin:'4px 0'}} />
+                  {/* Region shortcuts */}
                   {Object.entries(LOCATION_REGIONS).map(([key, { label }]) => (
                     <button key={key} onClick={() => {
-                      setFiltersWithScroll(f => ({...f, locationRegion: f.locationRegion === key ? null : key}));
+                      setFiltersWithScroll(f => ({...f, locationRegion: f.locationRegion === key ? null : key, userLocation: null, maxDistance: ''}));
                       setLocationDropdownOpen(false);
                     }} style={{
                       display:'flex', alignItems:'center', gap:'8px', width:'100%',
@@ -5582,11 +5632,11 @@
                       {filters.locationRegion === key && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>✓</span>}
                     </button>
                   ))}
-                  {filters.locationRegion && (
+                  {(filters.locationRegion || filters.userLocation) && (
                     <>
                       <div style={{height:1,background:'var(--border)',margin:'4px 0'}} />
                       <button onClick={() => {
-                        setFiltersWithScroll(f => ({...f, locationRegion: null}));
+                        setFiltersWithScroll(f => ({...f, locationRegion: null, userLocation: null, maxDistance: ''}));
                         setLocationDropdownOpen(false);
                       }} style={{
                         display:'block', width:'100%', padding:'10px 14px',
