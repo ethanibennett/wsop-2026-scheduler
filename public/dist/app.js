@@ -4588,10 +4588,10 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const stickyFiltersRef = useRef(null);
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
-  const [showBackToToday, setShowBackToToday] = useState(false);
-  const [backToTodayVisible, setBackToTodayVisible] = useState(false);
   const [backToTodayDir, setBackToTodayDir] = useState("up");
-  const fadeOutTimer = useRef(null);
+  const fabRef = useRef(null);
+  const fabState = useRef("hidden");
+  const fabTimer = useRef(null);
   const setFiltersWithScroll = useCallback((updater) => {
     const container = document.querySelector(".content-area");
     if (container) {
@@ -4773,9 +4773,11 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
+        const fab = fabRef.current;
+        if (!fab) return;
         const todayEl = container.querySelector("[data-today-scroll]");
         if (!todayEl) {
-          setShowBackToToday(false);
+          fab.style.display = "none";
           return;
         }
         const rect = todayEl.getBoundingClientRect();
@@ -4783,22 +4785,25 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         const pastToday = rect.bottom < containerRect.top + 120;
         const beforeToday = rect.top > containerRect.bottom - 60;
         const shouldShow = pastToday || beforeToday;
-        if (shouldShow) {
-          setBackToTodayDir(pastToday ? "up" : "down");
-          if (!showBackToToday) {
-            if (fadeOutTimer.current) {
-              clearTimeout(fadeOutTimer.current);
-              fadeOutTimer.current = null;
-            }
-            setShowBackToToday(true);
-            requestAnimationFrame(() => requestAnimationFrame(() => setBackToTodayVisible(true)));
+        setBackToTodayDir(pastToday ? "up" : "down");
+        if (shouldShow && fabState.current !== "visible" && fabState.current !== "entering") {
+          if (fabTimer.current) {
+            clearTimeout(fabTimer.current);
+            fabTimer.current = null;
           }
-        } else if (showBackToToday) {
-          setBackToTodayVisible(false);
-          if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
-          fadeOutTimer.current = setTimeout(() => {
-            setShowBackToToday(false);
-            fadeOutTimer.current = null;
+          fabState.current = "entering";
+          fab.style.display = "flex";
+          fab.offsetHeight;
+          fab.classList.add("visible");
+          fabState.current = "visible";
+        } else if (!shouldShow && (fabState.current === "visible" || fabState.current === "entering")) {
+          fabState.current = "exiting";
+          fab.classList.remove("visible");
+          if (fabTimer.current) clearTimeout(fabTimer.current);
+          fabTimer.current = setTimeout(() => {
+            fab.style.display = "none";
+            fabState.current = "hidden";
+            fabTimer.current = null;
           }, 350);
         }
       });
@@ -4806,9 +4811,9 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     container.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       container.removeEventListener("scroll", onScroll);
-      if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+      if (fabTimer.current) clearTimeout(fabTimer.current);
     };
-  }, [filtered, showBackToToday]);
+  }, [filtered]);
   function findBestFlight(eventNum, satTournament) {
     const flights = filtered.filter((t) => t.event_number === eventNum);
     const best = findClosestFlight(flights, parseTournamentTime(satTournament));
@@ -4953,10 +4958,12 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         }
       ))));
     });
-  })()), showBackToToday && /* @__PURE__ */ React.createElement(
+  })()), /* @__PURE__ */ React.createElement(
     "button",
     {
-      className: `back-to-today-fab ${backToTodayVisible ? "visible" : ""}`,
+      ref: fabRef,
+      className: "back-to-today-fab",
+      style: { display: "none" },
       onClick: () => {
         const container = document.querySelector(".content-area");
         const todayEl = container && container.querySelector("[data-today-scroll]");
