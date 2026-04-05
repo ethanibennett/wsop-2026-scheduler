@@ -5249,8 +5249,8 @@
             const firstGroup = container.querySelector('[data-date-group]');
             if (firstGroup) {
               const groupTop = firstGroup.getBoundingClientRect().top;
-              if (groupTop < stickyBottom) {
-                container.scrollTop -= (stickyBottom - groupTop);
+              if (groupTop < stickyBottom + 2) {
+                container.scrollTop -= (stickyBottom + 2 - groupTop);
                 if (container.scrollTop < 0) container.scrollTop = 0;
               }
             }
@@ -5423,8 +5423,8 @@
           const firstGroup = container.querySelector('[data-date-group]');
           if (firstGroup) {
             const groupTop = firstGroup.getBoundingClientRect().top;
-            if (groupTop < stickyBottom) {
-              container.scrollTop -= (stickyBottom - groupTop);
+            if (groupTop < stickyBottom + 2) {
+              container.scrollTop -= (stickyBottom + 2 - groupTop);
               if (container.scrollTop < 0) container.scrollTop = 0;
             }
           }
