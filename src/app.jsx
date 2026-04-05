@@ -4739,30 +4739,32 @@
           <div className="filter-row" style={{gap:'8px',marginBottom:'0',width:'100%',alignItems:'center'}}>
             {onImport && <button
               onClick={onImport}
-              style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',padding:'3px 8px',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'4px',fontSize:'0.72rem',color:'var(--accent)',fontWeight:600,whiteSpace:'nowrap'}}
+              style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',padding:'3px 8px',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'4px',fontSize:'0.72rem',color:'var(--accent)',fontWeight:600,whiteSpace:'nowrap',width:'96px',flexShrink:0,boxSizing:'border-box'}}
               title="Import a tournament schedule"
             >
               <Icon.upload style={{width:12,height:12}} /> Import Schedule
             </button>}
-            <span style={{marginLeft:'auto',fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>Show:</span>
-            <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-              <input type="checkbox" checked={!filters.hideSatellites}
-                onChange={e => setFilters(f => ({...f, hideSatellites:!e.target.checked}))}
-                style={{margin:0}}
-              /> Satellites
-            </label>
-            <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-              <input type="checkbox" checked={!filters.hideRestarts}
-                onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
-                style={{margin:0}}
-              /> Restarts
-            </label>
-            <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-              <input type="checkbox" checked={!filters.hideSideEvents}
-                onChange={e => setFilters(f => ({...f, hideSideEvents:!e.target.checked}))}
-                style={{margin:0}}
-              /> Side Events
-            </label>
+            <div style={{flex:1,display:'flex',alignItems:'center',gap:'8px',justifyContent:'flex-end'}}>
+              <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>Show:</span>
+              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                <input type="checkbox" checked={!filters.hideSatellites}
+                  onChange={e => setFilters(f => ({...f, hideSatellites:!e.target.checked}))}
+                  style={{margin:0}}
+                /> Satellites
+              </label>
+              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                <input type="checkbox" checked={!filters.hideRestarts}
+                  onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
+                  style={{margin:0}}
+                /> Restarts
+              </label>
+              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                <input type="checkbox" checked={!filters.hideSideEvents}
+                  onChange={e => setFilters(f => ({...f, hideSideEvents:!e.target.checked}))}
+                  style={{margin:0}}
+                /> Side Events
+              </label>
+            </div>
             {filters.selectedGames.length > 0 && (
               <span className="filter-chip active">
                 {filters.selectedGames.length === 1 ? filters.selectedGames[0] : `${filters.selectedGames.length} games`}
