@@ -4744,7 +4744,7 @@
             >
               <Icon.upload style={{width:12,height:12}} /> Import Schedule
             </button>}
-            <div style={{flex:1,display:'flex',alignItems:'center',gap:'8px',justifyContent:'space-between'}}>
+            <div style={{flex:1,display:'flex',alignItems:'center',gap:'8px',justifyContent:'flex-end'}}>
               <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>Show:</span>
               <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
                 <input type="checkbox" checked={!filters.hideSatellites}
