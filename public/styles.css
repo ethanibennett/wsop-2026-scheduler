@@ -3359,6 +3359,28 @@
     .cal-event-chevron.open { transform: rotate(180deg); margin-top: -0.5px; margin-bottom: -6.5px; padding-bottom: 0; top: -10px; }
     .cal-event-chevron svg { width: 14px; height: 14px; }
 
+    .back-to-today-fab {
+      position: fixed;
+      bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 16px);
+      right: 16px;
+      z-index: 50;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-family: var(--serif);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+      animation: fab-in 0.25s ease-out;
+    }
+    @keyframes fab-in {
+      from { opacity: 0; transform: translateY(12px) scale(0.9); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
     .cal-event-detail-wrap {
       display: grid;
       grid-template-rows: 0fr;

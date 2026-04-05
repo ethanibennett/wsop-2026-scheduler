@@ -133,7 +133,8 @@ const Icon = {
   // Playing cards icon for Hand Replayer
   cards: /* @__PURE__ */ __name(() => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "2", y: "4", width: "12", height: "16", rx: "1.5", transform: "rotate(-8 8 12)" }), /* @__PURE__ */ React.createElement("rect", { x: "10", y: "4", width: "12", height: "16", rx: "1.5", transform: "rotate(8 16 12)" })), "cards"),
   bell: /* @__PURE__ */ __name(() => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" }), /* @__PURE__ */ React.createElement("path", { d: "M13.73 21a2 2 0 01-3.46 0" })), "bell"),
-  check: /* @__PURE__ */ __name(() => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "20 6 9 17 4 12" })), "check")
+  check: /* @__PURE__ */ __name(() => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "20 6 9 17 4 12" })), "check"),
+  mapPin: /* @__PURE__ */ __name(() => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "10", r: "3" })), "mapPin")
 };
 const THEME_ORDER = ["dark", "dusk", "light", "cloudy"];
 const isDarkTheme = /* @__PURE__ */ __name((t) => t === "dark" || t === "dusk", "isDarkTheme");
@@ -4552,6 +4553,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
 }
 __name(Filters, "Filters");
 function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport, isAdmin, onAdminEdit }) {
+  const toast = useToast();
   const [search, setSearch] = useState("");
   const deferredSearch = React.useDeferredValue(search);
   const [filters, setFilters] = useState({
@@ -4586,6 +4588,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const stickyFiltersRef = useRef(null);
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
+  const [showBackToToday, setShowBackToToday] = useState(false);
   const setFiltersWithScroll = useCallback((updater) => {
     const container = document.querySelector(".content-area");
     if (container) {
@@ -4758,6 +4761,28 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       return na - nb;
     });
   }, [tournaments, deferredSearch, filters, endedVenues]);
+  useEffect(() => {
+    const container = document.querySelector(".content-area");
+    if (!container) return;
+    let ticking = false;
+    const onScroll = /* @__PURE__ */ __name(() => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const todayEl = container.querySelector("[data-today-scroll]");
+        if (!todayEl) {
+          setShowBackToToday(false);
+          return;
+        }
+        const rect = todayEl.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        setShowBackToToday(rect.bottom < containerRect.top + 120);
+      });
+    }, "onScroll");
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [filtered]);
   function findBestFlight(eventNum, satTournament) {
     const flights = filtered.filter((t) => t.event_number === eventNum);
     const best = findClosestFlight(flights, parseTournamentTime(satTournament));
@@ -4784,6 +4809,34 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       style: { flexShrink: 0, height: "44px" }
     },
     /* @__PURE__ */ React.createElement(Icon.filter, null)
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: `filter-chip ${filters.userLocation ? "active" : ""}`,
+      onClick: () => {
+        if (!filters.userLocation) {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude } }));
+              },
+              (err) => {
+                console.warn("Geolocation error:", err);
+                toast.error("Could not get your location");
+              },
+              { enableHighAccuracy: false, timeout: 1e4 }
+            );
+          } else {
+            toast.error("Geolocation not supported");
+          }
+        } else {
+          setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { userLocation: null, maxDistance: "" }));
+        }
+      },
+      style: { flexShrink: 0, height: "44px" },
+      title: "Sort by distance"
+    },
+    /* @__PURE__ */ React.createElement(Icon.mapPin, null)
   ), /* @__PURE__ */ React.createElement("div", { className: "search-bar", style: { flex: 1, marginBottom: 0 } }, /* @__PURE__ */ React.createElement(Icon.search, null), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -4874,7 +4927,23 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         }
       ))));
     });
-  })()));
+  })()), showBackToToday && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "back-to-today-fab",
+      onClick: () => {
+        const container = document.querySelector(".content-area");
+        const todayEl = container && container.querySelector("[data-today-scroll]");
+        if (todayEl && container) {
+          const stickyEl = container.querySelector(".sticky-filters");
+          const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+          const groupAbsTop = todayEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+          container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: "smooth" });
+        }
+      }
+    },
+    "Today"
+  ));
 }
 __name(TournamentsView, "TournamentsView");
 function TravelDayPicker({ onSave, onCancel }) {

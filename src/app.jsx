@@ -310,6 +310,12 @@
           <polyline points="20 6 9 17 4 12"/>
         </svg>
       ),
+      mapPin: () => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+      ),
     };
 
     // ── Theme constants ──
@@ -5174,6 +5180,7 @@
     // ── Tournaments View ───────────────────────────────────────
 
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport, isAdmin, onAdminEdit }) {
+      const toast = useToast();
       const [search, setSearch] = useState('');
       const deferredSearch = React.useDeferredValue(search);
       const [filters, setFilters] = useState({
@@ -5187,6 +5194,7 @@
       const stickyFiltersRef = useRef(null);
       const [dateBreakTop, setDateBreakTop] = useState(0);
       const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
+      const [showBackToToday, setShowBackToToday] = useState(false);
 
       // Wrap setFilters to preserve scroll position when toggling show checkboxes
       const setFiltersWithScroll = useCallback((updater) => {
@@ -5377,6 +5385,27 @@
           });
       }, [tournaments, deferredSearch, filters, endedVenues]);
 
+      // Show "Back to Today" button when scrolled past today's section
+      useEffect(() => {
+        const container = document.querySelector('.content-area');
+        if (!container) return;
+        let ticking = false;
+        const onScroll = () => {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(() => {
+            ticking = false;
+            const todayEl = container.querySelector('[data-today-scroll]');
+            if (!todayEl) { setShowBackToToday(false); return; }
+            const rect = todayEl.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            setShowBackToToday(rect.bottom < containerRect.top + 120);
+          });
+        };
+        container.addEventListener('scroll', onScroll, { passive: true });
+        return () => container.removeEventListener('scroll', onScroll);
+      }, [filtered]);
+
       function findBestFlight(eventNum, satTournament) {
         const flights = filtered.filter(t => t.event_number === eventNum);
         const best = findClosestFlight(flights, parseTournamentTime(satTournament));
@@ -5408,6 +5437,33 @@
                 style={{flexShrink:0,height:'44px'}}
               >
                 <Icon.filter />
+              </button>
+              <button
+                className={`filter-chip ${filters.userLocation ? 'active' : ''}`}
+                onClick={() => {
+                  if (!filters.userLocation) {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setFiltersWithScroll(f => ({...f, userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude }}));
+                        },
+                        (err) => {
+                          console.warn('Geolocation error:', err);
+                          toast.error('Could not get your location');
+                        },
+                        { enableHighAccuracy: false, timeout: 10000 }
+                      );
+                    } else {
+                      toast.error('Geolocation not supported');
+                    }
+                  } else {
+                    setFiltersWithScroll(f => ({...f, userLocation: null, maxDistance: ''}));
+                  }
+                }}
+                style={{flexShrink:0,height:'44px'}}
+                title="Sort by distance"
+              >
+                <Icon.mapPin />
               </button>
               <div className="search-bar" style={{flex:1,marginBottom:0}}>
                 <Icon.search />
@@ -5526,6 +5582,24 @@
                 });
               })()}
             </div>
+          )}
+
+          {showBackToToday && (
+            <button
+              className="back-to-today-fab"
+              onClick={() => {
+                const container = document.querySelector('.content-area');
+                const todayEl = container && container.querySelector('[data-today-scroll]');
+                if (todayEl && container) {
+                  const stickyEl = container.querySelector('.sticky-filters');
+                  const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+                  const groupAbsTop = todayEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+                  container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
+                }
+              }}
+            >
+              Today
+            </button>
           )}
         </div>
       );
