@@ -2191,6 +2191,17 @@ async function initDatabase() {
         console.log(`Orleans categories: ${primary} → primary, ${side} bankroll builders → side`);
       }
     },
+    {
+      name: 'strip-side-from-notes-2026-04',
+      fn: () => {
+        // Remove ", side" suffix from tournament notes (e.g. "$5,000 Guaranteed, side" → "$5,000 Guaranteed")
+        db.run(`UPDATE tournaments SET notes = TRIM(REPLACE(REPLACE(notes, ', side', ''), ',side', '')) WHERE LOWER(notes) LIKE '%side%'`);
+        // Clear notes that were just "side" alone
+        db.run(`UPDATE tournaments SET notes = NULL WHERE LOWER(TRIM(notes)) = 'side' OR TRIM(notes) = ''`);
+        const modified = db.getRowsModified();
+        console.log(`Stripped 'side' from ${modified} tournament notes`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {

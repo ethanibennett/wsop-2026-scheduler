@@ -3751,20 +3751,19 @@ function calcStickyTarget(el, gap) {
   const offset = gap != null ? gap : 2;
   const container = el.closest(".content-area");
   if (!container) return null;
-  const savedScroll = container.scrollTop;
-  const stickyBottom = measureStickyStack(container);
-  const elAbsTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-  container.scrollTop = elAbsTop - stickyBottom - offset;
-  for (let i = 0; i < 4; i++) {
-    const sb = measureStickyStack(container);
-    const visualTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top;
-    const correction = visualTop - sb - offset;
-    if (Math.abs(correction) < 0.5) break;
-    container.scrollTop += correction;
+  const caTop = container.getBoundingClientRect().top;
+  let filtersH = 0;
+  const sticky = container.querySelector(".sticky-filters") || container.querySelector(".schedule-sticky-header") || container.querySelector(".gto-sticky-header");
+  if (sticky) filtersH = sticky.getBoundingClientRect().height;
+  let dateBreakH = 0;
+  const dateGroup = el.closest("[data-date-group]");
+  if (dateGroup) {
+    const db = dateGroup.querySelector(".schedule-date-break");
+    if (db) dateBreakH = db.getBoundingClientRect().height;
   }
-  const target = container.scrollTop;
-  container.scrollTop = savedScroll;
-  return target;
+  const elAbsTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+  const totalStickyH = filtersH + dateBreakH;
+  return elAbsTop - totalStickyH - offset;
 }
 __name(calcStickyTarget, "calcStickyTarget");
 function scrollBelowSticky(el) {
@@ -3792,8 +3791,11 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
   }, [focusEventId]);
   useEffect(() => {
     if (open && rowRef.current) {
-      const tid = setTimeout(() => scrollBelowSticky(rowRef.current), 420);
-      return () => clearTimeout(tid);
+      const el = rowRef.current;
+      const raf = requestAnimationFrame(() => {
+        scrollBelowSticky(el);
+      });
+      return () => cancelAnimationFrame(raf);
     }
   }, [open]);
   const tzAbbr = getVenueTzAbbr(tournament.venue);
@@ -4754,12 +4756,12 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   React.useLayoutEffect(() => {
     if (!hasScrolled.current && todayScrollRef.current) {
       hasScrolled.current = true;
-      const firstCard = todayScrollRef.current.querySelector(".cal-event-row");
-      if (!firstCard) return;
-      const container = firstCard.closest(".content-area");
+      const container = todayScrollRef.current.closest(".content-area");
       if (!container) return;
-      const target = calcStickyTarget(firstCard);
-      if (target != null) container.scrollTop = target;
+      const filters2 = container.querySelector(".sticky-filters");
+      const filtersH = filters2 ? filters2.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+      const groupAbsTop = todayScrollRef.current.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+      container.scrollTop = Math.max(0, groupAbsTop - filtersH);
     }
   }, [filtered]);
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sticky-filters", ref: stickyFiltersRef }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement(
@@ -8119,11 +8121,10 @@ function App() {
           } else if (v === "tournaments" && c) {
             const todayEl = c.querySelector("[data-today-scroll]");
             if (todayEl) {
-              const firstCard = todayEl.querySelector(".cal-event-row");
-              if (firstCard) {
-                const target = calcStickyTarget(firstCard);
-                if (target != null) c.scrollTop = target;
-              }
+              const filters = c.querySelector(".sticky-filters");
+              const filtersH = filters ? filters.getBoundingClientRect().bottom - c.getBoundingClientRect().top : 0;
+              const groupAbsTop = todayEl.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop;
+              c.scrollTop = Math.max(0, groupAbsTop - filtersH);
             }
           }
           const panel = c && c.querySelector(".tab-panel.tab-active");
@@ -8827,7 +8828,7 @@ function App() {
     const updated = await res.json();
     setTournaments((prev) => prev.map((t) => t.id === tournamentId ? __spreadValues(__spreadValues({}, t), updated) : t));
     setMySchedule((prev) => prev.map((t) => t.id === tournamentId ? __spreadValues(__spreadValues({}, t), updated) : t));
-    toast("Event updated");
+    toast.success("Event updated");
   }, "adminEditTournament");
   const toggleTournament = /* @__PURE__ */ __name(async (tournamentId) => {
     haptic();

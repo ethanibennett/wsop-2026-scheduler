@@ -3999,6 +3999,7 @@
     }
 
     // Measure combined height of sticky elements (filters + stuck date break)
+    // READ-ONLY — never mutates scrollTop
     function measureStickyStack(container) {
       const caTop = container.getBoundingClientRect().top;
       let bottom = 0;
@@ -4014,30 +4015,38 @@
       return bottom;
     }
 
-    // Calculate the exact scrollTop to place el just below all sticky headers
+    // Calculate the exact scrollTop to place el just below all sticky headers.
+    // PURE CALCULATION — never mutates scrollTop, so no visual flicker.
     function calcStickyTarget(el, gap) {
       const offset = gap != null ? gap : 2;
       const container = el.closest('.content-area');
       if (!container) return null;
-      const savedScroll = container.scrollTop;
-      // Phase 1: jump to approximate target
-      const stickyBottom = measureStickyStack(container);
-      const elAbsTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-      container.scrollTop = elAbsTop - stickyBottom - offset;
-      // Phase 2: iteratively correct for sticky state changes
-      for (let i = 0; i < 4; i++) {
-        const sb = measureStickyStack(container);
-        const visualTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top;
-        const correction = visualTop - sb - offset;
-        if (Math.abs(correction) < 0.5) break;
-        container.scrollTop += correction;
+      const caTop = container.getBoundingClientRect().top;
+
+      // Get fixed header height (filters bar)
+      let filtersH = 0;
+      const sticky = container.querySelector('.sticky-filters') || container.querySelector('.schedule-sticky-header') || container.querySelector('.gto-sticky-header');
+      if (sticky) filtersH = sticky.getBoundingClientRect().height;
+
+      // Get the date break height for the group this element belongs to
+      let dateBreakH = 0;
+      const dateGroup = el.closest('[data-date-group]');
+      if (dateGroup) {
+        const db = dateGroup.querySelector('.schedule-date-break');
+        if (db) dateBreakH = db.getBoundingClientRect().height;
       }
-      const target = container.scrollTop;
-      container.scrollTop = savedScroll;
-      return target;
+
+      // Element's absolute position in the scrollable content
+      const elAbsTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+
+      // The sticky stack at the target position = filters + date break (both will be stuck)
+      const totalStickyH = filtersH + dateBreakH;
+
+      return elAbsTop - totalStickyH - offset;
     }
 
     // Scroll expanded card just below sticky headers.
+    // Uses pure calculation — no scrollTop mutation during measurement.
     function scrollBelowSticky(el) {
       const container = el.closest('.content-area');
       if (!container) return;
@@ -4066,11 +4075,15 @@
         }
       }, [focusEventId]);
 
-      // Scroll expanded event to just below sticky header (after 400ms expand animation)
+      // Scroll expanded event to just below sticky header
       useEffect(() => {
         if (open && rowRef.current) {
-          const tid = setTimeout(() => scrollBelowSticky(rowRef.current), 420);
-          return () => clearTimeout(tid);
+          const el = rowRef.current;
+          // Use rAF to wait for DOM expansion, then scroll
+          const raf = requestAnimationFrame(() => {
+            scrollBelowSticky(el);
+          });
+          return () => cancelAnimationFrame(raf);
         }
       }, [open]);
 
