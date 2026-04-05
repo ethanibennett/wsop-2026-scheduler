@@ -4590,8 +4590,6 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const scrollAnchorRef = useRef(null);
   const [backToTodayDir, setBackToTodayDir] = useState("up");
   const fabRef = useRef(null);
-  const fabState = useRef("hidden");
-  const fabTimer = useRef(null);
   const setFiltersWithScroll = useCallback((updater) => {
     const container = document.querySelector(".content-area");
     if (container) {
@@ -4777,42 +4775,23 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         if (!fab) return;
         const todayEl = container.querySelector("[data-today-scroll]");
         if (!todayEl) {
-          fab.style.display = "none";
+          fab.classList.remove("visible");
           return;
         }
         const rect = todayEl.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
         const pastToday = rect.bottom < containerRect.top + 120;
         const beforeToday = rect.top > containerRect.bottom - 60;
-        const shouldShow = pastToday || beforeToday;
         setBackToTodayDir(pastToday ? "up" : "down");
-        if (shouldShow && fabState.current !== "visible" && fabState.current !== "entering") {
-          if (fabTimer.current) {
-            clearTimeout(fabTimer.current);
-            fabTimer.current = null;
-          }
-          fabState.current = "entering";
-          fab.style.display = "flex";
-          fab.offsetHeight;
+        if (pastToday || beforeToday) {
           fab.classList.add("visible");
-          fabState.current = "visible";
-        } else if (!shouldShow && (fabState.current === "visible" || fabState.current === "entering")) {
-          fabState.current = "exiting";
+        } else {
           fab.classList.remove("visible");
-          if (fabTimer.current) clearTimeout(fabTimer.current);
-          fabTimer.current = setTimeout(() => {
-            fab.style.display = "none";
-            fabState.current = "hidden";
-            fabTimer.current = null;
-          }, 350);
         }
       });
     }, "onScroll");
     container.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      container.removeEventListener("scroll", onScroll);
-      if (fabTimer.current) clearTimeout(fabTimer.current);
-    };
+    return () => container.removeEventListener("scroll", onScroll);
   }, [filtered]);
   function findBestFlight(eventNum, satTournament) {
     const flights = filtered.filter((t) => t.event_number === eventNum);
@@ -4963,7 +4942,6 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     {
       ref: fabRef,
       className: "back-to-today-fab",
-      style: { display: "none" },
       onClick: () => {
         const container = document.querySelector(".content-area");
         const todayEl = container && container.querySelector("[data-today-scroll]");

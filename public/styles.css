@@ -3378,12 +3378,17 @@
       align-items: center;
       gap: 5px;
       opacity: 0;
-      transform: translateY(12px);
-      transition: opacity 0.3s ease, transform 0.3s ease;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(10px);
+      transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
     }
     .back-to-today-fab.visible {
       opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
       transform: translateY(0);
+      transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0s;
     }
 
     .cal-event-detail-wrap {

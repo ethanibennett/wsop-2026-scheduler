@@ -5196,8 +5196,6 @@
       const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
       const [backToTodayDir, setBackToTodayDir] = useState('up');
       const fabRef = useRef(null);
-      const fabState = useRef('hidden'); // 'hidden' | 'entering' | 'visible' | 'exiting'
-      const fabTimer = useRef(null);
 
       // Wrap setFilters to preserve scroll position when toggling show checkboxes
       const setFiltersWithScroll = useCallback((updater) => {
@@ -5389,7 +5387,6 @@
       }, [tournaments, deferredSearch, filters, endedVenues]);
 
       // Show "Back to Today" button when scrolled away from today's section
-      // Uses direct DOM manipulation to guarantee smooth CSS transitions
       useEffect(() => {
         const container = document.querySelector('.content-area');
         if (!container) return;
@@ -5402,35 +5399,21 @@
             const fab = fabRef.current;
             if (!fab) return;
             const todayEl = container.querySelector('[data-today-scroll]');
-            if (!todayEl) { fab.style.display = 'none'; return; }
+            if (!todayEl) { fab.classList.remove('visible'); return; }
             const rect = todayEl.getBoundingClientRect();
             const containerRect = container.getBoundingClientRect();
             const pastToday = rect.bottom < containerRect.top + 120;
             const beforeToday = rect.top > containerRect.bottom - 60;
-            const shouldShow = pastToday || beforeToday;
             setBackToTodayDir(pastToday ? 'up' : 'down');
-            if (shouldShow && fabState.current !== 'visible' && fabState.current !== 'entering') {
-              if (fabTimer.current) { clearTimeout(fabTimer.current); fabTimer.current = null; }
-              fabState.current = 'entering';
-              fab.style.display = 'flex';
-              // Force reflow so browser registers the opacity:0 state
-              fab.offsetHeight; // eslint-disable-line no-unused-expressions
+            if (pastToday || beforeToday) {
               fab.classList.add('visible');
-              fabState.current = 'visible';
-            } else if (!shouldShow && (fabState.current === 'visible' || fabState.current === 'entering')) {
-              fabState.current = 'exiting';
+            } else {
               fab.classList.remove('visible');
-              if (fabTimer.current) clearTimeout(fabTimer.current);
-              fabTimer.current = setTimeout(() => {
-                fab.style.display = 'none';
-                fabState.current = 'hidden';
-                fabTimer.current = null;
-              }, 350);
             }
           });
         };
         container.addEventListener('scroll', onScroll, { passive: true });
-        return () => { container.removeEventListener('scroll', onScroll); if (fabTimer.current) clearTimeout(fabTimer.current); };
+        return () => container.removeEventListener('scroll', onScroll);
       }, [filtered]);
 
       function findBestFlight(eventNum, satTournament) {
@@ -5614,7 +5597,6 @@
           <button
               ref={fabRef}
               className="back-to-today-fab"
-              style={{display:'none'}}
               onClick={() => {
                 const container = document.querySelector('.content-area');
                 const todayEl = container && container.querySelector('[data-today-scroll]');
