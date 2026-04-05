@@ -5700,7 +5700,15 @@
                           <>
                             <span style={{
                               background: 'var(--accent)', display: 'inline-flex', alignItems: 'baseline', gap: '4px',
-                              padding: '4px 12px', borderRadius: '999px'
+                              padding: '4px 12px', borderRadius: '999px', cursor: 'pointer'
+                            }} onClick={(e) => {
+                              const group = e.currentTarget.closest('[data-date-group]');
+                              const container = group?.closest('.content-area');
+                              if (group && container) {
+                                const stickyEl = container.querySelector('.sticky-filters');
+                                const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
+                                container.scrollTo({ top: group.offsetTop - stickyH, behavior: 'smooth' });
+                              }
                             }}>
                               <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "var(--serif)", color: 'var(--bg)'}}>{dayNum}</span>
                               <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
