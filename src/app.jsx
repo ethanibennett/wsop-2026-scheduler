@@ -9447,9 +9447,9 @@
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={toggleSerifFont}
-                  style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'13px',padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)', fontFamily: serifFont === 'univers' ? "'Univers', sans-serif" : "'Libre Baskerville', Georgia, serif"}}
+                  style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'13px',padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)', fontFamily: serifFont === 'univers' ? "'Univers', sans-serif" : serifFont === 'helvetica' ? "'Helvetica Neue', Helvetica, sans-serif" : "'Libre Baskerville', Georgia, serif"}}
                 >
-                  {serifFont === 'univers' ? 'Univers' : 'Baskerville'}
+                  {serifFont === 'univers' ? 'Univers' : serifFont === 'helvetica' ? 'Helvetica' : 'Baskerville'}
                 </button>
               </div>
             </div>
@@ -9906,7 +9906,7 @@
       }, [contrast]);
 
       useEffect(() => {
-        document.documentElement.dataset.serif = serifFont === 'univers' ? 'univers' : '';
+        document.documentElement.dataset.serif = serifFont === 'baskerville' ? '' : serifFont;
         localStorage.setItem('serifFont', serifFont);
       }, [serifFont]);
 
@@ -10844,7 +10844,7 @@
                 cardSplay={cardSplay}
                 toggleCardSplay={() => { setCardSplay(s => { var next = !s; localStorage.setItem('cardSplay', next ? 'on' : 'off'); return next; }); }}
                 serifFont={serifFont}
-                toggleSerifFont={() => setSerifFont(f => f === 'univers' ? 'baskerville' : 'univers')}
+                toggleSerifFont={() => setSerifFont(f => { const order = ['baskerville','univers','helvetica']; return order[(order.indexOf(f) + 1) % order.length]; })}
                 onLogout={handleLogout}
                 onDebugTimeChange={(val) => setDebugTimeKey(k => k + 1)}
                 onUpload={handleFileUpload}

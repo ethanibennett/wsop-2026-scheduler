@@ -7974,9 +7974,9 @@ Importing will add new events and update existing ones. Continue?`
     {
       className: "btn btn-ghost btn-sm",
       onClick: toggleSerifFont,
-      style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontFamily: serifFont === "univers" ? "'Univers', sans-serif" : "'Libre Baskerville', Georgia, serif" }
+      style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontFamily: serifFont === "univers" ? "'Univers', sans-serif" : serifFont === "helvetica" ? "'Helvetica Neue', Helvetica, sans-serif" : "'Libre Baskerville', Georgia, serif" }
     },
-    serifFont === "univers" ? "Univers" : "Baskerville"
+    serifFont === "univers" ? "Univers" : serifFont === "helvetica" ? "Helvetica" : "Baskerville"
   )))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Import Schedule"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Import schedule"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 } }, "Upload a PDF/image or paste a web link. AI extracts event data automatically."), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -8215,7 +8215,7 @@ function App() {
     localStorage.setItem("contrast", contrast);
   }, [contrast]);
   useEffect(() => {
-    document.documentElement.dataset.serif = serifFont === "univers" ? "univers" : "";
+    document.documentElement.dataset.serif = serifFont === "baskerville" ? "" : serifFont;
     localStorage.setItem("serifFont", serifFont);
   }, [serifFont]);
   const toggleTheme = /* @__PURE__ */ __name(() => setTheme((t) => {
@@ -9170,7 +9170,10 @@ function App() {
         });
       },
       serifFont,
-      toggleSerifFont: () => setSerifFont((f) => f === "univers" ? "baskerville" : "univers"),
+      toggleSerifFont: () => setSerifFont((f) => {
+        const order = ["baskerville", "univers", "helvetica"];
+        return order[(order.indexOf(f) + 1) % order.length];
+      }),
       onLogout: handleLogout,
       onDebugTimeChange: (val) => setDebugTimeKey((k) => k + 1),
       onUpload: handleFileUpload,
