@@ -4588,7 +4588,6 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const stickyFiltersRef = useRef(null);
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
-  const [backToTodayDir, setBackToTodayDir] = useState("up");
   const fabRef = useRef(null);
   const setFiltersWithScroll = useCallback((updater) => {
     const container = document.querySelector(".content-area");
@@ -4782,7 +4781,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         const containerRect = container.getBoundingClientRect();
         const pastToday = rect.bottom < containerRect.top + 120;
         const beforeToday = rect.top > containerRect.bottom - 60;
-        setBackToTodayDir(pastToday ? "up" : "down");
+        fab.dataset.dir = pastToday ? "up" : "down";
         if (pastToday || beforeToday) {
           fab.classList.add("visible");
         } else {
@@ -4942,6 +4941,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     {
       ref: fabRef,
       className: "back-to-today-fab",
+      "data-dir": "up",
       onClick: () => {
         const container = document.querySelector(".content-area");
         const todayEl = container && container.querySelector("[data-today-scroll]");
@@ -4953,7 +4953,8 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         }
       }
     },
-    /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", style: { width: "14px", height: "14px" } }, /* @__PURE__ */ React.createElement("polyline", { points: backToTodayDir === "up" ? "18 15 12 9 6 15" : "6 9 12 15 18 9" })),
+    /* @__PURE__ */ React.createElement("svg", { className: "fab-arrow-up", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", style: { width: "14px", height: "14px" } }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })),
+    /* @__PURE__ */ React.createElement("svg", { className: "fab-arrow-down", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", style: { width: "14px", height: "14px" } }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })),
     "Today"
   ));
 }

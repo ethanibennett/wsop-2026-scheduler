@@ -3390,6 +3390,9 @@
       transform: translateY(0);
       transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0s;
     }
+    .back-to-today-fab .fab-arrow-down { display: none; }
+    .back-to-today-fab[data-dir="down"] .fab-arrow-up { display: none; }
+    .back-to-today-fab[data-dir="down"] .fab-arrow-down { display: inline; }
 
     .cal-event-detail-wrap {
       display: grid;
