@@ -5592,7 +5592,7 @@
                     fontWeight: filters.userLocation ? 700 : 400,
                     fontSize:'0.85rem', cursor:'pointer', textAlign:'left',
                   }}>
-                    <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.crosshairs /></span>
+                    <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.mapPin /></span>
                     Current Location
                     {filters.userLocation && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>✓</span>}
                   </button>
