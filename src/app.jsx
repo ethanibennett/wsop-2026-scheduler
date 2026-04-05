@@ -5205,6 +5205,25 @@
       const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
       const fabContainerRef = useRef(null);
 
+      // When search changes, scroll to the first chronological result
+      const prevSearchRef = useRef(deferredSearch);
+      useEffect(() => {
+        if (deferredSearch === prevSearchRef.current) return;
+        prevSearchRef.current = deferredSearch;
+        const container = document.querySelector('.content-area');
+        if (!container) return;
+        requestAnimationFrame(() => {
+          const stickyEl = container.querySelector('.sticky-filters');
+          const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
+          const firstGroup = container.querySelector('[data-date-group]');
+          if (firstGroup) {
+            container.scrollTop = firstGroup.offsetTop - stickyH;
+          } else {
+            container.scrollTop = 0;
+          }
+        });
+      }, [deferredSearch]);
+
       // Wrap setFilters to preserve scroll position when toggling show checkboxes
       const setFiltersWithScroll = useCallback((updater) => {
         const container = document.querySelector('.content-area');
