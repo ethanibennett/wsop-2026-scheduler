@@ -502,9 +502,16 @@
           if (d > 0) label = `${d}d ${h}h`;
           else if (h > 0) label = `${h}h ${m}m`;
           else label = `${m}m`;
+          const diffMs = startMs - now;
+          const windowMs = 12 * 60 * 60 * 1000;
+          const pct = Math.min(100, Math.max(0, (diffMs / windowMs) * 100));
+          const brandColor = getVenueBrandColor(venueAbbr);
           return (
             <div className="mini-late-reg">
               <span className="mini-late-reg-time" style={{opacity:0.5}}>starts in {label}</span>
+              <div className="mini-late-reg-track">
+                <div className="mini-late-reg-fill" style={{ width: `${pct}%`, background: brandColor }} />
+              </div>
             </div>
           );
         }
@@ -4155,7 +4162,7 @@
                 </>
               )}
             </div>
-            {showMiniLateReg && !open && <MiniLateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} venue={tournament.venue} openOnly />}
+            {showMiniLateReg && !open && <MiniLateRegBar lateRegEnd={tournament.late_reg_end} date={tournament.date} time={tournament.time} venueAbbr={venue.abbr} venue={tournament.venue} />}
             <div className={`cal-event-chevron ${open ? 'open' : ''}`} onClick={() => setOpen(o => !o)}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="6 9 12 15 18 9"/>
@@ -4725,7 +4732,7 @@
       }, [open]);
 
       const hasActive = filters.minBuyin || filters.maxBuyin || (filters.buyinRanges && filters.buyinRanges.length > 0) || (filters.rakeRanges && filters.rakeRanges.length > 0) ||
-        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance;
+        filters.selectedGames.length > 0 || (filters.hiddenVenues && filters.hiddenVenues.length > 0) || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance || filters.locationRegion;
 
       return (
         <>
@@ -5184,7 +5191,7 @@
       const [search, setSearch] = useState('');
       const deferredSearch = React.useDeferredValue(search);
       const [filters, setFilters] = useState({
-        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: '', maxDistance: '', userLocation: null
+        minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: '', maxDistance: '', userLocation: null, locationRegion: null
       });
       const [filterPanelOpen, setFilterPanelOpen] = useState(false);
       const filterToggleRef = useRef(null);
@@ -5192,6 +5199,8 @@
       const todayScrollRef = useRef(null);
       const hasScrolled = useRef(false);
       const stickyFiltersRef = useRef(null);
+      const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
+      const locationBtnRef = useRef(null);
       const [dateBreakTop, setDateBreakTop] = useState(0);
       const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
       const fabContainerRef = useRef(null);
@@ -5299,6 +5308,14 @@
         return ended;
       }, [tournaments]);
 
+      const LOCATION_REGIONS = {
+        lasvegas: { label: 'Las Vegas', test: (c) => haversineDistance(36.115, -115.17, c.lat, c.lng) <= 30 },
+        texas: { label: 'Texas', test: (c) => c.lat >= 25.8 && c.lat <= 36.5 && c.lng >= -106.6 && c.lng <= -93.5 },
+        florida: { label: 'Florida', test: (c) => c.lat >= 24.5 && c.lat <= 31 && c.lng >= -87.6 && c.lng <= -80 },
+        europe: { label: 'Europe', test: (c) => c.lng >= -25 && c.lng <= 40 && c.lat >= 35 && c.lat <= 72 },
+        northeast: { label: 'Northeast US', test: (c) => c.lat >= 38.5 && c.lat <= 45 && c.lng >= -80 && c.lng <= -70 },
+      };
+
       const filtered = useMemo(() => {
         return tournaments
           .filter(t => {
@@ -5347,6 +5364,11 @@
                 const dist = haversineDistance(filters.userLocation.lat, filters.userLocation.lng, coords.lat, coords.lng);
                 if (dist > Number(filters.maxDistance)) return false;
               }
+            }
+            if (filters.locationRegion) {
+              const coords = VENUE_COORDS[t.venue];
+              const regionDef = typeof LOCATION_REGIONS !== 'undefined' && LOCATION_REGIONS[filters.locationRegion];
+              if (regionDef) { if (!coords || !regionDef.test(coords)) return false; }
             }
             {
               const specialActive = filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || filters.ladiesOnly || filters.seniorsOnly;
@@ -5467,29 +5489,11 @@
                 <Icon.filter />
               </button>
               <button
-                className={`filter-chip ${filters.userLocation ? 'active' : ''}`}
-                onClick={() => {
-                  if (!filters.userLocation) {
-                    if (navigator.geolocation) {
-                      navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                          setFiltersWithScroll(f => ({...f, userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude }}));
-                        },
-                        (err) => {
-                          console.warn('Geolocation error:', err);
-                          toast.error('Could not get your location');
-                        },
-                        { enableHighAccuracy: false, timeout: 10000 }
-                      );
-                    } else {
-                      toast.error('Geolocation not supported');
-                    }
-                  } else {
-                    setFiltersWithScroll(f => ({...f, userLocation: null, maxDistance: ''}));
-                  }
-                }}
+                ref={locationBtnRef}
+                className={`filter-chip ${filters.locationRegion ? 'active' : ''}`}
+                onClick={() => setLocationDropdownOpen(o => !o)}
                 style={{flexShrink:0,height:'44px'}}
-                title="Sort by distance"
+                title="Filter by location"
               >
                 <Icon.mapPin />
               </button>
@@ -5509,6 +5513,56 @@
             </div>
 
             <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} onImport={onImport} />
+
+            {locationDropdownOpen && ReactDOM.createPortal(
+              <div style={{position:'fixed',inset:0,zIndex:998}} onClick={() => setLocationDropdownOpen(false)} />,
+              document.body
+            )}
+            {locationDropdownOpen && (() => {
+              const btn = locationBtnRef.current;
+              const rect = btn ? btn.getBoundingClientRect() : { left: 60, bottom: 100 };
+              return ReactDOM.createPortal(
+                <div className="location-dropdown" style={{
+                  position:'fixed', top: rect.bottom + 4, left: rect.left,
+                  zIndex:999, background:'var(--surface)', border:'1px solid var(--border)',
+                  borderRadius:'var(--radius)', padding:'6px 0', minWidth:'180px',
+                  boxShadow:'0 8px 24px rgba(0,0,0,0.3)',
+                }}>
+                  {Object.entries(LOCATION_REGIONS).map(([key, { label }]) => (
+                    <button key={key} onClick={() => {
+                      setFiltersWithScroll(f => ({...f, locationRegion: f.locationRegion === key ? null : key}));
+                      setLocationDropdownOpen(false);
+                    }} style={{
+                      display:'flex', alignItems:'center', gap:'8px', width:'100%',
+                      padding:'10px 14px', background:'none', border:'none',
+                      color: filters.locationRegion === key ? 'var(--accent)' : 'var(--text)',
+                      fontWeight: filters.locationRegion === key ? 700 : 400,
+                      fontSize:'0.85rem', cursor:'pointer', textAlign:'left',
+                    }}>
+                      <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.mapPin /></span>
+                      {label}
+                      {filters.locationRegion === key && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>✓</span>}
+                    </button>
+                  ))}
+                  {filters.locationRegion && (
+                    <>
+                      <div style={{height:1,background:'var(--border)',margin:'4px 0'}} />
+                      <button onClick={() => {
+                        setFiltersWithScroll(f => ({...f, locationRegion: null}));
+                        setLocationDropdownOpen(false);
+                      }} style={{
+                        display:'block', width:'100%', padding:'10px 14px',
+                        background:'none', border:'none', color:'var(--text-muted)',
+                        fontSize:'0.8rem', cursor:'pointer', textAlign:'left',
+                      }}>
+                        Clear location filter
+                      </button>
+                    </>
+                  )}
+                </div>,
+                document.body
+              );
+            })()}
           </div>
 
           {filtered.length === 0 ? (
@@ -5582,7 +5636,7 @@
                             isInSchedule={scheduleIds.has(t.id)}
                             onToggle={onToggle}
                             isPast={past}
-                            showMiniLateReg={!past}
+                            showMiniLateReg={isToday}
                             focusEventId={focusEventId}
                             onNavigateToEvent={(num, sat) => {
                               const targetId = findBestFlight(num, sat);
@@ -5940,7 +5994,7 @@
                           isInSchedule={true}
                           onToggle={onToggle}
                           isPast={past}
-                          showMiniLateReg={!past}
+                          showMiniLateReg={isGroupToday}
                           focusEventId={focusEventId}
                           onNavigateToEvent={(num, sat) => {
                             const targetId = findBestFlightSchedule(num, sat);
@@ -6118,6 +6172,11 @@
                 if (dist > Number(filters.maxDistance)) return false;
               }
             }
+            if (filters.locationRegion) {
+              const coords = VENUE_COORDS[t.venue];
+              const regionDef = typeof LOCATION_REGIONS !== 'undefined' && LOCATION_REGIONS[filters.locationRegion];
+              if (regionDef) { if (!coords || !regionDef.test(coords)) return false; }
+            }
             {
               const specialActive = filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || filters.ladiesOnly || filters.seniorsOnly;
               if (specialActive) {
@@ -6161,7 +6220,7 @@
           tournament={t}
           isInSchedule={scheduleIds.has(t.id)}
           onToggle={onToggle}
-          showMiniLateReg={selectedDate >= today}
+          showMiniLateReg={selectedDate === today}
           focusEventId={focusEventId}
           onNavigateToEvent={(num, sat) => {
             const flights = allTournaments.filter(f => f.event_number === num);
@@ -9160,7 +9219,7 @@
 
     // ── Settings View ──────────────────────────────────────────
 
-    function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, serifFont, toggleSerifFont, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
+    function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, serifFont, toggleSerifFont, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments, isAdmin }) {
       const toast = useToast();
       const displayName = useDisplayName();
       const [debugInput, setDebugInput] = useState(_debugNow);
@@ -9816,6 +9875,7 @@
             </div>
           </div>
 
+          {isAdmin && (
           <div className="settings-section">
             <div className="settings-section-label">Debug Tools</div>
             <div className="settings-card">
@@ -9840,6 +9900,7 @@
               </div>
             </div>
           </div>
+          )}
 
           <div className="settings-section">
             <div className="settings-about">
@@ -10950,6 +11011,7 @@
                 shareSuccess={shareSuccess}
                 token={token}
                 onRefreshTournaments={fetchTournaments}
+                isAdmin={['ham', 'ham5'].includes((username || '').toLowerCase())}
               />
             )}
             </div>

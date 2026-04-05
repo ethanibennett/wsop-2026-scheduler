@@ -269,7 +269,11 @@ function MiniLateRegBar({ lateRegEnd, date, time, venueAbbr, openOnly, venue }) 
       if (d > 0) label = `${d}d ${h2}h`;
       else if (h2 > 0) label = `${h2}h ${m2}m`;
       else label = `${m2}m`;
-      return /* @__PURE__ */ React.createElement("div", { className: "mini-late-reg" }, /* @__PURE__ */ React.createElement("span", { className: "mini-late-reg-time", style: { opacity: 0.5 } }, "starts in ", label));
+      const diffMs2 = startMs - now;
+      const windowMs2 = 12 * 60 * 60 * 1e3;
+      const pct2 = Math.min(100, Math.max(0, diffMs2 / windowMs2 * 100));
+      const brandColor2 = getVenueBrandColor(venueAbbr);
+      return /* @__PURE__ */ React.createElement("div", { className: "mini-late-reg" }, /* @__PURE__ */ React.createElement("span", { className: "mini-late-reg-time", style: { opacity: 0.5 } }, "starts in ", label), /* @__PURE__ */ React.createElement("div", { className: "mini-late-reg-track" }, /* @__PURE__ */ React.createElement("div", { className: "mini-late-reg-fill", style: { width: `${pct2}%`, background: brandColor2 } })));
     }
   }
   if (!lateRegEnd) return null;
@@ -3828,7 +3832,7 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
       onClick: () => setOpen((o) => !o)
     },
     open && venue.longName ? venue.longName : venue.abbr
-  ), /* @__PURE__ */ React.createElement("div", { className: "cal-event-row-content", style: isInSchedule ? { borderColor: conditions && conditions.length > 0 ? venue.abbr === "WSOP" ? "var(--venue-wsop-cond)" : stripColor : stripColor } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "cal-event-bar", onClick: () => setOpen((o) => !o) }, tournament.venue === "Personal" ? /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2", style: { display: "flex", alignItems: "center", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name", style: { fontSize: "0.88rem" } }, tournament.event_name === "Travel Day" ? "✈️" : "🏖️", " ", tournament.event_name), tournament.notes && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--text-muted)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "— ", tournament.notes)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row1" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-time" }, timeLabel), /* @__PURE__ */ React.createElement("span", { className: "cal-event-buyin" }, currencySymbol(tournament.venue), Number(tournament.buyin).toLocaleString())), /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name" }, formatEventName(tournament.event_name)), isBounty && !isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.crosshairs, null)), isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.satellite, null)), isRestart && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.restart, null)), bracelet && /* @__PURE__ */ React.createElement("span", { className: "cal-bracelet-icon" }, /* @__PURE__ */ React.createElement(Icon.bracelet, null)), isRingEvent && /* @__PURE__ */ React.createElement("span", { className: "cal-ring-icon" }, /* @__PURE__ */ React.createElement(Icon.ring, null))))), showMiniLateReg && !open && /* @__PURE__ */ React.createElement(MiniLateRegBar, { lateRegEnd: tournament.late_reg_end, date: tournament.date, time: tournament.time, venueAbbr: venue.abbr, venue: tournament.venue, openOnly: true }), /* @__PURE__ */ React.createElement("div", { className: `cal-event-chevron ${open ? "open" : ""}`, onClick: () => setOpen((o) => !o) }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" }))), /* @__PURE__ */ React.createElement("div", { className: `cal-event-detail-wrap ${open ? "open" : ""}`, onClick: (e) => {
+  ), /* @__PURE__ */ React.createElement("div", { className: "cal-event-row-content", style: isInSchedule ? { borderColor: conditions && conditions.length > 0 ? venue.abbr === "WSOP" ? "var(--venue-wsop-cond)" : stripColor : stripColor } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "cal-event-bar", onClick: () => setOpen((o) => !o) }, tournament.venue === "Personal" ? /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2", style: { display: "flex", alignItems: "center", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name", style: { fontSize: "0.88rem" } }, tournament.event_name === "Travel Day" ? "✈️" : "🏖️", " ", tournament.event_name), tournament.notes && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--text-muted)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "— ", tournament.notes)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row1" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-time" }, timeLabel), /* @__PURE__ */ React.createElement("span", { className: "cal-event-buyin" }, currencySymbol(tournament.venue), Number(tournament.buyin).toLocaleString())), /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name" }, formatEventName(tournament.event_name)), isBounty && !isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.crosshairs, null)), isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.satellite, null)), isRestart && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.restart, null)), bracelet && /* @__PURE__ */ React.createElement("span", { className: "cal-bracelet-icon" }, /* @__PURE__ */ React.createElement(Icon.bracelet, null)), isRingEvent && /* @__PURE__ */ React.createElement("span", { className: "cal-ring-icon" }, /* @__PURE__ */ React.createElement(Icon.ring, null))))), showMiniLateReg && !open && /* @__PURE__ */ React.createElement(MiniLateRegBar, { lateRegEnd: tournament.late_reg_end, date: tournament.date, time: tournament.time, venueAbbr: venue.abbr, venue: tournament.venue }), /* @__PURE__ */ React.createElement("div", { className: `cal-event-chevron ${open ? "open" : ""}`, onClick: () => setOpen((o) => !o) }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" }))), /* @__PURE__ */ React.createElement("div", { className: `cal-event-detail-wrap ${open ? "open" : ""}`, onClick: (e) => {
     const tag = e.target.tagName;
     if (tag === "A" || tag === "BUTTON" || tag === "INPUT") return;
     if (e.target.closest(".badge-clickable") || e.target.closest(".condition-picker") || e.target.closest(".cal-action-row")) return;
@@ -4167,7 +4171,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
-  const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRanges && filters.buyinRanges.length > 0 || filters.rakeRanges && filters.rakeRanges.length > 0 || filters.selectedGames.length > 0 || filters.hiddenVenues && filters.hiddenVenues.length > 0 || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance;
+  const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRanges && filters.buyinRanges.length > 0 || filters.rakeRanges && filters.rakeRanges.length > 0 || filters.selectedGames.length > 0 || filters.hiddenVenues && filters.hiddenVenues.length > 0 || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance || filters.locationRegion;
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "filter-row", style: { gap: "8px", marginBottom: "0", width: "100%", alignItems: "center" } }, onImport && /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -4578,7 +4582,8 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     dateFrom: "",
     dateTo: "",
     maxDistance: "",
-    userLocation: null
+    userLocation: null,
+    locationRegion: null
   });
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const filterToggleRef = useRef(null);
@@ -4586,6 +4591,8 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const todayScrollRef = useRef(null);
   const hasScrolled = useRef(false);
   const stickyFiltersRef = useRef(null);
+  const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
+  const locationBtnRef = useRef(null);
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
   const fabContainerRef = useRef(null);
@@ -4681,6 +4688,13 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     }
     return ended;
   }, [tournaments]);
+  const LOCATION_REGIONS2 = {
+    lasvegas: { label: "Las Vegas", test: /* @__PURE__ */ __name((c) => haversineDistance(36.115, -115.17, c.lat, c.lng) <= 30, "test") },
+    texas: { label: "Texas", test: /* @__PURE__ */ __name((c) => c.lat >= 25.8 && c.lat <= 36.5 && c.lng >= -106.6 && c.lng <= -93.5, "test") },
+    florida: { label: "Florida", test: /* @__PURE__ */ __name((c) => c.lat >= 24.5 && c.lat <= 31 && c.lng >= -87.6 && c.lng <= -80, "test") },
+    europe: { label: "Europe", test: /* @__PURE__ */ __name((c) => c.lng >= -25 && c.lng <= 40 && c.lat >= 35 && c.lat <= 72, "test") },
+    northeast: { label: "Northeast US", test: /* @__PURE__ */ __name((c) => c.lat >= 38.5 && c.lat <= 45 && c.lng >= -80 && c.lng <= -70, "test") }
+  };
   const filtered = useMemo(() => {
     return tournaments.filter((t) => {
       var _a, _b;
@@ -4726,6 +4740,13 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         if (coords) {
           const dist = haversineDistance(filters.userLocation.lat, filters.userLocation.lng, coords.lat, coords.lng);
           if (dist > Number(filters.maxDistance)) return false;
+        }
+      }
+      if (filters.locationRegion) {
+        const coords = VENUE_COORDS[t.venue];
+        const regionDef = typeof LOCATION_REGIONS2 !== "undefined" && LOCATION_REGIONS2[filters.locationRegion];
+        if (regionDef) {
+          if (!coords || !regionDef.test(coords)) return false;
         }
       }
       {
@@ -4836,29 +4857,11 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   ), /* @__PURE__ */ React.createElement(
     "button",
     {
-      className: `filter-chip ${filters.userLocation ? "active" : ""}`,
-      onClick: () => {
-        if (!filters.userLocation) {
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude } }));
-              },
-              (err) => {
-                console.warn("Geolocation error:", err);
-                toast.error("Could not get your location");
-              },
-              { enableHighAccuracy: false, timeout: 1e4 }
-            );
-          } else {
-            toast.error("Geolocation not supported");
-          }
-        } else {
-          setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { userLocation: null, maxDistance: "" }));
-        }
-      },
+      ref: locationBtnRef,
+      className: `filter-chip ${filters.locationRegion ? "active" : ""}`,
+      onClick: () => setLocationDropdownOpen((o) => !o),
       style: { flexShrink: 0, height: "44px" },
-      title: "Sort by distance"
+      title: "Filter by location"
     },
     /* @__PURE__ */ React.createElement(Icon.mapPin, null)
   ), /* @__PURE__ */ React.createElement("div", { className: "search-bar", style: { flex: 1, marginBottom: 0 } }, /* @__PURE__ */ React.createElement(Icon.search, null), /* @__PURE__ */ React.createElement(
@@ -4876,7 +4879,57 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "1rem", padding: "0 2px" }
     },
     "✕"
-  ))), /* @__PURE__ */ React.createElement(Filters, { filters, setFilters: setFiltersWithScroll, gameVariants, venues, buyinOptions, tournaments, open: filterPanelOpen, setOpen: setFilterPanelOpen, toggleRef: filterToggleRef, eventCount: filtered.filter((t) => !t.is_restart).length, onImport })), filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "empty-state" }, /* @__PURE__ */ React.createElement(Icon.empty, null), /* @__PURE__ */ React.createElement("h3", null, "No events found"), /* @__PURE__ */ React.createElement("p", null, "Try adjusting your search or filters")) : /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", paddingBottom: "60vh" } }, (() => {
+  ))), /* @__PURE__ */ React.createElement(Filters, { filters, setFilters: setFiltersWithScroll, gameVariants, venues, buyinOptions, tournaments, open: filterPanelOpen, setOpen: setFilterPanelOpen, toggleRef: filterToggleRef, eventCount: filtered.filter((t) => !t.is_restart).length, onImport }), locationDropdownOpen && ReactDOM.createPortal(
+    /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 998 }, onClick: () => setLocationDropdownOpen(false) }),
+    document.body
+  ), locationDropdownOpen && (() => {
+    const btn = locationBtnRef.current;
+    const rect = btn ? btn.getBoundingClientRect() : { left: 60, bottom: 100 };
+    return ReactDOM.createPortal(
+      /* @__PURE__ */ React.createElement("div", { className: "location-dropdown", style: {
+        position: "fixed",
+        top: rect.bottom + 4,
+        left: rect.left,
+        zIndex: 999,
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius)",
+        padding: "6px 0",
+        minWidth: "180px",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.3)"
+      } }, Object.entries(LOCATION_REGIONS2).map(([key, { label }]) => /* @__PURE__ */ React.createElement("button", { key, onClick: () => {
+        setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { locationRegion: f.locationRegion === key ? null : key }));
+        setLocationDropdownOpen(false);
+      }, style: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        width: "100%",
+        padding: "10px 14px",
+        background: "none",
+        border: "none",
+        color: filters.locationRegion === key ? "var(--accent)" : "var(--text)",
+        fontWeight: filters.locationRegion === key ? 700 : 400,
+        fontSize: "0.85rem",
+        cursor: "pointer",
+        textAlign: "left"
+      } }, /* @__PURE__ */ React.createElement("span", { style: { width: "16px", height: "16px", flexShrink: 0 } }, /* @__PURE__ */ React.createElement(Icon.mapPin, null)), label, filters.locationRegion === key && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.75rem" } }, "✓"))), filters.locationRegion && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: "var(--border)", margin: "4px 0" } }), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+        setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { locationRegion: null }));
+        setLocationDropdownOpen(false);
+      }, style: {
+        display: "block",
+        width: "100%",
+        padding: "10px 14px",
+        background: "none",
+        border: "none",
+        color: "var(--text-muted)",
+        fontSize: "0.8rem",
+        cursor: "pointer",
+        textAlign: "left"
+      } }, "Clear location filter"))),
+      document.body
+    );
+  })()), filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "empty-state" }, /* @__PURE__ */ React.createElement(Icon.empty, null), /* @__PURE__ */ React.createElement("h3", null, "No events found"), /* @__PURE__ */ React.createElement("p", null, "Try adjusting your search or filters")) : /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", paddingBottom: "60vh" } }, (() => {
     const todayISO = getToday();
     const groups = [];
     let cur = null;
@@ -4925,7 +4978,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
           isInSchedule: scheduleIds.has(t.id),
           onToggle,
           isPast: past,
-          showMiniLateReg: !past,
+          showMiniLateReg: isToday,
           focusEventId,
           onNavigateToEvent: (num, sat) => {
             const targetId = findBestFlight(num, sat);
@@ -5242,7 +5295,7 @@ function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, las
           isInSchedule: true,
           onToggle,
           isPast: past,
-          showMiniLateReg: !past,
+          showMiniLateReg: isGroupToday,
           focusEventId,
           onNavigateToEvent: (num, sat) => {
             const targetId = findBestFlightSchedule(num, sat);
@@ -5411,6 +5464,13 @@ function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venu
           if (dist > Number(filters.maxDistance)) return false;
         }
       }
+      if (filters.locationRegion) {
+        const coords = VENUE_COORDS[t.venue];
+        const regionDef = typeof LOCATION_REGIONS !== "undefined" && LOCATION_REGIONS[filters.locationRegion];
+        if (regionDef) {
+          if (!coords || !regionDef.test(coords)) return false;
+        }
+      }
       {
         const specialActive = filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || filters.ladiesOnly || filters.seniorsOnly;
         if (specialActive) {
@@ -5450,7 +5510,7 @@ function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venu
       tournament: t,
       isInSchedule: scheduleIds.has(t.id),
       onToggle,
-      showMiniLateReg: selectedDate >= today,
+      showMiniLateReg: selectedDate === today,
       focusEventId,
       onNavigateToEvent: (num, sat) => {
         const flights = allTournaments.filter((f) => f.event_number === num);
@@ -7758,7 +7818,7 @@ function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
   )));
 }
 __name(BottomNav, "BottomNav");
-function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, serifFont, toggleSerifFont, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
+function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, serifFont, toggleSerifFont, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments, isAdmin }) {
   const toast = useToast();
   const displayName = useDisplayName();
   const [debugInput, setDebugInput] = useState(_debugNow);
@@ -8162,7 +8222,7 @@ Importing will add new events and update existing ones. Continue?`
       style: { display: "inline-flex", alignItems: "center", gap: "6px" }
     },
     visionImporting ? "Importing..." : `Add ${visionResults.events.length} Events to Database`
-  ))), visionResults && visionResults.events.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "12px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)", color: "var(--text-muted)", fontSize: "0.8rem", textAlign: "center" } }, "No tournament events found in the uploaded file. Try a different file or check that it contains a tournament schedule.", visionResults.pageErrors && visionResults.pageErrors.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px", fontSize: "0.75rem", color: "var(--accent)", textAlign: "left" } }, visionResults.pageErrors.map((pe, i) => /* @__PURE__ */ React.createElement("div", { key: i }, "⚠ ", pe.error))))))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Debug Tools"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Simulated date & time"), /* @__PURE__ */ React.createElement(
+  ))), visionResults && visionResults.events.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "12px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)", color: "var(--text-muted)", fontSize: "0.8rem", textAlign: "center" } }, "No tournament events found in the uploaded file. Try a different file or check that it contains a tournament schedule.", visionResults.pageErrors && visionResults.pageErrors.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px", fontSize: "0.75rem", color: "var(--accent)", textAlign: "left" } }, visionResults.pageErrors.map((pe, i) => /* @__PURE__ */ React.createElement("div", { key: i }, "⚠ ", pe.error))))))), isAdmin && /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Debug Tools"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Simulated date & time"), /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "settings-debug-input",
@@ -9269,7 +9329,8 @@ function App() {
       shareError,
       shareSuccess,
       token,
-      onRefreshTournaments: fetchTournaments
+      onRefreshTournaments: fetchTournaments,
+      isAdmin: ["ham", "ham5"].includes((username || "").toLowerCase())
     }
   )), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "admin" ? " tab-active" : ""), "data-tab": "admin", style: { display: currentView === "admin" ? void 0 : "none", height: currentView === "admin" ? "100%" : void 0 } }, visitedTabs.has("admin") && ["ham", "ham5"].includes((username || "").toLowerCase()) && /* @__PURE__ */ React.createElement(AdminView, { token, onNavigate: (v) => {
     setCurrentView(v);
