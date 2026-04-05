@@ -5433,7 +5433,7 @@
         if (!container) return;
 
         const todayISO = getToday();
-        const hasTodayEvents = !!container.querySelector(`[data-date-group="${todayISO}"]`);
+        const hasTodayEvents = filtered.some(t => normaliseDate(t.date) === todayISO);
 
         // Find the scroll target: today's group, or the next upcoming date group
         const findTarget = () => {
