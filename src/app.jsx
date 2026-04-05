@@ -5572,6 +5572,16 @@
                       // Already active — toggle off
                       setFiltersWithScroll(f => ({...f, userLocation: null, maxDistance: '', locationRegion: null}));
                       setLocationDropdownOpen(false);
+                      requestAnimationFrame(() => requestAnimationFrame(() => {
+                        const container = document.querySelector('.content-area');
+                        if (!container) return;
+                        const todayEl = container.querySelector('[data-today-scroll]');
+                        if (todayEl) {
+                          const stickyEl = container.querySelector('.sticky-filters');
+                          const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
+                          container.scrollTo({ top: todayEl.offsetTop - stickyH, behavior: 'smooth' });
+                        }
+                      }));
                     } else {
                       if (navigator.geolocation) {
                         navigator.geolocation.getCurrentPosition(
@@ -5638,6 +5648,17 @@
                       <button onClick={() => {
                         setFiltersWithScroll(f => ({...f, locationRegion: null, userLocation: null, maxDistance: ''}));
                         setLocationDropdownOpen(false);
+                        // Scroll to today after filters update
+                        requestAnimationFrame(() => requestAnimationFrame(() => {
+                          const container = document.querySelector('.content-area');
+                          if (!container) return;
+                          const todayEl = container.querySelector('[data-today-scroll]');
+                          if (todayEl) {
+                            const stickyEl = container.querySelector('.sticky-filters');
+                            const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
+                            container.scrollTo({ top: todayEl.offsetTop - stickyH, behavior: 'smooth' });
+                          }
+                        }));
                       }} style={{
                         display:'block', width:'100%', padding:'10px 14px',
                         background:'none', border:'none', color:'var(--text-muted)',
