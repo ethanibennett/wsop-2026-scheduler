@@ -5196,7 +5196,8 @@
       const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
       const [showBackToToday, setShowBackToToday] = useState(false);
       const [backToTodayVisible, setBackToTodayVisible] = useState(false);
-      const [backToTodayDir, setBackToTodayDir] = useState('up'); // 'up' = scrolled past today, 'down' = scrolled into past
+      const [backToTodayDir, setBackToTodayDir] = useState('up');
+      const fadeOutTimer = useRef(null);
 
       // Wrap setFilters to preserve scroll position when toggling show checkboxes
       const setFiltersWithScroll = useCallback((updater) => {
@@ -5404,21 +5405,25 @@
             const pastToday = rect.bottom < containerRect.top + 120;
             const beforeToday = rect.top > containerRect.bottom - 60;
             const shouldShow = pastToday || beforeToday;
-            if (shouldShow && !backToTodayVisible) {
+            if (shouldShow) {
               setBackToTodayDir(pastToday ? 'up' : 'down');
-              setShowBackToToday(true);
-              requestAnimationFrame(() => setBackToTodayVisible(true));
-            } else if (shouldShow && backToTodayVisible) {
-              setBackToTodayDir(pastToday ? 'up' : 'down');
-            } else if (!shouldShow && backToTodayVisible) {
+              if (!showBackToToday) {
+                // Cancel any pending fade-out removal
+                if (fadeOutTimer.current) { clearTimeout(fadeOutTimer.current); fadeOutTimer.current = null; }
+                setShowBackToToday(true);
+                // Double-rAF: first ensures DOM mount, second triggers transition
+                requestAnimationFrame(() => requestAnimationFrame(() => setBackToTodayVisible(true)));
+              }
+            } else if (showBackToToday) {
               setBackToTodayVisible(false);
-              setTimeout(() => setShowBackToToday(false), 300);
+              if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+              fadeOutTimer.current = setTimeout(() => { setShowBackToToday(false); fadeOutTimer.current = null; }, 350);
             }
           });
         };
         container.addEventListener('scroll', onScroll, { passive: true });
-        return () => container.removeEventListener('scroll', onScroll);
-      }, [filtered, backToTodayVisible]);
+        return () => { container.removeEventListener('scroll', onScroll); if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current); };
+      }, [filtered, showBackToToday]);
 
       function findBestFlight(eventNum, satTournament) {
         const flights = filtered.filter(t => t.event_number === eventNum);

@@ -4591,6 +4591,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const [showBackToToday, setShowBackToToday] = useState(false);
   const [backToTodayVisible, setBackToTodayVisible] = useState(false);
   const [backToTodayDir, setBackToTodayDir] = useState("up");
+  const fadeOutTimer = useRef(null);
   const setFiltersWithScroll = useCallback((updater) => {
     const container = document.querySelector(".content-area");
     if (container) {
@@ -4782,21 +4783,32 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         const pastToday = rect.bottom < containerRect.top + 120;
         const beforeToday = rect.top > containerRect.bottom - 60;
         const shouldShow = pastToday || beforeToday;
-        if (shouldShow && !backToTodayVisible) {
+        if (shouldShow) {
           setBackToTodayDir(pastToday ? "up" : "down");
-          setShowBackToToday(true);
-          requestAnimationFrame(() => setBackToTodayVisible(true));
-        } else if (shouldShow && backToTodayVisible) {
-          setBackToTodayDir(pastToday ? "up" : "down");
-        } else if (!shouldShow && backToTodayVisible) {
+          if (!showBackToToday) {
+            if (fadeOutTimer.current) {
+              clearTimeout(fadeOutTimer.current);
+              fadeOutTimer.current = null;
+            }
+            setShowBackToToday(true);
+            requestAnimationFrame(() => requestAnimationFrame(() => setBackToTodayVisible(true)));
+          }
+        } else if (showBackToToday) {
           setBackToTodayVisible(false);
-          setTimeout(() => setShowBackToToday(false), 300);
+          if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+          fadeOutTimer.current = setTimeout(() => {
+            setShowBackToToday(false);
+            fadeOutTimer.current = null;
+          }, 350);
         }
       });
     }, "onScroll");
     container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
-  }, [filtered, backToTodayVisible]);
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+    };
+  }, [filtered, showBackToToday]);
   function findBestFlight(eventNum, satTournament) {
     const flights = filtered.filter((t) => t.event_number === eventNum);
     const best = findClosestFlight(flights, parseTournamentTime(satTournament));
