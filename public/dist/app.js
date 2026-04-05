@@ -4588,7 +4588,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const stickyFiltersRef = useRef(null);
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
-  const fabRef = useRef(null);
+  const fabContainerRef = useRef(null);
   const setFiltersWithScroll = useCallback((updater) => {
     const container = document.querySelector(".content-area");
     if (container) {
@@ -4764,14 +4764,26 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   useEffect(() => {
     const container = document.querySelector(".content-area");
     if (!container) return;
+    const fab = document.createElement("button");
+    fab.className = "back-to-today-fab";
+    fab.dataset.dir = "up";
+    fab.innerHTML = '<svg class="fab-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="18 15 12 9 6 15"/></svg><svg class="fab-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="6 9 12 15 18 9"/></svg>Today';
+    fab.addEventListener("click", () => {
+      const todayEl = container.querySelector("[data-today-scroll]");
+      if (todayEl) {
+        const stickyEl = container.querySelector(".sticky-filters");
+        const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+        const groupAbsTop = todayEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+        container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: "smooth" });
+      }
+    });
+    if (fabContainerRef.current) fabContainerRef.current.appendChild(fab);
     let ticking = false;
     const onScroll = /* @__PURE__ */ __name(() => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
-        const fab = fabRef.current;
-        if (!fab) return;
         const todayEl = container.querySelector("[data-today-scroll]");
         if (!todayEl) {
           fab.classList.remove("visible");
@@ -4790,7 +4802,10 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       });
     }, "onScroll");
     container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      fab.remove();
+    };
   }, [filtered]);
   function findBestFlight(eventNum, satTournament) {
     const flights = filtered.filter((t) => t.event_number === eventNum);
@@ -4936,27 +4951,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         }
       ))));
     });
-  })()), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      ref: fabRef,
-      className: "back-to-today-fab",
-      "data-dir": "up",
-      onClick: () => {
-        const container = document.querySelector(".content-area");
-        const todayEl = container && container.querySelector("[data-today-scroll]");
-        if (todayEl && container) {
-          const stickyEl = container.querySelector(".sticky-filters");
-          const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
-          const groupAbsTop = todayEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-          container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: "smooth" });
-        }
-      }
-    },
-    /* @__PURE__ */ React.createElement("svg", { className: "fab-arrow-up", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", style: { width: "14px", height: "14px" } }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })),
-    /* @__PURE__ */ React.createElement("svg", { className: "fab-arrow-down", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", style: { width: "14px", height: "14px" } }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })),
-    "Today"
-  ));
+  })()), /* @__PURE__ */ React.createElement("div", { ref: fabContainerRef }));
 }
 __name(TournamentsView, "TournamentsView");
 function TravelDayPicker({ onSave, onCancel }) {
