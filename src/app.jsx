@@ -5195,6 +5195,7 @@
       const [dateBreakTop, setDateBreakTop] = useState(0);
       const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
       const [showBackToToday, setShowBackToToday] = useState(false);
+      const [backToTodayVisible, setBackToTodayVisible] = useState(false);
 
       // Wrap setFilters to preserve scroll position when toggling show checkboxes
       const setFiltersWithScroll = useCallback((updater) => {
@@ -5399,12 +5400,20 @@
             if (!todayEl) { setShowBackToToday(false); return; }
             const rect = todayEl.getBoundingClientRect();
             const containerRect = container.getBoundingClientRect();
-            setShowBackToToday(rect.bottom < containerRect.top + 120);
+            const shouldShow = rect.bottom < containerRect.top + 120;
+            if (shouldShow && !backToTodayVisible) {
+              setShowBackToToday(true);
+              requestAnimationFrame(() => setBackToTodayVisible(true));
+            } else if (!shouldShow && backToTodayVisible) {
+              setBackToTodayVisible(false);
+              // Keep in DOM for fade-out, then remove
+              setTimeout(() => setShowBackToToday(false), 300);
+            }
           });
         };
         container.addEventListener('scroll', onScroll, { passive: true });
         return () => container.removeEventListener('scroll', onScroll);
-      }, [filtered]);
+      }, [filtered, backToTodayVisible]);
 
       function findBestFlight(eventNum, satTournament) {
         const flights = filtered.filter(t => t.event_number === eventNum);
@@ -5586,7 +5595,7 @@
 
           {showBackToToday && (
             <button
-              className="back-to-today-fab"
+              className={`back-to-today-fab ${backToTodayVisible ? 'visible' : ''}`}
               onClick={() => {
                 const container = document.querySelector('.content-area');
                 const todayEl = container && container.querySelector('[data-today-scroll]');

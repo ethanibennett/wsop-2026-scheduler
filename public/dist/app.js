@@ -4589,6 +4589,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
   const [showBackToToday, setShowBackToToday] = useState(false);
+  const [backToTodayVisible, setBackToTodayVisible] = useState(false);
   const setFiltersWithScroll = useCallback((updater) => {
     const container = document.querySelector(".content-area");
     if (container) {
@@ -4777,12 +4778,19 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         }
         const rect = todayEl.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
-        setShowBackToToday(rect.bottom < containerRect.top + 120);
+        const shouldShow = rect.bottom < containerRect.top + 120;
+        if (shouldShow && !backToTodayVisible) {
+          setShowBackToToday(true);
+          requestAnimationFrame(() => setBackToTodayVisible(true));
+        } else if (!shouldShow && backToTodayVisible) {
+          setBackToTodayVisible(false);
+          setTimeout(() => setShowBackToToday(false), 300);
+        }
       });
     }, "onScroll");
     container.addEventListener("scroll", onScroll, { passive: true });
     return () => container.removeEventListener("scroll", onScroll);
-  }, [filtered]);
+  }, [filtered, backToTodayVisible]);
   function findBestFlight(eventNum, satTournament) {
     const flights = filtered.filter((t) => t.event_number === eventNum);
     const best = findClosestFlight(flights, parseTournamentTime(satTournament));
@@ -4930,7 +4938,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   })()), showBackToToday && /* @__PURE__ */ React.createElement(
     "button",
     {
-      className: "back-to-today-fab",
+      className: `back-to-today-fab ${backToTodayVisible ? "visible" : ""}`,
       onClick: () => {
         const container = document.querySelector(".content-area");
         const todayEl = container && container.querySelector("[data-today-scroll]");
