@@ -4739,7 +4739,7 @@
           <div className="filter-row" style={{gap:'8px',marginBottom:'0',width:'100%',alignItems:'center'}}>
             {onImport && <button
               onClick={onImport}
-              style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',padding:'3px 8px',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'4px',fontSize:'0.72rem',color:'var(--accent)',fontWeight:600,whiteSpace:'nowrap',width:'96px',flexShrink:0,boxSizing:'border-box'}}
+              style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',padding:'3px 8px',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'4px',fontSize:'0.72rem',color:'var(--accent)',fontWeight:600,whiteSpace:'nowrap',width:'90px',flexShrink:0,boxSizing:'border-box'}}
               title="Import a tournament schedule"
             >
               <Icon.upload style={{width:12,height:12}} /> Import Schedule
