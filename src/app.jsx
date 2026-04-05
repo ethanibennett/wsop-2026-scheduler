@@ -4672,7 +4672,7 @@
 
     // ── Filters ────────────────────────────────────────────────
 
-    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount, onImport }) {
+    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount }) {
       const panelRef = useRef(null);
       const [whereOpen, setWhereOpen] = useState(false);
       const [howMuchOpen, setHowMuchOpen] = useState(false);
@@ -4737,13 +4737,6 @@
       return (
         <>
           <div className="filter-row" style={{gap:'8px',marginBottom:'0',width:'100%',alignItems:'center'}}>
-            {onImport && <button
-              onClick={onImport}
-              style={{background:'none',border:'1px solid var(--border)',borderRadius:'6px',padding:'3px 8px',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'4px',fontSize:'0.72rem',color:'var(--accent)',fontWeight:600,whiteSpace:'nowrap',width:'90px',flexShrink:0,boxSizing:'border-box'}}
-              title="Import a tournament schedule"
-            >
-              <Icon.upload style={{width:12,height:12}} /> Import Schedule
-            </button>}
             <div style={{flex:1,display:'flex',alignItems:'center',gap:'8px',justifyContent:'flex-end'}}>
 <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
                 <input type="checkbox" checked={!filters.hideSatellites}
@@ -5185,9 +5178,468 @@
       );
     }
 
+    // ── Import Schedule Panel (dropdown from upload button) ───
+    function ImportSchedulePanel({ isOpen, onClose, anchorRef, token, onRefreshTournaments }) {
+      const toast = useToast();
+      const [visionFile, setVisionFile] = useState(null);
+      const [visionVenue, setVisionVenue] = useState('');
+      const [visionUrl, setVisionUrl] = useState('');
+      const [visionParsing, setVisionParsing] = useState(false);
+      const [visionResults, setVisionResults] = useState(null);
+      const [visionError, setVisionError] = useState('');
+      const [visionImporting, setVisionImporting] = useState(false);
+      const [visionEditIdx, setVisionEditIdx] = useState(-1);
+      const [visionProgress, setVisionProgress] = useState(0);
+      const [visionStage, setVisionStage] = useState('');
+      const visionProgressRef = useRef(null);
+
+      const handleVisionUpload = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+        setVisionFile(files.length === 1 ? files[0] : { name: `${files.length} files` });
+        setVisionError('');
+        setVisionResults(null);
+        setVisionParsing(true);
+        setVisionProgress(0);
+        setVisionStage('Uploading...');
+
+        const hasPdf = files.some(f => f.name.toLowerCase().endsWith('.pdf'));
+        const stages = [
+          { at: 5,  label: `Uploading ${files.length > 1 ? files.length + ' files' : 'file'}...` },
+          { at: 10, label: hasPdf ? 'Reading PDF pages...' : `Processing ${files.length > 1 ? files.length + ' images' : 'image'}...` },
+          { at: 20, label: 'Pass 1: Transcribing schedule...' },
+          { at: 40, label: 'Pass 1: Reading event details...' },
+          { at: 55, label: 'Pass 2: Structuring events...' },
+          { at: 70, label: 'Pass 2: Mapping variants...' },
+          { at: 82, label: 'Validating data...' },
+          { at: 92, label: 'Finalizing...' },
+        ];
+        let stageIdx = 0;
+        const startTime = Date.now();
+        const estDuration = hasPdf ? 60000 : Math.max(30000, files.length * 15000);
+
+        visionProgressRef.current = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
+          const pct = Math.min(95, Math.round(raw));
+          setVisionProgress(pct);
+          while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
+            setVisionStage(stages[stageIdx].label);
+            stageIdx++;
+          }
+        }, 200);
+
+        const fd = new FormData();
+        for (const file of files) {
+          fd.append('file', file);
+        }
+        if (visionVenue) fd.append('venue', visionVenue);
+
+        try {
+          const res = await fetch(`${API_URL}/parse-schedule`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token },
+            body: fd
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Parse failed');
+          clearInterval(visionProgressRef.current);
+          setVisionProgress(100);
+          setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : 'No events found');
+          await new Promise(r => setTimeout(r, 400));
+          setVisionResults(data);
+          if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
+        } catch (err) {
+          clearInterval(visionProgressRef.current);
+          setVisionProgress(0);
+          setVisionStage('');
+          setVisionError(err.message || 'Failed to parse schedule');
+        } finally {
+          clearInterval(visionProgressRef.current);
+          setVisionParsing(false);
+          e.target.value = '';
+        }
+      };
+
+      const handleVisionUrl = async () => {
+        if (!visionUrl.trim()) return;
+        setVisionError('');
+        setVisionResults(null);
+        setVisionParsing(true);
+        setVisionProgress(0);
+        setVisionStage('Fetching URL...');
+
+        const isUrlPdf = visionUrl.toLowerCase().endsWith('.pdf');
+        const stages = [
+          { at: 5,  label: 'Fetching URL...' },
+          { at: 12, label: isUrlPdf ? 'Reading PDF...' : 'Extracting page content...' },
+          { at: 20, label: 'Analyzing schedule...' },
+          { at: 35, label: 'Reading event details...' },
+          { at: 50, label: 'Structuring events...' },
+          { at: 65, label: 'Processing events...' },
+          { at: 78, label: 'Mapping variants...' },
+          { at: 88, label: 'Validating data...' },
+          { at: 94, label: 'Finalizing...' },
+        ];
+        let stageIdx = 0;
+        const startTime = Date.now();
+        const estDuration = isUrlPdf ? 90000 : 45000;
+
+        visionProgressRef.current = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const raw = 95 * (1 - Math.exp(-2.0 * elapsed / estDuration));
+          const pct = Math.min(95, Math.round(raw));
+          setVisionProgress(pct);
+          while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
+            setVisionStage(stages[stageIdx].label);
+            stageIdx++;
+          }
+        }, 200);
+
+        try {
+          const res = await fetch(`${API_URL}/parse-schedule-url`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: visionUrl.trim(), venue: visionVenue })
+          });
+          const rawText = await res.text();
+          let data;
+          try { data = JSON.parse(rawText); } catch { throw new Error('Server error — please try again'); }
+          if (!res.ok) throw new Error(data.error || 'Parse failed');
+          clearInterval(visionProgressRef.current);
+          setVisionProgress(100);
+          setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : 'No events found');
+          await new Promise(r => setTimeout(r, 400));
+          setVisionResults(data);
+          if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
+        } catch (err) {
+          clearInterval(visionProgressRef.current);
+          setVisionProgress(0);
+          setVisionStage('');
+          setVisionError(err.message || 'Failed to parse URL');
+        } finally {
+          clearInterval(visionProgressRef.current);
+          setVisionParsing(false);
+        }
+      };
+
+      const removeVisionEvent = (idx) => {
+        if (!visionResults) return;
+        const newEvents = visionResults.events.filter((_, i) => i !== idx);
+        setVisionResults({ ...visionResults, events: newEvents, eventCount: newEvents.length });
+      };
+
+      const updateVisionEvent = (idx, field, value) => {
+        if (!visionResults) return;
+        const newEvents = [...visionResults.events];
+        newEvents[idx] = { ...newEvents[idx], [field]: value };
+        setVisionResults({ ...visionResults, events: newEvents });
+      };
+
+      const handleVisionImport = async () => {
+        if (!visionResults || !visionResults.events.length) return;
+        setVisionImporting(true);
+        setVisionError('');
+
+        try {
+          const checkRes = await fetch(`${API_URL}/check-schedule-duplicates`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ events: visionResults.events })
+          });
+          const dupCheck = await checkRes.json();
+
+          if (dupCheck.existing > 0 && dupCheck.new === 0) {
+            const proceed = window.confirm(
+              `All ${dupCheck.existing} events already exist in the schedule (${dupCheck.existingVenues?.join(', ') || 'unknown venue'}). Importing will update them with the new data.\n\nContinue?`
+            );
+            if (!proceed) { setVisionImporting(false); return; }
+          } else if (dupCheck.existing > 0) {
+            const proceed = window.confirm(
+              `${dupCheck.existing} of ${dupCheck.total} events already exist in the schedule. ${dupCheck.new} are new.\n\nImporting will add new events and update existing ones. Continue?`
+            );
+            if (!proceed) { setVisionImporting(false); return; }
+          }
+
+          const res = await fetch(`${API_URL}/import-parsed-schedule`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              events: visionResults.events,
+              sourceFile: visionResults.sourceFile || 'Vision Upload'
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Import failed');
+          const parts = [];
+          if (data.inserted) parts.push(`${data.inserted} new`);
+          if (data.updated) parts.push(`${data.updated} updated`);
+          if (data.skipped) parts.push(`${data.skipped} skipped`);
+          toast.success(`Import complete: ${parts.join(', ')}`);
+          setVisionResults(null);
+          setVisionFile(null);
+          setVisionVenue('');
+          if (onRefreshTournaments) onRefreshTournaments();
+          onClose();
+        } catch (err) {
+          setVisionError(err.message || 'Failed to import events');
+        } finally {
+          setVisionImporting(false);
+        }
+      };
+
+      if (!isOpen) return null;
+
+      const btn = anchorRef.current;
+      const rect = btn ? btn.getBoundingClientRect() : { left: 100, bottom: 60, right: 200 };
+
+      return ReactDOM.createPortal(
+        React.createElement(React.Fragment, null,
+          React.createElement('div', {
+            style: { position: 'fixed', inset: 0, zIndex: 998 },
+            onClick: () => { if (!visionParsing && !visionImporting) onClose(); }
+          }),
+          React.createElement('div', {
+            style: {
+              position: 'fixed',
+              top: rect.bottom + 4,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 999,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '12px',
+              width: 'min(380px, calc(100vw - 24px))',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              maxHeight: 'calc(100vh - ' + (rect.bottom + 16) + 'px)',
+              overflowY: 'auto',
+            }
+          },
+            React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
+              React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                React.createElement('span', { style: { fontFamily: 'Univers Condensed, Univers, sans-serif', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)' } }, 'Import Schedule'),
+                React.createElement('button', {
+                  onClick: onClose,
+                  style: { background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0 2px' }
+                }, '✕')
+              ),
+              React.createElement('p', { style: { fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4, margin: 0 } },
+                'Upload a PDF/image or paste a web link. AI extracts event data automatically.'
+              ),
+              React.createElement('input', {
+                type: 'text',
+                placeholder: 'Venue (optional — auto-detected from document)',
+                value: visionVenue,
+                onChange: e => setVisionVenue(e.target.value),
+                style: { padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '0.8rem', width: '100%', boxSizing: 'border-box' }
+              }),
+              React.createElement('input', {
+                type: 'file',
+                id: 'vision-schedule-upload-dropdown',
+                className: 'file-input',
+                accept: '.pdf,.png,.jpg,.jpeg,.webp',
+                multiple: true,
+                onChange: handleVisionUpload,
+                disabled: visionParsing
+              }),
+              React.createElement('label', {
+                htmlFor: 'vision-schedule-upload-dropdown',
+                className: 'btn btn-ghost btn-sm',
+                style: { alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: visionParsing ? 0.5 : 1, pointerEvents: visionParsing ? 'none' : 'auto' }
+              },
+                React.createElement(Icon.upload, null), ' ', visionParsing ? 'Scanning...' : 'Upload File(s)'
+              ),
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%' } },
+                React.createElement('span', { style: { fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 } }, 'or'),
+                React.createElement('input', {
+                  type: 'text',
+                  placeholder: 'Paste schedule URL...',
+                  value: visionUrl,
+                  onChange: e => setVisionUrl(e.target.value),
+                  onKeyDown: e => { if (e.key === 'Enter' && visionUrl.trim()) handleVisionUrl(); },
+                  disabled: visionParsing,
+                  style: { flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '0.8rem', opacity: visionParsing ? 0.5 : 1 }
+                }),
+                React.createElement('button', {
+                  className: 'btn btn-ghost btn-sm',
+                  onClick: handleVisionUrl,
+                  disabled: visionParsing || !visionUrl.trim(),
+                  style: { whiteSpace: 'nowrap', opacity: (visionParsing || !visionUrl.trim()) ? 0.5 : 1 }
+                }, 'Fetch')
+              ),
+
+              visionParsing && React.createElement('div', { style: { padding: '12px', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)' } },
+                React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
+                  React.createElement('span', { style: { fontSize: '0.8rem', color: 'var(--text-muted)' } }, visionStage),
+                  React.createElement('span', { style: { fontSize: '0.75rem', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' } }, visionProgress + '%')
+                ),
+                React.createElement('div', { style: { height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' } },
+                  React.createElement('div', { style: {
+                    height: '100%',
+                    width: visionProgress + '%',
+                    background: 'linear-gradient(90deg, var(--accent), var(--accent-hover, var(--accent)))',
+                    borderRadius: '3px',
+                    transition: visionProgress === 100 ? 'width 0.3s ease' : 'width 0.4s ease-out',
+                  }})
+                )
+              ),
+
+              visionError && React.createElement('div', {
+                style: { padding: '8px 12px', background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: '6px', color: '#ef4444', fontSize: '0.8rem' }
+              }, visionError),
+
+              visionResults && visionResults.events.length > 0 && React.createElement('div', { style: { marginTop: '4px' } },
+                React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' } },
+                  React.createElement('div', null,
+                    React.createElement('span', { style: { fontFamily: 'Univers Condensed, Univers, sans-serif', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)' } },
+                      visionResults.eventCount + ' Events Found'
+                    ),
+                    visionResults.detectedVenue && React.createElement('span', { style: { fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '8px' } },
+                      'at ' + visionResults.detectedVenue
+                    )
+                  ),
+                  React.createElement('span', { style: { fontSize: '0.7rem', color: 'var(--text-muted)' } },
+                    visionResults.pageCount + ' page' + (visionResults.pageCount !== 1 ? 's' : '') + ' scanned'
+                  )
+                ),
+
+                visionResults.warnings.length > 0 && React.createElement('div', {
+                  style: { padding: '6px 10px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '6px', marginBottom: '8px', fontSize: '0.75rem', color: '#eab308' }
+                },
+                  visionResults.warnings.length + ' warning' + (visionResults.warnings.length !== 1 ? 's' : '') + ': ' +
+                  visionResults.warnings.slice(0, 3).map(w => w.warnings.join(', ')).join('; ') +
+                  (visionResults.warnings.length > 3 ? ` (+${visionResults.warnings.length - 3} more)` : '')
+                ),
+
+                React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '8px' } },
+                  React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' } },
+                    React.createElement('thead', null,
+                      React.createElement('tr', { style: { borderBottom: '2px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg)' } },
+                        React.createElement('th', { style: { padding: '6px 8px', textAlign: 'left', color: 'var(--text-muted)', fontFamily: 'Univers Condensed, Univers, sans-serif', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase' } }, 'Date'),
+                        React.createElement('th', { style: { padding: '6px 8px', textAlign: 'left', color: 'var(--text-muted)', fontFamily: 'Univers Condensed, Univers, sans-serif', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase' } }, 'Time'),
+                        React.createElement('th', { style: { padding: '6px 8px', textAlign: 'left', color: 'var(--text-muted)', fontFamily: 'Univers Condensed, Univers, sans-serif', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase' } }, 'Event'),
+                        React.createElement('th', { style: { padding: '6px 8px', textAlign: 'right', color: 'var(--text-muted)', fontFamily: 'Univers Condensed, Univers, sans-serif', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase' } }, 'Buy-in'),
+                        React.createElement('th', { style: { padding: '6px 4px', textAlign: 'center', width: '30px' } })
+                      )
+                    ),
+                    React.createElement('tbody', null,
+                      visionResults.events.map((ev, i) =>
+                        React.createElement(React.Fragment, { key: i },
+                          React.createElement('tr', {
+                            style: { borderBottom: '1px solid var(--border)', cursor: 'pointer', background: visionEditIdx === i ? 'var(--surface)' : 'transparent' },
+                            onClick: () => setVisionEditIdx(visionEditIdx === i ? -1 : i)
+                          },
+                            React.createElement('td', { style: { padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text)', fontSize: '0.73rem' } }, ev.date ? ev.date.replace(/, \d{4}$/, '') : '?'),
+                            React.createElement('td', { style: { padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '0.73rem' } }, ev.time || '?'),
+                            React.createElement('td', { style: { padding: '6px 8px', color: 'var(--text)', fontSize: '0.73rem', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                              ev.is_satellite && React.createElement('span', { style: { fontSize: '0.6rem', padding: '1px 4px', borderRadius: '3px', background: 'rgba(139,92,246,0.2)', color: '#a78bfa', marginRight: '4px', fontWeight: 600 } }, 'SAT'),
+                              ev.is_restart && React.createElement('span', { style: { fontSize: '0.6rem', padding: '1px 4px', borderRadius: '3px', background: 'rgba(234,179,8,0.2)', color: '#eab308', marginRight: '4px', fontWeight: 600 } }, 'Restart'),
+                              ev.event_name || '(unnamed)',
+                              ev._warnings && ev._warnings.length > 0 && React.createElement('span', { style: { color: '#eab308', marginLeft: '4px' }, title: ev._warnings.join(', ') }, '!')
+                            ),
+                            React.createElement('td', { style: { padding: '6px 8px', textAlign: 'right', color: 'var(--text)', fontWeight: 600, fontSize: '0.73rem' } }, ev.buyin != null ? `$${ev.buyin.toLocaleString()}` : '—'),
+                            React.createElement('td', { style: { padding: '6px 4px', textAlign: 'center' } },
+                              React.createElement('button', {
+                                onClick: (e) => { e.stopPropagation(); removeVisionEvent(i); },
+                                style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.7rem', padding: '2px 4px', lineHeight: 1 },
+                                title: 'Remove event'
+                              }, 'x')
+                            )
+                          ),
+                          visionEditIdx === i && React.createElement('tr', { style: { borderBottom: '1px solid var(--border)', background: 'var(--surface)' } },
+                            React.createElement('td', { colSpan: 5, style: { padding: '8px' } },
+                              React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '0.75rem' } },
+                                ...[
+                                  ['Event Name', 'event_name', 'text'],
+                                  ['Variant', 'game_variant', 'text'],
+                                  ['Date', 'date', 'text'],
+                                  ['Time', 'time', 'text'],
+                                  ['Buy-in ($)', 'buyin', 'number'],
+                                  ['Venue', 'venue', 'text'],
+                                  ['Starting Chips', 'starting_chips', 'number'],
+                                  ['Guarantee ($)', 'guarantee', 'number'],
+                                  ['Level Duration', 'level_duration', 'text'],
+                                  ['Re-entry', 'reentry', 'text'],
+                                  ['Event #', 'event_number', 'text'],
+                                ].map(([label, field, type]) =>
+                                  React.createElement('label', { key: field, style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+                                    React.createElement('span', { style: { color: 'var(--text-muted)', fontSize: '0.65rem', textTransform: 'uppercase' } }, label),
+                                    React.createElement('input', {
+                                      type: type,
+                                      value: ev[field] || (type === 'number' ? 0 : ''),
+                                      onChange: e => updateVisionEvent(i, field, type === 'number' ? (parseInt(e.target.value) || (field === 'buyin' ? 0 : null)) : e.target.value),
+                                      style: { padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '0.75rem' }
+                                    })
+                                  )
+                                ),
+                                React.createElement('label', { key: 'category', style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+                                  React.createElement('span', { style: { color: 'var(--text-muted)', fontSize: '0.65rem', textTransform: 'uppercase' } }, 'Category'),
+                                  React.createElement('select', {
+                                    value: ev.category || '',
+                                    onChange: e => updateVisionEvent(i, 'category', e.target.value || null),
+                                    style: { padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '0.75rem' }
+                                  },
+                                    React.createElement('option', { value: '' }, '—'),
+                                    React.createElement('option', { value: 'main' }, 'Main Event'),
+                                    React.createElement('option', { value: 'side' }, 'Side Event')
+                                  )
+                                )
+                              ),
+                              React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px', fontSize: '0.75rem' } },
+                                React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: 'var(--text-muted)' } },
+                                  React.createElement('input', { type: 'checkbox', checked: !!ev.is_satellite, onChange: e => { updateVisionEvent(i, 'is_satellite', e.target.checked); if (e.target.checked) updateVisionEvent(i, 'is_restart', false); } }),
+                                  'Satellite'
+                                ),
+                                React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: 'var(--text-muted)' } },
+                                  React.createElement('input', { type: 'checkbox', checked: !!ev.is_restart, onChange: e => { updateVisionEvent(i, 'is_restart', e.target.checked); if (e.target.checked) { updateVisionEvent(i, 'is_satellite', false); updateVisionEvent(i, 'buyin', 0); } } }),
+                                  'Restart (Day 2+)'
+                                ),
+                                React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: 'var(--text-muted)' } },
+                                  React.createElement('input', { type: 'checkbox', checked: !!ev.is_multi_flight, onChange: e => updateVisionEvent(i, 'is_multi_flight', e.target.checked) }),
+                                  'Multi-flight'
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                ),
+
+                React.createElement('div', { style: { display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'flex-end' } },
+                  React.createElement('button', {
+                    className: 'btn btn-ghost btn-sm',
+                    onClick: () => { setVisionResults(null); setVisionFile(null); }
+                  }, 'Cancel'),
+                  React.createElement('button', {
+                    className: 'btn btn-primary btn-sm',
+                    onClick: handleVisionImport,
+                    disabled: visionImporting || !visionResults.events.length,
+                    style: { display: 'inline-flex', alignItems: 'center', gap: '6px' }
+                  }, visionImporting ? 'Importing...' : `Add ${visionResults.events.length} Events`)
+                )
+              ),
+
+              visionResults && visionResults.events.length === 0 && React.createElement('div', {
+                style: { padding: '12px', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }
+              },
+                'No tournament events found. Try a different file or check that it contains a tournament schedule.',
+                visionResults.pageErrors && visionResults.pageErrors.length > 0 && React.createElement('div', {
+                  style: { marginTop: '8px', fontSize: '0.75rem', color: 'var(--accent)', textAlign: 'left' }
+                }, visionResults.pageErrors.map((pe, i) => React.createElement('div', { key: i }, '⚠ ' + pe.error)))
+              )
+            )
+          )
+        ),
+        document.body
+      );
+    }
+
     // ── Tournaments View ───────────────────────────────────────
 
-    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport, isAdmin, onAdminEdit }) {
+    function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, isAdmin, onAdminEdit, token, onRefreshTournaments }) {
       const toast = useToast();
       const [search, setSearch] = useState('');
       const deferredSearch = React.useDeferredValue(search);
@@ -5202,6 +5654,8 @@
       const stickyFiltersRef = useRef(null);
       const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
       const locationBtnRef = useRef(null);
+      const [importDropdownOpen, setImportDropdownOpen] = useState(false);
+      const importBtnRef = useRef(null);
       const [dateBreakTop, setDateBreakTop] = useState(0);
       const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
       const fabContainerRef = useRef(null);
@@ -5514,6 +5968,15 @@
               >
                 <Icon.mapPin />
               </button>
+              <button
+                ref={importBtnRef}
+                className={`filter-chip ${importDropdownOpen ? 'active' : ''}`}
+                onClick={() => setImportDropdownOpen(o => !o)}
+                style={{flexShrink:0,height:'44px'}}
+                title="Import schedule"
+              >
+                <Icon.upload />
+              </button>
               <div className="search-bar" style={{flex:1,marginBottom:0}}>
                 <Icon.search />
                 <input
@@ -5529,7 +5992,9 @@
               </div>
             </div>
 
-            <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} onImport={onImport} />
+            <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} />
+
+            <ImportSchedulePanel isOpen={importDropdownOpen} onClose={() => setImportDropdownOpen(false)} anchorRef={importBtnRef} token={token} onRefreshTournaments={onRefreshTournaments} />
 
             {locationDropdownOpen && ReactDOM.createPortal(
               <div style={{position:'fixed',inset:0,zIndex:998}} onClick={() => setLocationDropdownOpen(false)} />,
@@ -9237,7 +9702,7 @@
             <Icon.gear />
             <div>
               Settings
-              <div className="menu-item-desc">Account, sharing, appearance, imports</div>
+              <div className="menu-item-desc">Account, sharing, appearance</div>
             </div>
           </button>
           {isAdmin && (
@@ -9303,218 +9768,6 @@
         setDebugInput(val);
         setDebugNow(val);
         if (onDebugTimeChange) onDebugTimeChange(val);
-      };
-
-      // Vision-based schedule upload state
-      const [visionFile, setVisionFile] = useState(null);
-      const [visionVenue, setVisionVenue] = useState('');
-      const [visionUrl, setVisionUrl] = useState('');
-      const [visionParsing, setVisionParsing] = useState(false);
-      const [visionResults, setVisionResults] = useState(null);
-      const [visionError, setVisionError] = useState('');
-      const [visionImporting, setVisionImporting] = useState(false);
-      const [visionEditIdx, setVisionEditIdx] = useState(-1);
-      const [visionProgress, setVisionProgress] = useState(0);
-      const [visionStage, setVisionStage] = useState('');
-      const visionProgressRef = useRef(null);
-
-      const handleVisionUpload = async (e) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
-        setVisionFile(files.length === 1 ? files[0] : { name: `${files.length} files` });
-        setVisionError('');
-        setVisionResults(null);
-        setVisionParsing(true);
-        setVisionProgress(0);
-        setVisionStage('Uploading...');
-
-        // Animated progress stages (two-pass: transcribe then structure)
-        const hasPdf = files.some(f => f.name.toLowerCase().endsWith('.pdf'));
-        const stages = [
-          { at: 5,  label: `Uploading ${files.length > 1 ? files.length + ' files' : 'file'}...` },
-          { at: 10, label: hasPdf ? 'Reading PDF pages...' : `Processing ${files.length > 1 ? files.length + ' images' : 'image'}...` },
-          { at: 20, label: 'Pass 1: Transcribing schedule...' },
-          { at: 40, label: 'Pass 1: Reading event details...' },
-          { at: 55, label: 'Pass 2: Structuring events...' },
-          { at: 70, label: 'Pass 2: Mapping variants...' },
-          { at: 82, label: 'Validating data...' },
-          { at: 92, label: 'Finalizing...' },
-        ];
-        let stageIdx = 0;
-        const startTime = Date.now();
-        // More files = longer estimate
-        const estDuration = hasPdf ? 60000 : Math.max(30000, files.length * 15000);
-
-        visionProgressRef.current = setInterval(() => {
-          const elapsed = Date.now() - startTime;
-          // Asymptotic progress: approaches 95% but never reaches it
-          const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
-          const pct = Math.min(95, Math.round(raw));
-          setVisionProgress(pct);
-          while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
-            setVisionStage(stages[stageIdx].label);
-            stageIdx++;
-          }
-        }, 200);
-
-        const fd = new FormData();
-        for (const file of files) {
-          fd.append('file', file);
-        }
-        if (visionVenue) fd.append('venue', visionVenue);
-
-        try {
-          const res = await fetch(`${API_URL}/parse-schedule`, {
-            method: 'POST',
-            headers: { Authorization: 'Bearer ' + token },
-            body: fd
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Parse failed');
-          clearInterval(visionProgressRef.current);
-          setVisionProgress(100);
-          setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : 'No events found');
-          // Brief pause at 100% before showing results
-          await new Promise(r => setTimeout(r, 400));
-          setVisionResults(data);
-          if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
-        } catch (err) {
-          clearInterval(visionProgressRef.current);
-          setVisionProgress(0);
-          setVisionStage('');
-          setVisionError(err.message || 'Failed to parse schedule');
-        } finally {
-          clearInterval(visionProgressRef.current);
-          setVisionParsing(false);
-          e.target.value = '';
-        }
-      };
-
-      const handleVisionUrl = async () => {
-        if (!visionUrl.trim()) return;
-        setVisionError('');
-        setVisionResults(null);
-        setVisionParsing(true);
-        setVisionProgress(0);
-        setVisionStage('Fetching URL...');
-
-        const isUrlPdf = visionUrl.toLowerCase().endsWith('.pdf');
-        const stages = [
-          { at: 5,  label: 'Fetching URL...' },
-          { at: 12, label: isUrlPdf ? 'Reading PDF...' : 'Extracting page content...' },
-          { at: 20, label: 'Analyzing schedule...' },
-          { at: 35, label: 'Reading event details...' },
-          { at: 50, label: 'Structuring events...' },
-          { at: 65, label: 'Processing events...' },
-          { at: 78, label: 'Mapping variants...' },
-          { at: 88, label: 'Validating data...' },
-          { at: 94, label: 'Finalizing...' },
-        ];
-        let stageIdx = 0;
-        const startTime = Date.now();
-        const estDuration = isUrlPdf ? 90000 : 45000; // Haiku + parallel chunks makes HTML fast
-
-        visionProgressRef.current = setInterval(() => {
-          const elapsed = Date.now() - startTime;
-          const raw = 95 * (1 - Math.exp(-2.0 * elapsed / estDuration));
-          const pct = Math.min(95, Math.round(raw));
-          setVisionProgress(pct);
-          while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
-            setVisionStage(stages[stageIdx].label);
-            stageIdx++;
-          }
-        }, 200);
-
-        try {
-          const res = await fetch(`${API_URL}/parse-schedule-url`, {
-            method: 'POST',
-            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: visionUrl.trim(), venue: visionVenue })
-          });
-          const rawText = await res.text();
-          let data;
-          try { data = JSON.parse(rawText); } catch { throw new Error('Server error — please try again'); }
-          if (!res.ok) throw new Error(data.error || 'Parse failed');
-          clearInterval(visionProgressRef.current);
-          setVisionProgress(100);
-          setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : 'No events found');
-          await new Promise(r => setTimeout(r, 400));
-          setVisionResults(data);
-          if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
-        } catch (err) {
-          clearInterval(visionProgressRef.current);
-          setVisionProgress(0);
-          setVisionStage('');
-          setVisionError(err.message || 'Failed to parse URL');
-        } finally {
-          clearInterval(visionProgressRef.current);
-          setVisionParsing(false);
-        }
-      };
-
-      const removeVisionEvent = (idx) => {
-        if (!visionResults) return;
-        const newEvents = visionResults.events.filter((_, i) => i !== idx);
-        setVisionResults({ ...visionResults, events: newEvents, eventCount: newEvents.length });
-      };
-
-      const updateVisionEvent = (idx, field, value) => {
-        if (!visionResults) return;
-        const newEvents = [...visionResults.events];
-        newEvents[idx] = { ...newEvents[idx], [field]: value };
-        setVisionResults({ ...visionResults, events: newEvents });
-      };
-
-      const handleVisionImport = async () => {
-        if (!visionResults || !visionResults.events.length) return;
-        setVisionImporting(true);
-        setVisionError('');
-
-        try {
-          // Check for duplicates first
-          const checkRes = await fetch(`${API_URL}/check-schedule-duplicates`, {
-            method: 'POST',
-            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ events: visionResults.events })
-          });
-          const dupCheck = await checkRes.json();
-
-          if (dupCheck.existing > 0 && dupCheck.new === 0) {
-            const proceed = window.confirm(
-              `All ${dupCheck.existing} events already exist in the schedule (${dupCheck.existingVenues?.join(', ') || 'unknown venue'}). Importing will update them with the new data.\n\nContinue?`
-            );
-            if (!proceed) { setVisionImporting(false); return; }
-          } else if (dupCheck.existing > 0) {
-            const proceed = window.confirm(
-              `${dupCheck.existing} of ${dupCheck.total} events already exist in the schedule. ${dupCheck.new} are new.\n\nImporting will add new events and update existing ones. Continue?`
-            );
-            if (!proceed) { setVisionImporting(false); return; }
-          }
-
-          const res = await fetch(`${API_URL}/import-parsed-schedule`, {
-            method: 'POST',
-            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              events: visionResults.events,
-              sourceFile: visionResults.sourceFile || 'Vision Upload'
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Import failed');
-          const parts = [];
-          if (data.inserted) parts.push(`${data.inserted} new`);
-          if (data.updated) parts.push(`${data.updated} updated`);
-          if (data.skipped) parts.push(`${data.skipped} skipped`);
-          toast.success(`Import complete: ${parts.join(', ')}`);
-          setVisionResults(null);
-          setVisionFile(null);
-          setVisionVenue('');
-          if (onRefreshTournaments) onRefreshTournaments();
-        } catch (err) {
-          setVisionError(err.message || 'Failed to import events');
-        } finally {
-          setVisionImporting(false);
-        }
       };
 
       return (
@@ -9671,281 +9924,6 @@
                 >
                   {serifFont === 'univers' ? 'Univers' : serifFont === 'helvetica' ? 'Helvetica' : 'Baskerville'}
                 </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="settings-section">
-            <div className="settings-section-label">Import Schedule</div>
-            <div className="settings-card">
-              <div className="settings-row" style={{flexDirection:'column',alignItems:'stretch',gap:'8px'}}>
-                <span className="settings-row-label">Import schedule</span>
-                <p style={{fontSize:'0.75rem',color:'var(--text-muted)',lineHeight:1.4}}>
-                  Upload a PDF/image or paste a web link. AI extracts event data automatically.
-                </p>
-                <input
-                  type="text"
-                  placeholder="Venue (optional — auto-detected from document)"
-                  value={visionVenue}
-                  onChange={e => setVisionVenue(e.target.value)}
-                  style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.8rem',width:'100%',boxSizing:'border-box'}}
-                />
-                <input
-                  type="file"
-                  id="vision-schedule-upload"
-                  className="file-input"
-                  accept=".pdf,.png,.jpg,.jpeg,.webp"
-                  multiple
-                  onChange={handleVisionUpload}
-                  disabled={visionParsing}
-                />
-                <label
-                  htmlFor="vision-schedule-upload"
-                  className="btn btn-ghost btn-sm"
-                  style={{alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'4px',opacity:visionParsing?0.5:1,pointerEvents:visionParsing?'none':'auto'}}
-                >
-                  <Icon.upload /> {visionParsing ? 'Scanning...' : 'Upload File(s)'}
-                </label>
-                <div style={{display:'flex',alignItems:'center',gap:'8px',width:'100%'}}>
-                  <span style={{fontSize:'0.75rem',color:'var(--text-muted)',fontWeight:600}}>or</span>
-                  <input
-                    type="text"
-                    placeholder="Paste schedule URL..."
-                    value={visionUrl}
-                    onChange={e => setVisionUrl(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && visionUrl.trim()) handleVisionUrl(); }}
-                    disabled={visionParsing}
-                    style={{flex:1,padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'0.8rem',opacity:visionParsing?0.5:1}}
-                  />
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={handleVisionUrl}
-                    disabled={visionParsing || !visionUrl.trim()}
-                    style={{whiteSpace:'nowrap',opacity:(visionParsing || !visionUrl.trim())?0.5:1}}
-                  >
-                    Fetch
-                  </button>
-                </div>
-
-                {visionParsing && (
-                  <div style={{padding:'12px',background:'var(--surface)',borderRadius:'8px',border:'1px solid var(--border)'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
-                      <span style={{fontSize:'0.8rem',color:'var(--text-muted)'}}>{visionStage}</span>
-                      <span style={{fontSize:'0.75rem',color:'var(--text-muted)',fontVariantNumeric:'tabular-nums'}}>{visionProgress}%</span>
-                    </div>
-                    <div style={{height:'6px',background:'var(--border)',borderRadius:'3px',overflow:'hidden'}}>
-                      <div style={{
-                        height:'100%',
-                        width: visionProgress + '%',
-                        background:'linear-gradient(90deg, var(--accent), var(--accent-hover, var(--accent)))',
-                        borderRadius:'3px',
-                        transition: visionProgress === 100 ? 'width 0.3s ease' : 'width 0.4s ease-out',
-                      }} />
-                    </div>
-                  </div>
-                )}
-
-                {visionError && (
-                  <div style={{padding:'8px 12px',background:'rgba(220,38,38,0.1)',border:'1px solid rgba(220,38,38,0.3)',borderRadius:'6px',color:'#ef4444',fontSize:'0.8rem'}}>
-                    {visionError}
-                  </div>
-                )}
-
-                {visionResults && visionResults.events.length > 0 && (
-                  <div style={{marginTop:'8px'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
-                      <div>
-                        <span style={{fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:700,fontSize:'0.9rem',color:'var(--text)'}}>
-                          {visionResults.eventCount} Events Found
-                        </span>
-                        {visionResults.detectedVenue && (
-                          <span style={{fontSize:'0.75rem',color:'var(--text-muted)',marginLeft:'8px'}}>
-                            at {visionResults.detectedVenue}
-                          </span>
-                        )}
-                      </div>
-                      <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>
-                        {visionResults.pageCount} page{visionResults.pageCount !== 1 ? 's' : ''} scanned
-                      </span>
-                    </div>
-
-                    {visionResults.warnings.length > 0 && (
-                      <div style={{padding:'6px 10px',background:'rgba(234,179,8,0.1)',border:'1px solid rgba(234,179,8,0.3)',borderRadius:'6px',marginBottom:'8px',fontSize:'0.75rem',color:'#eab308'}}>
-                        {visionResults.warnings.length} warning{visionResults.warnings.length !== 1 ? 's' : ''}: {visionResults.warnings.slice(0, 3).map(w => w.warnings.join(', ')).join('; ')}
-                        {visionResults.warnings.length > 3 && ` (+${visionResults.warnings.length - 3} more)`}
-                      </div>
-                    )}
-
-                    <div style={{maxHeight:'400px',overflowY:'auto',border:'1px solid var(--border)',borderRadius:'8px'}}>
-                      <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.75rem'}}>
-                        <thead>
-                          <tr style={{borderBottom:'2px solid var(--border)',position:'sticky',top:0,background:'var(--bg)'}}>
-                            <th style={{padding:'6px 8px',textAlign:'left',color:'var(--text-muted)',fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:600,fontSize:'0.65rem',textTransform:'uppercase'}}>Date</th>
-                            <th style={{padding:'6px 8px',textAlign:'left',color:'var(--text-muted)',fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:600,fontSize:'0.65rem',textTransform:'uppercase'}}>Time</th>
-                            <th style={{padding:'6px 8px',textAlign:'left',color:'var(--text-muted)',fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:600,fontSize:'0.65rem',textTransform:'uppercase'}}>Event</th>
-                            <th style={{padding:'6px 8px',textAlign:'right',color:'var(--text-muted)',fontFamily:'Univers Condensed, Univers, sans-serif',fontWeight:600,fontSize:'0.65rem',textTransform:'uppercase'}}>Buy-in</th>
-                            <th style={{padding:'6px 4px',textAlign:'center',width:'30px'}}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {visionResults.events.map((ev, i) => (
-                            <React.Fragment key={i}>
-                              <tr
-                                style={{borderBottom:'1px solid var(--border)',cursor:'pointer',background:visionEditIdx===i?'var(--surface)':'transparent'}}
-                                onClick={() => setVisionEditIdx(visionEditIdx === i ? -1 : i)}
-                              >
-                                <td style={{padding:'6px 8px',whiteSpace:'nowrap',color:'var(--text)',fontSize:'0.73rem'}}>{ev.date ? ev.date.replace(/, \d{4}$/, '') : '?'}</td>
-                                <td style={{padding:'6px 8px',whiteSpace:'nowrap',color:'var(--text-muted)',fontSize:'0.73rem'}}>{ev.time || '?'}</td>
-                                <td style={{padding:'6px 8px',color:'var(--text)',fontSize:'0.73rem',maxWidth:'220px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                                  {ev.is_satellite && <span style={{fontSize:'0.6rem',padding:'1px 4px',borderRadius:'3px',background:'rgba(139,92,246,0.2)',color:'#a78bfa',marginRight:'4px',fontWeight:600}}>SAT</span>}
-                                  {ev.is_restart && <span style={{fontSize:'0.6rem',padding:'1px 4px',borderRadius:'3px',background:'rgba(234,179,8,0.2)',color:'#eab308',marginRight:'4px',fontWeight:600}}>Restart</span>}
-                                  {ev.event_name || '(unnamed)'}
-                                  {ev._warnings && ev._warnings.length > 0 && <span style={{color:'#eab308',marginLeft:'4px'}} title={ev._warnings.join(', ')}>!</span>}
-                                </td>
-                                <td style={{padding:'6px 8px',textAlign:'right',color:'var(--text)',fontWeight:600,fontSize:'0.73rem'}}>{ev.buyin != null ? `$${ev.buyin.toLocaleString()}` : '—'}</td>
-                                <td style={{padding:'6px 4px',textAlign:'center'}}>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); removeVisionEvent(i); }}
-                                    style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-muted)',fontSize:'0.7rem',padding:'2px 4px',lineHeight:1}}
-                                    title="Remove event"
-                                  >x</button>
-                                </td>
-                              </tr>
-                              {visionEditIdx === i && (
-                                <tr style={{borderBottom:'1px solid var(--border)',background:'var(--surface)'}}>
-                                  <td colSpan={5} style={{padding:'8px'}}>
-                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',fontSize:'0.75rem'}}>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Event Name</span>
-                                        <input type="text" value={ev.event_name || ''} onChange={e => updateVisionEvent(i, 'event_name', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Variant</span>
-                                        <input type="text" value={ev.game_variant || ''} onChange={e => updateVisionEvent(i, 'game_variant', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Date</span>
-                                        <input type="text" value={ev.date || ''} onChange={e => updateVisionEvent(i, 'date', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Time</span>
-                                        <input type="text" value={ev.time || ''} onChange={e => updateVisionEvent(i, 'time', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Buy-in ($)</span>
-                                        <input type="number" value={ev.buyin || 0} onChange={e => updateVisionEvent(i, 'buyin', parseInt(e.target.value) || 0)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Venue</span>
-                                        <input type="text" value={ev.venue || ''} onChange={e => updateVisionEvent(i, 'venue', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Starting Chips</span>
-                                        <input type="number" value={ev.starting_chips || ''} onChange={e => updateVisionEvent(i, 'starting_chips', parseInt(e.target.value) || null)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Guarantee ($)</span>
-                                        <input type="number" value={ev.guarantee || ''} onChange={e => updateVisionEvent(i, 'guarantee', parseInt(e.target.value) || null)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Level Duration</span>
-                                        <input type="text" value={ev.level_duration || ''} onChange={e => updateVisionEvent(i, 'level_duration', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Re-entry</span>
-                                        <input type="text" value={ev.reentry || ''} onChange={e => updateVisionEvent(i, 'reentry', e.target.value)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Event #</span>
-                                        <input type="text" value={ev.event_number || ''} onChange={e => updateVisionEvent(i, 'event_number', e.target.value || null)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                      </label>
-                                      <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                        <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Category</span>
-                                        <select value={ev.category || ''} onChange={e => updateVisionEvent(i, 'category', e.target.value || null)} style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}}>
-                                          <option value="">—</option>
-                                          <option value="main">Main Event</option>
-                                          <option value="side">Side Event</option>
-                                        </select>
-                                      </label>
-                                    </div>
-                                    <div style={{display:'flex',flexWrap:'wrap',gap:'12px',marginTop:'8px',fontSize:'0.75rem'}}>
-                                      <label style={{display:'flex',alignItems:'center',gap:'4px',cursor:'pointer',color:'var(--text-muted)'}}>
-                                        <input type="checkbox" checked={!!ev.is_satellite} onChange={e => {
-                                          updateVisionEvent(i, 'is_satellite', e.target.checked);
-                                          if (e.target.checked) updateVisionEvent(i, 'is_restart', false);
-                                        }} />
-                                        Satellite
-                                      </label>
-                                      <label style={{display:'flex',alignItems:'center',gap:'4px',cursor:'pointer',color:'var(--text-muted)'}}>
-                                        <input type="checkbox" checked={!!ev.is_restart} onChange={e => {
-                                          updateVisionEvent(i, 'is_restart', e.target.checked);
-                                          if (e.target.checked) { updateVisionEvent(i, 'is_satellite', false); updateVisionEvent(i, 'buyin', 0); }
-                                        }} />
-                                        Restart (Day 2+)
-                                      </label>
-                                      <label style={{display:'flex',alignItems:'center',gap:'4px',cursor:'pointer',color:'var(--text-muted)'}}>
-                                        <input type="checkbox" checked={!!ev.is_multi_flight} onChange={e => updateVisionEvent(i, 'is_multi_flight', e.target.checked)} />
-                                        Multi-flight
-                                      </label>
-                                      {ev.is_satellite && (
-                                        <label style={{display:'flex',flexDirection:'column',gap:'2px',flex:1,minWidth:'120px'}}>
-                                          <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Target Event</span>
-                                          <input type="text" value={ev.target_event || ''} onChange={e => updateVisionEvent(i, 'target_event', e.target.value || null)} placeholder="e.g. Main Event" style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                        </label>
-                                      )}
-                                      {ev.is_restart && (
-                                        <label style={{display:'flex',flexDirection:'column',gap:'2px',flex:1,minWidth:'120px'}}>
-                                          <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Parent Event</span>
-                                          <input type="text" value={ev.parent_event || ''} onChange={e => updateVisionEvent(i, 'parent_event', e.target.value || null)} placeholder="e.g. Event 1" style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem'}} />
-                                        </label>
-                                      )}
-                                      {ev.is_multi_flight && (
-                                        <label style={{display:'flex',flexDirection:'column',gap:'2px'}}>
-                                          <span style={{color:'var(--text-muted)',fontSize:'0.65rem',textTransform:'uppercase'}}>Flight</span>
-                                          <input type="text" value={ev.flight_letter || ''} onChange={e => updateVisionEvent(i, 'flight_letter', e.target.value || null)} placeholder="A, B, C..." style={{padding:'4px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.75rem',width:'50px'}} />
-                                        </label>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div style={{display:'flex',gap:'8px',marginTop:'12px',justifyContent:'flex-end'}}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => { setVisionResults(null); setVisionFile(null); }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={handleVisionImport}
-                        disabled={visionImporting || !visionResults.events.length}
-                        style={{display:'inline-flex',alignItems:'center',gap:'6px'}}
-                      >
-                        {visionImporting ? 'Importing...' : `Add ${visionResults.events.length} Events to Database`}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {visionResults && visionResults.events.length === 0 && (
-                  <div style={{padding:'12px',background:'var(--surface)',borderRadius:'8px',border:'1px solid var(--border)',color:'var(--text-muted)',fontSize:'0.8rem',textAlign:'center'}}>
-                    No tournament events found in the uploaded file. Try a different file or check that it contains a tournament schedule.
-                    {visionResults.pageErrors && visionResults.pageErrors.length > 0 && (
-                      <div style={{marginTop:'8px',fontSize:'0.75rem',color:'var(--accent)',textAlign:'left'}}>
-                        {visionResults.pageErrors.map((pe, i) => (
-                          <div key={i}>⚠ {pe.error}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -11004,9 +10982,10 @@
                 buddyEvents={buddyEvents}
                 buddyLiveUpdates={buddyLiveUpdates}
                 onBuddySwap={onBuddySwap}
-                onImport={() => setCurrentView('settings')}
                 isAdmin={['ham', 'ham5'].includes((username || '').toLowerCase())}
                 onAdminEdit={adminEditTournament}
+                token={token}
+                onRefreshTournaments={fetchTournaments}
               />
             )}
             </div>

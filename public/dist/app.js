@@ -4118,7 +4118,7 @@ function GameVariantFilter({ selectedGames, setFilters }) {
   })));
 }
 __name(GameVariantFilter, "GameVariantFilter");
-function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount, onImport }) {
+function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount }) {
   const panelRef = useRef(null);
   const [whereOpen, setWhereOpen] = useState(false);
   const [howMuchOpen, setHowMuchOpen] = useState(false);
@@ -4171,17 +4171,8 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
-  const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRanges && filters.buyinRanges.length > 0 || filters.rakeRanges && filters.rakeRanges.length > 0 || filters.selectedGames.length > 0 || filters.hiddenVenues && filters.hiddenVenues.length > 0 || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance || filters.locationRegion;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "filter-row", style: { gap: "8px", marginBottom: "0", width: "100%", alignItems: "center" } }, onImport && /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      onClick: onImport,
-      style: { background: "none", border: "1px solid var(--border)", borderRadius: "6px", padding: "3px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" },
-      title: "Import a tournament schedule"
-    },
-    /* @__PURE__ */ React.createElement(Icon.upload, { style: { width: 12, height: 12 } }),
-    " Import Schedule"
-  ), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" } }, "Show:"), /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
+  const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRanges && filters.buyinRanges.length > 0 || filters.rakeRanges && filters.rakeRanges.length > 0 || filters.selectedGames.length > 0 || filters.hiddenVenues && filters.hiddenVenues.length > 0 || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance || filters.locationRegion || filters.userLocation;
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "filter-row", style: { gap: "8px", marginBottom: "0", width: "100%", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "checkbox",
@@ -4205,7 +4196,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideSideEvents: !e.target.checked })),
       style: { margin: 0 }
     }
-  ), " Side Events"), filters.selectedGames.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.selectedGames.length === 1 ? filters.selectedGames[0] : `${filters.selectedGames.length} games`, /* @__PURE__ */ React.createElement(
+  ), " Side Events")), filters.selectedGames.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.selectedGames.length === 1 ? filters.selectedGames[0] : `${filters.selectedGames.length} games`, /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
@@ -4551,12 +4542,555 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { employeesOnly: e.target.checked })),
         style: { marginTop: "1px" }
       }
-    ), " Casino Employees"))), hasActive && /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: () => setFilters({ minBuyin: "", maxBuyin: "", buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: "", dateTo: "", maxDistance: "", userLocation: null }) }, "Clear all filters"))),
+    ), " Casino Employees"))), hasActive && /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: () => setFilters({ minBuyin: "", maxBuyin: "", buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: "", dateTo: "", maxDistance: "", userLocation: null, locationRegion: null }) }, "Clear all filters"))),
     document.body
   ));
 }
 __name(Filters, "Filters");
-function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, onImport, isAdmin, onAdminEdit }) {
+function ImportSchedulePanel({ isOpen, onClose, anchorRef, token, onRefreshTournaments }) {
+  const toast = useToast();
+  const [visionFile, setVisionFile] = useState(null);
+  const [visionVenue, setVisionVenue] = useState("");
+  const [visionUrl, setVisionUrl] = useState("");
+  const [visionParsing, setVisionParsing] = useState(false);
+  const [visionResults, setVisionResults] = useState(null);
+  const [visionError, setVisionError] = useState("");
+  const [visionImporting, setVisionImporting] = useState(false);
+  const [visionEditIdx, setVisionEditIdx] = useState(-1);
+  const [visionProgress, setVisionProgress] = useState(0);
+  const [visionStage, setVisionStage] = useState("");
+  const visionProgressRef = useRef(null);
+  const handleVisionUpload = /* @__PURE__ */ __name(async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setVisionFile(files.length === 1 ? files[0] : { name: `${files.length} files` });
+    setVisionError("");
+    setVisionResults(null);
+    setVisionParsing(true);
+    setVisionProgress(0);
+    setVisionStage("Uploading...");
+    const hasPdf = files.some((f) => f.name.toLowerCase().endsWith(".pdf"));
+    const stages = [
+      { at: 5, label: `Uploading ${files.length > 1 ? files.length + " files" : "file"}...` },
+      { at: 10, label: hasPdf ? "Reading PDF pages..." : `Processing ${files.length > 1 ? files.length + " images" : "image"}...` },
+      { at: 20, label: "Pass 1: Transcribing schedule..." },
+      { at: 40, label: "Pass 1: Reading event details..." },
+      { at: 55, label: "Pass 2: Structuring events..." },
+      { at: 70, label: "Pass 2: Mapping variants..." },
+      { at: 82, label: "Validating data..." },
+      { at: 92, label: "Finalizing..." }
+    ];
+    let stageIdx = 0;
+    const startTime = Date.now();
+    const estDuration = hasPdf ? 6e4 : Math.max(3e4, files.length * 15e3);
+    visionProgressRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
+      const pct = Math.min(95, Math.round(raw));
+      setVisionProgress(pct);
+      while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
+        setVisionStage(stages[stageIdx].label);
+        stageIdx++;
+      }
+    }, 200);
+    const fd = new FormData();
+    for (const file of files) {
+      fd.append("file", file);
+    }
+    if (visionVenue) fd.append("venue", visionVenue);
+    try {
+      const res = await fetch(`${API_URL}/parse-schedule`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+        body: fd
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Parse failed");
+      clearInterval(visionProgressRef.current);
+      setVisionProgress(100);
+      setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : "No events found");
+      await new Promise((r) => setTimeout(r, 400));
+      setVisionResults(data);
+      if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
+    } catch (err) {
+      clearInterval(visionProgressRef.current);
+      setVisionProgress(0);
+      setVisionStage("");
+      setVisionError(err.message || "Failed to parse schedule");
+    } finally {
+      clearInterval(visionProgressRef.current);
+      setVisionParsing(false);
+      e.target.value = "";
+    }
+  }, "handleVisionUpload");
+  const handleVisionUrl = /* @__PURE__ */ __name(async () => {
+    if (!visionUrl.trim()) return;
+    setVisionError("");
+    setVisionResults(null);
+    setVisionParsing(true);
+    setVisionProgress(0);
+    setVisionStage("Fetching URL...");
+    const isUrlPdf = visionUrl.toLowerCase().endsWith(".pdf");
+    const stages = [
+      { at: 5, label: "Fetching URL..." },
+      { at: 12, label: isUrlPdf ? "Reading PDF..." : "Extracting page content..." },
+      { at: 20, label: "Analyzing schedule..." },
+      { at: 35, label: "Reading event details..." },
+      { at: 50, label: "Structuring events..." },
+      { at: 65, label: "Processing events..." },
+      { at: 78, label: "Mapping variants..." },
+      { at: 88, label: "Validating data..." },
+      { at: 94, label: "Finalizing..." }
+    ];
+    let stageIdx = 0;
+    const startTime = Date.now();
+    const estDuration = isUrlPdf ? 9e4 : 45e3;
+    visionProgressRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const raw = 95 * (1 - Math.exp(-2 * elapsed / estDuration));
+      const pct = Math.min(95, Math.round(raw));
+      setVisionProgress(pct);
+      while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
+        setVisionStage(stages[stageIdx].label);
+        stageIdx++;
+      }
+    }, 200);
+    try {
+      const res = await fetch(`${API_URL}/parse-schedule-url`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ url: visionUrl.trim(), venue: visionVenue })
+      });
+      const rawText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        throw new Error("Server error — please try again");
+      }
+      if (!res.ok) throw new Error(data.error || "Parse failed");
+      clearInterval(visionProgressRef.current);
+      setVisionProgress(100);
+      setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : "No events found");
+      await new Promise((r) => setTimeout(r, 400));
+      setVisionResults(data);
+      if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
+    } catch (err) {
+      clearInterval(visionProgressRef.current);
+      setVisionProgress(0);
+      setVisionStage("");
+      setVisionError(err.message || "Failed to parse URL");
+    } finally {
+      clearInterval(visionProgressRef.current);
+      setVisionParsing(false);
+    }
+  }, "handleVisionUrl");
+  const removeVisionEvent = /* @__PURE__ */ __name((idx) => {
+    if (!visionResults) return;
+    const newEvents = visionResults.events.filter((_, i) => i !== idx);
+    setVisionResults(__spreadProps(__spreadValues({}, visionResults), { events: newEvents, eventCount: newEvents.length }));
+  }, "removeVisionEvent");
+  const updateVisionEvent = /* @__PURE__ */ __name((idx, field, value) => {
+    if (!visionResults) return;
+    const newEvents = [...visionResults.events];
+    newEvents[idx] = __spreadProps(__spreadValues({}, newEvents[idx]), { [field]: value });
+    setVisionResults(__spreadProps(__spreadValues({}, visionResults), { events: newEvents }));
+  }, "updateVisionEvent");
+  const handleVisionImport = /* @__PURE__ */ __name(async () => {
+    var _a;
+    if (!visionResults || !visionResults.events.length) return;
+    setVisionImporting(true);
+    setVisionError("");
+    try {
+      const checkRes = await fetch(`${API_URL}/check-schedule-duplicates`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ events: visionResults.events })
+      });
+      const dupCheck = await checkRes.json();
+      if (dupCheck.existing > 0 && dupCheck.new === 0) {
+        const proceed = window.confirm(
+          `All ${dupCheck.existing} events already exist in the schedule (${((_a = dupCheck.existingVenues) == null ? void 0 : _a.join(", ")) || "unknown venue"}). Importing will update them with the new data.
+
+Continue?`
+        );
+        if (!proceed) {
+          setVisionImporting(false);
+          return;
+        }
+      } else if (dupCheck.existing > 0) {
+        const proceed = window.confirm(
+          `${dupCheck.existing} of ${dupCheck.total} events already exist in the schedule. ${dupCheck.new} are new.
+
+Importing will add new events and update existing ones. Continue?`
+        );
+        if (!proceed) {
+          setVisionImporting(false);
+          return;
+        }
+      }
+      const res = await fetch(`${API_URL}/import-parsed-schedule`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          events: visionResults.events,
+          sourceFile: visionResults.sourceFile || "Vision Upload"
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import failed");
+      const parts = [];
+      if (data.inserted) parts.push(`${data.inserted} new`);
+      if (data.updated) parts.push(`${data.updated} updated`);
+      if (data.skipped) parts.push(`${data.skipped} skipped`);
+      toast.success(`Import complete: ${parts.join(", ")}`);
+      setVisionResults(null);
+      setVisionFile(null);
+      setVisionVenue("");
+      if (onRefreshTournaments) onRefreshTournaments();
+      onClose();
+    } catch (err) {
+      setVisionError(err.message || "Failed to import events");
+    } finally {
+      setVisionImporting(false);
+    }
+  }, "handleVisionImport");
+  if (!isOpen) return null;
+  const btn = anchorRef.current;
+  const rect = btn ? btn.getBoundingClientRect() : { left: 100, bottom: 60, right: 200 };
+  return ReactDOM.createPortal(
+    React.createElement(
+      React.Fragment,
+      null,
+      React.createElement("div", {
+        style: { position: "fixed", inset: 0, zIndex: 998 },
+        onClick: /* @__PURE__ */ __name(() => {
+          if (!visionParsing && !visionImporting) onClose();
+        }, "onClick")
+      }),
+      React.createElement(
+        "div",
+        {
+          style: {
+            position: "fixed",
+            top: rect.bottom + 4,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 999,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            padding: "12px",
+            width: "min(380px, calc(100vw - 24px))",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+            maxHeight: "calc(100vh - " + (rect.bottom + 16) + "px)",
+            overflowY: "auto"
+          }
+        },
+        React.createElement(
+          "div",
+          { style: { display: "flex", flexDirection: "column", gap: "8px" } },
+          React.createElement(
+            "div",
+            { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            React.createElement("span", { style: { fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" } }, "Import Schedule"),
+            React.createElement("button", {
+              onClick: onClose,
+              style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "1rem", padding: "0 2px" }
+            }, "✕")
+          ),
+          React.createElement(
+            "p",
+            { style: { fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4, margin: 0 } },
+            "Upload a PDF/image or paste a web link. AI extracts event data automatically."
+          ),
+          React.createElement("input", {
+            type: "text",
+            placeholder: "Venue (optional — auto-detected from document)",
+            value: visionVenue,
+            onChange: /* @__PURE__ */ __name((e) => setVisionVenue(e.target.value), "onChange"),
+            style: { padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.8rem", width: "100%", boxSizing: "border-box" }
+          }),
+          React.createElement("input", {
+            type: "file",
+            id: "vision-schedule-upload-dropdown",
+            className: "file-input",
+            accept: ".pdf,.png,.jpg,.jpeg,.webp",
+            multiple: true,
+            onChange: handleVisionUpload,
+            disabled: visionParsing
+          }),
+          React.createElement(
+            "label",
+            {
+              htmlFor: "vision-schedule-upload-dropdown",
+              className: "btn btn-ghost btn-sm",
+              style: { alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: "6px", opacity: visionParsing ? 0.5 : 1, pointerEvents: visionParsing ? "none" : "auto" }
+            },
+            React.createElement(Icon.upload, null),
+            " ",
+            visionParsing ? "Scanning..." : "Upload File(s)"
+          ),
+          React.createElement(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: "8px", width: "100%" } },
+            React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 } }, "or"),
+            React.createElement("input", {
+              type: "text",
+              placeholder: "Paste schedule URL...",
+              value: visionUrl,
+              onChange: /* @__PURE__ */ __name((e) => setVisionUrl(e.target.value), "onChange"),
+              onKeyDown: /* @__PURE__ */ __name((e) => {
+                if (e.key === "Enter" && visionUrl.trim()) handleVisionUrl();
+              }, "onKeyDown"),
+              disabled: visionParsing,
+              style: { flex: 1, padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.8rem", opacity: visionParsing ? 0.5 : 1 }
+            }),
+            React.createElement("button", {
+              className: "btn btn-ghost btn-sm",
+              onClick: handleVisionUrl,
+              disabled: visionParsing || !visionUrl.trim(),
+              style: { whiteSpace: "nowrap", opacity: visionParsing || !visionUrl.trim() ? 0.5 : 1 }
+            }, "Fetch")
+          ),
+          visionParsing && React.createElement(
+            "div",
+            { style: { padding: "12px", background: "var(--bg)", borderRadius: "8px", border: "1px solid var(--border)" } },
+            React.createElement(
+              "div",
+              { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" } },
+              React.createElement("span", { style: { fontSize: "0.8rem", color: "var(--text-muted)" } }, visionStage),
+              React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" } }, visionProgress + "%")
+            ),
+            React.createElement(
+              "div",
+              { style: { height: "6px", background: "var(--border)", borderRadius: "3px", overflow: "hidden" } },
+              React.createElement("div", { style: {
+                height: "100%",
+                width: visionProgress + "%",
+                background: "linear-gradient(90deg, var(--accent), var(--accent-hover, var(--accent)))",
+                borderRadius: "3px",
+                transition: visionProgress === 100 ? "width 0.3s ease" : "width 0.4s ease-out"
+              } })
+            )
+          ),
+          visionError && React.createElement("div", {
+            style: { padding: "8px 12px", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "6px", color: "#ef4444", fontSize: "0.8rem" }
+          }, visionError),
+          visionResults && visionResults.events.length > 0 && React.createElement(
+            "div",
+            { style: { marginTop: "4px" } },
+            React.createElement(
+              "div",
+              { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" } },
+              React.createElement(
+                "div",
+                null,
+                React.createElement(
+                  "span",
+                  { style: { fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" } },
+                  visionResults.eventCount + " Events Found"
+                ),
+                visionResults.detectedVenue && React.createElement(
+                  "span",
+                  { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "8px" } },
+                  "at " + visionResults.detectedVenue
+                )
+              ),
+              React.createElement(
+                "span",
+                { style: { fontSize: "0.7rem", color: "var(--text-muted)" } },
+                visionResults.pageCount + " page" + (visionResults.pageCount !== 1 ? "s" : "") + " scanned"
+              )
+            ),
+            visionResults.warnings.length > 0 && React.createElement(
+              "div",
+              {
+                style: { padding: "6px 10px", background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)", borderRadius: "6px", marginBottom: "8px", fontSize: "0.75rem", color: "#eab308" }
+              },
+              visionResults.warnings.length + " warning" + (visionResults.warnings.length !== 1 ? "s" : "") + ": " + visionResults.warnings.slice(0, 3).map((w) => w.warnings.join(", ")).join("; ") + (visionResults.warnings.length > 3 ? ` (+${visionResults.warnings.length - 3} more)` : "")
+            ),
+            React.createElement(
+              "div",
+              { style: { maxHeight: "300px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px" } },
+              React.createElement(
+                "table",
+                { style: { width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" } },
+                React.createElement(
+                  "thead",
+                  null,
+                  React.createElement(
+                    "tr",
+                    { style: { borderBottom: "2px solid var(--border)", position: "sticky", top: 0, background: "var(--bg)" } },
+                    React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Date"),
+                    React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Time"),
+                    React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Event"),
+                    React.createElement("th", { style: { padding: "6px 8px", textAlign: "right", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Buy-in"),
+                    React.createElement("th", { style: { padding: "6px 4px", textAlign: "center", width: "30px" } })
+                  )
+                ),
+                React.createElement(
+                  "tbody",
+                  null,
+                  visionResults.events.map(
+                    (ev, i) => React.createElement(
+                      React.Fragment,
+                      { key: i },
+                      React.createElement(
+                        "tr",
+                        {
+                          style: { borderBottom: "1px solid var(--border)", cursor: "pointer", background: visionEditIdx === i ? "var(--surface)" : "transparent" },
+                          onClick: /* @__PURE__ */ __name(() => setVisionEditIdx(visionEditIdx === i ? -1 : i), "onClick")
+                        },
+                        React.createElement("td", { style: { padding: "6px 8px", whiteSpace: "nowrap", color: "var(--text)", fontSize: "0.73rem" } }, ev.date ? ev.date.replace(/, \d{4}$/, "") : "?"),
+                        React.createElement("td", { style: { padding: "6px 8px", whiteSpace: "nowrap", color: "var(--text-muted)", fontSize: "0.73rem" } }, ev.time || "?"),
+                        React.createElement(
+                          "td",
+                          { style: { padding: "6px 8px", color: "var(--text)", fontSize: "0.73rem", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                          ev.is_satellite && React.createElement("span", { style: { fontSize: "0.6rem", padding: "1px 4px", borderRadius: "3px", background: "rgba(139,92,246,0.2)", color: "#a78bfa", marginRight: "4px", fontWeight: 600 } }, "SAT"),
+                          ev.is_restart && React.createElement("span", { style: { fontSize: "0.6rem", padding: "1px 4px", borderRadius: "3px", background: "rgba(234,179,8,0.2)", color: "#eab308", marginRight: "4px", fontWeight: 600 } }, "Restart"),
+                          ev.event_name || "(unnamed)",
+                          ev._warnings && ev._warnings.length > 0 && React.createElement("span", { style: { color: "#eab308", marginLeft: "4px" }, title: ev._warnings.join(", ") }, "!")
+                        ),
+                        React.createElement("td", { style: { padding: "6px 8px", textAlign: "right", color: "var(--text)", fontWeight: 600, fontSize: "0.73rem" } }, ev.buyin != null ? `$${ev.buyin.toLocaleString()}` : "—"),
+                        React.createElement(
+                          "td",
+                          { style: { padding: "6px 4px", textAlign: "center" } },
+                          React.createElement("button", {
+                            onClick: /* @__PURE__ */ __name((e) => {
+                              e.stopPropagation();
+                              removeVisionEvent(i);
+                            }, "onClick"),
+                            style: { background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "0.7rem", padding: "2px 4px", lineHeight: 1 },
+                            title: "Remove event"
+                          }, "x")
+                        )
+                      ),
+                      visionEditIdx === i && React.createElement(
+                        "tr",
+                        { style: { borderBottom: "1px solid var(--border)", background: "var(--surface)" } },
+                        React.createElement(
+                          "td",
+                          { colSpan: 5, style: { padding: "8px" } },
+                          React.createElement(
+                            "div",
+                            { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "0.75rem" } },
+                            ...[
+                              ["Event Name", "event_name", "text"],
+                              ["Variant", "game_variant", "text"],
+                              ["Date", "date", "text"],
+                              ["Time", "time", "text"],
+                              ["Buy-in ($)", "buyin", "number"],
+                              ["Venue", "venue", "text"],
+                              ["Starting Chips", "starting_chips", "number"],
+                              ["Guarantee ($)", "guarantee", "number"],
+                              ["Level Duration", "level_duration", "text"],
+                              ["Re-entry", "reentry", "text"],
+                              ["Event #", "event_number", "text"]
+                            ].map(
+                              ([label, field, type]) => React.createElement(
+                                "label",
+                                { key: field, style: { display: "flex", flexDirection: "column", gap: "2px" } },
+                                React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, label),
+                                React.createElement("input", {
+                                  type,
+                                  value: ev[field] || (type === "number" ? 0 : ""),
+                                  onChange: /* @__PURE__ */ __name((e) => updateVisionEvent(i, field, type === "number" ? parseInt(e.target.value) || (field === "buyin" ? 0 : null) : e.target.value), "onChange"),
+                                  style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" }
+                                })
+                              )
+                            ),
+                            React.createElement(
+                              "label",
+                              { key: "category", style: { display: "flex", flexDirection: "column", gap: "2px" } },
+                              React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Category"),
+                              React.createElement(
+                                "select",
+                                {
+                                  value: ev.category || "",
+                                  onChange: /* @__PURE__ */ __name((e) => updateVisionEvent(i, "category", e.target.value || null), "onChange"),
+                                  style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" }
+                                },
+                                React.createElement("option", { value: "" }, "—"),
+                                React.createElement("option", { value: "main" }, "Main Event"),
+                                React.createElement("option", { value: "side" }, "Side Event")
+                              )
+                            )
+                          ),
+                          React.createElement(
+                            "div",
+                            { style: { display: "flex", flexWrap: "wrap", gap: "12px", marginTop: "8px", fontSize: "0.75rem" } },
+                            React.createElement(
+                              "label",
+                              { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: "var(--text-muted)" } },
+                              React.createElement("input", { type: "checkbox", checked: !!ev.is_satellite, onChange: /* @__PURE__ */ __name((e) => {
+                                updateVisionEvent(i, "is_satellite", e.target.checked);
+                                if (e.target.checked) updateVisionEvent(i, "is_restart", false);
+                              }, "onChange") }),
+                              "Satellite"
+                            ),
+                            React.createElement(
+                              "label",
+                              { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: "var(--text-muted)" } },
+                              React.createElement("input", { type: "checkbox", checked: !!ev.is_restart, onChange: /* @__PURE__ */ __name((e) => {
+                                updateVisionEvent(i, "is_restart", e.target.checked);
+                                if (e.target.checked) {
+                                  updateVisionEvent(i, "is_satellite", false);
+                                  updateVisionEvent(i, "buyin", 0);
+                                }
+                              }, "onChange") }),
+                              "Restart (Day 2+)"
+                            ),
+                            React.createElement(
+                              "label",
+                              { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: "var(--text-muted)" } },
+                              React.createElement("input", { type: "checkbox", checked: !!ev.is_multi_flight, onChange: /* @__PURE__ */ __name((e) => updateVisionEvent(i, "is_multi_flight", e.target.checked), "onChange") }),
+                              "Multi-flight"
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: { display: "flex", gap: "8px", marginTop: "12px", justifyContent: "flex-end" } },
+              React.createElement("button", {
+                className: "btn btn-ghost btn-sm",
+                onClick: /* @__PURE__ */ __name(() => {
+                  setVisionResults(null);
+                  setVisionFile(null);
+                }, "onClick")
+              }, "Cancel"),
+              React.createElement("button", {
+                className: "btn btn-primary btn-sm",
+                onClick: handleVisionImport,
+                disabled: visionImporting || !visionResults.events.length,
+                style: { display: "inline-flex", alignItems: "center", gap: "6px" }
+              }, visionImporting ? "Importing..." : `Add ${visionResults.events.length} Events`)
+            )
+          ),
+          visionResults && visionResults.events.length === 0 && React.createElement(
+            "div",
+            {
+              style: { padding: "12px", background: "var(--bg)", borderRadius: "8px", border: "1px solid var(--border)", color: "var(--text-muted)", fontSize: "0.8rem", textAlign: "center" }
+            },
+            "No tournament events found. Try a different file or check that it contains a tournament schedule.",
+            visionResults.pageErrors && visionResults.pageErrors.length > 0 && React.createElement("div", {
+              style: { marginTop: "8px", fontSize: "0.75rem", color: "var(--accent)", textAlign: "left" }
+            }, visionResults.pageErrors.map((pe, i) => React.createElement("div", { key: i }, "⚠ " + pe.error)))
+          )
+        )
+      )
+    ),
+    document.body
+  );
+}
+__name(ImportSchedulePanel, "ImportSchedulePanel");
+function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, isAdmin, onAdminEdit, token, onRefreshTournaments }) {
   const toast = useToast();
   const [search, setSearch] = useState("");
   const deferredSearch = React.useDeferredValue(search);
@@ -4593,50 +5127,49 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const stickyFiltersRef = useRef(null);
   const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
   const locationBtnRef = useRef(null);
+  const [importDropdownOpen, setImportDropdownOpen] = useState(false);
+  const importBtnRef = useRef(null);
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
   const fabContainerRef = useRef(null);
-  const setFiltersWithScroll = useCallback((updater) => {
-    const container = document.querySelector(".content-area");
-    if (container) {
-      const groups = container.querySelectorAll("[data-date-group]");
-      for (const g of groups) {
-        const rect = g.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        if (rect.bottom > containerRect.top) {
-          scrollAnchorRef.current = { date: g.getAttribute("data-date-group"), offsetFromTop: rect.top - containerRect.top };
-          break;
-        }
-      }
-    }
-    setFilters(updater);
-  }, []);
-  useEffect(() => {
-    if (!scrollAnchorRef.current) return;
-    const { date, offsetFromTop } = scrollAnchorRef.current;
-    scrollAnchorRef.current = null;
+  const scrollToTodayOrNext = useCallback(() => {
     const container = document.querySelector(".content-area");
     if (!container) return;
     requestAnimationFrame(() => {
-      const target = container.querySelector(`[data-date-group="${date}"]`);
-      if (target) {
-        const containerRect = container.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
-        const currentOffset = targetRect.top - containerRect.top;
-        container.scrollTop += currentOffset - offsetFromTop;
-      } else {
-        const firstGroup = container.querySelector("[data-date-group]");
-        if (firstGroup) {
-          const stickyEl = container.querySelector(".sticky-filters");
-          const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
-          const groupTop = firstGroup.getBoundingClientRect().top - container.getBoundingClientRect().top;
-          if (groupTop < stickyH) {
-            container.scrollTop += groupTop - stickyH;
-            if (container.scrollTop < 0) container.scrollTop = 0;
-          }
+      const todayISO = getToday();
+      const stickyEl = container.querySelector(".sticky-filters");
+      const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
+      const groups = container.querySelectorAll("[data-date-group]");
+      let target = null;
+      for (const g of groups) {
+        if (g.getAttribute("data-date-group") >= todayISO) {
+          target = g;
+          break;
         }
       }
+      if (!target && groups.length) target = groups[0];
+      if (target) {
+        container.scrollTo({ top: target.offsetTop - stickyH });
+      } else {
+        container.scrollTop = 0;
+      }
     });
+  }, []);
+  const prevSearchRef = useRef(deferredSearch);
+  useEffect(() => {
+    if (deferredSearch === prevSearchRef.current) return;
+    prevSearchRef.current = deferredSearch;
+    scrollToTodayOrNext();
+  }, [deferredSearch]);
+  const filterChangeRef = useRef(false);
+  const setFiltersWithScroll = useCallback((updater) => {
+    filterChangeRef.current = true;
+    setFilters(updater);
+  }, []);
+  useEffect(() => {
+    if (!filterChangeRef.current) return;
+    filterChangeRef.current = false;
+    scrollToTodayOrNext();
   }, [filters]);
   useEffect(() => {
     const measure = /* @__PURE__ */ __name(() => {
@@ -4785,16 +5318,27 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   useEffect(() => {
     const container = document.querySelector(".content-area");
     if (!container) return;
+    const todayISO = getToday();
+    const hasTodayEvents = filtered.some((t) => normaliseDate(t.date) === todayISO);
+    const findTarget = /* @__PURE__ */ __name(() => {
+      if (hasTodayEvents) return container.querySelector("[data-today-scroll]");
+      const groups = container.querySelectorAll("[data-date-group]");
+      for (const g of groups) {
+        if (g.getAttribute("data-date-group") >= todayISO) return g;
+      }
+      return groups.length ? groups[groups.length - 1] : null;
+    }, "findTarget");
+    const fabLabel = hasTodayEvents ? "Today" : "Next";
     const fab = document.createElement("button");
     fab.className = "back-to-today-fab";
     fab.dataset.dir = "up";
-    fab.innerHTML = '<svg class="fab-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="18 15 12 9 6 15"/></svg><svg class="fab-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="6 9 12 15 18 9"/></svg>Today';
+    fab.innerHTML = '<svg class="fab-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="18 15 12 9 6 15"/></svg><svg class="fab-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="6 9 12 15 18 9"/></svg>' + fabLabel;
     fab.addEventListener("click", () => {
-      const todayEl = container.querySelector("[data-today-scroll]");
-      if (todayEl) {
+      const target = findTarget();
+      if (target) {
         const stickyEl = container.querySelector(".sticky-filters");
         const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
-        const groupAbsTop = todayEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+        const groupAbsTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
         container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: "smooth" });
       }
     });
@@ -4805,17 +5349,17 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
-        const todayEl = container.querySelector("[data-today-scroll]");
-        if (!todayEl) {
+        const target = findTarget();
+        if (!target) {
           fab.classList.remove("visible");
           return;
         }
-        const rect = todayEl.getBoundingClientRect();
+        const rect = target.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
-        const pastToday = rect.bottom < containerRect.top + 120;
-        const beforeToday = rect.top > containerRect.bottom - 60;
-        fab.dataset.dir = pastToday ? "up" : "down";
-        if (pastToday || beforeToday) {
+        const pastTarget = rect.bottom < containerRect.top + 120;
+        const beforeTarget = rect.top > containerRect.bottom - 60;
+        fab.dataset.dir = pastTarget ? "up" : "down";
+        if (pastTarget || beforeTarget) {
           fab.classList.add("visible");
         } else {
           fab.classList.remove("visible");
@@ -4823,6 +5367,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       });
     }, "onScroll");
     container.addEventListener("scroll", onScroll, { passive: true });
+    requestAnimationFrame(() => onScroll());
     return () => {
       container.removeEventListener("scroll", onScroll);
       fab.remove();
@@ -4858,12 +5403,22 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
     "button",
     {
       ref: locationBtnRef,
-      className: `filter-chip ${filters.locationRegion ? "active" : ""}`,
+      className: `filter-chip ${filters.locationRegion || filters.userLocation ? "active" : ""}`,
       onClick: () => setLocationDropdownOpen((o) => !o),
       style: { flexShrink: 0, height: "44px" },
       title: "Filter by location"
     },
     /* @__PURE__ */ React.createElement(Icon.mapPin, null)
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      ref: importBtnRef,
+      className: `filter-chip ${importDropdownOpen ? "active" : ""}`,
+      onClick: () => setImportDropdownOpen((o) => !o),
+      style: { flexShrink: 0, height: "44px" },
+      title: "Import schedule"
+    },
+    /* @__PURE__ */ React.createElement(Icon.upload, null)
   ), /* @__PURE__ */ React.createElement("div", { className: "search-bar", style: { flex: 1, marginBottom: 0 } }, /* @__PURE__ */ React.createElement(Icon.search, null), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -4879,7 +5434,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "1rem", padding: "0 2px" }
     },
     "✕"
-  ))), /* @__PURE__ */ React.createElement(Filters, { filters, setFilters: setFiltersWithScroll, gameVariants, venues, buyinOptions, tournaments, open: filterPanelOpen, setOpen: setFilterPanelOpen, toggleRef: filterToggleRef, eventCount: filtered.filter((t) => !t.is_restart).length, onImport }), locationDropdownOpen && ReactDOM.createPortal(
+  ))), /* @__PURE__ */ React.createElement(Filters, { filters, setFilters: setFiltersWithScroll, gameVariants, venues, buyinOptions, tournaments, open: filterPanelOpen, setOpen: setFilterPanelOpen, toggleRef: filterToggleRef, eventCount: filtered.filter((t) => !t.is_restart).length }), /* @__PURE__ */ React.createElement(ImportSchedulePanel, { isOpen: importDropdownOpen, onClose: () => setImportDropdownOpen(false), anchorRef: importBtnRef, token, onRefreshTournaments }), locationDropdownOpen && ReactDOM.createPortal(
     /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 998 }, onClick: () => setLocationDropdownOpen(false) }),
     document.body
   ), locationDropdownOpen && (() => {
@@ -4897,8 +5452,58 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         padding: "6px 0",
         minWidth: "180px",
         boxShadow: "0 8px 24px rgba(0,0,0,0.3)"
-      } }, Object.entries(LOCATION_REGIONS2).map(([key, { label }]) => /* @__PURE__ */ React.createElement("button", { key, onClick: () => {
-        setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { locationRegion: f.locationRegion === key ? null : key }));
+      } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+        if (filters.userLocation) {
+          setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { userLocation: null, maxDistance: "", locationRegion: null }));
+          setLocationDropdownOpen(false);
+        } else {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude }, maxDistance: f.maxDistance || "100", locationRegion: null }));
+              },
+              () => {
+                toast.error("Could not get your location");
+              },
+              { enableHighAccuracy: false, timeout: 1e4 }
+            );
+          } else {
+            toast.error("Geolocation not supported");
+          }
+        }
+      }, style: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        width: "100%",
+        padding: "10px 14px",
+        background: "none",
+        border: "none",
+        color: filters.userLocation ? "var(--accent)" : "var(--text)",
+        fontWeight: filters.userLocation ? 700 : 400,
+        fontSize: "0.85rem",
+        cursor: "pointer",
+        textAlign: "left"
+      } }, /* @__PURE__ */ React.createElement("span", { style: { width: "16px", height: "16px", flexShrink: 0 } }, /* @__PURE__ */ React.createElement(Icon.mapPin, null)), "Current Location", filters.userLocation && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.75rem" } }, "✓")), filters.userLocation && /* @__PURE__ */ React.createElement("div", { style: { padding: "4px 14px 8px", display: "flex", alignItems: "center", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--text-muted)", whiteSpace: "nowrap" } }, "Radius"), /* @__PURE__ */ React.createElement(
+        "input",
+        {
+          type: "number",
+          value: filters.maxDistance,
+          onChange: (e) => setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { maxDistance: e.target.value })),
+          style: {
+            width: "60px",
+            padding: "4px 8px",
+            fontSize: "0.82rem",
+            background: "var(--bg)",
+            color: "var(--text)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)"
+          },
+          min: "1",
+          placeholder: "100"
+        }
+      ), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--text-muted)" } }, "mi")), /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: "var(--border)", margin: "4px 0" } }), Object.entries(LOCATION_REGIONS2).map(([key, { label }]) => /* @__PURE__ */ React.createElement("button", { key, onClick: () => {
+        setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { locationRegion: f.locationRegion === key ? null : key, userLocation: null, maxDistance: "" }));
         setLocationDropdownOpen(false);
       }, style: {
         display: "flex",
@@ -4913,8 +5518,8 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         fontSize: "0.85rem",
         cursor: "pointer",
         textAlign: "left"
-      } }, /* @__PURE__ */ React.createElement("span", { style: { width: "16px", height: "16px", flexShrink: 0 } }, /* @__PURE__ */ React.createElement(Icon.mapPin, null)), label, filters.locationRegion === key && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.75rem" } }, "✓"))), filters.locationRegion && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: "var(--border)", margin: "4px 0" } }), /* @__PURE__ */ React.createElement("button", { onClick: () => {
-        setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { locationRegion: null }));
+      } }, /* @__PURE__ */ React.createElement("span", { style: { width: "16px", height: "16px", flexShrink: 0 } }, /* @__PURE__ */ React.createElement(Icon.mapPin, null)), label, filters.locationRegion === key && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.75rem" } }, "✓"))), (filters.locationRegion || filters.userLocation) && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: "var(--border)", margin: "4px 0" } }), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+        setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { locationRegion: null, userLocation: null, maxDistance: "" }));
         setLocationDropdownOpen(false);
       }, style: {
         display: "block",
@@ -4970,7 +5575,16 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         alignItems: "baseline",
         gap: "4px",
         padding: "4px 12px",
-        borderRadius: "999px"
+        borderRadius: "999px",
+        cursor: "pointer"
+      }, onClick: (e) => {
+        const group2 = e.currentTarget.closest("[data-date-group]");
+        const container = group2 == null ? void 0 : group2.closest(".content-area");
+        if (group2 && container) {
+          const stickyEl = container.querySelector(".sticky-filters");
+          const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
+          container.scrollTo({ top: group2.offsetTop - stickyH, behavior: "smooth" });
+        }
       } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "var(--serif)", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "var(--serif)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)" } }, dayOfWeek))), group.events.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id }, /* @__PURE__ */ React.createElement(
         CalendarEventRow,
         {
@@ -7774,7 +8388,7 @@ function AdminView({ token, onNavigate }) {
 }
 __name(AdminView, "AdminView");
 function MoreView({ onNavigate, onExport, hasSchedule, isAdmin, handReplayerAccess }) {
-  return /* @__PURE__ */ React.createElement("div", { className: "more-menu" }, /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("schedule") }, /* @__PURE__ */ React.createElement(Icon.user, null), /* @__PURE__ */ React.createElement("div", null, "My Schedule", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "View your saved events"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("tracking") }, /* @__PURE__ */ React.createElement(Icon.tracking, null), /* @__PURE__ */ React.createElement("div", null, "Results & Tracking", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Log buy-ins, cashes, and track your P&L"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("calendar") }, /* @__PURE__ */ React.createElement(Icon.calendar, null), /* @__PURE__ */ React.createElement("div", null, "Calendar View", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "See your schedule day by day"))), (handReplayerAccess || isAdmin) && /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("hands") }, /* @__PURE__ */ React.createElement(Icon.cards, null), /* @__PURE__ */ React.createElement("div", null, "Hand Replayer", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Record and replay poker hands"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: onExport, disabled: !hasSchedule, style: !hasSchedule ? { opacity: 0.4, cursor: "default" } : void 0 }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" })), /* @__PURE__ */ React.createElement("div", null, "Export Schedule", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, hasSchedule ? "Download PDF or share images of your schedule" : "Save events to your schedule first"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("settings") }, /* @__PURE__ */ React.createElement(Icon.gear, null), /* @__PURE__ */ React.createElement("div", null, "Settings", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Account, sharing, appearance, imports"))), isAdmin && /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("admin") }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 15a3 3 0 100-6 3 3 0 000 6z" }), /* @__PURE__ */ React.createElement("path", { d: "M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" })), /* @__PURE__ */ React.createElement("div", null, "Admin", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "User accounts & management"))));
+  return /* @__PURE__ */ React.createElement("div", { className: "more-menu" }, /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("schedule") }, /* @__PURE__ */ React.createElement(Icon.user, null), /* @__PURE__ */ React.createElement("div", null, "My Schedule", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "View your saved events"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("tracking") }, /* @__PURE__ */ React.createElement(Icon.tracking, null), /* @__PURE__ */ React.createElement("div", null, "Results & Tracking", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Log buy-ins, cashes, and track your P&L"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("calendar") }, /* @__PURE__ */ React.createElement(Icon.calendar, null), /* @__PURE__ */ React.createElement("div", null, "Calendar View", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "See your schedule day by day"))), (handReplayerAccess || isAdmin) && /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("hands") }, /* @__PURE__ */ React.createElement(Icon.cards, null), /* @__PURE__ */ React.createElement("div", null, "Hand Replayer", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Record and replay poker hands"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: onExport, disabled: !hasSchedule, style: !hasSchedule ? { opacity: 0.4, cursor: "default" } : void 0 }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" })), /* @__PURE__ */ React.createElement("div", null, "Export Schedule", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, hasSchedule ? "Download PDF or share images of your schedule" : "Save events to your schedule first"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("settings") }, /* @__PURE__ */ React.createElement(Icon.gear, null), /* @__PURE__ */ React.createElement("div", null, "Settings", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Account, sharing, appearance"))), isAdmin && /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("admin") }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 15a3 3 0 100-6 3 3 0 000 6z" }), /* @__PURE__ */ React.createElement("path", { d: "M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" })), /* @__PURE__ */ React.createElement("div", null, "Admin", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "User accounts & management"))));
 }
 __name(MoreView, "MoreView");
 function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
@@ -7827,211 +8441,6 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
     setDebugNow(val);
     if (onDebugTimeChange) onDebugTimeChange(val);
   }, "applyDebugTime");
-  const [visionFile, setVisionFile] = useState(null);
-  const [visionVenue, setVisionVenue] = useState("");
-  const [visionUrl, setVisionUrl] = useState("");
-  const [visionParsing, setVisionParsing] = useState(false);
-  const [visionResults, setVisionResults] = useState(null);
-  const [visionError, setVisionError] = useState("");
-  const [visionImporting, setVisionImporting] = useState(false);
-  const [visionEditIdx, setVisionEditIdx] = useState(-1);
-  const [visionProgress, setVisionProgress] = useState(0);
-  const [visionStage, setVisionStage] = useState("");
-  const visionProgressRef = useRef(null);
-  const handleVisionUpload = /* @__PURE__ */ __name(async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    setVisionFile(files.length === 1 ? files[0] : { name: `${files.length} files` });
-    setVisionError("");
-    setVisionResults(null);
-    setVisionParsing(true);
-    setVisionProgress(0);
-    setVisionStage("Uploading...");
-    const hasPdf = files.some((f) => f.name.toLowerCase().endsWith(".pdf"));
-    const stages = [
-      { at: 5, label: `Uploading ${files.length > 1 ? files.length + " files" : "file"}...` },
-      { at: 10, label: hasPdf ? "Reading PDF pages..." : `Processing ${files.length > 1 ? files.length + " images" : "image"}...` },
-      { at: 20, label: "Pass 1: Transcribing schedule..." },
-      { at: 40, label: "Pass 1: Reading event details..." },
-      { at: 55, label: "Pass 2: Structuring events..." },
-      { at: 70, label: "Pass 2: Mapping variants..." },
-      { at: 82, label: "Validating data..." },
-      { at: 92, label: "Finalizing..." }
-    ];
-    let stageIdx = 0;
-    const startTime = Date.now();
-    const estDuration = hasPdf ? 6e4 : Math.max(3e4, files.length * 15e3);
-    visionProgressRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const raw = 95 * (1 - Math.exp(-2.5 * elapsed / estDuration));
-      const pct = Math.min(95, Math.round(raw));
-      setVisionProgress(pct);
-      while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
-        setVisionStage(stages[stageIdx].label);
-        stageIdx++;
-      }
-    }, 200);
-    const fd = new FormData();
-    for (const file of files) {
-      fd.append("file", file);
-    }
-    if (visionVenue) fd.append("venue", visionVenue);
-    try {
-      const res = await fetch(`${API_URL}/parse-schedule`, {
-        method: "POST",
-        headers: { Authorization: "Bearer " + token },
-        body: fd
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Parse failed");
-      clearInterval(visionProgressRef.current);
-      setVisionProgress(100);
-      setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : "No events found");
-      await new Promise((r) => setTimeout(r, 400));
-      setVisionResults(data);
-      if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
-    } catch (err) {
-      clearInterval(visionProgressRef.current);
-      setVisionProgress(0);
-      setVisionStage("");
-      setVisionError(err.message || "Failed to parse schedule");
-    } finally {
-      clearInterval(visionProgressRef.current);
-      setVisionParsing(false);
-      e.target.value = "";
-    }
-  }, "handleVisionUpload");
-  const handleVisionUrl = /* @__PURE__ */ __name(async () => {
-    if (!visionUrl.trim()) return;
-    setVisionError("");
-    setVisionResults(null);
-    setVisionParsing(true);
-    setVisionProgress(0);
-    setVisionStage("Fetching URL...");
-    const isUrlPdf = visionUrl.toLowerCase().endsWith(".pdf");
-    const stages = [
-      { at: 5, label: "Fetching URL..." },
-      { at: 12, label: isUrlPdf ? "Reading PDF..." : "Extracting page content..." },
-      { at: 20, label: "Analyzing schedule..." },
-      { at: 35, label: "Reading event details..." },
-      { at: 50, label: "Structuring events..." },
-      { at: 65, label: "Processing events..." },
-      { at: 78, label: "Mapping variants..." },
-      { at: 88, label: "Validating data..." },
-      { at: 94, label: "Finalizing..." }
-    ];
-    let stageIdx = 0;
-    const startTime = Date.now();
-    const estDuration = isUrlPdf ? 9e4 : 45e3;
-    visionProgressRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const raw = 95 * (1 - Math.exp(-2 * elapsed / estDuration));
-      const pct = Math.min(95, Math.round(raw));
-      setVisionProgress(pct);
-      while (stageIdx < stages.length && pct >= stages[stageIdx].at) {
-        setVisionStage(stages[stageIdx].label);
-        stageIdx++;
-      }
-    }, 200);
-    try {
-      const res = await fetch(`${API_URL}/parse-schedule-url`, {
-        method: "POST",
-        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-        body: JSON.stringify({ url: visionUrl.trim(), venue: visionVenue })
-      });
-      const rawText = await res.text();
-      let data;
-      try {
-        data = JSON.parse(rawText);
-      } catch (e) {
-        throw new Error("Server error — please try again");
-      }
-      if (!res.ok) throw new Error(data.error || "Parse failed");
-      clearInterval(visionProgressRef.current);
-      setVisionProgress(100);
-      setVisionStage(data.eventCount > 0 ? `Found ${data.eventCount} events` : "No events found");
-      await new Promise((r) => setTimeout(r, 400));
-      setVisionResults(data);
-      if (data.detectedVenue && !visionVenue) setVisionVenue(data.detectedVenue);
-    } catch (err) {
-      clearInterval(visionProgressRef.current);
-      setVisionProgress(0);
-      setVisionStage("");
-      setVisionError(err.message || "Failed to parse URL");
-    } finally {
-      clearInterval(visionProgressRef.current);
-      setVisionParsing(false);
-    }
-  }, "handleVisionUrl");
-  const removeVisionEvent = /* @__PURE__ */ __name((idx) => {
-    if (!visionResults) return;
-    const newEvents = visionResults.events.filter((_, i) => i !== idx);
-    setVisionResults(__spreadProps(__spreadValues({}, visionResults), { events: newEvents, eventCount: newEvents.length }));
-  }, "removeVisionEvent");
-  const updateVisionEvent = /* @__PURE__ */ __name((idx, field, value) => {
-    if (!visionResults) return;
-    const newEvents = [...visionResults.events];
-    newEvents[idx] = __spreadProps(__spreadValues({}, newEvents[idx]), { [field]: value });
-    setVisionResults(__spreadProps(__spreadValues({}, visionResults), { events: newEvents }));
-  }, "updateVisionEvent");
-  const handleVisionImport = /* @__PURE__ */ __name(async () => {
-    var _a;
-    if (!visionResults || !visionResults.events.length) return;
-    setVisionImporting(true);
-    setVisionError("");
-    try {
-      const checkRes = await fetch(`${API_URL}/check-schedule-duplicates`, {
-        method: "POST",
-        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-        body: JSON.stringify({ events: visionResults.events })
-      });
-      const dupCheck = await checkRes.json();
-      if (dupCheck.existing > 0 && dupCheck.new === 0) {
-        const proceed = window.confirm(
-          `All ${dupCheck.existing} events already exist in the schedule (${((_a = dupCheck.existingVenues) == null ? void 0 : _a.join(", ")) || "unknown venue"}). Importing will update them with the new data.
-
-Continue?`
-        );
-        if (!proceed) {
-          setVisionImporting(false);
-          return;
-        }
-      } else if (dupCheck.existing > 0) {
-        const proceed = window.confirm(
-          `${dupCheck.existing} of ${dupCheck.total} events already exist in the schedule. ${dupCheck.new} are new.
-
-Importing will add new events and update existing ones. Continue?`
-        );
-        if (!proceed) {
-          setVisionImporting(false);
-          return;
-        }
-      }
-      const res = await fetch(`${API_URL}/import-parsed-schedule`, {
-        method: "POST",
-        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          events: visionResults.events,
-          sourceFile: visionResults.sourceFile || "Vision Upload"
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Import failed");
-      const parts = [];
-      if (data.inserted) parts.push(`${data.inserted} new`);
-      if (data.updated) parts.push(`${data.updated} updated`);
-      if (data.skipped) parts.push(`${data.skipped} skipped`);
-      toast.success(`Import complete: ${parts.join(", ")}`);
-      setVisionResults(null);
-      setVisionFile(null);
-      setVisionVenue("");
-      if (onRefreshTournaments) onRefreshTournaments();
-    } catch (err) {
-      setVisionError(err.message || "Failed to import events");
-    } finally {
-      setVisionImporting(false);
-    }
-  }, "handleVisionImport");
   return /* @__PURE__ */ React.createElement("div", { className: "settings-view" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Account"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { gap: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "12px", flex: 1 } }, /* @__PURE__ */ React.createElement(Avatar, { src: avatar, username, size: 44 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.85rem", fontWeight: 600, color: "var(--text)" } }, realName || username), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "2px" } }, "@", username))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "6px", alignItems: "center" } }, /* @__PURE__ */ React.createElement("label", { className: "btn btn-ghost btn-sm", style: { cursor: "pointer", fontSize: "0.75rem", padding: "4px 10px" } }, avatar ? "Change" : "Add photo", /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/jpeg,image/png,image/webp", onChange: onAvatarUpload, style: { display: "none" } })), avatar && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { color: "#b91c1c", fontSize: "0.75rem", padding: "4px 10px" }, onClick: onAvatarRemove }, "Remove"))), /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Display names"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.72rem", color: "var(--text-muted)", margin: "2px 0 0" } }, "Show ", nameMode === "real" ? "real names" : "usernames", " throughout the app")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "4px", background: "var(--bg)", borderRadius: "6px", padding: "2px" } }, /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -8114,115 +8523,7 @@ Importing will add new events and update existing ones. Continue?`
       style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontFamily: serifFont === "univers" ? "'Univers', sans-serif" : serifFont === "helvetica" ? "'Helvetica Neue', Helvetica, sans-serif" : "'Libre Baskerville', Georgia, serif" }
     },
     serifFont === "univers" ? "Univers" : serifFont === "helvetica" ? "Helvetica" : "Baskerville"
-  )))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Import Schedule"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Import schedule"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 } }, "Upload a PDF/image or paste a web link. AI extracts event data automatically."), /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      type: "text",
-      placeholder: "Venue (optional — auto-detected from document)",
-      value: visionVenue,
-      onChange: (e) => setVisionVenue(e.target.value),
-      style: { padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: "0.8rem", width: "100%", boxSizing: "border-box" }
-    }
-  ), /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      type: "file",
-      id: "vision-schedule-upload",
-      className: "file-input",
-      accept: ".pdf,.png,.jpg,.jpeg,.webp",
-      multiple: true,
-      onChange: handleVisionUpload,
-      disabled: visionParsing
-    }
-  ), /* @__PURE__ */ React.createElement(
-    "label",
-    {
-      htmlFor: "vision-schedule-upload",
-      className: "btn btn-ghost btn-sm",
-      style: { alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "4px", opacity: visionParsing ? 0.5 : 1, pointerEvents: visionParsing ? "none" : "auto" }
-    },
-    /* @__PURE__ */ React.createElement(Icon.upload, null),
-    " ",
-    visionParsing ? "Scanning..." : "Upload File(s)"
-  ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", width: "100%" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 } }, "or"), /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      type: "text",
-      placeholder: "Paste schedule URL...",
-      value: visionUrl,
-      onChange: (e) => setVisionUrl(e.target.value),
-      onKeyDown: (e) => {
-        if (e.key === "Enter" && visionUrl.trim()) handleVisionUrl();
-      },
-      disabled: visionParsing,
-      style: { flex: 1, padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: "0.8rem", opacity: visionParsing ? 0.5 : 1 }
-    }
-  ), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      className: "btn btn-ghost btn-sm",
-      onClick: handleVisionUrl,
-      disabled: visionParsing || !visionUrl.trim(),
-      style: { whiteSpace: "nowrap", opacity: visionParsing || !visionUrl.trim() ? 0.5 : 1 }
-    },
-    "Fetch"
-  )), visionParsing && /* @__PURE__ */ React.createElement("div", { style: { padding: "12px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", color: "var(--text-muted)" } }, visionStage), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" } }, visionProgress, "%")), /* @__PURE__ */ React.createElement("div", { style: { height: "6px", background: "var(--border)", borderRadius: "3px", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
-    height: "100%",
-    width: visionProgress + "%",
-    background: "linear-gradient(90deg, var(--accent), var(--accent-hover, var(--accent)))",
-    borderRadius: "3px",
-    transition: visionProgress === 100 ? "width 0.3s ease" : "width 0.4s ease-out"
-  } }))), visionError && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "6px", color: "#ef4444", fontSize: "0.8rem" } }, visionError), visionResults && visionResults.events.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" } }, visionResults.eventCount, " Events Found"), visionResults.detectedVenue && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "8px" } }, "at ", visionResults.detectedVenue)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)" } }, visionResults.pageCount, " page", visionResults.pageCount !== 1 ? "s" : "", " scanned")), visionResults.warnings.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 10px", background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)", borderRadius: "6px", marginBottom: "8px", fontSize: "0.75rem", color: "#eab308" } }, visionResults.warnings.length, " warning", visionResults.warnings.length !== 1 ? "s" : "", ": ", visionResults.warnings.slice(0, 3).map((w) => w.warnings.join(", ")).join("; "), visionResults.warnings.length > 3 && ` (+${visionResults.warnings.length - 3} more)`), /* @__PURE__ */ React.createElement("div", { style: { maxHeight: "400px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: "2px solid var(--border)", position: "sticky", top: 0, background: "var(--bg)" } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Date"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Time"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "left", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Event"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 8px", textAlign: "right", color: "var(--text-muted)", fontFamily: "Univers Condensed, Univers, sans-serif", fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" } }, "Buy-in"), /* @__PURE__ */ React.createElement("th", { style: { padding: "6px 4px", textAlign: "center", width: "30px" } }))), /* @__PURE__ */ React.createElement("tbody", null, visionResults.events.map((ev, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: i }, /* @__PURE__ */ React.createElement(
-    "tr",
-    {
-      style: { borderBottom: "1px solid var(--border)", cursor: "pointer", background: visionEditIdx === i ? "var(--surface)" : "transparent" },
-      onClick: () => setVisionEditIdx(visionEditIdx === i ? -1 : i)
-    },
-    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", whiteSpace: "nowrap", color: "var(--text)", fontSize: "0.73rem" } }, ev.date ? ev.date.replace(/, \d{4}$/, "") : "?"),
-    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", whiteSpace: "nowrap", color: "var(--text-muted)", fontSize: "0.73rem" } }, ev.time || "?"),
-    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", color: "var(--text)", fontSize: "0.73rem", maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, ev.is_satellite && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", padding: "1px 4px", borderRadius: "3px", background: "rgba(139,92,246,0.2)", color: "#a78bfa", marginRight: "4px", fontWeight: 600 } }, "SAT"), ev.is_restart && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", padding: "1px 4px", borderRadius: "3px", background: "rgba(234,179,8,0.2)", color: "#eab308", marginRight: "4px", fontWeight: 600 } }, "Restart"), ev.event_name || "(unnamed)", ev._warnings && ev._warnings.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: "#eab308", marginLeft: "4px" }, title: ev._warnings.join(", ") }, "!")),
-    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 8px", textAlign: "right", color: "var(--text)", fontWeight: 600, fontSize: "0.73rem" } }, ev.buyin != null ? `$${ev.buyin.toLocaleString()}` : "—"),
-    /* @__PURE__ */ React.createElement("td", { style: { padding: "6px 4px", textAlign: "center" } }, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: (e) => {
-          e.stopPropagation();
-          removeVisionEvent(i);
-        },
-        style: { background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "0.7rem", padding: "2px 4px", lineHeight: 1 },
-        title: "Remove event"
-      },
-      "x"
-    ))
-  ), visionEditIdx === i && /* @__PURE__ */ React.createElement("tr", { style: { borderBottom: "1px solid var(--border)", background: "var(--surface)" } }, /* @__PURE__ */ React.createElement("td", { colSpan: 5, style: { padding: "8px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Event Name"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.event_name || "", onChange: (e) => updateVisionEvent(i, "event_name", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Variant"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.game_variant || "", onChange: (e) => updateVisionEvent(i, "game_variant", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Date"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.date || "", onChange: (e) => updateVisionEvent(i, "date", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Time"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.time || "", onChange: (e) => updateVisionEvent(i, "time", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Buy-in ($)"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.buyin || 0, onChange: (e) => updateVisionEvent(i, "buyin", parseInt(e.target.value) || 0), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Venue"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.venue || "", onChange: (e) => updateVisionEvent(i, "venue", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Starting Chips"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.starting_chips || "", onChange: (e) => updateVisionEvent(i, "starting_chips", parseInt(e.target.value) || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Guarantee ($)"), /* @__PURE__ */ React.createElement("input", { type: "number", value: ev.guarantee || "", onChange: (e) => updateVisionEvent(i, "guarantee", parseInt(e.target.value) || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Level Duration"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.level_duration || "", onChange: (e) => updateVisionEvent(i, "level_duration", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Re-entry"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.reentry || "", onChange: (e) => updateVisionEvent(i, "reentry", e.target.value), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Event #"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.event_number || "", onChange: (e) => updateVisionEvent(i, "event_number", e.target.value || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Category"), /* @__PURE__ */ React.createElement("select", { value: ev.category || "", onChange: (e) => updateVisionEvent(i, "category", e.target.value || null), style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "—"), /* @__PURE__ */ React.createElement("option", { value: "main" }, "Main Event"), /* @__PURE__ */ React.createElement("option", { value: "side" }, "Side Event")))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "12px", marginTop: "8px", fontSize: "0.75rem" } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: "var(--text-muted)" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: !!ev.is_satellite, onChange: (e) => {
-    updateVisionEvent(i, "is_satellite", e.target.checked);
-    if (e.target.checked) updateVisionEvent(i, "is_restart", false);
-  } }), "Satellite"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: "var(--text-muted)" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: !!ev.is_restart, onChange: (e) => {
-    updateVisionEvent(i, "is_restart", e.target.checked);
-    if (e.target.checked) {
-      updateVisionEvent(i, "is_satellite", false);
-      updateVisionEvent(i, "buyin", 0);
-    }
-  } }), "Restart (Day 2+)"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", color: "var(--text-muted)" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: !!ev.is_multi_flight, onChange: (e) => updateVisionEvent(i, "is_multi_flight", e.target.checked) }), "Multi-flight"), ev.is_satellite && /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px", flex: 1, minWidth: "120px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Target Event"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.target_event || "", onChange: (e) => updateVisionEvent(i, "target_event", e.target.value || null), placeholder: "e.g. Main Event", style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), ev.is_restart && /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px", flex: 1, minWidth: "120px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Parent Event"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.parent_event || "", onChange: (e) => updateVisionEvent(i, "parent_event", e.target.value || null), placeholder: "e.g. Event 1", style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem" } })), ev.is_multi_flight && /* @__PURE__ */ React.createElement("label", { style: { display: "flex", flexDirection: "column", gap: "2px" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase" } }, "Flight"), /* @__PURE__ */ React.createElement("input", { type: "text", value: ev.flight_letter || "", onChange: (e) => updateVisionEvent(i, "flight_letter", e.target.value || null), placeholder: "A, B, C...", style: { padding: "4px 6px", borderRadius: "4px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: "0.75rem", width: "50px" } })))))))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", marginTop: "12px", justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      className: "btn btn-ghost btn-sm",
-      onClick: () => {
-        setVisionResults(null);
-        setVisionFile(null);
-      }
-    },
-    "Cancel"
-  ), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      className: "btn btn-primary btn-sm",
-      onClick: handleVisionImport,
-      disabled: visionImporting || !visionResults.events.length,
-      style: { display: "inline-flex", alignItems: "center", gap: "6px" }
-    },
-    visionImporting ? "Importing..." : `Add ${visionResults.events.length} Events to Database`
-  ))), visionResults && visionResults.events.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "12px", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--border)", color: "var(--text-muted)", fontSize: "0.8rem", textAlign: "center" } }, "No tournament events found in the uploaded file. Try a different file or check that it contains a tournament schedule.", visionResults.pageErrors && visionResults.pageErrors.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px", fontSize: "0.75rem", color: "var(--accent)", textAlign: "left" } }, visionResults.pageErrors.map((pe, i) => /* @__PURE__ */ React.createElement("div", { key: i }, "⚠ ", pe.error))))))), isAdmin && /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Debug Tools"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Simulated date & time"), /* @__PURE__ */ React.createElement(
+  )))), isAdmin && /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Debug Tools"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Simulated date & time"), /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "settings-debug-input",
@@ -9266,9 +9567,10 @@ function App() {
       buddyEvents,
       buddyLiveUpdates,
       onBuddySwap,
-      onImport: () => setCurrentView("settings"),
       isAdmin: ["ham", "ham5"].includes((username || "").toLowerCase()),
-      onAdminEdit: adminEditTournament
+      onAdminEdit: adminEditTournament,
+      token,
+      onRefreshTournaments: fetchTournaments
     }
   ))), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "schedule" ? " tab-active" : ""), "data-tab": "schedule", style: { display: currentView === "schedule" ? void 0 : "none", height: currentView === "schedule" ? "100%" : void 0 } }, visitedTabs.has("schedule") && (!dataLoaded ? /* @__PURE__ */ React.createElement(SkeletonSchedule, null) : /* @__PURE__ */ React.createElement(ScheduleView, { key: debugTimeKey, mySchedule, onToggle: toggleTournament, shareBuddies, pendingIncoming, lastSeenShares, onAcceptRequest: handleAcceptRequest, onRejectRequest: handleRejectRequest, token, onSetCondition: setCondition, onRemoveCondition: removeCondition, allTournaments: tournaments, onToggleAnchor: toggleAnchor, onSetPlannedEntries: setPlannedEntries, onAddPersonalEvent: addPersonalEvent, onUpdatePersonalEvent: updatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, isAdmin: ["ham", "ham5"].includes((username || "").toLowerCase()), onAdminEdit: adminEditTournament }))), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "calendar" ? " tab-active" : ""), "data-tab": "calendar", style: { display: currentView === "calendar" ? void 0 : "none", height: currentView === "calendar" ? "100%" : void 0 } }, visitedTabs.has("calendar") && /* @__PURE__ */ React.createElement(CalendarView, { key: debugTimeKey, allTournaments: tournaments, mySchedule, onToggle: toggleTournament, gameVariants, venues, onSetCondition: setCondition, onRemoveCondition: removeCondition, onToggleAnchor: toggleAnchor, onSetPlannedEntries: setPlannedEntries, buddyEvents, buddyLiveUpdates })), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "tracking" ? " tab-active" : ""), "data-tab": "tracking", style: { display: currentView === "tracking" ? void 0 : "none", height: currentView === "tracking" ? "100%" : void 0 } }, visitedTabs.has("tracking") && /* @__PURE__ */ React.createElement(
     TrackingView,
