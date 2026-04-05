@@ -4614,6 +4614,17 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         const targetRect = target.getBoundingClientRect();
         const currentOffset = targetRect.top - containerRect.top;
         container.scrollTop += currentOffset - offsetFromTop;
+      } else {
+        const firstGroup = container.querySelector("[data-date-group]");
+        if (firstGroup) {
+          const stickyEl = container.querySelector(".sticky-filters");
+          const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+          const groupTop = firstGroup.getBoundingClientRect().top - container.getBoundingClientRect().top;
+          if (groupTop < stickyH) {
+            container.scrollTop += groupTop - stickyH;
+            if (container.scrollTop < 0) container.scrollTop = 0;
+          }
+        }
       }
     });
   }, [filters]);
@@ -4830,7 +4841,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         gap: "4px",
         padding: "4px 12px",
         borderRadius: "999px"
-      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id }, /* @__PURE__ */ React.createElement(
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "var(--serif)", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "var(--serif)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, marginLeft: "4px" } }, dayEventCount, " event", dayEventCount !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)" } }, dayOfWeek))), group.events.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id }, /* @__PURE__ */ React.createElement(
         CalendarEventRow,
         {
           tournament: t,
@@ -5147,7 +5158,7 @@ function ScheduleView({ mySchedule, onToggle, shareBuddies, pendingIncoming, las
         gap: "4px",
         padding: "4px 12px",
         borderRadius: "999px"
-      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif" } }, dayOfWeek))), group.events.map(({ t, globalIdx: gIdx }) => /* @__PURE__ */ React.createElement("div", { key: t.id, style: { contentVisibility: "auto", containIntrinsicSize: "auto 72px" } }, /* @__PURE__ */ React.createElement(
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "var(--serif)", color: "var(--bg)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)", textTransform: "capitalize", color: "var(--bg)" } }, monthAbbr)), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)" } }, dayOfWeek)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.7rem", lineHeight: 1, fontFamily: "var(--serif)" } }, dayNum), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)", textTransform: "capitalize" } }, monthAbbr), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.85rem", lineHeight: 1, fontFamily: "var(--serif)" } }, dayOfWeek))), group.events.map(({ t, globalIdx: gIdx }) => /* @__PURE__ */ React.createElement("div", { key: t.id, style: { contentVisibility: "auto", containIntrinsicSize: "auto 72px" } }, /* @__PURE__ */ React.createElement(
         CalendarEventRow,
         {
           tournament: t,
@@ -6561,7 +6572,7 @@ function TrackingEntryRow({ entry, onEdit, onDelete, isEditing, onUpdate, onCanc
   return /* @__PURE__ */ React.createElement("div", { className: "tracking-card" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--text-muted)", fontFamily: "'Univers Condensed','Univers',sans-serif", letterSpacing: "0.03em" } }, entry.date, " · #", entry.event_number), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.88rem", fontWeight: 600, color: "var(--text)", marginTop: "2px", fontFamily: "'Univers Condensed','Univers',sans-serif" } }, entry.event_name)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", flexShrink: 0 } }, /* @__PURE__ */ React.createElement(
     "div",
     {
-      style: { fontFamily: "'Libre Baskerville',Georgia,serif", fontSize: "1rem", fontWeight: 700 },
+      style: { fontFamily: "var(--serif)", fontSize: "1rem", fontWeight: 700 },
       className: profit >= 0 && entry.cashed ? "tracking-profit-pos" : "tracking-profit-neg"
     },
     fmtSigned(profit)
@@ -7670,7 +7681,7 @@ function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
   )));
 }
 __name(BottomNav, "BottomNav");
-function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
+function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, serifFont, toggleSerifFont, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
   const toast = useToast();
   const displayName = useDisplayName();
   const [debugInput, setDebugInput] = useState(_debugNow);
@@ -7958,6 +7969,14 @@ Importing will add new events and update existing ones. Continue?`
       className: `settings-toggle ${contrast === "high" ? "on" : ""}`,
       onClick: toggleContrast
     }
+  )), /* @__PURE__ */ React.createElement("div", { className: "settings-row" }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Display font"), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "btn btn-ghost btn-sm",
+      onClick: toggleSerifFont,
+      style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontFamily: serifFont === "univers" ? "'Univers', sans-serif" : "'Libre Baskerville', Georgia, serif" }
+    },
+    serifFont === "univers" ? "Univers" : "Baskerville"
   )))), /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Import Schedule"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Import schedule"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 } }, "Upload a PDF/image or paste a web link. AI extracts event data automatically."), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -8184,6 +8203,7 @@ function App() {
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
   const [contrast, setContrast] = useState(localStorage.getItem("contrast") || "normal");
   const [cardSplay, setCardSplay] = useState(localStorage.getItem("cardSplay") !== "off");
+  const [serifFont, setSerifFont] = useState(localStorage.getItem("serifFont") || "baskerville");
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("theme", theme);
@@ -8194,6 +8214,10 @@ function App() {
     document.documentElement.dataset.contrast = contrast;
     localStorage.setItem("contrast", contrast);
   }, [contrast]);
+  useEffect(() => {
+    document.documentElement.dataset.serif = serifFont === "univers" ? "univers" : "";
+    localStorage.setItem("serifFont", serifFont);
+  }, [serifFont]);
   const toggleTheme = /* @__PURE__ */ __name(() => setTheme((t) => {
     const i = THEME_ORDER.indexOf(t);
     return THEME_ORDER[(i + 1) % THEME_ORDER.length];
@@ -9145,6 +9169,8 @@ function App() {
           return next;
         });
       },
+      serifFont,
+      toggleSerifFont: () => setSerifFont((f) => f === "univers" ? "baskerville" : "univers"),
       onLogout: handleLogout,
       onDebugTimeChange: (val) => setDebugTimeKey((k) => k + 1),
       onUpload: handleFileUpload,

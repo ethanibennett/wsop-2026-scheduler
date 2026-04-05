@@ -5220,6 +5220,18 @@
             const targetRect = target.getBoundingClientRect();
             const currentOffset = targetRect.top - containerRect.top;
             container.scrollTop += (currentOffset - offsetFromTop);
+          } else {
+            // Anchored date group no longer visible — ensure first group isn't behind sticky header
+            const firstGroup = container.querySelector('[data-date-group]');
+            if (firstGroup) {
+              const stickyEl = container.querySelector('.sticky-filters');
+              const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+              const groupTop = firstGroup.getBoundingClientRect().top - container.getBoundingClientRect().top;
+              if (groupTop < stickyH) {
+                container.scrollTop += (groupTop - stickyH);
+                if (container.scrollTop < 0) container.scrollTop = 0;
+              }
+            }
           }
         });
       }, [filters]);
@@ -5464,18 +5476,18 @@
                               background: 'var(--accent)', display: 'inline-flex', alignItems: 'baseline', gap: '4px',
                               padding: '4px 12px', borderRadius: '999px'
                             }}>
-                              <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: 'var(--bg)'}}>{dayNum}</span>
-                              <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
+                              <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "var(--serif)", color: 'var(--bg)'}}>{dayNum}</span>
+                              <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
                             </span>
                             <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount} event{dayEventCount !== 1 ? 's' : ''}</span>
-                            <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
+                            <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayOfWeek}</span>
                           </>
                         ) : (
                           <>
-                            <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
-                            <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
+                            <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayNum}</span>
+                            <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)", textTransform: 'capitalize'}}>{monthAbbr}</span>
                             <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount} event{dayEventCount !== 1 ? 's' : ''}</span>
-                            <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
+                            <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayOfWeek}</span>
                           </>
                         )}
                       </div>
@@ -5822,16 +5834,16 @@
                             background: 'var(--accent)', display: 'inline-flex', alignItems: 'baseline', gap: '4px',
                             padding: '4px 12px', borderRadius: '999px'
                           }}>
-                            <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", color: 'var(--bg)'}}>{dayNum}</span>
-                            <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
+                            <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "var(--serif)", color: 'var(--bg)'}}>{dayNum}</span>
+                            <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
                           </span>
-                          <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayOfWeek}</span>
+                          <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayOfWeek}</span>
                         </>
                       ) : (
                         <>
-                          <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif"}}>{dayNum}</span>
-                          <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", textTransform: 'capitalize'}}>{monthAbbr}</span>
-                          <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "'Libre Baskerville', Georgia, serif", }}>{dayOfWeek}</span>
+                          <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayNum}</span>
+                          <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)", textTransform: 'capitalize'}}>{monthAbbr}</span>
+                          <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)", }}>{dayOfWeek}</span>
                         </>
                       )}
                     </div>
@@ -7403,7 +7415,7 @@
               </div>
             </div>
             <div style={{textAlign:'right',flexShrink:0}}>
-              <div style={{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:'1rem',fontWeight:700}}
+              <div style={{fontFamily:"var(--serif)",fontSize:'1rem',fontWeight:700}}
                 className={profit >= 0 && entry.cashed ? 'tracking-profit-pos' : 'tracking-profit-neg'}>
                 {fmtSigned(profit)}
               </div>
@@ -9062,7 +9074,7 @@
 
     // ── Settings View ──────────────────────────────────────────
 
-    function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
+    function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, onAvatarUpload, onAvatarRemove, theme, toggleTheme, contrast, toggleContrast, cardSplay, toggleCardSplay, serifFont, toggleSerifFont, onLogout, onDebugTimeChange, onUpload, uploadError, uploadSuccess, uploadVenue, onUploadVenueChange, shareToken, onGenerateShareToken, onRevokeShareToken, onSendShareRequest, pendingOutgoing, onCancelRequest, shareBuddies, onRemoveBuddy, shareError, shareSuccess, token, onRefreshTournaments }) {
       const toast = useToast();
       const displayName = useDisplayName();
       const [debugInput, setDebugInput] = useState(_debugNow);
@@ -9429,6 +9441,16 @@
                   className={`settings-toggle ${contrast === 'high' ? 'on' : ''}`}
                   onClick={toggleContrast}
                 />
+              </div>
+              <div className="settings-row">
+                <span className="settings-row-label">Display font</span>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={toggleSerifFont}
+                  style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'13px',padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)', fontFamily: serifFont === 'univers' ? "'Univers', sans-serif" : "'Libre Baskerville', Georgia, serif"}}
+                >
+                  {serifFont === 'univers' ? 'Univers' : 'Baskerville'}
+                </button>
               </div>
             </div>
           </div>
@@ -9869,6 +9891,7 @@
       const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
       const [contrast, setContrast] = useState(localStorage.getItem('contrast') || 'normal');
       const [cardSplay, setCardSplay] = useState(localStorage.getItem('cardSplay') !== 'off');
+      const [serifFont, setSerifFont] = useState(localStorage.getItem('serifFont') || 'baskerville');
 
       useEffect(() => {
         document.documentElement.dataset.theme = theme;
@@ -9881,6 +9904,11 @@
         document.documentElement.dataset.contrast = contrast;
         localStorage.setItem('contrast', contrast);
       }, [contrast]);
+
+      useEffect(() => {
+        document.documentElement.dataset.serif = serifFont === 'univers' ? 'univers' : '';
+        localStorage.setItem('serifFont', serifFont);
+      }, [serifFont]);
 
       const toggleTheme = () => setTheme(t => {
         const i = THEME_ORDER.indexOf(t);
@@ -10815,6 +10843,8 @@
                 toggleContrast={toggleContrast}
                 cardSplay={cardSplay}
                 toggleCardSplay={() => { setCardSplay(s => { var next = !s; localStorage.setItem('cardSplay', next ? 'on' : 'off'); return next; }); }}
+                serifFont={serifFont}
+                toggleSerifFont={() => setSerifFont(f => f === 'univers' ? 'baskerville' : 'univers')}
                 onLogout={handleLogout}
                 onDebugTimeChange={(val) => setDebugTimeKey(k => k + 1)}
                 onUpload={handleFileUpload}
