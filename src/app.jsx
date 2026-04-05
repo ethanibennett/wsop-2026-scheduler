@@ -10462,7 +10462,7 @@
         setTournaments(prev => prev.map(t => t.id === tournamentId ? { ...t, ...updated } : t));
         // Also update mySchedule if this event is in user's schedule
         setMySchedule(prev => prev.map(t => t.id === tournamentId ? { ...t, ...updated } : t));
-        toast('Event updated');
+        toast.success('Event updated');
       };
 
       const toggleTournament = async (tournamentId) => {
