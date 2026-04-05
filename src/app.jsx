@@ -5224,49 +5224,36 @@
         });
       }, [deferredSearch]);
 
-      // Wrap setFilters to preserve scroll position when toggling show checkboxes
+      // Wrap setFilters — after filter change, scroll to today/next playable event
+      const filterChangeRef = useRef(false);
       const setFiltersWithScroll = useCallback((updater) => {
-        const container = document.querySelector('.content-area');
-        if (container) {
-          // Find the first visible date-group element
-          const groups = container.querySelectorAll('[data-date-group]');
-          for (const g of groups) {
-            const rect = g.getBoundingClientRect();
-            const containerRect = container.getBoundingClientRect();
-            if (rect.bottom > containerRect.top) {
-              scrollAnchorRef.current = { date: g.getAttribute('data-date-group'), offsetFromTop: rect.top - containerRect.top };
-              break;
-            }
-          }
-        }
+        filterChangeRef.current = true;
         setFilters(updater);
       }, []);
 
-      // After re-render, restore scroll to the anchored date group
+      // After re-render from filter change, scroll to today or next upcoming date group
       useEffect(() => {
-        if (!scrollAnchorRef.current) return;
-        const { date, offsetFromTop } = scrollAnchorRef.current;
-        scrollAnchorRef.current = null;
+        if (!filterChangeRef.current) return;
+        filterChangeRef.current = false;
         const container = document.querySelector('.content-area');
         if (!container) return;
         requestAnimationFrame(() => {
-          const target = container.querySelector(`[data-date-group="${date}"]`);
+          const todayISO = getToday();
+          const stickyEl = container.querySelector('.sticky-filters');
+          const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
+          // Find today's group or the first group >= today
+          const groups = container.querySelectorAll('[data-date-group]');
+          let target = null;
+          for (const g of groups) {
+            const d = g.getAttribute('data-date-group');
+            if (d >= todayISO) { target = g; break; }
+          }
+          // Fall back to first group if all are past
+          if (!target && groups.length) target = groups[0];
           if (target) {
-            const containerRect = container.getBoundingClientRect();
-            const targetRect = target.getBoundingClientRect();
-            const currentOffset = targetRect.top - containerRect.top;
-            container.scrollTop += (currentOffset - offsetFromTop);
+            container.scrollTo({ top: target.offsetTop - stickyH });
           } else {
-            // Anchored date group no longer visible — scroll first visible group just below sticky header
-            const stickyEl = container.querySelector('.sticky-filters');
-            const firstGroup = container.querySelector('[data-date-group]');
-            if (stickyEl && firstGroup) {
-              const stickyH = stickyEl.offsetHeight;
-              const groupAbsTop = firstGroup.offsetTop;
-              container.scrollTop = groupAbsTop - stickyH;
-            } else {
-              container.scrollTop = 0;
-            }
+            container.scrollTop = 0;
           }
         });
       }, [filters]);
@@ -5572,16 +5559,6 @@
                       // Already active — toggle off
                       setFiltersWithScroll(f => ({...f, userLocation: null, maxDistance: '', locationRegion: null}));
                       setLocationDropdownOpen(false);
-                      requestAnimationFrame(() => requestAnimationFrame(() => {
-                        const container = document.querySelector('.content-area');
-                        if (!container) return;
-                        const todayEl = container.querySelector('[data-today-scroll]');
-                        if (todayEl) {
-                          const stickyEl = container.querySelector('.sticky-filters');
-                          const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
-                          container.scrollTo({ top: todayEl.offsetTop - stickyH, behavior: 'smooth' });
-                        }
-                      }));
                     } else {
                       if (navigator.geolocation) {
                         navigator.geolocation.getCurrentPosition(
@@ -5648,17 +5625,6 @@
                       <button onClick={() => {
                         setFiltersWithScroll(f => ({...f, locationRegion: null, userLocation: null, maxDistance: ''}));
                         setLocationDropdownOpen(false);
-                        // Scroll to today after filters update
-                        requestAnimationFrame(() => requestAnimationFrame(() => {
-                          const container = document.querySelector('.content-area');
-                          if (!container) return;
-                          const todayEl = container.querySelector('[data-today-scroll]');
-                          if (todayEl) {
-                            const stickyEl = container.querySelector('.sticky-filters');
-                            const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
-                            container.scrollTo({ top: todayEl.offsetTop - stickyH, behavior: 'smooth' });
-                          }
-                        }));
                       }} style={{
                         display:'block', width:'100%', padding:'10px 14px',
                         background:'none', border:'none', color:'var(--text-muted)',
