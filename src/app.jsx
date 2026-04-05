@@ -5205,23 +5205,34 @@
       const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
       const fabContainerRef = useRef(null);
 
-      // When search changes, scroll to the first chronological result
-      const prevSearchRef = useRef(deferredSearch);
-      useEffect(() => {
-        if (deferredSearch === prevSearchRef.current) return;
-        prevSearchRef.current = deferredSearch;
+      // Scroll to today's date group or the next upcoming one
+      const scrollToTodayOrNext = useCallback(() => {
         const container = document.querySelector('.content-area');
         if (!container) return;
         requestAnimationFrame(() => {
+          const todayISO = getToday();
           const stickyEl = container.querySelector('.sticky-filters');
           const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
-          const firstGroup = container.querySelector('[data-date-group]');
-          if (firstGroup) {
-            container.scrollTop = firstGroup.offsetTop - stickyH;
+          const groups = container.querySelectorAll('[data-date-group]');
+          let target = null;
+          for (const g of groups) {
+            if (g.getAttribute('data-date-group') >= todayISO) { target = g; break; }
+          }
+          if (!target && groups.length) target = groups[0];
+          if (target) {
+            container.scrollTo({ top: target.offsetTop - stickyH });
           } else {
             container.scrollTop = 0;
           }
         });
+      }, []);
+
+      // When search changes, scroll to today/next
+      const prevSearchRef = useRef(deferredSearch);
+      useEffect(() => {
+        if (deferredSearch === prevSearchRef.current) return;
+        prevSearchRef.current = deferredSearch;
+        scrollToTodayOrNext();
       }, [deferredSearch]);
 
       // Wrap setFilters — after filter change, scroll to today/next playable event
@@ -5235,27 +5246,7 @@
       useEffect(() => {
         if (!filterChangeRef.current) return;
         filterChangeRef.current = false;
-        const container = document.querySelector('.content-area');
-        if (!container) return;
-        requestAnimationFrame(() => {
-          const todayISO = getToday();
-          const stickyEl = container.querySelector('.sticky-filters');
-          const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
-          // Find today's group or the first group >= today
-          const groups = container.querySelectorAll('[data-date-group]');
-          let target = null;
-          for (const g of groups) {
-            const d = g.getAttribute('data-date-group');
-            if (d >= todayISO) { target = g; break; }
-          }
-          // Fall back to first group if all are past
-          if (!target && groups.length) target = groups[0];
-          if (target) {
-            container.scrollTo({ top: target.offsetTop - stickyH });
-          } else {
-            container.scrollTop = 0;
-          }
-        });
+        scrollToTodayOrNext();
       }, [filters]);
 
       useEffect(() => {
