@@ -5238,23 +5238,17 @@
             const currentOffset = targetRect.top - containerRect.top;
             container.scrollTop += (currentOffset - offsetFromTop);
           } else {
-            // Anchored date group no longer visible — scroll to top so nothing is cut off
-            container.scrollTop = 0;
-          }
-          // Safety: ensure first date group isn't behind sticky header
-          requestAnimationFrame(() => {
+            // Anchored date group no longer visible — scroll first visible group just below sticky header
             const stickyEl = container.querySelector('.sticky-filters');
-            if (!stickyEl) return;
-            const stickyBottom = stickyEl.getBoundingClientRect().bottom;
             const firstGroup = container.querySelector('[data-date-group]');
-            if (firstGroup) {
-              const groupTop = firstGroup.getBoundingClientRect().top;
-              if (groupTop < stickyBottom + 2) {
-                container.scrollTop -= (stickyBottom + 2 - groupTop);
-                if (container.scrollTop < 0) container.scrollTop = 0;
-              }
+            if (stickyEl && firstGroup) {
+              const stickyH = stickyEl.offsetHeight;
+              const groupAbsTop = firstGroup.offsetTop;
+              container.scrollTop = groupAbsTop - stickyH;
+            } else {
+              container.scrollTop = 0;
             }
-          });
+          }
         });
       }, [filters]);
 
@@ -5411,25 +5405,6 @@
             return na - nb;
           });
       }, [tournaments, deferredSearch, filters, endedVenues]);
-
-      // After search/filter changes, ensure first date group isn't behind sticky header
-      useEffect(() => {
-        const container = document.querySelector('.content-area');
-        if (!container) return;
-        requestAnimationFrame(() => {
-          const stickyEl = container.querySelector('.sticky-filters');
-          if (!stickyEl) return;
-          const stickyBottom = stickyEl.getBoundingClientRect().bottom;
-          const firstGroup = container.querySelector('[data-date-group]');
-          if (firstGroup) {
-            const groupTop = firstGroup.getBoundingClientRect().top;
-            if (groupTop < stickyBottom + 2) {
-              container.scrollTop -= (stickyBottom + 2 - groupTop);
-              if (container.scrollTop < 0) container.scrollTop = 0;
-            }
-          }
-        });
-      }, [filtered]);
 
       // Show "Back to Today" button when scrolled away from today's section.
       // FAB is created outside React to prevent re-render from stripping classes.
