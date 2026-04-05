@@ -4590,6 +4590,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
   const scrollAnchorRef = useRef(null);
   const [showBackToToday, setShowBackToToday] = useState(false);
   const [backToTodayVisible, setBackToTodayVisible] = useState(false);
+  const [backToTodayDir, setBackToTodayDir] = useState("up");
   const setFiltersWithScroll = useCallback((updater) => {
     const container = document.querySelector(".content-area");
     if (container) {
@@ -4778,10 +4779,15 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         }
         const rect = todayEl.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
-        const shouldShow = rect.bottom < containerRect.top + 120;
+        const pastToday = rect.bottom < containerRect.top + 120;
+        const beforeToday = rect.top > containerRect.bottom - 60;
+        const shouldShow = pastToday || beforeToday;
         if (shouldShow && !backToTodayVisible) {
+          setBackToTodayDir(pastToday ? "up" : "down");
           setShowBackToToday(true);
           requestAnimationFrame(() => setBackToTodayVisible(true));
+        } else if (shouldShow && backToTodayVisible) {
+          setBackToTodayDir(pastToday ? "up" : "down");
         } else if (!shouldShow && backToTodayVisible) {
           setBackToTodayVisible(false);
           setTimeout(() => setShowBackToToday(false), 300);
@@ -4950,7 +4956,7 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
         }
       }
     },
-    /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", style: { width: "14px", height: "14px" } }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })),
+    /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", style: { width: "14px", height: "14px" } }, /* @__PURE__ */ React.createElement("polyline", { points: backToTodayDir === "up" ? "18 15 12 9 6 15" : "6 9 12 15 18 9" })),
     "Today"
   ));
 }

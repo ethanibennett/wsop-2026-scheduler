@@ -5196,6 +5196,7 @@
       const scrollAnchorRef = useRef(null); // { date, offsetFromTop }
       const [showBackToToday, setShowBackToToday] = useState(false);
       const [backToTodayVisible, setBackToTodayVisible] = useState(false);
+      const [backToTodayDir, setBackToTodayDir] = useState('up'); // 'up' = scrolled past today, 'down' = scrolled into past
 
       // Wrap setFilters to preserve scroll position when toggling show checkboxes
       const setFiltersWithScroll = useCallback((updater) => {
@@ -5400,13 +5401,17 @@
             if (!todayEl) { setShowBackToToday(false); return; }
             const rect = todayEl.getBoundingClientRect();
             const containerRect = container.getBoundingClientRect();
-            const shouldShow = rect.bottom < containerRect.top + 120;
+            const pastToday = rect.bottom < containerRect.top + 120;
+            const beforeToday = rect.top > containerRect.bottom - 60;
+            const shouldShow = pastToday || beforeToday;
             if (shouldShow && !backToTodayVisible) {
+              setBackToTodayDir(pastToday ? 'up' : 'down');
               setShowBackToToday(true);
               requestAnimationFrame(() => setBackToTodayVisible(true));
+            } else if (shouldShow && backToTodayVisible) {
+              setBackToTodayDir(pastToday ? 'up' : 'down');
             } else if (!shouldShow && backToTodayVisible) {
               setBackToTodayVisible(false);
-              // Keep in DOM for fade-out, then remove
               setTimeout(() => setShowBackToToday(false), 300);
             }
           });
@@ -5608,7 +5613,7 @@
               }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'14px',height:'14px'}}>
-                <polyline points="18 15 12 9 6 15"/>
+                <polyline points={backToTodayDir === 'up' ? "18 15 12 9 6 15" : "6 9 12 15 18 9"}/>
               </svg>
               Today
             </button>
