@@ -5406,23 +5406,41 @@
           });
       }, [tournaments, deferredSearch, filters, endedVenues]);
 
-      // Show "Back to Today" button when scrolled away from today's section.
+      // Show "Today" / "Next" FAB when scrolled away from the anchor section.
+      // "Today" when today has events in filtered results; "Next" when it doesn't (scrolls to nearest future date).
       // FAB is created outside React to prevent re-render from stripping classes.
       useEffect(() => {
         const container = document.querySelector('.content-area');
         if (!container) return;
 
+        const todayISO = getToday();
+        const hasTodayEvents = !!container.querySelector(`[data-date-group="${todayISO}"]`);
+
+        // Find the scroll target: today's group, or the next upcoming date group
+        const findTarget = () => {
+          if (hasTodayEvents) return container.querySelector('[data-today-scroll]');
+          // No events today — find the first date group >= today
+          const groups = container.querySelectorAll('[data-date-group]');
+          for (const g of groups) {
+            if (g.getAttribute('data-date-group') >= todayISO) return g;
+          }
+          // All dates are past — return last group
+          return groups.length ? groups[groups.length - 1] : null;
+        };
+
+        const fabLabel = hasTodayEvents ? 'Today' : 'Next';
+
         // Create FAB element outside React
         const fab = document.createElement('button');
         fab.className = 'back-to-today-fab';
         fab.dataset.dir = 'up';
-        fab.innerHTML = '<svg class="fab-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="18 15 12 9 6 15"/></svg><svg class="fab-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="6 9 12 15 18 9"/></svg>Today';
+        fab.innerHTML = '<svg class="fab-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="18 15 12 9 6 15"/></svg><svg class="fab-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="6 9 12 15 18 9"/></svg>' + fabLabel;
         fab.addEventListener('click', () => {
-          const todayEl = container.querySelector('[data-today-scroll]');
-          if (todayEl) {
+          const target = findTarget();
+          if (target) {
             const stickyEl = container.querySelector('.sticky-filters');
             const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
-            const groupAbsTop = todayEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+            const groupAbsTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
             container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
           }
         });
@@ -5434,14 +5452,14 @@
           ticking = true;
           requestAnimationFrame(() => {
             ticking = false;
-            const todayEl = container.querySelector('[data-today-scroll]');
-            if (!todayEl) { fab.classList.remove('visible'); return; }
-            const rect = todayEl.getBoundingClientRect();
+            const target = findTarget();
+            if (!target) { fab.classList.remove('visible'); return; }
+            const rect = target.getBoundingClientRect();
             const containerRect = container.getBoundingClientRect();
-            const pastToday = rect.bottom < containerRect.top + 120;
-            const beforeToday = rect.top > containerRect.bottom - 60;
-            fab.dataset.dir = pastToday ? 'up' : 'down';
-            if (pastToday || beforeToday) {
+            const pastTarget = rect.bottom < containerRect.top + 120;
+            const beforeTarget = rect.top > containerRect.bottom - 60;
+            fab.dataset.dir = pastTarget ? 'up' : 'down';
+            if (pastTarget || beforeTarget) {
               fab.classList.add('visible');
             } else {
               fab.classList.remove('visible');
@@ -5449,6 +5467,8 @@
           });
         };
         container.addEventListener('scroll', onScroll, { passive: true });
+        // Check immediately in case we're already off the target
+        requestAnimationFrame(() => onScroll());
         return () => {
           container.removeEventListener('scroll', onScroll);
           fab.remove();
