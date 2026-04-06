@@ -2223,6 +2223,21 @@ async function initDatabase() {
         console.log(`Reassigned ${changed} events from Horseshoe/Paris to WSOPC Cherokee (May 7-18)`);
       }
     },
+    {
+      name: 'strip-primary-notes-2026-04',
+      fn: () => {
+        // Remove "primary" from notes (case-insensitive), e.g. "Primary" → null
+        // If notes is exactly "primary" (any case), set to null
+        db.run(`UPDATE tournaments SET notes = NULL WHERE LOWER(TRIM(notes)) = 'primary'`);
+        const exact = db.getRowsModified();
+        // If notes contains "primary" among other text, strip it out
+        db.run(`UPDATE tournaments SET notes = TRIM(REPLACE(REPLACE(notes, 'Primary', ''), 'primary', '')) WHERE notes LIKE '%primary%' OR notes LIKE '%Primary%'`);
+        const partial = db.getRowsModified();
+        // Clean up any notes that became empty after stripping
+        db.run(`UPDATE tournaments SET notes = NULL WHERE TRIM(notes) = ''`);
+        console.log(`Stripped "primary" from notes: ${exact} exact, ${partial} partial matches`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
