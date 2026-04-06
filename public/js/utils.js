@@ -156,6 +156,7 @@
       'bestbet Jacksonville':        { abbr: 'BESTBET', color: '#1a73e8', longName: 'bestbet Jacksonville' },
       "Bally's Lake Tahoe":          { abbr: 'BALLY\'S', color: '#b91c1c', longName: 'WSOPC Lake Tahoe' },
       "Harrah's Cherokee":           { abbr: 'CHEROKEE', color: '#7c3aed', longName: 'WSOPC Cherokee' },
+      'WSOPC Cherokee':              { abbr: 'CHEROKEE', color: '#7c3aed', longName: 'WSOPC Cherokee' },
       'Choctaw Casino':              { abbr: 'CHOCTAW', color: '#dc2626', longName: 'WSOPC Choctaw' },
       'Horseshoe Tunica':            { abbr: 'TUNICA', color: '#0d6efd', longName: 'Horseshoe Tunica' },
     };
@@ -252,6 +253,7 @@
       'bestbet Jacksonville': 'America/New_York',
       "Bally's Lake Tahoe": 'America/Los_Angeles',
       "Harrah's Cherokee": 'America/New_York',
+      'WSOPC Cherokee': 'America/New_York',
       'Choctaw Casino': 'America/Chicago',
       'Horseshoe Tunica': 'America/Chicago',
       'Borgata': 'America/New_York',
@@ -292,6 +294,7 @@
       'bestbet Jacksonville':        { lat: 30.3568, lng: -81.6085 },
       "Bally's Lake Tahoe":          { lat: 38.9574, lng: -119.9459 },
       "Harrah's Cherokee":           { lat: 35.4617, lng: -83.3225 },
+      'WSOPC Cherokee':              { lat: 35.4617, lng: -83.3225 },
       'Choctaw Casino':              { lat: 34.0289, lng: -96.3931 },
       'Horseshoe Tunica':            { lat: 34.6965, lng: -90.3398 },
     };

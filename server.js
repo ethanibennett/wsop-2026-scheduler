@@ -2202,6 +2202,27 @@ async function initDatabase() {
         console.log(`Stripped 'side' from ${modified} tournament notes`);
       }
     },
+    {
+      name: 'wsopc-cherokee-venue-2026-04',
+      fn: () => {
+        // Events between May 7-18 were incorrectly assigned to Horseshoe/Paris by the schedule parser.
+        // They are actually WSOPC Cherokee events.
+        const mayDays = [];
+        for (let d = 7; d <= 18; d++) mayDays.push(`May ${d}, 2026`);
+        const isoStart = '2026-05-07';
+        const isoEnd = '2026-05-18';
+        // Handle human-readable date format
+        const humanPlaceholders = mayDays.map(() => '?').join(',');
+        db.run(
+          `UPDATE tournaments SET venue = 'WSOPC Cherokee'
+           WHERE venue = 'Horseshoe / Paris Las Vegas'
+           AND (date IN (${humanPlaceholders}) OR (date >= ? AND date <= ?))`,
+          [...mayDays, isoStart, isoEnd]
+        );
+        const changed = db.getRowsModified();
+        console.log(`Reassigned ${changed} events from Horseshoe/Paris to WSOPC Cherokee (May 7-18)`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {

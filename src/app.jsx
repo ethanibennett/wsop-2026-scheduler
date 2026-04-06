@@ -827,6 +827,7 @@
       'bestbet Jacksonville': 'bestbet Jacksonville',
       "Bally's Lake Tahoe": 'WSOPC Lake Tahoe',
       "Harrah's Cherokee": 'WSOPC Cherokee',
+      'WSOPC Cherokee': 'WSOPC Cherokee',
       'Choctaw Casino': 'WSOPC Choctaw',
       'Horseshoe Tunica': 'Horseshoe Tunica',
       'Caesars Palace': 'Caesars Palace',
@@ -4738,25 +4739,6 @@
         <>
           <div className="filter-row" style={{gap:'8px',marginBottom:'0',width:'100%',alignItems:'center'}}>
             <div style={{flex:1,display:'flex',alignItems:'center',gap:'8px',justifyContent:'flex-end'}}>
-<label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                <input type="checkbox" checked={!filters.hideSatellites}
-                  onChange={e => setFilters(f => ({...f, hideSatellites:!e.target.checked}))}
-                  style={{margin:0}}
-                /> Satellites
-              </label>
-              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                <input type="checkbox" checked={!filters.hideRestarts}
-                  onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
-                  style={{margin:0}}
-                /> Restarts
-              </label>
-              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                <input type="checkbox" checked={!filters.hideSideEvents}
-                  onChange={e => setFilters(f => ({...f, hideSideEvents:!e.target.checked}))}
-                  style={{margin:0}}
-                /> Side Events
-              </label>
-            </div>
             {filters.selectedGames.length > 0 && (
               <span className="filter-chip active">
                 {filters.selectedGames.length === 1 ? filters.selectedGames[0] : `${filters.selectedGames.length} games`}
@@ -4863,6 +4845,7 @@
               </span>
             )}
             {/* Distance chip hidden for now */}
+          </div>
           </div>
 
           {open && ReactDOM.createPortal(
@@ -5990,6 +5973,24 @@
                     style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
                 )}
               </div>
+              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                <input type="checkbox" checked={!filters.hideSatellites}
+                  onChange={e => setFiltersWithScroll(f => ({...f, hideSatellites:!e.target.checked}))}
+                  style={{margin:0}}
+                /> Satellites
+              </label>
+              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                <input type="checkbox" checked={!filters.hideRestarts}
+                  onChange={e => setFiltersWithScroll(f => ({...f, hideRestarts:!e.target.checked}))}
+                  style={{margin:0}}
+                /> Restarts
+              </label>
+              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                <input type="checkbox" checked={!filters.hideSideEvents}
+                  onChange={e => setFiltersWithScroll(f => ({...f, hideSideEvents:!e.target.checked}))}
+                  style={{margin:0}}
+                /> Side Events
+              </label>
             </div>
 
             <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} />
