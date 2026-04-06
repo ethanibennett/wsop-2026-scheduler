@@ -5975,9 +5975,9 @@
               </div>
             </div>
             <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-              <div style={{width:'44px',flexShrink:0}} />
-              <div style={{width:'44px',flexShrink:0}} />
-              <div style={{width:'44px',flexShrink:0}} />
+              <div style={{flexShrink:0,width:'41px'}} aria-hidden="true" />
+              <div style={{flexShrink:0,width:'41px'}} aria-hidden="true" />
+              <div style={{flexShrink:0,width:'41px'}} aria-hidden="true" />
               <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
                 <input type="checkbox" checked={!filters.hideSatellites}
