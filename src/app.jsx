@@ -5974,7 +5974,7 @@
                 )}
               </div>
             </div>
-            <div style={{display:'flex',gap:'8px',alignItems:'center',justifyContent:'flex-end'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingLeft:'156px'}}>
               <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
                 <input type="checkbox" checked={!filters.hideSatellites}
                   onChange={e => setFiltersWithScroll(f => ({...f, hideSatellites:!e.target.checked}))}
