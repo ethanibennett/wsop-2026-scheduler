@@ -2238,6 +2238,16 @@ async function initDatabase() {
         console.log(`Stripped "primary" from notes: ${exact} exact, ${partial} partial matches`);
       }
     },
+    {
+      name: 'clear-cherokee-rake-2026-04',
+      fn: () => {
+        // The schedule parser hallucinated rake data for WSOPC Cherokee events —
+        // the wsop.com schedule page has no rake information at all.
+        db.run(`UPDATE tournaments SET rake_pct = NULL, rake_dollars = NULL, house_fee = NULL WHERE venue = 'WSOPC Cherokee'`);
+        const changed = db.getRowsModified();
+        console.log(`Cleared hallucinated rake data from ${changed} WSOPC Cherokee events`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
