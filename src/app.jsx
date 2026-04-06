@@ -5974,7 +5974,11 @@
                 )}
               </div>
             </div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingLeft:'156px'}}>
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              <div style={{width:'44px',flexShrink:0}} />
+              <div style={{width:'44px',flexShrink:0}} />
+              <div style={{width:'44px',flexShrink:0}} />
+              <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
                 <input type="checkbox" checked={!filters.hideSatellites}
                   onChange={e => setFiltersWithScroll(f => ({...f, hideSatellites:!e.target.checked}))}
@@ -5993,6 +5997,7 @@
                   style={{margin:0}}
                 /> Side Events
               </label>
+              </div>
             </div>
 
             <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} />
