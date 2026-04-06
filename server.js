@@ -6904,6 +6904,10 @@ Rules:
 - For dates, use the format shown on the schedule
 - For buy-ins, include the dollar amount as shown
 - Also output the venue/series name from the document header on the FIRST line, prefixed with "VENUE:"
+- IMPORTANT: The WSOP has many different venues. "WSOP" alone is NOT a venue name.
+  Look for the specific location: e.g. "WSOP Circuit Harrah's Cherokee", "WSOP Circuit Choctaw",
+  "WSOP Circuit Thunder Valley", "Horseshoe/Paris Las Vegas", "WSOP Europe", etc.
+  Always include the specific casino/location name, not just "WSOP".
 
 Example:
 VENUE: Borgata Summer Poker Open
@@ -6917,7 +6921,9 @@ For each event line, output a JSON object with these fields:
 - "date": normalize to "Month DD, YYYY" (assume 2026 if no year). e.g. "June 15, 2026"
 - "time": normalize to "H:MM AM/PM". e.g. "11:00 AM"
 - "buyin": integer dollars (just the number, no $). e.g. 600
-- "venue": from the VENUE: line
+- "venue": from the VENUE: line. Must be specific — include the casino/location name.
+    WSOP Circuit stops should be the casino name (e.g. "Harrah's Cherokee", "Choctaw Casino", "Thunder Valley", "Horseshoe Tunica").
+    The main WSOP summer series is at "Horseshoe / Paris Las Vegas".
 - "game_variant": Map the event name to ONE of these codes:
     NLH, PLO, PLO8, O8, "Limit Hold'em", "Big O", "7-Card Stud", "Stud 8", Razz,
     HORSE, HOSE, TORSE, "2-7 Triple Draw", "NL 2-7 Single Draw", Badugi,
@@ -7143,7 +7149,9 @@ function postProcessEvents(allEvents, userVenue) {
     'TEXAS CARD HOUSE': 'Texas Card House',
     'LODGE': 'Lodge Poker Club',
     'BESTBET': 'bestbet Jacksonville', "BALLY'S": "Bally's Lake Tahoe",
-    'CHEROKEE': "Harrah's Cherokee", 'CHOCTAW': 'Choctaw Casino',
+    'CHEROKEE': 'WSOPC Cherokee', "HARRAH'S CHEROKEE": 'WSOPC Cherokee',
+    'WSOPC CHEROKEE': 'WSOPC Cherokee',
+    'CHOCTAW': 'Choctaw Casino', 'WSOPC CHOCTAW': 'Choctaw Casino',
     'TUNICA': 'Horseshoe Tunica',
   };
 
@@ -7312,6 +7320,34 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
   let userVenue = venue || '';
   if (!userVenue) {
     const urlLower = url.toLowerCase();
+
+    // WSOP Circuit stops — check these BEFORE the generic 'wsop' match
+    // wsop.com hosts schedules for many venues across the circuit
+    const WSOPC_URL_STOPS = {
+      'cherokee': 'WSOPC Cherokee',
+      'harrahs-cherokee': 'WSOPC Cherokee',
+      'choctaw': 'Choctaw Casino',
+      'thunder-valley': 'Thunder Valley',
+      'thundervalley': 'Thunder Valley',
+      'turning-stone': 'Turning Stone Casino',
+      'turningstone': 'Turning Stone Casino',
+      'horseshoe-tunica': 'Horseshoe Tunica',
+      'tunica': 'Horseshoe Tunica',
+      'lake-tahoe': "Bally's Lake Tahoe",
+      'ballys': "Bally's Lake Tahoe",
+      'bestbet': 'bestbet Jacksonville',
+      'lodge': 'Lodge Poker Club',
+      'seminole': 'Seminole Hard Rock',
+      'hard-rock': 'Seminole Hard Rock',
+      'hardrock': 'Seminole Hard Rock',
+      'foxwoods': 'Foxwoods',
+      'borgata': 'Borgata',
+      'mgm-national-harbor': 'MGM National Harbor',
+      'mgmnationalharbor': 'MGM National Harbor',
+      'horseshoe-las-vegas': 'Horseshoe / Paris Las Vegas',
+      'paris-las-vegas': 'Horseshoe / Paris Las Vegas',
+    };
+
     const URL_VENUE_MAP = {
       'venetian': 'Venetian', 'palazzo': 'Venetian',
       'borgata': 'Borgata',
@@ -7330,16 +7366,31 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
       'caesars': 'Caesars Palace',
       'turningstone': 'Turning Stone Casino', 'turning-stone': 'Turning Stone Casino',
       'texascardhouse': 'Texas Card House',
-      'wsop': 'Horseshoe / Paris Las Vegas',
       'lodgepoker': 'Lodge Poker Club', 'thelodge': 'Lodge Poker Club',
       'bestbet': 'bestbet Jacksonville', 'ballys': "Bally's Lake Tahoe",
-      'harrahs': "Harrah's Cherokee", 'cherokee': "Harrah's Cherokee",
+      'harrahs': 'WSOPC Cherokee', 'cherokee': 'WSOPC Cherokee',
       'choctaw': 'Choctaw Casino', 'tunica': 'Horseshoe Tunica',
     };
-    for (const [key, val] of Object.entries(URL_VENUE_MAP)) {
-      if (urlLower.includes(key)) { userVenue = val; break; }
+
+    // For wsop.com URLs, check circuit stop names in the path first
+    if (urlLower.includes('wsop.com') || urlLower.includes('wsop.')) {
+      for (const [key, val] of Object.entries(WSOPC_URL_STOPS)) {
+        if (urlLower.includes(key)) { userVenue = val; break; }
+      }
+      // If no specific circuit stop found, DON'T default to Horseshoe/Paris —
+      // let the AI detect the venue from the document content instead.
+      // Only default to Horseshoe/Paris if the URL explicitly says so.
+      if (!userVenue && (urlLower.includes('horseshoe') || urlLower.includes('paris-las-vegas'))) {
+        userVenue = 'Horseshoe / Paris Las Vegas';
+      }
+      if (userVenue) console.log(`[ParseURL] Detected WSOP Circuit venue from URL: ${userVenue}`);
+      else console.log(`[ParseURL] wsop.com URL but no specific venue detected — will use AI detection from content`);
+    } else {
+      for (const [key, val] of Object.entries(URL_VENUE_MAP)) {
+        if (urlLower.includes(key)) { userVenue = val; break; }
+      }
+      if (userVenue) console.log(`[ParseURL] Detected venue from URL: ${userVenue}`);
     }
-    if (userVenue) console.log(`[ParseURL] Detected venue from URL: ${userVenue}`);
   }
 
   try {
