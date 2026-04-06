@@ -5973,6 +5973,8 @@
                     style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
                 )}
               </div>
+            </div>
+            <div style={{display:'flex',gap:'8px',alignItems:'center',justifyContent:'flex-end'}}>
               <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
                 <input type="checkbox" checked={!filters.hideSatellites}
                   onChange={e => setFiltersWithScroll(f => ({...f, hideSatellites:!e.target.checked}))}
