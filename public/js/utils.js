@@ -155,8 +155,8 @@
       'Lodge Poker Club':            { abbr: 'LODGE', color: '#2d5a27', longName: 'Lodge Championship Series' },
       'bestbet Jacksonville':        { abbr: 'BESTBET', color: '#1a73e8', longName: 'bestbet Jacksonville' },
       "Bally's Lake Tahoe":          { abbr: 'BALLY\'S', color: '#b91c1c', longName: 'WSOPC Lake Tahoe' },
-      "Harrah's Cherokee":           { abbr: 'CHEROKEE', color: '#7c3aed', longName: 'WSOPC Cherokee' },
-      'WSOPC Cherokee':              { abbr: 'CHEROKEE', color: '#7c3aed', longName: 'WSOPC Cherokee' },
+      "Harrah's Cherokee":           { abbr: 'CHEROKEE', color: '#e91e90', longName: 'WSOPC Cherokee' },
+      'WSOPC Cherokee':              { abbr: 'CHEROKEE', color: '#e91e90', longName: 'WSOPC Cherokee' },
       'Choctaw Casino':              { abbr: 'CHOCTAW', color: '#dc2626', longName: 'WSOPC Choctaw' },
       'Horseshoe Tunica':            { abbr: 'TUNICA', color: '#0d6efd', longName: 'Horseshoe Tunica' },
     };
