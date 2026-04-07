@@ -6815,6 +6815,31 @@ app.put('/api/swap-suggest/:id/respond', authenticateToken, requireRegistered, (
   }
 });
 
+// ── Geocoding (city/postal code → lat/lng via Nominatim) ────
+app.get('/api/geocode', authenticateToken, async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'Missing query' });
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?` +
+      `q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1`;
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'FutureGame-PokerScheduler/1.0' }
+    });
+    const data = await resp.json();
+    const results = data.map(r => ({
+      lat: parseFloat(r.lat),
+      lng: parseFloat(r.lon),
+      display: r.display_name,
+      short: [r.address?.city || r.address?.town || r.address?.village || r.address?.county, r.address?.state, r.address?.country_code?.toUpperCase()].filter(Boolean).join(', '),
+    }));
+    res.json({ results });
+  } catch (err) {
+    console.error('[Geocode] Error:', err.message);
+    res.status(500).json({ error: 'Geocoding failed' });
+  }
+});
+
 // ── Push Notifications ──────────────────────────────────────
 
 // VAPID public key (needed by frontend to subscribe)

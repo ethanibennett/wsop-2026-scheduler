@@ -4673,7 +4673,7 @@
 
     // ── Filters ────────────────────────────────────────────────
 
-    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount, onImportOpen }) {
+    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount, search, setSearch }) {
       const panelRef = useRef(null);
       const [whereOpen, setWhereOpen] = useState(false);
       const [howMuchOpen, setHowMuchOpen] = useState(false);
@@ -4884,6 +4884,22 @@
                   </div>
                 );
               })()}
+              <div className="filter-group filter-span2" style={{marginBottom:'6px'}}>
+                <div className="search-bar" style={{marginBottom:0,height:'32px'}}>
+                  <Icon.search />
+                  <input
+                    type="text"
+                    placeholder="Search events, games…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    style={{padding:'4px 0'}}
+                  />
+                  {search && (
+                    <button onClick={() => setSearch('')}
+                      style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
+                  )}
+                </div>
+              </div>
               {dateBounds.totalDays > 0 && (() => {
                 const { minDate, maxDate, totalDays } = dateBounds;
                 const fromIdx = filters.dateFrom ? Math.max(0, daysBetween(minDate, filters.dateFrom)) : 0;
@@ -5147,33 +5163,6 @@
                   </div>
                 )}
               </div>
-              <div className="filter-group filter-span2" style={{borderTop:'1px solid var(--border)',paddingTop:'10px',marginTop:'4px'}}>
-                <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Show / Hide</label>
-                <div style={{display:'flex',gap:'16px',alignItems:'center'}}>
-                  <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',cursor:'pointer',color:'var(--text)'}}>
-                    <input type="checkbox" checked={!filters.hideSatellites}
-                      onChange={e => setFilters(f => ({...f, hideSatellites:!e.target.checked}))}
-                    /> Satellites
-                  </label>
-                  <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',cursor:'pointer',color:'var(--text)'}}>
-                    <input type="checkbox" checked={!filters.hideRestarts}
-                      onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
-                    /> Restarts
-                  </label>
-                  <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',cursor:'pointer',color:'var(--text)'}}>
-                    <input type="checkbox" checked={!filters.hideSideEvents}
-                      onChange={e => setFilters(f => ({...f, hideSideEvents:!e.target.checked}))}
-                    /> Side Events
-                  </label>
-                </div>
-              </div>
-              {onImportOpen && (
-                <div className="filter-group filter-span2">
-                  <button className="btn btn-ghost btn-sm" style={{display:'flex',alignItems:'center',gap:'6px',justifyContent:'center'}}
-                    onClick={() => { setOpen(false); onImportOpen(); }}
-                  ><Icon.upload /> Import Schedule</button>
-                </div>
-              )}
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
@@ -5644,6 +5633,180 @@
       );
     }
 
+    const LOCATION_REGIONS = {
+      lasvegas: { label: 'Las Vegas', test: (c) => haversineDistance(36.115, -115.17, c.lat, c.lng) <= 30 },
+      texas: { label: 'Texas', test: (c) => c.lat >= 25.8 && c.lat <= 36.5 && c.lng >= -106.6 && c.lng <= -93.5 },
+      florida: { label: 'Florida', test: (c) => c.lat >= 24.5 && c.lat <= 31 && c.lng >= -87.6 && c.lng <= -80 },
+      europe: { label: 'Europe', test: (c) => c.lng >= -25 && c.lng <= 40 && c.lat >= 35 && c.lat <= 72 },
+      northeast: { label: 'Northeast US', test: (c) => c.lat >= 38.5 && c.lat <= 45 && c.lng >= -80 && c.lng <= -70 },
+    };
+
+    // ── Location Dropdown ────────────────────────────────────────
+    function LocationDropdown({ rect, filters, setFiltersWithScroll, setLocationDropdownOpen, toast, token }) {
+      const [geoQuery, setGeoQuery] = useState('');
+      const [geoResults, setGeoResults] = useState([]);
+      const [geoLoading, setGeoLoading] = useState(false);
+      const [radius, setRadius] = useState(filters.maxDistance || '100');
+      const searchTimerRef = useRef(null);
+
+      // Debounced geocode search
+      const doGeoSearch = useCallback((q) => {
+        if (!q || q.length < 2) { setGeoResults([]); return; }
+        setGeoLoading(true);
+        fetch(`/api/geocode?q=${encodeURIComponent(q)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+          .then(r => r.json())
+          .then(data => { setGeoResults(data.results || []); setGeoLoading(false); })
+          .catch(() => { setGeoLoading(false); });
+      }, [token]);
+
+      const onQueryChange = (val) => {
+        setGeoQuery(val);
+        clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => doGeoSearch(val), 400);
+      };
+
+      const selectGeoResult = (r) => {
+        setFiltersWithScroll(f => ({
+          ...f,
+          userLocation: { lat: r.lat, lng: r.lng },
+          maxDistance: radius || '100',
+          locationRegion: null,
+          locationLabel: r.short || r.display,
+        }));
+        setLocationDropdownOpen(false);
+      };
+
+      const activeRadius = filters.maxDistance || radius;
+
+      return (
+        <div className="location-dropdown" style={{
+          position:'fixed', top: rect.bottom + 4, left: rect.left,
+          zIndex:999, background:'var(--surface)', border:'1px solid var(--border)',
+          borderRadius:'var(--radius)', padding:'6px 0', minWidth:'240px', maxWidth:'320px',
+          boxShadow:'0 8px 24px rgba(0,0,0,0.3)',
+        }}>
+          {/* Search by city/zip */}
+          <div style={{padding:'6px 10px 8px'}}>
+            <div style={{display:'flex',gap:'6px',alignItems:'center',marginBottom:'6px'}}>
+              <input
+                type="text"
+                value={geoQuery}
+                onChange={e => onQueryChange(e.target.value)}
+                placeholder="City or postal code…"
+                autoFocus
+                style={{
+                  flex:1, padding:'6px 8px', fontSize:'0.82rem',
+                  background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)',
+                  borderRadius:'var(--radius)', outline:'none', minWidth:0,
+                }}
+              />
+              <input
+                type="number"
+                value={radius}
+                onChange={e => {
+                  setRadius(e.target.value);
+                  if (filters.userLocation) {
+                    setFiltersWithScroll(f => ({...f, maxDistance: e.target.value}));
+                  }
+                }}
+                style={{
+                  width:'50px', padding:'6px 4px', fontSize:'0.82rem', textAlign:'center',
+                  background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)',
+                  borderRadius:'var(--radius)',
+                }}
+                min="1"
+                placeholder="100"
+              />
+              <span style={{fontSize:'0.75rem', color:'var(--text-muted)', flexShrink:0}}>mi</span>
+            </div>
+            {geoLoading && <div style={{fontSize:'0.75rem',color:'var(--text-muted)',padding:'2px 0'}}>Searching…</div>}
+            {geoResults.length > 0 && (
+              <div style={{maxHeight:'150px',overflowY:'auto'}}>
+                {geoResults.map((r, i) => (
+                  <button key={i} onClick={() => selectGeoResult(r)} style={{
+                    display:'block', width:'100%', padding:'6px 4px', background:'none', border:'none',
+                    color:'var(--text)', fontSize:'0.78rem', cursor:'pointer', textAlign:'left',
+                    borderRadius:'4px',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                  >
+                    {r.short || r.display}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{height:1,background:'var(--border)',margin:'2px 0'}} />
+          {/* Current Location */}
+          <button onClick={() => {
+            if (filters.userLocation && !filters.locationRegion) {
+              setFiltersWithScroll(f => ({...f, userLocation: null, maxDistance: '', locationRegion: null, locationLabel: null}));
+              setLocationDropdownOpen(false);
+            } else {
+              if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    setFiltersWithScroll(f => ({...f, userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude }, maxDistance: radius || '100', locationRegion: null, locationLabel: 'Current Location'}));
+                    setLocationDropdownOpen(false);
+                  },
+                  () => { toast.error('Could not get your location'); },
+                  { enableHighAccuracy: false, timeout: 10000 }
+                );
+              } else {
+                toast.error('Geolocation not supported');
+              }
+            }
+          }} style={{
+            display:'flex', alignItems:'center', gap:'8px', width:'100%',
+            padding:'8px 14px', background:'none', border:'none',
+            color: (filters.userLocation && !filters.locationRegion) ? 'var(--accent)' : 'var(--text)',
+            fontWeight: (filters.userLocation && !filters.locationRegion) ? 700 : 400,
+            fontSize:'0.85rem', cursor:'pointer', textAlign:'left',
+          }}>
+            <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.mapPin /></span>
+            Current Location
+            {(filters.userLocation && !filters.locationRegion) && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>✓</span>}
+          </button>
+          <div style={{height:1,background:'var(--border)',margin:'2px 0'}} />
+          {/* Region shortcuts */}
+          {Object.entries(LOCATION_REGIONS).map(([key, { label }]) => (
+            <button key={key} onClick={() => {
+              setFiltersWithScroll(f => ({...f, locationRegion: f.locationRegion === key ? null : key, userLocation: null, maxDistance: '', locationLabel: null}));
+              setLocationDropdownOpen(false);
+            }} style={{
+              display:'flex', alignItems:'center', gap:'8px', width:'100%',
+              padding:'8px 14px', background:'none', border:'none',
+              color: filters.locationRegion === key ? 'var(--accent)' : 'var(--text)',
+              fontWeight: filters.locationRegion === key ? 700 : 400,
+              fontSize:'0.85rem', cursor:'pointer', textAlign:'left',
+            }}>
+              <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.mapPin /></span>
+              {label}
+              {filters.locationRegion === key && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>✓</span>}
+            </button>
+          ))}
+          {(filters.locationRegion || filters.userLocation) && (
+            <>
+              <div style={{height:1,background:'var(--border)',margin:'2px 0'}} />
+              <button onClick={() => {
+                setFiltersWithScroll(f => ({...f, locationRegion: null, userLocation: null, maxDistance: '', locationLabel: null}));
+                setLocationDropdownOpen(false);
+              }} style={{
+                display:'block', width:'100%', padding:'8px 14px',
+                background:'none', border:'none', color:'var(--text-muted)',
+                fontSize:'0.8rem', cursor:'pointer', textAlign:'left',
+              }}>
+                Clear location filter
+              </button>
+            </>
+          )}
+        </div>
+      );
+    }
+
     // ── Tournaments View ───────────────────────────────────────
 
     function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onBuddySwap, isAdmin, onAdminEdit, token, onRefreshTournaments }) {
@@ -5765,14 +5928,6 @@
         }
         return ended;
       }, [tournaments]);
-
-      const LOCATION_REGIONS = {
-        lasvegas: { label: 'Las Vegas', test: (c) => haversineDistance(36.115, -115.17, c.lat, c.lng) <= 30 },
-        texas: { label: 'Texas', test: (c) => c.lat >= 25.8 && c.lat <= 36.5 && c.lng >= -106.6 && c.lng <= -93.5 },
-        florida: { label: 'Florida', test: (c) => c.lat >= 24.5 && c.lat <= 31 && c.lng >= -87.6 && c.lng <= -80 },
-        europe: { label: 'Europe', test: (c) => c.lng >= -25 && c.lng <= 40 && c.lat >= 35 && c.lat <= 72 },
-        northeast: { label: 'Northeast US', test: (c) => c.lat >= 38.5 && c.lat <= 45 && c.lng >= -80 && c.lng <= -70 },
-      };
 
       const filtered = useMemo(() => {
         return tournaments
@@ -5957,7 +6112,7 @@
       return (
         <div>
           <div className="sticky-filters" ref={stickyFiltersRef}>
-            <div style={{display:'flex',gap:'8px',alignItems:'flex-start'}}>
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
               <button
                 ref={locationBtnRef}
                 className={`filter-chip ${filters.locationRegion || filters.userLocation ? 'active' : ''}`}
@@ -5973,7 +6128,7 @@
                 {filters.locationRegion && LOCATION_REGIONS[filters.locationRegion]
                   ? `📍 ${LOCATION_REGIONS[filters.locationRegion].label}`
                   : filters.userLocation && filters.maxDistance
-                    ? `📍 Within ${filters.maxDistance}mi`
+                    ? `📍 ${filters.locationLabel || 'Location'} · ${filters.maxDistance}mi`
                     : '🌐 All Locations'}
               </button>
               <button
@@ -5984,45 +6139,38 @@
               >
                 <Icon.filter />
               </button>
-              <div style={{flex:1,display:'flex',flexDirection:'column',gap:'6px'}}>
-                <div className="search-bar" style={{marginBottom:0,height:'28px'}}>
-                  <Icon.search />
-                  <input
-                    type="text"
-                    placeholder="Search events, games…"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    style={{padding:'4px 0'}}
-                  />
-                  {search && (
-                    <button onClick={() => setSearch('')}
-                      style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
-                  )}
-                </div>
-                <div style={{display:'flex',gap:'12px',alignItems:'center',justifyContent:'flex-end'}}>
-                  <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                    <input type="checkbox" checked={!filters.hideSatellites}
-                      onChange={e => setFiltersWithScroll(f => ({...f, hideSatellites:!e.target.checked}))}
-                      style={{margin:0}}
-                    /> Satellites
-                  </label>
-                  <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                    <input type="checkbox" checked={!filters.hideRestarts}
-                      onChange={e => setFiltersWithScroll(f => ({...f, hideRestarts:!e.target.checked}))}
-                      style={{margin:0}}
-                    /> Restarts
-                  </label>
-                  <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                    <input type="checkbox" checked={!filters.hideSideEvents}
-                      onChange={e => setFiltersWithScroll(f => ({...f, hideSideEvents:!e.target.checked}))}
-                      style={{margin:0}}
-                    /> Side Events
-                  </label>
-                </div>
+              <div style={{display:'flex',gap:'10px',alignItems:'center',flexShrink:0}}>
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                  <input type="checkbox" checked={!filters.hideSatellites}
+                    onChange={e => setFiltersWithScroll(f => ({...f, hideSatellites:!e.target.checked}))}
+                    style={{margin:0}}
+                  /> Satellites
+                </label>
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                  <input type="checkbox" checked={!filters.hideRestarts}
+                    onChange={e => setFiltersWithScroll(f => ({...f, hideRestarts:!e.target.checked}))}
+                    style={{margin:0}}
+                  /> Restarts
+                </label>
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                  <input type="checkbox" checked={!filters.hideSideEvents}
+                    onChange={e => setFiltersWithScroll(f => ({...f, hideSideEvents:!e.target.checked}))}
+                    style={{margin:0}}
+                  /> Side Events
+                </label>
               </div>
+              <button
+                ref={importBtnRef}
+                className={`filter-chip ${importDropdownOpen ? 'active' : ''}`}
+                onClick={() => setImportDropdownOpen(o => !o)}
+                style={{flexShrink:0,height:'28px'}}
+                title="Import schedule"
+              >
+                <Icon.upload />
+              </button>
             </div>
 
-            <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} onImportOpen={() => setImportDropdownOpen(true)} />
+            <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} search={search} setSearch={setSearch} />
 
             <ImportSchedulePanel isOpen={importDropdownOpen} onClose={() => setImportDropdownOpen(false)} token={token} onRefreshTournaments={onRefreshTournaments} />
 
@@ -6034,94 +6182,14 @@
               const btn = locationBtnRef.current;
               const rect = btn ? btn.getBoundingClientRect() : { left: 60, bottom: 100 };
               return ReactDOM.createPortal(
-                <div className="location-dropdown" style={{
-                  position:'fixed', top: rect.bottom + 4, left: rect.left,
-                  zIndex:999, background:'var(--surface)', border:'1px solid var(--border)',
-                  borderRadius:'var(--radius)', padding:'6px 0', minWidth:'180px',
-                  boxShadow:'0 8px 24px rgba(0,0,0,0.3)',
-                }}>
-                  {/* Current Location */}
-                  <button onClick={() => {
-                    if (filters.userLocation) {
-                      // Already active — toggle off
-                      setFiltersWithScroll(f => ({...f, userLocation: null, maxDistance: '', locationRegion: null}));
-                      setLocationDropdownOpen(false);
-                    } else {
-                      if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                          (pos) => {
-                            setFiltersWithScroll(f => ({...f, userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude }, maxDistance: f.maxDistance || '100', locationRegion: null}));
-                          },
-                          () => { toast.error('Could not get your location'); },
-                          { enableHighAccuracy: false, timeout: 10000 }
-                        );
-                      } else {
-                        toast.error('Geolocation not supported');
-                      }
-                    }
-                  }} style={{
-                    display:'flex', alignItems:'center', gap:'8px', width:'100%',
-                    padding:'10px 14px', background:'none', border:'none',
-                    color: filters.userLocation ? 'var(--accent)' : 'var(--text)',
-                    fontWeight: filters.userLocation ? 700 : 400,
-                    fontSize:'0.85rem', cursor:'pointer', textAlign:'left',
-                  }}>
-                    <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.mapPin /></span>
-                    Current Location
-                    {filters.userLocation && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>✓</span>}
-                  </button>
-                  {filters.userLocation && (
-                    <div style={{padding:'4px 14px 8px', display:'flex', alignItems:'center', gap:'8px'}}>
-                      <span style={{fontSize:'0.78rem', color:'var(--text-muted)', whiteSpace:'nowrap'}}>Radius</span>
-                      <input
-                        type="number"
-                        value={filters.maxDistance}
-                        onChange={e => setFiltersWithScroll(f => ({...f, maxDistance: e.target.value}))}
-                        style={{
-                          width:'60px', padding:'4px 8px', fontSize:'0.82rem',
-                          background:'var(--bg)', color:'var(--text)', border:'1px solid var(--border)',
-                          borderRadius:'var(--radius)',
-                        }}
-                        min="1"
-                        placeholder="100"
-                      />
-                      <span style={{fontSize:'0.78rem', color:'var(--text-muted)'}}>mi</span>
-                    </div>
-                  )}
-                  <div style={{height:1,background:'var(--border)',margin:'4px 0'}} />
-                  {/* Region shortcuts */}
-                  {Object.entries(LOCATION_REGIONS).map(([key, { label }]) => (
-                    <button key={key} onClick={() => {
-                      setFiltersWithScroll(f => ({...f, locationRegion: f.locationRegion === key ? null : key, userLocation: null, maxDistance: ''}));
-                      setLocationDropdownOpen(false);
-                    }} style={{
-                      display:'flex', alignItems:'center', gap:'8px', width:'100%',
-                      padding:'10px 14px', background:'none', border:'none',
-                      color: filters.locationRegion === key ? 'var(--accent)' : 'var(--text)',
-                      fontWeight: filters.locationRegion === key ? 700 : 400,
-                      fontSize:'0.85rem', cursor:'pointer', textAlign:'left',
-                    }}>
-                      <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.mapPin /></span>
-                      {label}
-                      {filters.locationRegion === key && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>✓</span>}
-                    </button>
-                  ))}
-                  {(filters.locationRegion || filters.userLocation) && (
-                    <>
-                      <div style={{height:1,background:'var(--border)',margin:'4px 0'}} />
-                      <button onClick={() => {
-                        setFiltersWithScroll(f => ({...f, locationRegion: null, userLocation: null, maxDistance: ''}));
-                        setLocationDropdownOpen(false);
-                      }} style={{
-                        display:'block', width:'100%', padding:'10px 14px',
-                        background:'none', border:'none', color:'var(--text-muted)',
-                        fontSize:'0.8rem', cursor:'pointer', textAlign:'left',
-                      }}>
-                        Clear location filter
-                      </button>
-                    </>
-                  )}
-                </div>,
+                <LocationDropdown
+                  rect={rect}
+                  filters={filters}
+                  setFiltersWithScroll={setFiltersWithScroll}
+                  setLocationDropdownOpen={setLocationDropdownOpen}
+                  toast={toast}
+                  token={token}
+                />,
                 document.body
               );
             })()}
