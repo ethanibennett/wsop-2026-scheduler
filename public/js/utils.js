@@ -206,10 +206,12 @@
     const NON_BRACELET_KEYWORDS = ['satellite', 'mega sat', 'super sat', 'qualifier', 'freeroll', 'charity', 'side event'];
     function isBraceletEvent(t) {
       if (t.is_satellite) return false;
-      if (t.is_deepstack) return false;
+      if (t.is_restart) return false;
+      if ((t.category || '').toLowerCase() === 'side') return false;
       const v = (t.venue || '').toLowerCase();
-      if (!v.includes('horseshoe') && !v.includes('paris')) return false;
+      if (!v.includes('horseshoe') && !v.includes('paris') && v !== 'wsop europe') return false;
       const name = (t.event_name || '').toLowerCase();
+      if (name.includes('circuit') && v !== 'wsop europe') return false;
       return !NON_BRACELET_KEYWORDS.some(kw => name.includes(kw));
     }
 

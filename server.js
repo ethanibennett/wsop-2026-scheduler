@@ -2239,6 +2239,17 @@ async function initDatabase() {
       }
     },
     {
+      name: 'retire-is-deepstack-2026-04',
+      fn: () => {
+        // Deepstacks are just side events — ensure all is_deepstack=1 events have category='side', then clear the flag
+        db.run("UPDATE tournaments SET category = 'side' WHERE is_deepstack = 1 AND (category IS NULL OR category != 'side')");
+        const c1 = db.getRowsModified();
+        db.run("UPDATE tournaments SET is_deepstack = 0 WHERE is_deepstack = 1");
+        const c2 = db.getRowsModified();
+        if (c1 > 0 || c2 > 0) console.log(`Retired is_deepstack: ${c1} recategorized to side, ${c2} flags cleared`);
+      }
+    },
+    {
       name: 'clear-cherokee-rake-2026-04',
       fn: () => {
         // The schedule parser hallucinated rake data for WSOPC Cherokee events —
@@ -7977,7 +7988,7 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
           ev.day_length || null,
           req.user.id,
           sourceFile || 'Vision Upload',
-          (!evNumber && !ev.is_satellite && !ev.is_restart) ? 1 : 0,
+          0,
           (ev.category === 'deepstack' ? 'side' : ev.category) || null
         ]
       );

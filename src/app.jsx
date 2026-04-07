@@ -6117,19 +6117,14 @@
                 ref={locationBtnRef}
                 className={`filter-chip ${filters.locationRegion || filters.userLocation ? 'active' : ''}`}
                 onClick={() => setLocationDropdownOpen(o => !o)}
-                style={{
-                  flexShrink:0,height:'28px',
-                  fontSize:'0.75rem',whiteSpace:'nowrap',
-                  display:'flex',alignItems:'center',justifyContent:'center',gap:'4px',
-                  padding:'0 10px',
-                }}
-                title="Filter by location"
-              >
-                {filters.locationRegion && LOCATION_REGIONS[filters.locationRegion]
-                  ? `📍 ${LOCATION_REGIONS[filters.locationRegion].label}`
+                style={{flexShrink:0,height:'28px'}}
+                title={filters.locationRegion && LOCATION_REGIONS[filters.locationRegion]
+                  ? LOCATION_REGIONS[filters.locationRegion].label
                   : filters.userLocation && filters.maxDistance
-                    ? `📍 ${filters.locationLabel || 'Location'} · ${filters.maxDistance}mi`
-                    : '🌐 All Locations'}
+                    ? `${filters.locationLabel || 'Location'} · ${filters.maxDistance}mi`
+                    : 'All Locations'}
+              >
+                <Icon.mapPin />
               </button>
               <button
                 ref={filterToggleRef}
@@ -6139,26 +6134,6 @@
               >
                 <Icon.filter />
               </button>
-              <div style={{display:'flex',gap:'10px',alignItems:'center',flexShrink:0}}>
-                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                  <input type="checkbox" checked={!filters.hideSatellites}
-                    onChange={e => setFiltersWithScroll(f => ({...f, hideSatellites:!e.target.checked}))}
-                    style={{margin:0}}
-                  /> Satellites
-                </label>
-                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                  <input type="checkbox" checked={!filters.hideRestarts}
-                    onChange={e => setFiltersWithScroll(f => ({...f, hideRestarts:!e.target.checked}))}
-                    style={{margin:0}}
-                  /> Restarts
-                </label>
-                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                  <input type="checkbox" checked={!filters.hideSideEvents}
-                    onChange={e => setFiltersWithScroll(f => ({...f, hideSideEvents:!e.target.checked}))}
-                    style={{margin:0}}
-                  /> Side Events
-                </label>
-              </div>
               <button
                 ref={importBtnRef}
                 className={`filter-chip ${importDropdownOpen ? 'active' : ''}`}
@@ -6168,6 +6143,26 @@
               >
                 <Icon.upload />
               </button>
+              <div style={{display:'flex',gap:'10px',alignItems:'center',marginLeft:'auto'}}>
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                  <input type="checkbox" checked={!filters.hideSatellites}
+                    onChange={e => setFilters(f => ({...f, hideSatellites:!e.target.checked}))}
+                    style={{margin:0}}
+                  /> Satellites
+                </label>
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                  <input type="checkbox" checked={!filters.hideRestarts}
+                    onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
+                    style={{margin:0}}
+                  /> Restarts
+                </label>
+                <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                  <input type="checkbox" checked={!filters.hideSideEvents}
+                    onChange={e => setFilters(f => ({...f, hideSideEvents:!e.target.checked}))}
+                    style={{margin:0}}
+                  /> Side Events
+                </label>
+              </div>
             </div>
 
             <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} search={search} setSearch={setSearch} />
