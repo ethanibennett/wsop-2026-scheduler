@@ -7963,10 +7963,91 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
     await saveDatabase();
 
     console.log(`[ImportSchedule] ${inserted} new, ${updated} updated, ${skipped} skipped from "${sourceFile}"`);
+
+    // Notify admin of new schedule upload
+    const uploaderName = req.user.username || 'Unknown';
+    const venue = events[0]?.venue || 'Unknown venue';
+    sendPushToAdmin(
+      'Schedule Uploaded',
+      `${uploaderName} imported ${inserted} new + ${updated} updated events for ${venue}`,
+      '/'
+    ).catch(() => {});
+
     res.json({ inserted, updated, skipped, total: events.length });
   } catch (err) {
     console.error('[ImportSchedule] Error:', err.message);
     res.status(500).json({ error: 'Failed to import events: ' + err.message });
+  }
+});
+
+// ── Tournament Data Sync ──
+// Export all tournaments as JSON (for syncing between environments)
+app.get('/api/tournaments/export', authenticateToken, (req, res) => {
+  if (!['ham', 'ham5'].includes((req.user.username || '').toLowerCase())) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const stmt = db.prepare("SELECT * FROM tournaments WHERE venue != 'Personal' ORDER BY date, time");
+    const rows = [];
+    while (stmt.step()) rows.push(stmt.getAsObject());
+    stmt.free();
+    res.json({ tournaments: rows, exportedAt: new Date().toISOString(), count: rows.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Import/sync tournaments from another environment (upserts by stable_id)
+app.post('/api/tournaments/sync', authenticateToken, express.json({ limit: '50mb' }), async (req, res) => {
+  if (!['ham', 'ham5'].includes((req.user.username || '').toLowerCase())) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const { tournaments } = req.body;
+  if (!tournaments || !Array.isArray(tournaments)) {
+    return res.status(400).json({ error: 'Expected { tournaments: [...] }' });
+  }
+
+  try {
+    let inserted = 0, updated = 0, skipped = 0;
+    for (const t of tournaments) {
+      if (!t.stable_id || !t.date || !t.event_name) { skipped++; continue; }
+
+      const existing = db.prepare('SELECT id FROM tournaments WHERE stable_id = ?').get(t.stable_id);
+
+      db.run(
+        `INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, late_reg_end, game_variant, venue, notes, category, is_satellite, target_event, is_restart, parent_event, day_length, prize_pool, house_fee, opt_add_on, rake_pct, rake_dollars, is_deepstack, source_pdf)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(stable_id) DO UPDATE SET
+           event_number=excluded.event_number, event_name=excluded.event_name, date=excluded.date,
+           time=excluded.time, buyin=excluded.buyin, starting_chips=excluded.starting_chips,
+           level_duration=excluded.level_duration, reentry=excluded.reentry, late_reg=excluded.late_reg,
+           late_reg_end=excluded.late_reg_end, game_variant=excluded.game_variant, venue=excluded.venue,
+           notes=excluded.notes, category=excluded.category, is_satellite=excluded.is_satellite,
+           target_event=excluded.target_event, is_restart=excluded.is_restart, parent_event=excluded.parent_event,
+           day_length=excluded.day_length, prize_pool=excluded.prize_pool, house_fee=excluded.house_fee,
+           opt_add_on=excluded.opt_add_on, rake_pct=excluded.rake_pct, rake_dollars=excluded.rake_dollars,
+           is_deepstack=excluded.is_deepstack`,
+        [
+          t.stable_id, t.event_number || '', t.event_name, t.date, t.time || '12:00 PM',
+          t.buyin || 0, t.starting_chips || null, t.level_duration || null,
+          t.reentry || null, t.late_reg || null, t.late_reg_end || null,
+          t.game_variant || 'NLH', t.venue || 'Unknown', t.notes || null,
+          t.category || null, t.is_satellite ? 1 : 0, t.target_event || null,
+          t.is_restart ? 1 : 0, t.parent_event || null, t.day_length || null,
+          t.prize_pool || null, t.house_fee || null, t.opt_add_on || null,
+          t.rake_pct || null, t.rake_dollars || null, t.is_deepstack ? 1 : 0,
+          t.source_pdf || null
+        ]
+      );
+      if (existing) updated++; else inserted++;
+    }
+
+    await saveDatabase();
+    console.log(`[Sync] ${inserted} new, ${updated} updated, ${skipped} skipped`);
+    res.json({ inserted, updated, skipped, total: tournaments.length });
+  } catch (err) {
+    console.error('[Sync] Error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

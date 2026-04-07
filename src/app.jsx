@@ -4673,7 +4673,7 @@
 
     // ── Filters ────────────────────────────────────────────────
 
-    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount }) {
+    function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount, onImportOpen }) {
       const panelRef = useRef(null);
       const [whereOpen, setWhereOpen] = useState(false);
       const [howMuchOpen, setHowMuchOpen] = useState(false);
@@ -5147,6 +5147,33 @@
                   </div>
                 )}
               </div>
+              <div className="filter-group filter-span2" style={{borderTop:'1px solid var(--border)',paddingTop:'10px',marginTop:'4px'}}>
+                <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Show / Hide</label>
+                <div style={{display:'flex',gap:'16px',alignItems:'center'}}>
+                  <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',cursor:'pointer',color:'var(--text)'}}>
+                    <input type="checkbox" checked={!filters.hideSatellites}
+                      onChange={e => setFilters(f => ({...f, hideSatellites:!e.target.checked}))}
+                    /> Satellites
+                  </label>
+                  <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',cursor:'pointer',color:'var(--text)'}}>
+                    <input type="checkbox" checked={!filters.hideRestarts}
+                      onChange={e => setFilters(f => ({...f, hideRestarts:!e.target.checked}))}
+                    /> Restarts
+                  </label>
+                  <label style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'0.82rem',cursor:'pointer',color:'var(--text)'}}>
+                    <input type="checkbox" checked={!filters.hideSideEvents}
+                      onChange={e => setFilters(f => ({...f, hideSideEvents:!e.target.checked}))}
+                    /> Side Events
+                  </label>
+                </div>
+              </div>
+              {onImportOpen && (
+                <div className="filter-group filter-span2">
+                  <button className="btn btn-ghost btn-sm" style={{display:'flex',alignItems:'center',gap:'6px',justifyContent:'center'}}
+                    onClick={() => { setOpen(false); onImportOpen(); }}
+                  ><Icon.upload /> Import Schedule</button>
+                </div>
+              )}
               {hasActive && (
                 <div className="filter-group filter-span2">
                   <button className="btn btn-ghost btn-sm" onClick={() =>
@@ -5162,7 +5189,7 @@
     }
 
     // ── Import Schedule Panel (dropdown from upload button) ───
-    function ImportSchedulePanel({ isOpen, onClose, anchorRef, token, onRefreshTournaments }) {
+    function ImportSchedulePanel({ isOpen, onClose, token, onRefreshTournaments }) {
       const toast = useToast();
       const [visionFile, setVisionFile] = useState(null);
       const [visionVenue, setVisionVenue] = useState('');
@@ -5373,9 +5400,6 @@
 
       if (!isOpen) return null;
 
-      const btn = anchorRef.current;
-      const rect = btn ? btn.getBoundingClientRect() : { left: 100, bottom: 60, right: 200 };
-
       return ReactDOM.createPortal(
         React.createElement(React.Fragment, null,
           React.createElement('div', {
@@ -5385,7 +5409,7 @@
           React.createElement('div', {
             style: {
               position: 'fixed',
-              top: rect.bottom + 4,
+              top: '64px',
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 999,
@@ -5395,7 +5419,7 @@
               padding: '12px',
               width: 'min(380px, calc(100vw - 24px))',
               boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-              maxHeight: 'calc(100vh - ' + (rect.bottom + 16) + 'px)',
+              maxHeight: 'calc(100vh - 80px)',
               overflowY: 'auto',
             }
           },
@@ -5933,76 +5957,74 @@
       return (
         <div>
           <div className="sticky-filters" ref={stickyFiltersRef}>
-            <div style={{display:'flex',gap:'8px',alignItems:'center',marginBottom:'8px'}}>
-              <button
-                ref={filterToggleRef}
-                className={`filter-chip ${filterPanelOpen ? 'active' : ''}`}
-                onClick={() => setFilterPanelOpen(o => !o)}
-                style={{flexShrink:0,height:'44px'}}
-              >
-                <Icon.filter />
-              </button>
+            <div style={{display:'flex',gap:'8px',alignItems:'flex-start'}}>
               <button
                 ref={locationBtnRef}
                 className={`filter-chip ${filters.locationRegion || filters.userLocation ? 'active' : ''}`}
                 onClick={() => setLocationDropdownOpen(o => !o)}
-                style={{flexShrink:0,height:'44px'}}
+                style={{
+                  flexShrink:0,height:'28px',
+                  fontSize:'0.75rem',whiteSpace:'nowrap',
+                  display:'flex',alignItems:'center',justifyContent:'center',gap:'4px',
+                  padding:'0 10px',
+                }}
                 title="Filter by location"
               >
-                <Icon.mapPin />
+                {filters.locationRegion && LOCATION_REGIONS[filters.locationRegion]
+                  ? `📍 ${LOCATION_REGIONS[filters.locationRegion].label}`
+                  : filters.userLocation && filters.maxDistance
+                    ? `📍 Within ${filters.maxDistance}mi`
+                    : '🌐 All Locations'}
               </button>
               <button
-                ref={importBtnRef}
-                className={`filter-chip ${importDropdownOpen ? 'active' : ''}`}
-                onClick={() => setImportDropdownOpen(o => !o)}
-                style={{flexShrink:0,height:'44px'}}
-                title="Import schedule"
+                ref={filterToggleRef}
+                className={`filter-chip ${filterPanelOpen ? 'active' : ''}`}
+                onClick={() => setFilterPanelOpen(o => !o)}
+                style={{flexShrink:0,height:'28px'}}
               >
-                <Icon.upload />
+                <Icon.filter />
               </button>
-              <div className="search-bar" style={{flex:1,marginBottom:0}}>
-                <Icon.search />
-                <input
-                  type="text"
-                  placeholder="Search events, games…"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-                {search && (
-                  <button onClick={() => setSearch('')}
-                    style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
-                )}
-              </div>
-            </div>
-            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-              <div style={{flexShrink:0,width:'41px'}} aria-hidden="true" />
-              <div style={{flexShrink:0,width:'41px'}} aria-hidden="true" />
-              <div style={{flexShrink:0,width:'41px'}} aria-hidden="true" />
-              <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                <input type="checkbox" checked={!filters.hideSatellites}
-                  onChange={e => setFiltersWithScroll(f => ({...f, hideSatellites:!e.target.checked}))}
-                  style={{margin:0}}
-                /> Satellites
-              </label>
-              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                <input type="checkbox" checked={!filters.hideRestarts}
-                  onChange={e => setFiltersWithScroll(f => ({...f, hideRestarts:!e.target.checked}))}
-                  style={{margin:0}}
-                /> Restarts
-              </label>
-              <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
-                <input type="checkbox" checked={!filters.hideSideEvents}
-                  onChange={e => setFiltersWithScroll(f => ({...f, hideSideEvents:!e.target.checked}))}
-                  style={{margin:0}}
-                /> Side Events
-              </label>
+              <div style={{flex:1,display:'flex',flexDirection:'column',gap:'6px'}}>
+                <div className="search-bar" style={{marginBottom:0,height:'28px'}}>
+                  <Icon.search />
+                  <input
+                    type="text"
+                    placeholder="Search events, games…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    style={{padding:'4px 0'}}
+                  />
+                  {search && (
+                    <button onClick={() => setSearch('')}
+                      style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>✕</button>
+                  )}
+                </div>
+                <div style={{display:'flex',gap:'12px',alignItems:'center',justifyContent:'flex-end'}}>
+                  <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                    <input type="checkbox" checked={!filters.hideSatellites}
+                      onChange={e => setFiltersWithScroll(f => ({...f, hideSatellites:!e.target.checked}))}
+                      style={{margin:0}}
+                    /> Satellites
+                  </label>
+                  <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                    <input type="checkbox" checked={!filters.hideRestarts}
+                      onChange={e => setFiltersWithScroll(f => ({...f, hideRestarts:!e.target.checked}))}
+                      style={{margin:0}}
+                    /> Restarts
+                  </label>
+                  <label style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',color:'var(--text)',whiteSpace:'nowrap'}}>
+                    <input type="checkbox" checked={!filters.hideSideEvents}
+                      onChange={e => setFiltersWithScroll(f => ({...f, hideSideEvents:!e.target.checked}))}
+                      style={{margin:0}}
+                    /> Side Events
+                  </label>
+                </div>
               </div>
             </div>
 
-            <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} />
+            <Filters filters={filters} setFilters={setFiltersWithScroll} gameVariants={gameVariants} venues={venues} buyinOptions={buyinOptions} tournaments={tournaments} open={filterPanelOpen} setOpen={setFilterPanelOpen} toggleRef={filterToggleRef} eventCount={filtered.filter(t => !t.is_restart).length} onImportOpen={() => setImportDropdownOpen(true)} />
 
-            <ImportSchedulePanel isOpen={importDropdownOpen} onClose={() => setImportDropdownOpen(false)} anchorRef={importBtnRef} token={token} onRefreshTournaments={onRefreshTournaments} />
+            <ImportSchedulePanel isOpen={importDropdownOpen} onClose={() => setImportDropdownOpen(false)} token={token} onRefreshTournaments={onRefreshTournaments} />
 
             {locationDropdownOpen && ReactDOM.createPortal(
               <div style={{position:'fixed',inset:0,zIndex:998}} onClick={() => setLocationDropdownOpen(false)} />,

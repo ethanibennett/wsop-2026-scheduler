@@ -492,6 +492,7 @@ const VENUE_TO_SERIES = {
   "bestbet Jacksonville": "bestbet Jacksonville",
   "Bally's Lake Tahoe": "WSOPC Lake Tahoe",
   "Harrah's Cherokee": "WSOPC Cherokee",
+  "WSOPC Cherokee": "WSOPC Cherokee",
   "Choctaw Casino": "WSOPC Choctaw",
   "Horseshoe Tunica": "Horseshoe Tunica",
   "Caesars Palace": "Caesars Palace",
@@ -4118,7 +4119,7 @@ function GameVariantFilter({ selectedGames, setFilters }) {
   })));
 }
 __name(GameVariantFilter, "GameVariantFilter");
-function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount }) {
+function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tournaments, open, setOpen, toggleRef, eventCount, onImportOpen }) {
   const panelRef = useRef(null);
   const [whereOpen, setWhereOpen] = useState(false);
   const [howMuchOpen, setHowMuchOpen] = useState(false);
@@ -4172,31 +4173,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
   const hasActive = filters.minBuyin || filters.maxBuyin || filters.buyinRanges && filters.buyinRanges.length > 0 || filters.rakeRanges && filters.rakeRanges.length > 0 || filters.selectedGames.length > 0 || filters.hiddenVenues && filters.hiddenVenues.length > 0 || filters.bountyOnly || filters.mysteryBountyOnly || filters.headsUpOnly || filters.tagTeamOnly || filters.employeesOnly || !filters.hideSatellites || !filters.hideRestarts || !filters.hideSideEvents || filters.ladiesOnly || filters.seniorsOnly || filters.mixedOnly || filters.dateFrom || filters.dateTo || filters.maxDistance || filters.locationRegion || filters.userLocation;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "filter-row", style: { gap: "8px", marginBottom: "0", width: "100%", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      type: "checkbox",
-      checked: !filters.hideSatellites,
-      onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideSatellites: !e.target.checked })),
-      style: { margin: 0 }
-    }
-  ), " Satellites"), /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      type: "checkbox",
-      checked: !filters.hideRestarts,
-      onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideRestarts: !e.target.checked })),
-      style: { margin: 0 }
-    }
-  ), " Restarts"), /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      type: "checkbox",
-      checked: !filters.hideSideEvents,
-      onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideSideEvents: !e.target.checked })),
-      style: { margin: 0 }
-    }
-  ), " Side Events")), filters.selectedGames.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.selectedGames.length === 1 ? filters.selectedGames[0] : `${filters.selectedGames.length} games`, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "filter-row", style: { gap: "8px", marginBottom: "0", width: "100%", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end" } }, filters.selectedGames.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.selectedGames.length === 1 ? filters.selectedGames[0] : `${filters.selectedGames.length} games`, /* @__PURE__ */ React.createElement(
     "span",
     {
       style: { marginLeft: "4px", cursor: "pointer" },
@@ -4259,7 +4236,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
       onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { hiddenVenues: [] }))
     },
     "✕"
-  )), filters.ladiesOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Ladies Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { ladiesOnly: false })) }, "✕")), filters.seniorsOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Seniors Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { seniorsOnly: false })) }, "✕")), filters.mixedOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Mixed", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { mixedOnly: false })) }, "✕")), (filters.dateFrom || filters.dateTo) && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.dateFrom && filters.dateTo ? `${fmtShortDate(filters.dateFrom)} — ${fmtShortDate(filters.dateTo)}` : filters.dateFrom ? `From ${fmtShortDate(filters.dateFrom)}` : `Until ${fmtShortDate(filters.dateTo)}`, /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { dateFrom: "", dateTo: "" })) }, "✕"))), open && ReactDOM.createPortal(
+  )), filters.ladiesOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Ladies Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { ladiesOnly: false })) }, "✕")), filters.seniorsOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Seniors Only", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { seniorsOnly: false })) }, "✕")), filters.mixedOnly && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, "Mixed", /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { mixedOnly: false })) }, "✕")), (filters.dateFrom || filters.dateTo) && /* @__PURE__ */ React.createElement("span", { className: "filter-chip active" }, filters.dateFrom && filters.dateTo ? `${fmtShortDate(filters.dateFrom)} — ${fmtShortDate(filters.dateTo)}` : filters.dateFrom ? `From ${fmtShortDate(filters.dateFrom)}` : `Until ${fmtShortDate(filters.dateTo)}`, /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "4px", cursor: "pointer" }, onClick: () => setFilters((f) => __spreadProps(__spreadValues({}, f), { dateFrom: "", dateTo: "" })) }, "✕")))), open && ReactDOM.createPortal(
     /* @__PURE__ */ React.createElement("div", { className: "dropdown-backdrop", onClick: () => setOpen(false) }),
     document.body
   ), open && ReactDOM.createPortal(
@@ -4542,12 +4519,45 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { employeesOnly: e.target.checked })),
         style: { marginTop: "1px" }
       }
-    ), " Casino Employees"))), hasActive && /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: () => setFilters({ minBuyin: "", maxBuyin: "", buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: "", dateTo: "", maxDistance: "", userLocation: null, locationRegion: null }) }, "Clear all filters"))),
+    ), " Casino Employees"))), /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2", style: { borderTop: "1px solid var(--border)", paddingTop: "10px", marginTop: "4px" } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "6px", display: "block", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" } }, "Show / Hide"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "16px", alignItems: "center" } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "0.82rem", cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "checkbox",
+        checked: !filters.hideSatellites,
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideSatellites: !e.target.checked }))
+      }
+    ), " Satellites"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "0.82rem", cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "checkbox",
+        checked: !filters.hideRestarts,
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideRestarts: !e.target.checked }))
+      }
+    ), " Restarts"), /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "0.82rem", cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "checkbox",
+        checked: !filters.hideSideEvents,
+        onChange: (e) => setFilters((f) => __spreadProps(__spreadValues({}, f), { hideSideEvents: !e.target.checked }))
+      }
+    ), " Side Events"))), onImportOpen && /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn btn-ghost btn-sm",
+        style: { display: "flex", alignItems: "center", gap: "6px", justifyContent: "center" },
+        onClick: () => {
+          setOpen(false);
+          onImportOpen();
+        }
+      },
+      /* @__PURE__ */ React.createElement(Icon.upload, null),
+      " Import Schedule"
+    )), hasActive && /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: () => setFilters({ minBuyin: "", maxBuyin: "", buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: true, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: "", dateTo: "", maxDistance: "", userLocation: null, locationRegion: null }) }, "Clear all filters"))),
     document.body
   ));
 }
 __name(Filters, "Filters");
-function ImportSchedulePanel({ isOpen, onClose, anchorRef, token, onRefreshTournaments }) {
+function ImportSchedulePanel({ isOpen, onClose, token, onRefreshTournaments }) {
   const toast = useToast();
   const [visionFile, setVisionFile] = useState(null);
   const [visionVenue, setVisionVenue] = useState("");
@@ -4756,8 +4766,6 @@ Importing will add new events and update existing ones. Continue?`
     }
   }, "handleVisionImport");
   if (!isOpen) return null;
-  const btn = anchorRef.current;
-  const rect = btn ? btn.getBoundingClientRect() : { left: 100, bottom: 60, right: 200 };
   return ReactDOM.createPortal(
     React.createElement(
       React.Fragment,
@@ -4773,7 +4781,7 @@ Importing will add new events and update existing ones. Continue?`
         {
           style: {
             position: "fixed",
-            top: rect.bottom + 4,
+            top: "64px",
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 999,
@@ -4783,7 +4791,7 @@ Importing will add new events and update existing ones. Continue?`
             padding: "12px",
             width: "min(380px, calc(100vw - 24px))",
             boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-            maxHeight: "calc(100vh - " + (rect.bottom + 16) + "px)",
+            maxHeight: "calc(100vh - 80px)",
             overflowY: "auto"
           }
         },
@@ -5390,42 +5398,43 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       container.scrollTop = Math.max(0, groupAbsTop - filtersH);
     }
   }, [filtered]);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sticky-filters", ref: stickyFiltersRef }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      ref: filterToggleRef,
-      className: `filter-chip ${filterPanelOpen ? "active" : ""}`,
-      onClick: () => setFilterPanelOpen((o) => !o),
-      style: { flexShrink: 0, height: "44px" }
-    },
-    /* @__PURE__ */ React.createElement(Icon.filter, null)
-  ), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sticky-filters", ref: stickyFiltersRef }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       ref: locationBtnRef,
       className: `filter-chip ${filters.locationRegion || filters.userLocation ? "active" : ""}`,
       onClick: () => setLocationDropdownOpen((o) => !o),
-      style: { flexShrink: 0, height: "44px" },
+      style: {
+        flexShrink: 0,
+        height: "28px",
+        fontSize: "0.75rem",
+        whiteSpace: "nowrap",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "4px",
+        padding: "0 10px"
+      },
       title: "Filter by location"
     },
-    /* @__PURE__ */ React.createElement(Icon.mapPin, null)
+    filters.locationRegion && LOCATION_REGIONS2[filters.locationRegion] ? `📍 ${LOCATION_REGIONS2[filters.locationRegion].label}` : filters.userLocation && filters.maxDistance ? `📍 Within ${filters.maxDistance}mi` : "🌐 All Locations"
   ), /* @__PURE__ */ React.createElement(
     "button",
     {
-      ref: importBtnRef,
-      className: `filter-chip ${importDropdownOpen ? "active" : ""}`,
-      onClick: () => setImportDropdownOpen((o) => !o),
-      style: { flexShrink: 0, height: "44px" },
-      title: "Import schedule"
+      ref: filterToggleRef,
+      className: `filter-chip ${filterPanelOpen ? "active" : ""}`,
+      onClick: () => setFilterPanelOpen((o) => !o),
+      style: { flexShrink: 0, height: "28px" }
     },
-    /* @__PURE__ */ React.createElement(Icon.upload, null)
-  ), /* @__PURE__ */ React.createElement("div", { className: "search-bar", style: { flex: 1, marginBottom: 0 } }, /* @__PURE__ */ React.createElement(Icon.search, null), /* @__PURE__ */ React.createElement(
+    /* @__PURE__ */ React.createElement(Icon.filter, null)
+  ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", gap: "6px" } }, /* @__PURE__ */ React.createElement("div", { className: "search-bar", style: { marginBottom: 0, height: "28px" } }, /* @__PURE__ */ React.createElement(Icon.search, null), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "text",
       placeholder: "Search events, games…",
       value: search,
-      onChange: (e) => setSearch(e.target.value)
+      onChange: (e) => setSearch(e.target.value),
+      style: { padding: "4px 0" }
     }
   ), search && /* @__PURE__ */ React.createElement(
     "button",
@@ -5434,7 +5443,31 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "1rem", padding: "0 2px" }
     },
     "✕"
-  ))), /* @__PURE__ */ React.createElement(Filters, { filters, setFilters: setFiltersWithScroll, gameVariants, venues, buyinOptions, tournaments, open: filterPanelOpen, setOpen: setFilterPanelOpen, toggleRef: filterToggleRef, eventCount: filtered.filter((t) => !t.is_restart).length }), /* @__PURE__ */ React.createElement(ImportSchedulePanel, { isOpen: importDropdownOpen, onClose: () => setImportDropdownOpen(false), anchorRef: importBtnRef, token, onRefreshTournaments }), locationDropdownOpen && ReactDOM.createPortal(
+  )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "12px", alignItems: "center", justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "checkbox",
+      checked: !filters.hideSatellites,
+      onChange: (e) => setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { hideSatellites: !e.target.checked })),
+      style: { margin: 0 }
+    }
+  ), " Satellites"), /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "checkbox",
+      checked: !filters.hideRestarts,
+      onChange: (e) => setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { hideRestarts: !e.target.checked })),
+      style: { margin: 0 }
+    }
+  ), " Restarts"), /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", color: "var(--text)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "checkbox",
+      checked: !filters.hideSideEvents,
+      onChange: (e) => setFiltersWithScroll((f) => __spreadProps(__spreadValues({}, f), { hideSideEvents: !e.target.checked })),
+      style: { margin: 0 }
+    }
+  ), " Side Events")))), /* @__PURE__ */ React.createElement(Filters, { filters, setFilters: setFiltersWithScroll, gameVariants, venues, buyinOptions, tournaments, open: filterPanelOpen, setOpen: setFilterPanelOpen, toggleRef: filterToggleRef, eventCount: filtered.filter((t) => !t.is_restart).length, onImportOpen: () => setImportDropdownOpen(true) }), /* @__PURE__ */ React.createElement(ImportSchedulePanel, { isOpen: importDropdownOpen, onClose: () => setImportDropdownOpen(false), token, onRefreshTournaments }), locationDropdownOpen && ReactDOM.createPortal(
     /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 998 }, onClick: () => setLocationDropdownOpen(false) }),
     document.body
   ), locationDropdownOpen && (() => {
