@@ -8,6 +8,19 @@ RENDER_API_KEY="${RENDER_API_KEY:-$(grep RENDER_API_KEY "$HOME/.claude/projects/
 RENDER_SERVICE_ID="srv-d6b8ujfgi27c73d5v3p0"
 TMPDIR="${TMPDIR:-/tmp}"
 
+# App Store Connect API Key
+ASC_KEY_ID="UCFMFW9636"
+ASC_ISSUER_ID="764173fa-5f16-4c11-a782-a2e8e153e929"
+ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+# iOS project paths
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+IOS_PROJECT="$PROJECT_ROOT/ios/App/App.xcodeproj"
+IOS_SCHEME="futurega.me"
+EXPORT_OPTIONS="$PROJECT_ROOT/ios/ExportOptions.plist"
+ARCHIVE_PATH="$TMPDIR/futuregame.xcarchive"
+EXPORT_PATH="$TMPDIR/futuregame-export"
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -33,11 +46,21 @@ if [ -z "${ADMIN_PASS:-}" ]; then
   echo
 fi
 
-# ── Step 1: Build ──
-info "Building..."
+# ── Step 1: Build web ──
+info "Building web assets..."
 node build.js
 
-# ── Step 2: Export local tournament DB ──
+# ── Step 2: Bump iOS build number ──
+CURRENT_BUILD=$(grep -m1 'CURRENT_PROJECT_VERSION' "$IOS_PROJECT/project.pbxproj" | sed 's/.*= //;s/;.*//')
+NEW_BUILD=$((CURRENT_BUILD + 1))
+sed -i '' "s/CURRENT_PROJECT_VERSION = $CURRENT_BUILD;/CURRENT_PROJECT_VERSION = $NEW_BUILD;/g" "$IOS_PROJECT/project.pbxproj"
+info "iOS build number: $CURRENT_BUILD → $NEW_BUILD"
+
+# ── Step 3: Sync web assets to iOS ──
+info "Syncing to iOS..."
+npx cap sync ios 2>&1 | grep -E "✔|error" || true
+
+# ── Step 4: Export local tournament DB ──
 info "Logging in to local server..."
 LOCAL_TOKEN=$(curl -sf "$LOCAL_URL/api/login" \
   -H 'Content-Type: application/json' \
@@ -57,20 +80,57 @@ if [ -n "$LOCAL_TOKEN" ]; then
   if [ -n "$LOCAL_TOKEN" ]; then
     COUNT=$(python3 -c "import json; print(json.load(open('$TMPDIR/deploy-local-export.json'))['count'])")
     info "Exported $COUNT tournaments from local DB"
-    # Prepare sync body
     python3 -c "import json; d=json.load(open('$TMPDIR/deploy-local-export.json')); json.dump({'tournaments':d['tournaments']}, open('$TMPDIR/deploy-sync-body.json','w'))"
   fi
 fi
 
-# ── Step 3: Git push ──
+# ── Step 5: Git push ──
 info "Pushing to origin/master..."
 git push origin master
 
-# ── Step 4: Wait for Render deploy ──
+# ── Step 6: Archive iOS app ──
+info "Archiving iOS app..."
+xcodebuild -project "$IOS_PROJECT" \
+  -scheme "$IOS_SCHEME" \
+  -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -archivePath "$ARCHIVE_PATH" \
+  archive \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath "$ASC_KEY_PATH" \
+  -authenticationKeyID "$ASC_KEY_ID" \
+  -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+  2>&1 | tail -3
+
+if [ ! -d "$ARCHIVE_PATH" ]; then
+  error "Archive failed"
+  exit 1
+fi
+info "Archive succeeded"
+
+# ── Step 7: Upload to TestFlight ──
+info "Uploading to TestFlight..."
+rm -rf "$EXPORT_PATH"
+xcodebuild -exportArchive \
+  -archivePath "$ARCHIVE_PATH" \
+  -exportOptionsPlist "$EXPORT_OPTIONS" \
+  -exportPath "$EXPORT_PATH" \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath "$ASC_KEY_PATH" \
+  -authenticationKeyID "$ASC_KEY_ID" \
+  -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+  2>&1 | tail -5
+
+if [ $? -eq 0 ]; then
+  info "TestFlight upload complete (build $NEW_BUILD)"
+else
+  warn "TestFlight upload failed — you may need to upload from Xcode Organizer"
+fi
+
+# ── Step 8: Wait for Render deploy ──
 info "Waiting for Render deploy to start..."
 sleep 5
 
-# Poll Render API for deploy status
 DEPLOY_ID=""
 for i in $(seq 1 10); do
   DEPLOYS=$(curl -sf -H "Authorization: Bearer $RENDER_API_KEY" \
@@ -110,7 +170,7 @@ if [ -n "$DEPLOY_ID" ]; then
   echo
 fi
 
-# ── Step 5: Login to production ──
+# ── Step 9: Login to production ──
 info "Logging in to production..."
 PROD_TOKEN=$(curl -sf "$PROD_URL/api/login" \
   -H 'Content-Type: application/json' \
@@ -120,7 +180,7 @@ PROD_TOKEN=$(curl -sf "$PROD_URL/api/login" \
   PROD_TOKEN=""
 }
 
-# ── Step 6: Sync local → production ──
+# ── Step 10: Sync local → production ──
 if [ -n "$LOCAL_TOKEN" ] && [ -n "$PROD_TOKEN" ]; then
   info "Syncing local tournaments → production..."
   SYNC_RESULT=$(curl -sf "$PROD_URL/api/tournaments/sync" \
@@ -154,7 +214,7 @@ for abbr, color in colors.items():
   fi
 fi
 
-# ── Step 7: Sync production → local ──
+# ── Step 11: Sync production → local ──
 if [ -n "$LOCAL_TOKEN" ] && [ -n "$PROD_TOKEN" ]; then
   info "Exporting production tournaments..."
   curl -sf "$PROD_URL/api/tournaments/export" \
@@ -182,7 +242,9 @@ fi
 
 # Cleanup temp files
 rm -f "$TMPDIR/deploy-local-export.json" "$TMPDIR/deploy-sync-body.json" "$TMPDIR/deploy-prod-export.json" "$TMPDIR/deploy-prod-sync.json"
+rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
 
 echo
 info "Deploy complete ✓"
-echo -e "  ${GREEN}→${NC} $PROD_URL"
+echo -e "  ${GREEN}Web:${NC}       $PROD_URL"
+echo -e "  ${GREEN}TestFlight:${NC} Build $NEW_BUILD"

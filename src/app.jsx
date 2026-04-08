@@ -9827,6 +9827,15 @@
               <div className="menu-item-desc">Account, sharing, appearance</div>
             </div>
           </button>
+          <button className="more-menu-item" onClick={() => { window.location.reload(); }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+            </svg>
+            <div>
+              Refresh
+              <div className="menu-item-desc">Reload the app and fetch latest data</div>
+            </div>
+          </button>
           {isAdmin && (
             <button className="more-menu-item" onClick={() => onNavigate('admin')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
