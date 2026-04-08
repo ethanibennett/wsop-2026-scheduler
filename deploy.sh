@@ -6,6 +6,7 @@ PROD_URL="https://futurega.me"
 LOCAL_URL="http://localhost:3001"
 RENDER_API_KEY="${RENDER_API_KEY:-$(grep RENDER_API_KEY "$HOME/.claude/projects/-Users-ethanibennett-WSOP-scheduler/render.env" 2>/dev/null | cut -d= -f2)}"
 RENDER_SERVICE_ID="srv-d6b8ujfgi27c73d5v3p0"
+TMPDIR="${TMPDIR:-/tmp}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -24,8 +25,8 @@ if [ -z "$RENDER_API_KEY" ]; then
 fi
 
 # Prompt for admin credentials (used for DB sync)
-if [ -z "${ADMIN_USER:-}" ]; then
-  read -rp "Admin username: " ADMIN_USER
+if [ -z "${ADMIN_EMAIL:-}" ]; then
+  read -rp "Admin email: " ADMIN_EMAIL
 fi
 if [ -z "${ADMIN_PASS:-}" ]; then
   read -rsp "Admin password: " ADMIN_PASS
@@ -40,23 +41,24 @@ node build.js
 info "Logging in to local server..."
 LOCAL_TOKEN=$(curl -sf "$LOCAL_URL/api/login" \
   -H 'Content-Type: application/json' \
-  -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}" \
+  -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])" 2>/dev/null) || {
-  warn "Could not log in to local server (is it running on port 3001?). Skipping DB sync."
+  warn "Could not log in to local server (is it running on port 3001?). Skipping local → prod sync."
   LOCAL_TOKEN=""
 }
 
-LOCAL_EXPORT=""
 if [ -n "$LOCAL_TOKEN" ]; then
   info "Exporting local tournament database..."
-  LOCAL_EXPORT=$(curl -sf "$LOCAL_URL/api/tournaments/export" \
-    -H "Authorization: Bearer $LOCAL_TOKEN") || {
+  curl -sf "$LOCAL_URL/api/tournaments/export" \
+    -H "Authorization: Bearer $LOCAL_TOKEN" > "$TMPDIR/deploy-local-export.json" || {
     warn "Failed to export local DB"
-    LOCAL_EXPORT=""
+    LOCAL_TOKEN=""
   }
-  if [ -n "$LOCAL_EXPORT" ]; then
-    COUNT=$(echo "$LOCAL_EXPORT" | python3 -c "import sys,json; print(json.load(sys.stdin)['count'])")
+  if [ -n "$LOCAL_TOKEN" ]; then
+    COUNT=$(python3 -c "import json; print(json.load(open('$TMPDIR/deploy-local-export.json'))['count'])")
     info "Exported $COUNT tournaments from local DB"
+    # Prepare sync body
+    python3 -c "import json; d=json.load(open('$TMPDIR/deploy-local-export.json')); json.dump({'tournaments':d['tournaments']}, open('$TMPDIR/deploy-sync-body.json','w'))"
   fi
 fi
 
@@ -108,62 +110,78 @@ if [ -n "$DEPLOY_ID" ]; then
   echo
 fi
 
-# ── Step 5: Sync local DB → production ──
-if [ -n "$LOCAL_EXPORT" ]; then
-  info "Logging in to production..."
-  PROD_TOKEN=$(curl -sf "$PROD_URL/api/login" \
+# ── Step 5: Login to production ──
+info "Logging in to production..."
+PROD_TOKEN=$(curl -sf "$PROD_URL/api/login" \
+  -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])" 2>/dev/null) || {
+  error "Could not log in to production. DB sync skipped."
+  PROD_TOKEN=""
+}
+
+# ── Step 6: Sync local → production ──
+if [ -n "$LOCAL_TOKEN" ] && [ -n "$PROD_TOKEN" ]; then
+  info "Syncing local tournaments → production..."
+  SYNC_RESULT=$(curl -sf "$PROD_URL/api/tournaments/sync" \
     -H 'Content-Type: application/json' \
-    -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}" \
-    | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])" 2>/dev/null) || {
-    error "Could not log in to production. DB sync skipped."
-    PROD_TOKEN=""
+    -H "Authorization: Bearer $PROD_TOKEN" \
+    -d @"$TMPDIR/deploy-sync-body.json" 2>/dev/null) || {
+    error "Tournament sync to production failed"
+    SYNC_RESULT=""
   }
+  if [ -n "$SYNC_RESULT" ]; then
+    echo "$SYNC_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"  → {d['inserted']} new, {d['updated']} updated, {d['skipped']} skipped\")"
+  fi
 
-  if [ -n "$PROD_TOKEN" ]; then
-    info "Syncing tournaments to production..."
-    SYNC_BODY=$(echo "$LOCAL_EXPORT" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(json.dumps({'tournaments': data['tournaments']}))
-")
-    SYNC_RESULT=$(curl -sf "$PROD_URL/api/tournaments/sync" \
-      -H 'Content-Type: application/json' \
-      -H "Authorization: Bearer $PROD_TOKEN" \
-      -d "$SYNC_BODY" 2>/dev/null) || {
-      error "Tournament sync failed"
-      SYNC_RESULT=""
-    }
-
-    if [ -n "$SYNC_RESULT" ]; then
-      INSERTED=$(echo "$SYNC_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('inserted',0))")
-      UPDATED=$(echo "$SYNC_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('updated',0))")
-      SKIPPED=$(echo "$SYNC_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('skipped',0))")
-      info "Sync complete: $INSERTED new, $UPDATED updated, $SKIPPED skipped"
-    fi
-
-    # Also sync venue colors
-    info "Syncing venue colors to production..."
-    LOCAL_COLORS=$(curl -sf "$LOCAL_URL/api/venue-colors") || LOCAL_COLORS=""
-    if [ -n "$LOCAL_COLORS" ] && [ "$LOCAL_COLORS" != "{}" ]; then
-      echo "$LOCAL_COLORS" | python3 -c "
-import sys, json, subprocess
+  # Sync venue colors local → prod
+  LOCAL_COLORS=$(curl -sf "$LOCAL_URL/api/venue-colors") || LOCAL_COLORS=""
+  if [ -n "$LOCAL_COLORS" ] && [ "$LOCAL_COLORS" != "{}" ]; then
+    info "Syncing venue colors → production..."
+    echo "$LOCAL_COLORS" | python3 -c "
+import sys, json, subprocess, urllib.parse
 colors = json.load(sys.stdin)
 for abbr, color in colors.items():
     subprocess.run([
         'curl', '-sf', '-X', 'PUT',
-        '$PROD_URL/api/venue-colors/' + abbr,
+        '$PROD_URL/api/venue-colors/' + urllib.parse.quote(abbr, safe=''),
         '-H', 'Content-Type: application/json',
         '-H', 'Authorization: Bearer $PROD_TOKEN',
         '-d', json.dumps({'color': color})
     ], capture_output=True)
     print(f'  {abbr} → {color}')
 " 2>/dev/null
-      info "Venue colors synced"
+  fi
+fi
+
+# ── Step 7: Sync production → local ──
+if [ -n "$LOCAL_TOKEN" ] && [ -n "$PROD_TOKEN" ]; then
+  info "Exporting production tournaments..."
+  curl -sf "$PROD_URL/api/tournaments/export" \
+    -H "Authorization: Bearer $PROD_TOKEN" > "$TMPDIR/deploy-prod-export.json" || {
+    warn "Failed to export production DB"
+  }
+  if [ -f "$TMPDIR/deploy-prod-export.json" ]; then
+    PROD_COUNT=$(python3 -c "import json; print(json.load(open('$TMPDIR/deploy-prod-export.json'))['count'])")
+    info "Syncing $PROD_COUNT production tournaments → local..."
+    python3 -c "import json; d=json.load(open('$TMPDIR/deploy-prod-export.json')); json.dump({'tournaments':d['tournaments']}, open('$TMPDIR/deploy-prod-sync.json','w'))"
+    SYNC_RESULT=$(curl -sf "$LOCAL_URL/api/tournaments/sync" \
+      -H 'Content-Type: application/json' \
+      -H "Authorization: Bearer $LOCAL_TOKEN" \
+      -d @"$TMPDIR/deploy-prod-sync.json" 2>/dev/null) || {
+      error "Sync production → local failed"
+      SYNC_RESULT=""
+    }
+    if [ -n "$SYNC_RESULT" ]; then
+      echo "$SYNC_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"  → {d['inserted']} new, {d['updated']} updated, {d['skipped']} skipped\")"
     fi
   fi
-else
-  warn "No local DB export — skipping production sync"
+elif [ -n "$PROD_TOKEN" ]; then
+  warn "Local server not available — skipping production → local sync"
 fi
+
+# Cleanup temp files
+rm -f "$TMPDIR/deploy-local-export.json" "$TMPDIR/deploy-sync-body.json" "$TMPDIR/deploy-prod-export.json" "$TMPDIR/deploy-prod-sync.json"
 
 echo
 info "Deploy complete ✓"

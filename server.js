@@ -160,7 +160,7 @@ async function sendResetEmail(toEmail, resetToken) {
   }
 }
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 // Health check for zero-downtime deploys
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
