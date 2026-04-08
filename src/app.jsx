@@ -4358,18 +4358,22 @@
                         {/* Venue strip color picker */}
                         {(() => {
                           const venueInfo = getVenueInfo(tournament.venue);
-                          const cssVar = VENUE_BRAND_VAR[venueInfo.abbr];
-                          if (!cssVar) return null;
-                          const currentColor = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim() || venueInfo.color;
+                          const abbr = venueInfo.abbr;
+                          // Use existing CSS var if mapped, otherwise derive one from abbreviation
+                          const cssVar = VENUE_BRAND_VAR[abbr] || `--venue-${abbr.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`;
+                          const computed = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
+                          const currentColor = computed || venueInfo.color;
                           return (
                             <div style={{marginTop:'10px', display:'flex', alignItems:'center', gap:'10px'}}>
-                              <label style={{fontSize:'0.78rem', color:'var(--text-muted)', whiteSpace:'nowrap'}}>Strip Color ({venueInfo.abbr})</label>
+                              <label style={{fontSize:'0.78rem', color:'var(--text-muted)', whiteSpace:'nowrap'}}>Strip Color ({abbr})</label>
                               <input type="color" defaultValue={currentColor}
                                 onChange={async (e) => {
                                   const color = e.target.value;
+                                  // Register dynamic CSS var if not already mapped
+                                  if (!VENUE_BRAND_VAR[abbr]) VENUE_BRAND_VAR[abbr] = cssVar;
                                   document.documentElement.style.setProperty(cssVar, color);
                                   try {
-                                    await fetch(`${API_URL}/venue-colors/${encodeURIComponent(venueInfo.abbr)}`, {
+                                    await fetch(`${API_URL}/venue-colors/${encodeURIComponent(abbr)}`, {
                                       method: 'PUT',
                                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
                                       body: JSON.stringify({ color })
@@ -10394,10 +10398,12 @@
 
       const applyVenueColors = (colors) => {
         for (const [abbr, color] of Object.entries(colors)) {
-          const cssVar = VENUE_BRAND_VAR[abbr];
-          if (cssVar) {
-            document.documentElement.style.setProperty(cssVar, color);
+          let cssVar = VENUE_BRAND_VAR[abbr];
+          if (!cssVar) {
+            cssVar = `--venue-${abbr.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`;
+            VENUE_BRAND_VAR[abbr] = cssVar;
           }
+          document.documentElement.style.setProperty(cssVar, color);
         }
       };
 

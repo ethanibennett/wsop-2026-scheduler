@@ -193,11 +193,15 @@
       'CHEROKEE':       '--venue-cherokee',
       'CHOCTAW':        '--venue-choctaw',
       'TUNICA':         '--venue-tunica',
+      'PRS':            '--venue-prs',
     };
     function getVenueBrandColor(abbr) {
-      const cssVar = VENUE_BRAND_VAR[abbr];
-      if (!cssVar) return '#808080';
-      return `var(${cssVar})`;
+      let cssVar = VENUE_BRAND_VAR[abbr];
+      if (!cssVar) {
+        cssVar = `--venue-${abbr.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`;
+        VENUE_BRAND_VAR[abbr] = cssVar;
+      }
+      return `var(${cssVar}, ${(VENUE_MAP[Object.keys(VENUE_MAP).find(k => VENUE_MAP[k].abbr === abbr)] || {}).color || '#808080'})`;
     }
 
     // ── Bracelet Event Detection ──────────────────────────────
