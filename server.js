@@ -751,6 +751,12 @@ async function initDatabase() {
     }
   }
 
+  // ── Venue colors table ──
+  db.run(`CREATE TABLE IF NOT EXISTS venue_colors (
+    venue_abbr TEXT PRIMARY KEY,
+    color TEXT NOT NULL
+  )`);
+
   // ── Data migrations (for updating existing persistent-disk DBs) ──
   db.run(`CREATE TABLE IF NOT EXISTS _applied_migrations (
     name TEXT PRIMARY KEY,
@@ -6726,6 +6732,40 @@ app.put('/api/tournaments/:id', authenticateToken, requireRegistered, async (req
   } catch (error) {
     console.error('Admin update tournament error:', error);
     res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// ── Venue Colors ────────────────────────────────────────────
+// Get all custom venue colors
+app.get('/api/venue-colors', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT venue_abbr, color FROM venue_colors');
+    const colors = {};
+    while (stmt.step()) {
+      const row = stmt.getAsObject();
+      colors[row.venue_abbr] = row.color;
+    }
+    stmt.free();
+    res.json(colors);
+  } catch (err) {
+    res.json({});
+  }
+});
+
+// Set a venue color (admin only)
+app.put('/api/venue-colors/:abbr', authenticateToken, requireRegistered, async (req, res) => {
+  if (!['ham', 'ham5'].includes((req.user.username || '').toLowerCase())) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const { color } = req.body;
+  const abbr = req.params.abbr;
+  if (!color || !abbr) return res.status(400).json({ error: 'Missing color or abbr' });
+  try {
+    db.run('INSERT INTO venue_colors (venue_abbr, color) VALUES (?, ?) ON CONFLICT(venue_abbr) DO UPDATE SET color = ?', [abbr, color, color]);
+    await saveDatabase();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

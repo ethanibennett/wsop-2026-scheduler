@@ -818,7 +818,7 @@
       'Texas Card House': 'WSOPC Austin',
       'Turning Stone Casino': 'WSOPC Turning Stone',
       'Borgata': 'Borgata Spring Poker Open',
-      'Venetian': 'Venetian DeepStack Championship',
+      'Venetian': 'Venetian Poker Series',
       'Wynn Las Vegas': 'Wynn Summer Classic',
       'Foxwoods': 'Foxwoods Poker Classic',
       'Thunder Valley': 'Thunder Valley Poker Series',
@@ -829,7 +829,7 @@
       "Harrah's Cherokee": 'WSOPC Cherokee',
       'WSOPC Cherokee': 'WSOPC Cherokee',
       'Choctaw Casino': 'WSOPC Choctaw',
-      'Horseshoe Tunica': 'Horseshoe Tunica',
+      'Horseshoe Tunica': 'WSOPC Tunica',
       'Caesars Palace': 'Caesars Palace',
       'Seminole Hard Rock': 'Seminole Hard Rock',
       'WSOP Europe': 'WSOP Europe',
@@ -4355,6 +4355,31 @@
                           {field('Category', 'category', 'select-category')}
                           {field('Notes', 'notes')}
                         </div>
+                        {/* Venue strip color picker */}
+                        {(() => {
+                          const venueInfo = getVenueInfo(tournament.venue);
+                          const cssVar = VENUE_BRAND_VAR[venueInfo.abbr];
+                          if (!cssVar) return null;
+                          const currentColor = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim() || venueInfo.color;
+                          return (
+                            <div style={{marginTop:'10px', display:'flex', alignItems:'center', gap:'10px'}}>
+                              <label style={{fontSize:'0.78rem', color:'var(--text-muted)', whiteSpace:'nowrap'}}>Strip Color ({venueInfo.abbr})</label>
+                              <input type="color" defaultValue={currentColor}
+                                onChange={async (e) => {
+                                  const color = e.target.value;
+                                  document.documentElement.style.setProperty(cssVar, color);
+                                  try {
+                                    await fetch(`${API_URL}/venue-colors/${encodeURIComponent(venueInfo.abbr)}`, {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+                                      body: JSON.stringify({ color })
+                                    });
+                                  } catch (err) { console.error('Failed to save venue color', err); }
+                                }}
+                                style={{width:'36px', height:'28px', padding:0, border:'1px solid var(--border)', borderRadius:'4px', cursor:'pointer', background:'transparent'}} />
+                            </div>
+                          );
+                        })()}
                         <div style={{display:'flex', gap:'8px', marginTop:'10px'}}>
                           <button disabled={saving} onClick={async () => {
                             if (Object.keys(editFields).length === 0) { setEditing(false); return; }
@@ -10226,7 +10251,8 @@
           Promise.all([
             fetchTournaments(), fetchMySchedule(), fetchGameVariants(),
             fetchVenues(), fetchShareToken(), fetchShareBuddies(),
-            fetchMyGroups(), fetchNotifications(), fetchTracking(), fetchMyLiveUpdate()
+            fetchMyGroups(), fetchNotifications(), fetchTracking(), fetchMyLiveUpdate(),
+            fetchVenueColors()
           ]).finally(() => setDataLoaded(true));
         }
       }, [token]);
@@ -10364,6 +10390,24 @@
           return null;
         }
         return res;
+      };
+
+      const applyVenueColors = (colors) => {
+        for (const [abbr, color] of Object.entries(colors)) {
+          const cssVar = VENUE_BRAND_VAR[abbr];
+          if (cssVar) {
+            document.documentElement.style.setProperty(cssVar, color);
+          }
+        }
+      };
+
+      const fetchVenueColors = async () => {
+        try {
+          const res = await guardedFetch(`${API_URL}/venue-colors`);
+          if (!res) return;
+          const colors = await res.json();
+          applyVenueColors(colors);
+        } catch (e) { /* ignore */ }
       };
 
       const fetchTournaments = async () => {

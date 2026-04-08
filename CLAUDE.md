@@ -3,6 +3,7 @@
 ## Recent Changes
 <!-- Update this section at the end of each work session so the next instance knows where things stand. Most recent first. -->
 <!-- RULE: Before committing, always update this section with a summary of what changed in this session. -->
+- **2026-04-08**: Deploy script with DB sync — `deploy.sh` builds, pushes to git, waits for Render deploy, then syncs local tournament DB and venue colors to production via `/api/tournaments/sync` and `/api/venue-colors`. Admin color picker added to CalendarEventRow edit panel — saves to `venue_colors` table, updates CSS variables for all venues sharing the same abbreviation.
 - **2026-04-02**: URL-based schedule import — new `/api/parse-schedule-url` endpoint fetches PDFs, images, or HTML pages from URLs and runs through AI extraction pipeline. Shared parser helpers extracted (getSchedulePrompts, repairTruncatedJsonArray, extractJsonArray, runTwoPassExtraction, postProcessEvents). Fixed imported events not appearing by normalizing human-readable dates to ISO format. Frontend URL input with Fetch button and progress bar.
 - **2026-04-02**: Schedule parser improvements — two-pass AI extraction (Sonnet vision → Haiku structuring), assistant prefill to prevent code fences, character-level JSON repair, asymptotic progress bar, scan editor checkboxes (satellite/restart/category), per-day event counts in date headers, Import Schedule button in filters bar.
 - **2026-03-08**: User search in Social tab — `GET /api/users/search?q=` endpoint with prefix matching on username/real_name, excludes self and existing connections. Debounced auto-suggest dropdown in SocialView with Connect button.
@@ -118,6 +119,7 @@ The `.claude/` directory is gitignored. For Claude Code preview tools, create `.
 ## Deployment (Render)
 - **Service**: futuregame (`srv-d6b8ujfgi27c73d5v3p0`)
 - **Dashboard**: https://dashboard.render.com/web/srv-d6b8ujfgi27c73d5v3p0
+- **Deploy**: `./deploy.sh` — builds, pushes to master, waits for Render deploy, syncs local DB → production (tournaments + venue colors). Prompts for admin credentials (or set `ADMIN_USER`/`ADMIN_PASS` env vars).
 - **Auto-deploy**: pushes to `master` branch trigger deploy
 - **Render config** stored at `.claude/projects/-Users-ethanibennett-WSOP-scheduler/render.env`
 - **Fetch logs**: `curl -s -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/logs?ownerId=tea-d6b8t3ali9vc73dcs4q0&resource=srv-d6b8ujfgi27c73d5v3p0&limit=100&direction=backward" | python3 -m json.tool`
