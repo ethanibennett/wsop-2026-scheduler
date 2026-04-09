@@ -6,7 +6,7 @@
     "allowNavigation": ["futurega.me"]
   },
   "ios": {
-    "contentInset": "always",
+    "contentInset": "automatic",
     "backgroundColor": "#111111",
     "preferredContentMode": "mobile"
   },
