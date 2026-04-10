@@ -3346,7 +3346,9 @@
       const [error, setError] = useState('');
       const [availableTables, setAvailableTables] = useState(null); // { tableNum: [players] }
       const [allParsedPlayers, setAllParsedPlayers] = useState([]);
-      const [feltColor, setFeltColor] = useState('#1a5c2e');
+      const [feltColor, setFeltColor] = useState(() => {
+        try { return localStorage.getItem('scannerFeltColor') || '#1a5c2e'; } catch { return '#1a5c2e'; }
+      });
       const [portrait, setPortrait] = useState(false);
       const ovalRef = useRef(null);
       const fileRef = useRef(null);
@@ -3358,10 +3360,10 @@
         4:  [[50,12],[98,50],[50,88],[2,50]],
         5:  [[50,12],[98,40],[80,88],[20,88],[2,40]],
         6:  [[30,12],[70,12],[98,50],[70,88],[30,88],[2,50]],
-        7:  [[50,12],[98,28],[98,65],[70,88],[30,88],[2,65],[2,28]],
-        8:  [[30,12],[70,12],[98,28],[98,72],[70,88],[30,88],[2,72],[2,28]],
-        9:  [[50,12],[80,16],[98,42],[98,72],[70,88],[30,88],[2,72],[2,42],[20,16]],
-        10: [[35,12],[65,12],[98,22],[98,50],[98,78],[65,88],[35,88],[2,78],[2,50],[2,22]],
+        7:  [[50,5],[98,25],[98,65],[72,95],[28,95],[2,65],[2,25]],
+        8:  [[30,10],[70,10],[98,37],[98,63],[70,90],[30,90],[2,63],[2,37]],
+        9:  [[50,10],[82,10],[98,37],[98,63],[72,90],[28,90],[2,63],[2,37],[18,10]],
+        10: [[35,2],[65,2],[98,20],[98,50],[98,80],[65,98],[35,98],[2,80],[2,50],[2,20]],
       };
 
       function getDisplayPlayers(rawPlayers) {
@@ -3376,26 +3378,109 @@
         });
         const n = Math.min(Math.max(sorted.length, 2), 10);
         const heroIdx = sorted.findIndex(p => p.isHero);
+        // Aligned: left and right sides share same Y rows
         const PORTRAIT_LAYOUTS = {
-          2:  [[50,12],[50,88]],
-          3:  [[50,12],[75,65],[25,65]],
-          4:  [[50,12],[88,50],[50,88],[12,50]],
-          5:  [[50,10],[85,35],[75,85],[25,85],[15,35]],
-          6:  [[50,8],[85,30],[85,70],[50,92],[15,70],[15,30]],
-          7:  [[50,8],[82,22],[88,50],[72,85],[28,85],[12,50],[18,22]],
-          8:  [[35,8],[65,8],[88,30],[88,70],[65,92],[35,92],[12,70],[12,30]],
-          9:  [[50,6],[78,14],[88,38],[88,62],[70,88],[30,88],[12,62],[12,38],[22,14]],
-          10: [[35,6],[65,6],[88,20],[88,42],[88,64],[65,90],[35,90],[12,64],[12,42],[12,20]],
+          2:  [[50,10],[50,90]],
+          3:  [[50,10],[98,50],[2,50]],
+          4:  [[50,10],[98,50],[50,90],[2,50]],
+          5:  [[50,10],[98,35],[98,65],[50,90],[2,50]],
+          6:  [[50,10],[98,30],[98,70],[50,90],[2,70],[2,30]],
+          7:  [[50,10],[98,25],[98,50],[98,75],[50,90],[2,50],[2,25]],
+          8:  [[50,6],[98,22],[98,50],[98,78],[50,94],[2,78],[2,50],[2,22]],
+          9:  [[30,6],[98,22],[98,50],[98,78],[50,94],[2,78],[2,50],[2,22],[70,6]],
+          10: [[30,6],[70,6],[98,22],[98,50],[98,78],[70,94],[30,94],[2,78],[2,50],[2,22]],
         };
-        const rawSeats = portrait
+        // Staggered: left and right offset so long names don't overlap across the table
+        const PORTRAIT_STAGGERED = {
+          2:  [[50,10],[50,90]],
+          3:  [[50,10],[98,50],[2,50]],
+          4:  [[50,10],[98,45],[50,90],[2,55]],
+          5:  [[50,10],[98,35],[98,65],[50,90],[2,50]],
+          6:  [[50,10],[98,28],[98,68],[50,90],[2,72],[2,32]],
+          7:  [[50,10],[98,24],[98,50],[98,76],[50,90],[2,55],[2,28]],
+          8:  [[50,6],[98,20],[98,46],[98,72],[50,94],[2,80],[2,54],[2,28]],
+          9:  [[30,6],[98,20],[98,46],[98,72],[50,94],[2,80],[2,54],[2,28],[70,6]],
+          10: [[30,6],[70,6],[98,20],[98,46],[98,72],[70,94],[30,94],[2,80],[2,54],[2,28]],
+        };
+        function resolveCollisions(rawCoords, minX, minY) {
+          const s = rawCoords.map(c => [c[0], c[1]]);
+          for (let pass = 0; pass < 5; pass++) {
+            for (let i = 0; i < s.length; i++) {
+              for (let j = i + 1; j < s.length; j++) {
+                const dx = s[j][0] - s[i][0];
+                const dy = s[j][1] - s[i][1];
+                const adx = Math.abs(dx), ady = Math.abs(dy);
+                if (adx < minX && ady < minY) {
+                  if (adx / minX < ady / minY) {
+                    const pushX = (minX - adx) / 2 * 0.5;
+                    s[i][0] -= Math.sign(dx || 1) * pushX;
+                    s[j][0] += Math.sign(dx || 1) * pushX;
+                  } else {
+                    const pushY = (minY - ady) / 2 * 0.5;
+                    s[i][1] -= Math.sign(dy || 1) * pushY;
+                    s[j][1] += Math.sign(dy || 1) * pushY;
+                  }
+                  s[i][0] = Math.max(1, Math.min(99, s[i][0]));
+                  s[i][1] = Math.max(2, Math.min(96, s[i][1]));
+                  s[j][0] = Math.max(1, Math.min(99, s[j][0]));
+                  s[j][1] = Math.max(2, Math.min(96, s[j][1]));
+                }
+              }
+            }
+          }
+          return s;
+        }
+        function hasCollision(s, minX, minY) {
+          for (let i = 0; i < s.length; i++)
+            for (let j = i + 1; j < s.length; j++)
+              if (Math.abs(s[j][0] - s[i][0]) < minX && Math.abs(s[j][1] - s[i][1]) < minY) return true;
+          return false;
+        }
+        // Check if any L/R pair at the same row would visually overlap based on name lengths
+        function needsStagger(layout, players) {
+          for (let i = 0; i < players.length; i++) {
+            const pi = layout[i];
+            if (!pi || (pi[0] > 15 && pi[0] < 85)) continue;
+            for (let j = i + 1; j < players.length; j++) {
+              const pj = layout[j];
+              if (!pj || (pj[0] > 15 && pj[0] < 85)) continue;
+              // One left, one right, similar Y
+              const oneLeft = pi[0] <= 15, oneRight = pj[0] >= 85;
+              const otherWay = pi[0] >= 85 && pj[0] <= 15;
+              if ((oneLeft && oneRight) || otherWay) {
+                if (Math.abs(pi[1] - pj[1]) < 5) {
+                  if (players[i].name.length + players[j].name.length > 34) return true;
+                }
+              }
+            }
+          }
+          return false;
+        }
+
+        let usePortrait = portrait;
+        const rawSeats = usePortrait
           ? (PORTRAIT_LAYOUTS[n] || PORTRAIT_LAYOUTS[9])
           : (SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9]);
-        const seats = rawSeats;
-        if (heroIdx < 0) return { display: sorted, n, seats };
+        let seats = resolveCollisions(rawSeats, usePortrait ? 28 : 22, usePortrait ? 14 : 18);
+
+        // Auto-switch to portrait if landscape still has collisions
+        if (!usePortrait && hasCollision(seats, 20, 16)) {
+          usePortrait = true;
+          const portraitSeats = PORTRAIT_LAYOUTS[n] || PORTRAIT_LAYOUTS[9];
+          seats = resolveCollisions(portraitSeats, 28, 14);
+        }
+
+        // In portrait, check if aligned L/R pairs would overlap — stagger if so
+        if (usePortrait && needsStagger(seats, sorted)) {
+          const staggered = PORTRAIT_STAGGERED[n] || PORTRAIT_STAGGERED[9];
+          seats = resolveCollisions(staggered, 28, 14);
+        }
+
+        if (heroIdx < 0) return { display: sorted, n, seats, autoPortrait: usePortrait };
         const targetIdx = Math.floor(n / 2);
         const delta = (heroIdx - targetIdx + n) % n;
         const display = [...sorted.slice(delta), ...sorted.slice(0, delta)];
-        return { display, n, seats };
+        return { display, n, seats, autoPortrait: usePortrait };
       }
 
       function handleExport() {
@@ -3481,14 +3566,31 @@
         ctx.fill('evenodd');
         ctx.restore();
 
+        // ── Watermark on felt (sized relative to player name text) ──
+        const isPortraitExport = ih > iw;
+        const firstNameEl = el.querySelector('.table-scanner-name-stack > span:first-child');
+        const nameTextSize = firstNameEl ? parseFloat(getComputedStyle(firstNameEl).fontSize) : 11;
+        const logoSize = Math.round(nameTextSize * 1.2);
+        ctx.save();
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `700 ${logoSize}px "Libre Baskerville",Georgia,serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.letterSpacing = `${-0.05 * logoSize}px`;
+        ctx.fillText('futurega.me', ix + iw / 2, iy + ih * (isPortraitExport ? 0.7 : 0.55));
+        ctx.restore();
+
         // ── Player cards ──
         const FONT = '"Univers Condensed",Univers,-apple-system,system-ui,sans-serif';
         seatEls.forEach(seat => {
           const btn = seat.querySelector('.table-scanner-link');
           if (!btn) return;
           const btnRect = btn.getBoundingClientRect();
+          const linkIcon = btn.querySelector('svg');
+          const iconW = linkIcon ? linkIcon.getBoundingClientRect().width + 3 : 0; // 3px gap
           const bx = btnRect.left - minX, by = btnRect.top - minY;
-          const bw = btnRect.width, bh = btnRect.height;
+          const bw = btnRect.width - iconW, bh = btnRect.height;
           const bs = getComputedStyle(btn);
 
           const nameEl = seat.querySelector('.table-scanner-name-stack > span:first-child');
@@ -3512,7 +3614,7 @@
           }
           ctx.restore();
 
-          // Name text
+          // Name text — always left-aligned to match live view
           const nameSize = nameEl ? parseFloat(getComputedStyle(nameEl).fontSize) : parseFloat(bs.fontSize);
           ctx.fillStyle = bs.color;
           ctx.font = `500 ${nameSize}px ${FONT}`;
@@ -3654,15 +3756,15 @@
               const err = await resp.json().catch(() => ({}));
               throw new Error(err.error || 'Scan failed (' + resp.status + ')');
             }
-            const { players: rawPlayers } = await resp.json();
+            const { players: rawPlayers, tableNumber } = await resp.json();
             setProgress(100);
 
             const extracted = (rawPlayers || []).map((p, i) => ({
               name: p.name || '',
               chips: p.chips || null,
-              seat: null,
+              seat: p.seat ? (tableNumber ? tableNumber + '-' + p.seat : String(p.seat)) : null,
               prize: null, country: null,
-              position: p.position || (i + 1), px: null, py: null,
+              position: p.seat || p.position || (i + 1), px: null, py: null,
             })).filter(p => p.name.length > 1)
               .sort((a, b) => a.position - b.position);
 
@@ -3670,6 +3772,7 @@
               setError('No players found. Try a clearer screenshot of the table view.');
               setState('idle');
             } else {
+              setEventTitle(tableNumber ? 'Table ' + tableNumber : '');
               setPlayers(extracted);
               setState('results');
             }
@@ -3743,36 +3846,41 @@
             <div className="table-scanner-results">
               <div className="table-scanner-results-header">
                 <span style={{fontWeight:600,fontSize:'0.82rem',color:'var(--text)',flex:1,minWidth:0}}>
-                  {eventTitle || `${players.length} player${players.length !== 1 ? 's' : ''} found`}
+                  {eventTitle ? `${eventTitle}: ` : ''}{players.length} player{players.length !== 1 ? 's' : ''} found
                 </span>
                 <button className="table-scanner-rescan" onClick={() => setPortrait(p => !p)} style={{padding:'4px 6px',marginRight:'4px'}} title={portrait ? 'Landscape' : 'Portrait'}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  {portrait
+                    ? <svg width="16" height="10" viewBox="0 0 24 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="1" width="22" height="12" rx="6"/></svg>
+                    : <svg width="10" height="16" viewBox="0 0 14 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="1" width="12" height="22" rx="6"/></svg>
+                  }
                 </button>
                 <button className="table-scanner-rescan" onClick={handleExport} style={{padding:'4px 6px',marginRight:'4px'}} title="Export as PNG">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </button>
-                <button className="table-scanner-rescan" onClick={() => { setState('idle'); setPlayers([]); setEventTitle(''); }}>
+                <button className="table-scanner-rescan" onClick={() => { if (fileRef.current) fileRef.current.value = ''; fileRef.current?.click(); }}>
                   Rescan
                 </button>
               </div>
-              <div className="table-scanner-oval" ref={ovalRef} style={portrait ? {aspectRatio:'3 / 4', width:'75%', margin:'4px auto'} : undefined}>
+              {(() => {
+                const { display, seats, autoPortrait } = getDisplayPlayers(players);
+                const isPortrait = autoPortrait || portrait;
+                return (<div className="table-scanner-oval" ref={ovalRef} style={isPortrait ? {aspectRatio:'3 / 4', width:'75%', margin:'4px auto'} : undefined}>
                 <label className="table-scanner-felt" title="Change felt colour"
                   style={{
-                    background: `radial-gradient(ellipse at ${portrait ? '40% 50%' : '50% 40%'}, ${feltColor}cc 0%, ${feltColor} 100%)`,
+                    background: `radial-gradient(ellipse at ${isPortrait ? '40% 50%' : '50% 40%'}, ${feltColor}cc 0%, ${feltColor} 100%)`,
                     borderColor: feltColor,
                     cursor: 'pointer',
                     display: 'block',
-                    ...(portrait ? {inset:'10% 18%'} : {}),
+                    ...(isPortrait ? {inset:'10% 18%'} : {}),
                   }}>
                   <input type="color" value={feltColor}
-                    onChange={e => setFeltColor(e.target.value)}
+                    onChange={e => { setFeltColor(e.target.value); try { localStorage.setItem('scannerFeltColor', e.target.value); } catch {} }}
                     style={{opacity:0,position:'absolute',width:'100%',height:'100%',top:0,left:0,cursor:'pointer',border:'none',padding:0}} />
                 </label>
                 {(() => {
-                  const { display, seats } = getDisplayPlayers(players);
                   return display.map((player, i) => {
                   const pos = seats[i] || [50, 50];
-                  const align = pos[0] <= 5 ? ' seat-left' : pos[0] >= 95 ? ' seat-right' : '';
+                  const align = pos[0] <= 15 ? ' seat-left' : pos[0] >= 85 ? ' seat-right' : ' seat-center';
                   // Nickname detection: real names have 2+ words, each starting capital + lowercase
                   const words = player.name.trim().split(/\s+/);
                   const isNickname = words.length < 2 || !words.every(w => /^[A-Z][a-zA-Z'-]+$/.test(w));
@@ -3799,7 +3907,8 @@
                   );
                 });
                 })()}
-              </div>
+              </div>);
+              })()}
             </div>
           )}
 
@@ -6043,8 +6152,8 @@
             const db = parseTournamentTime(b);
             if (da !== db) return da - db;
             // Tiebreak: numeric event number (SAT-xxx sorted after main events, restarts after those)
-            const na = a.event_number.startsWith('SAT') ? 10000 + parseInt(a.event_number.slice(4)) : (parseInt(a.event_number) || 9999);
-            const nb = b.event_number.startsWith('SAT') ? 10000 + parseInt(b.event_number.slice(4)) : (parseInt(b.event_number) || 9999);
+            const na = (a.event_number || '').startsWith('SAT') ? 10000 + parseInt((a.event_number || '').slice(4)) : (parseInt(a.event_number) || 9999);
+            const nb = (b.event_number || '').startsWith('SAT') ? 10000 + parseInt((b.event_number || '').slice(4)) : (parseInt(b.event_number) || 9999);
             return na - nb;
           });
       }, [tournaments, deferredSearch, filters, endedVenues]);
@@ -7725,10 +7834,18 @@
         });
       };
 
-      // Filtered events based on selected venues + satellite exclusion
+      // Filtered events based on selected venues + satellite exclusion + buy-in ranges
       const filteredEvents = useMemo(() =>
-        events.filter(e => selectedVenues.has(getVenueInfo(e.venue).abbr) && (!excludeSatellites || !e.is_satellite)),
-        [events, selectedVenues, excludeSatellites]
+        events.filter(e => {
+          if (!selectedVenues.has(getVenueInfo(e.venue).abbr)) return false;
+          if (excludeSatellites && e.is_satellite) return false;
+          if (groupByBuyin && buyinRanges.length > 0) {
+            const b = Number(e.buyin) || 0;
+            if (!buyinRanges.some(r => b >= r.min && b <= (r.max === Infinity ? 1e12 : r.max))) return false;
+          }
+          return true;
+        }),
+        [events, selectedVenues, excludeSatellites, groupByBuyin, buyinRanges]
       );
 
       const handlePDF = async () => {
@@ -7746,7 +7863,7 @@
         if (!filteredEvents.length) return;
         setGenerating(true);
         setTimeout(() => {
-          const imgs = generateScheduleImages(filteredEvents, docTitle, { light: lightMode });
+          const imgs = generateScheduleImages(filteredEvents, docTitle, { light: lightMode, groupByBuyin, buyinRanges: groupByBuyin ? buyinRanges : undefined });
           setCanvases(imgs);
           setMode('preview');
           setGenerating(false);
@@ -9285,11 +9402,11 @@
           {/* ── Results ── */}
           <div className="dashboard-section">
             <div className="dashboard-section-header">
-              <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              <div style={{display:'flex',alignItems:'center',width:'calc(33.33% - 3px)'}}>
                 <div className="dashboard-section-title">Results</div>
                 {plData.count > 0 && dashRates && (
                   <select value={dashCurrency} onChange={e => onDashCurrencyChange(e.target.value)}
-                    style={{fontSize:'0.65rem',padding:'2px 4px',border:'1px solid var(--border)',borderRadius:'5px',
+                    style={{marginLeft:'auto',fontSize:'0.65rem',padding:'2px 4px',border:'1px solid var(--border)',borderRadius:'5px',
                       background:'var(--surface)',color:'var(--text)',cursor:'pointer',fontWeight:600}}>
                     <option value="NATIVE">Native</option>
                     {Object.keys(CURRENCY_CONFIG).map(c => (
@@ -9894,6 +10011,14 @@
       const toast = useToast();
       const displayName = useDisplayName();
       const [debugInput, setDebugInput] = useState(_debugNow);
+      const [iconBg, setIconBg] = useState(() => localStorage.getItem('iconBg') || '#0d1525');
+      const iconColorRef = useRef(null);
+
+      const applyIconBg = (color) => {
+        // Update the icon.svg background color used for PWA/app icons
+        // Favicon stays permanently transparent; this affects the installed app icon
+        localStorage.setItem('iconBg', color);
+      };
 
       const applyDebugTime = (val) => {
         setDebugInput(val);
@@ -10047,13 +10172,29 @@
                 />
               </div>
               <div className="settings-row">
+                <span className="settings-row-label">Icon background</span>
+                <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                  <div
+                    onClick={() => iconColorRef.current?.click()}
+                    style={{width:28,height:28,borderRadius:6,border:'2px solid var(--border)',background:iconBg,cursor:'pointer',position:'relative',overflow:'hidden'}}
+                  >
+                    <input ref={iconColorRef} type="color" value={iconBg}
+                      onChange={e => { setIconBg(e.target.value); localStorage.setItem('iconBg', e.target.value); applyIconBg(e.target.value); }}
+                      style={{opacity:0,position:'absolute',inset:0,width:'100%',height:'100%',cursor:'pointer',border:'none',padding:0}} />
+                  </div>
+                  {iconBg !== '#0d1525' && (
+                    <button className="btn btn-ghost btn-sm" style={{fontSize:'0.72rem',padding:'3px 8px'}} onClick={() => { setIconBg('#0d1525'); localStorage.setItem('iconBg', '#0d1525'); applyIconBg('#0d1525'); }}>Reset</button>
+                  )}
+                </div>
+              </div>
+              <div className="settings-row">
                 <span className="settings-row-label">Display font</span>
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={toggleSerifFont}
-                  style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'13px',padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)', fontFamily: serifFont === 'univers' ? "'Univers', sans-serif" : serifFont === 'helvetica' ? "'Helvetica Neue', Helvetica, sans-serif" : "'Libre Baskerville', Georgia, serif"}}
+                  style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'13px',padding:'4px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)', fontFamily: serifFont === 'univers' ? "'Univers', sans-serif" : "'Libre Baskerville', Georgia, serif"}}
                 >
-                  {serifFont === 'univers' ? 'Univers' : serifFont === 'helvetica' ? 'Helvetica' : 'Baskerville'}
+                  {serifFont === 'univers' ? 'Univers' : 'Baskerville'}
                 </button>
               </div>
             </div>
@@ -11197,7 +11338,7 @@
                 cardSplay={cardSplay}
                 toggleCardSplay={() => { setCardSplay(s => { var next = !s; localStorage.setItem('cardSplay', next ? 'on' : 'off'); return next; }); }}
                 serifFont={serifFont}
-                toggleSerifFont={() => setSerifFont(f => { const order = ['baskerville','univers','helvetica']; return order[(order.indexOf(f) + 1) % order.length]; })}
+                toggleSerifFont={() => setSerifFont(f => { const order = ['baskerville','univers']; return order[(order.indexOf(f) + 1) % order.length]; })}
                 onLogout={handleLogout}
                 onDebugTimeChange={(val) => setDebugTimeKey(k => k + 1)}
                 onUpload={handleFileUpload}

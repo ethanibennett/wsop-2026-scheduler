@@ -160,6 +160,7 @@
       'WSOPC Cherokee':              { abbr: 'CHEROKEE', color: '#e91e90', longName: 'WSOPC Cherokee' },
       'Choctaw Casino':              { abbr: 'CHOCTAW', color: '#dc2626', longName: 'WSOPC Choctaw' },
       'Horseshoe Tunica':            { abbr: 'TUNICA', color: '#0d6efd', longName: 'WSOPC Tunica' },
+      'WSOPC Horseshoe Las Vegas':   { abbr: 'WSOPC-LV', color: '#d4a017', longName: 'WSOPC Horseshoe LV' },
     };
     function getVenueInfo(v) {
       return VENUE_MAP[v] ?? { abbr: v ? v.slice(0, 4).toUpperCase() : '?', color: '#808080', longName: v || '' };
@@ -195,6 +196,7 @@
       'CHOCTAW':        '--venue-choctaw',
       'TUNICA':         '--venue-tunica',
       'PRS':            '--venue-prs',
+      'WSOPC-LV':       '--venue-wsopc-lv',
     };
     function getVenueBrandColor(abbr) {
       let cssVar = VENUE_BRAND_VAR[abbr];

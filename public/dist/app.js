@@ -3125,7 +3125,13 @@ function TableScanner() {
   const [error, setError] = useState("");
   const [availableTables, setAvailableTables] = useState(null);
   const [allParsedPlayers, setAllParsedPlayers] = useState([]);
-  const [feltColor, setFeltColor] = useState("#1a5c2e");
+  const [feltColor, setFeltColor] = useState(() => {
+    try {
+      return localStorage.getItem("scannerFeltColor") || "#1a5c2e";
+    } catch (e) {
+      return "#1a5c2e";
+    }
+  });
   const [portrait, setPortrait] = useState(false);
   const ovalRef = useRef(null);
   const fileRef = useRef(null);
@@ -3136,10 +3142,10 @@ function TableScanner() {
     4: [[50, 12], [98, 50], [50, 88], [2, 50]],
     5: [[50, 12], [98, 40], [80, 88], [20, 88], [2, 40]],
     6: [[30, 12], [70, 12], [98, 50], [70, 88], [30, 88], [2, 50]],
-    7: [[50, 12], [98, 28], [98, 65], [70, 88], [30, 88], [2, 65], [2, 28]],
-    8: [[30, 12], [70, 12], [98, 28], [98, 72], [70, 88], [30, 88], [2, 72], [2, 28]],
-    9: [[50, 12], [80, 16], [98, 42], [98, 72], [70, 88], [30, 88], [2, 72], [2, 42], [20, 16]],
-    10: [[35, 12], [65, 12], [98, 22], [98, 50], [98, 78], [65, 88], [35, 88], [2, 78], [2, 50], [2, 22]]
+    7: [[50, 5], [98, 25], [98, 65], [72, 95], [28, 95], [2, 65], [2, 25]],
+    8: [[30, 10], [70, 10], [98, 37], [98, 63], [70, 90], [30, 90], [2, 63], [2, 37]],
+    9: [[50, 10], [82, 10], [98, 37], [98, 63], [72, 90], [28, 90], [2, 63], [2, 37], [18, 10]],
+    10: [[35, 2], [65, 2], [98, 20], [98, 50], [98, 80], [65, 98], [35, 98], [2, 80], [2, 50], [2, 20]]
   };
   function getDisplayPlayers(rawPlayers) {
     const hasSeatData = rawPlayers.some((p) => p.seat);
@@ -3154,23 +3160,99 @@ function TableScanner() {
     const n = Math.min(Math.max(sorted.length, 2), 10);
     const heroIdx = sorted.findIndex((p) => p.isHero);
     const PORTRAIT_LAYOUTS = {
-      2: [[50, 12], [50, 88]],
-      3: [[50, 12], [75, 65], [25, 65]],
-      4: [[50, 12], [88, 50], [50, 88], [12, 50]],
-      5: [[50, 10], [85, 35], [75, 85], [25, 85], [15, 35]],
-      6: [[50, 8], [85, 30], [85, 70], [50, 92], [15, 70], [15, 30]],
-      7: [[50, 8], [82, 22], [88, 50], [72, 85], [28, 85], [12, 50], [18, 22]],
-      8: [[35, 8], [65, 8], [88, 30], [88, 70], [65, 92], [35, 92], [12, 70], [12, 30]],
-      9: [[50, 6], [78, 14], [88, 38], [88, 62], [70, 88], [30, 88], [12, 62], [12, 38], [22, 14]],
-      10: [[35, 6], [65, 6], [88, 20], [88, 42], [88, 64], [65, 90], [35, 90], [12, 64], [12, 42], [12, 20]]
+      2: [[50, 10], [50, 90]],
+      3: [[50, 10], [98, 50], [2, 50]],
+      4: [[50, 10], [98, 50], [50, 90], [2, 50]],
+      5: [[50, 10], [98, 35], [98, 65], [50, 90], [2, 50]],
+      6: [[50, 10], [98, 30], [98, 70], [50, 90], [2, 70], [2, 30]],
+      7: [[50, 10], [98, 25], [98, 50], [98, 75], [50, 90], [2, 50], [2, 25]],
+      8: [[50, 6], [98, 22], [98, 50], [98, 78], [50, 94], [2, 78], [2, 50], [2, 22]],
+      9: [[30, 6], [98, 22], [98, 50], [98, 78], [50, 94], [2, 78], [2, 50], [2, 22], [70, 6]],
+      10: [[30, 6], [70, 6], [98, 22], [98, 50], [98, 78], [70, 94], [30, 94], [2, 78], [2, 50], [2, 22]]
     };
-    const rawSeats = portrait ? PORTRAIT_LAYOUTS[n] || PORTRAIT_LAYOUTS[9] : SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9];
-    const seats = rawSeats;
-    if (heroIdx < 0) return { display: sorted, n, seats };
+    const PORTRAIT_STAGGERED = {
+      2: [[50, 10], [50, 90]],
+      3: [[50, 10], [98, 50], [2, 50]],
+      4: [[50, 10], [98, 45], [50, 90], [2, 55]],
+      5: [[50, 10], [98, 35], [98, 65], [50, 90], [2, 50]],
+      6: [[50, 10], [98, 28], [98, 68], [50, 90], [2, 72], [2, 32]],
+      7: [[50, 10], [98, 24], [98, 50], [98, 76], [50, 90], [2, 55], [2, 28]],
+      8: [[50, 6], [98, 20], [98, 46], [98, 72], [50, 94], [2, 80], [2, 54], [2, 28]],
+      9: [[30, 6], [98, 20], [98, 46], [98, 72], [50, 94], [2, 80], [2, 54], [2, 28], [70, 6]],
+      10: [[30, 6], [70, 6], [98, 20], [98, 46], [98, 72], [70, 94], [30, 94], [2, 80], [2, 54], [2, 28]]
+    };
+    function resolveCollisions(rawCoords, minX, minY) {
+      const s = rawCoords.map((c) => [c[0], c[1]]);
+      for (let pass = 0; pass < 5; pass++) {
+        for (let i = 0; i < s.length; i++) {
+          for (let j = i + 1; j < s.length; j++) {
+            const dx = s[j][0] - s[i][0];
+            const dy = s[j][1] - s[i][1];
+            const adx = Math.abs(dx), ady = Math.abs(dy);
+            if (adx < minX && ady < minY) {
+              if (adx / minX < ady / minY) {
+                const pushX = (minX - adx) / 2 * 0.5;
+                s[i][0] -= Math.sign(dx || 1) * pushX;
+                s[j][0] += Math.sign(dx || 1) * pushX;
+              } else {
+                const pushY = (minY - ady) / 2 * 0.5;
+                s[i][1] -= Math.sign(dy || 1) * pushY;
+                s[j][1] += Math.sign(dy || 1) * pushY;
+              }
+              s[i][0] = Math.max(1, Math.min(99, s[i][0]));
+              s[i][1] = Math.max(2, Math.min(96, s[i][1]));
+              s[j][0] = Math.max(1, Math.min(99, s[j][0]));
+              s[j][1] = Math.max(2, Math.min(96, s[j][1]));
+            }
+          }
+        }
+      }
+      return s;
+    }
+    __name(resolveCollisions, "resolveCollisions");
+    function hasCollision(s, minX, minY) {
+      for (let i = 0; i < s.length; i++)
+        for (let j = i + 1; j < s.length; j++)
+          if (Math.abs(s[j][0] - s[i][0]) < minX && Math.abs(s[j][1] - s[i][1]) < minY) return true;
+      return false;
+    }
+    __name(hasCollision, "hasCollision");
+    function needsStagger(layout, players2) {
+      for (let i = 0; i < players2.length; i++) {
+        const pi = layout[i];
+        if (!pi || pi[0] > 15 && pi[0] < 85) continue;
+        for (let j = i + 1; j < players2.length; j++) {
+          const pj = layout[j];
+          if (!pj || pj[0] > 15 && pj[0] < 85) continue;
+          const oneLeft = pi[0] <= 15, oneRight = pj[0] >= 85;
+          const otherWay = pi[0] >= 85 && pj[0] <= 15;
+          if (oneLeft && oneRight || otherWay) {
+            if (Math.abs(pi[1] - pj[1]) < 5) {
+              if (players2[i].name.length + players2[j].name.length > 34) return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+    __name(needsStagger, "needsStagger");
+    let usePortrait = portrait;
+    const rawSeats = usePortrait ? PORTRAIT_LAYOUTS[n] || PORTRAIT_LAYOUTS[9] : SCANNER_LAYOUTS[n] || SCANNER_LAYOUTS[9];
+    let seats = resolveCollisions(rawSeats, usePortrait ? 28 : 22, usePortrait ? 14 : 18);
+    if (!usePortrait && hasCollision(seats, 20, 16)) {
+      usePortrait = true;
+      const portraitSeats = PORTRAIT_LAYOUTS[n] || PORTRAIT_LAYOUTS[9];
+      seats = resolveCollisions(portraitSeats, 28, 14);
+    }
+    if (usePortrait && needsStagger(seats, sorted)) {
+      const staggered = PORTRAIT_STAGGERED[n] || PORTRAIT_STAGGERED[9];
+      seats = resolveCollisions(staggered, 28, 14);
+    }
+    if (heroIdx < 0) return { display: sorted, n, seats, autoPortrait: usePortrait };
     const targetIdx = Math.floor(n / 2);
     const delta = (heroIdx - targetIdx + n) % n;
     const display = [...sorted.slice(delta), ...sorted.slice(0, delta)];
-    return { display, n, seats };
+    return { display, n, seats, autoPortrait: usePortrait };
   }
   __name(getDisplayPlayers, "getDisplayPlayers");
   function handleExport() {
@@ -3246,13 +3328,28 @@ function TableScanner() {
     ctx.fillStyle = "rgba(0,0,0,1)";
     ctx.fill("evenodd");
     ctx.restore();
+    const isPortraitExport = ih > iw;
+    const firstNameEl = el.querySelector(".table-scanner-name-stack > span:first-child");
+    const nameTextSize = firstNameEl ? parseFloat(getComputedStyle(firstNameEl).fontSize) : 11;
+    const logoSize = Math.round(nameTextSize * 1.2);
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 ${logoSize}px "Libre Baskerville",Georgia,serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.letterSpacing = `${-0.05 * logoSize}px`;
+    ctx.fillText("futurega.me", ix + iw / 2, iy + ih * (isPortraitExport ? 0.7 : 0.55));
+    ctx.restore();
     const FONT = '"Univers Condensed",Univers,-apple-system,system-ui,sans-serif';
     seatEls.forEach((seat) => {
       const btn = seat.querySelector(".table-scanner-link");
       if (!btn) return;
       const btnRect = btn.getBoundingClientRect();
+      const linkIcon = btn.querySelector("svg");
+      const iconW = linkIcon ? linkIcon.getBoundingClientRect().width + 3 : 0;
       const bx = btnRect.left - minX, by = btnRect.top - minY;
-      const bw = btnRect.width, bh = btnRect.height;
+      const bw = btnRect.width - iconW, bh = btnRect.height;
       const bs = getComputedStyle(btn);
       const nameEl = seat.querySelector(".table-scanner-name-stack > span:first-child");
       const chipsEl = seat.querySelector(".table-scanner-chips");
@@ -3403,15 +3500,15 @@ function TableScanner() {
           const err = await resp.json().catch(() => ({}));
           throw new Error(err.error || "Scan failed (" + resp.status + ")");
         }
-        const { players: rawPlayers } = await resp.json();
+        const { players: rawPlayers, tableNumber } = await resp.json();
         setProgress(100);
         const extracted = (rawPlayers || []).map((p, i) => ({
           name: p.name || "",
           chips: p.chips || null,
-          seat: null,
+          seat: p.seat ? tableNumber ? tableNumber + "-" + p.seat : String(p.seat) : null,
           prize: null,
           country: null,
-          position: p.position || i + 1,
+          position: p.seat || p.position || i + 1,
           px: null,
           py: null
         })).filter((p) => p.name.length > 1).sort((a, b) => a.position - b.position);
@@ -3419,6 +3516,7 @@ function TableScanner() {
           setError("No players found. Try a clearer screenshot of the table view.");
           setState("idle");
         } else {
+          setEventTitle(tableNumber ? "Table " + tableNumber : "");
           setPlayers(extracted);
           setState("results");
         }
@@ -3476,59 +3574,68 @@ function TableScanner() {
   })()), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { marginTop: "8px" }, onClick: function() {
     setState("idle");
     setAvailableTables(null);
-  } }, "Cancel")), state === "results" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results-header" }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--text)", flex: 1, minWidth: 0 } }, eventTitle || `${players.length} player${players.length !== 1 ? "s" : ""} found`), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => setPortrait((p) => !p), style: { padding: "4px 6px", marginRight: "4px" }, title: portrait ? "Landscape" : "Portrait" }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M1 4v6h6" }), /* @__PURE__ */ React.createElement("path", { d: "M3.51 15a9 9 0 1 0 2.13-9.36L1 10" }))), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: handleExport, style: { padding: "4px 6px", marginRight: "4px" }, title: "Export as PNG" }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" }))), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => {
-    setState("idle");
-    setPlayers([]);
-    setEventTitle("");
-  } }, "Rescan")), /* @__PURE__ */ React.createElement("div", { className: "table-scanner-oval", ref: ovalRef, style: portrait ? { aspectRatio: "3 / 4", width: "75%", margin: "4px auto" } : void 0 }, /* @__PURE__ */ React.createElement(
-    "label",
-    {
-      className: "table-scanner-felt",
-      title: "Change felt colour",
-      style: __spreadValues({
-        background: `radial-gradient(ellipse at ${portrait ? "40% 50%" : "50% 40%"}, ${feltColor}cc 0%, ${feltColor} 100%)`,
-        borderColor: feltColor,
-        cursor: "pointer",
-        display: "block"
-      }, portrait ? { inset: "10% 18%" } : {})
-    },
-    /* @__PURE__ */ React.createElement(
-      "input",
+  } }, "Cancel")), state === "results" && /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results" }, /* @__PURE__ */ React.createElement("div", { className: "table-scanner-results-header" }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--text)", flex: 1, minWidth: 0 } }, eventTitle ? `${eventTitle}: ` : "", players.length, " player", players.length !== 1 ? "s" : "", " found"), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => setPortrait((p) => !p), style: { padding: "4px 6px", marginRight: "4px" }, title: portrait ? "Landscape" : "Portrait" }, portrait ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "10", viewBox: "0 0 24 14", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "1", y: "1", width: "22", height: "12", rx: "6" })) : /* @__PURE__ */ React.createElement("svg", { width: "10", height: "16", viewBox: "0 0 14 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "1", y: "1", width: "12", height: "22", rx: "6" }))), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: handleExport, style: { padding: "4px 6px", marginRight: "4px" }, title: "Export as PNG" }, /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" }))), /* @__PURE__ */ React.createElement("button", { className: "table-scanner-rescan", onClick: () => {
+    var _a;
+    if (fileRef.current) fileRef.current.value = "";
+    (_a = fileRef.current) == null ? void 0 : _a.click();
+  } }, "Rescan")), (() => {
+    const { display, seats, autoPortrait } = getDisplayPlayers(players);
+    const isPortrait = autoPortrait || portrait;
+    return /* @__PURE__ */ React.createElement("div", { className: "table-scanner-oval", ref: ovalRef, style: isPortrait ? { aspectRatio: "3 / 4", width: "75%", margin: "4px auto" } : void 0 }, /* @__PURE__ */ React.createElement(
+      "label",
       {
-        type: "color",
-        value: feltColor,
-        onChange: (e) => setFeltColor(e.target.value),
-        style: { opacity: 0, position: "absolute", width: "100%", height: "100%", top: 0, left: 0, cursor: "pointer", border: "none", padding: 0 }
-      }
-    )
-  ), (() => {
-    const { display, seats } = getDisplayPlayers(players);
-    return display.map((player, i) => {
-      const pos = seats[i] || [50, 50];
-      const align = pos[0] <= 5 ? " seat-left" : pos[0] >= 95 ? " seat-right" : "";
-      const words = player.name.trim().split(/\s+/);
-      const isNickname = words.length < 2 || !words.every((w) => /^[A-Z][a-zA-Z'-]+$/.test(w));
-      return /* @__PURE__ */ React.createElement(
-        "div",
+        className: "table-scanner-felt",
+        title: "Change felt colour",
+        style: __spreadValues({
+          background: `radial-gradient(ellipse at ${isPortrait ? "40% 50%" : "50% 40%"}, ${feltColor}cc 0%, ${feltColor} 100%)`,
+          borderColor: feltColor,
+          cursor: "pointer",
+          display: "block"
+        }, isPortrait ? { inset: "10% 18%" } : {})
+      },
+      /* @__PURE__ */ React.createElement(
+        "input",
         {
-          key: i,
-          className: "table-scanner-seat" + align,
-          style: { left: pos[0] + "%", top: pos[1] + "%" }
-        },
-        /* @__PURE__ */ React.createElement(
-          "button",
-          {
-            className: "table-scanner-link",
-            disabled: isNickname,
-            style: __spreadValues(__spreadValues({}, isNickname ? { cursor: "default" } : {}), player.isHero ? { outline: "2px solid var(--accent)", outlineOffset: "2px" } : {}),
-            onClick: isNickname ? void 0 : () => window.open(`/api/hendon-redirect?name=${encodeURIComponent(player.name)}`, "_blank", "noopener,noreferrer")
+          type: "color",
+          value: feltColor,
+          onChange: (e) => {
+            setFeltColor(e.target.value);
+            try {
+              localStorage.setItem("scannerFeltColor", e.target.value);
+            } catch (e2) {
+            }
           },
-          /* @__PURE__ */ React.createElement("span", { className: "table-scanner-name-stack" }, /* @__PURE__ */ React.createElement("span", null, player.name), player.chips && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips" }, player.chips, player.seat ? ` · Seat ${player.seat}` : ""), !player.chips && player.seat && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips" }, "Seat ", player.seat), player.prize && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips", style: { color: "var(--accent)" } }, player.prize)),
-          !isNickname && /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0, opacity: 0.4 } }, /* @__PURE__ */ React.createElement("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }), /* @__PURE__ */ React.createElement("polyline", { points: "15 3 21 3 21 9" }), /* @__PURE__ */ React.createElement("line", { x1: "10", y1: "14", x2: "21", y2: "3" }))
-        )
-      );
-    });
-  })())), error && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "#ef4444", marginTop: 4 } }, error));
+          style: { opacity: 0, position: "absolute", width: "100%", height: "100%", top: 0, left: 0, cursor: "pointer", border: "none", padding: 0 }
+        }
+      )
+    ), (() => {
+      return display.map((player, i) => {
+        const pos = seats[i] || [50, 50];
+        const align = pos[0] <= 15 ? " seat-left" : pos[0] >= 85 ? " seat-right" : " seat-center";
+        const words = player.name.trim().split(/\s+/);
+        const isNickname = words.length < 2 || !words.every((w) => /^[A-Z][a-zA-Z'-]+$/.test(w));
+        return /* @__PURE__ */ React.createElement(
+          "div",
+          {
+            key: i,
+            className: "table-scanner-seat" + align,
+            style: { left: pos[0] + "%", top: pos[1] + "%" }
+          },
+          /* @__PURE__ */ React.createElement(
+            "button",
+            {
+              className: "table-scanner-link",
+              disabled: isNickname,
+              style: __spreadValues(__spreadValues({}, isNickname ? { cursor: "default" } : {}), player.isHero ? { outline: "2px solid var(--accent)", outlineOffset: "2px" } : {}),
+              onClick: isNickname ? void 0 : () => window.open(`/api/hendon-redirect?name=${encodeURIComponent(player.name)}`, "_blank", "noopener,noreferrer")
+            },
+            /* @__PURE__ */ React.createElement("span", { className: "table-scanner-name-stack" }, /* @__PURE__ */ React.createElement("span", null, player.name), player.chips && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips" }, player.chips, player.seat ? ` · Seat ${player.seat}` : ""), !player.chips && player.seat && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips" }, "Seat ", player.seat), player.prize && /* @__PURE__ */ React.createElement("span", { className: "table-scanner-chips", style: { color: "var(--accent)" } }, player.prize)),
+            !isNickname && /* @__PURE__ */ React.createElement("svg", { width: "9", height: "9", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0, opacity: 0.4 } }, /* @__PURE__ */ React.createElement("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }), /* @__PURE__ */ React.createElement("polyline", { points: "15 3 21 3 21 9" }), /* @__PURE__ */ React.createElement("line", { x1: "10", y1: "14", x2: "21", y2: "3" }))
+          )
+        );
+      });
+    })());
+  })()), error && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "#ef4444", marginTop: 4 } }, error));
 }
 __name(TableScanner, "TableScanner");
 function SwapModal({ buddy, tournament, token, onClose }) {
@@ -3918,19 +4025,21 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
     }, "field");
     return /* @__PURE__ */ React.createElement("div", { className: "admin-edit-panel", onClick: (e) => e.stopPropagation(), style: { marginBottom: "10px", padding: "10px", borderRadius: "8px", background: "var(--surface)", border: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "8px" } }, "Admin Edit"), /* @__PURE__ */ React.createElement("div", { className: "cal-detail-grid", style: { gap: "8px" } }, field("Event Name", "event_name"), field("Event #", "event_number"), field("Buy-in", "buyin", "number"), field("Game Variant", "game_variant"), field("Date", "date", "date"), field("Time", "time"), field("Starting Chips", "starting_chips", "number"), field("Level Duration", "level_duration"), field("Re-entry", "reentry"), field("Late Reg", "late_reg"), field("Venue", "venue"), field("Category", "category", "select-category"), field("Notes", "notes")), (() => {
       const venueInfo = getVenueInfo(tournament.venue);
-      const cssVar = VENUE_BRAND_VAR[venueInfo.abbr];
-      if (!cssVar) return null;
-      const currentColor = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim() || venueInfo.color;
-      return /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px", display: "flex", alignItems: "center", gap: "10px" } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: "0.78rem", color: "var(--text-muted)", whiteSpace: "nowrap" } }, "Strip Color (", venueInfo.abbr, ")"), /* @__PURE__ */ React.createElement(
+      const abbr = venueInfo.abbr;
+      const cssVar = VENUE_BRAND_VAR[abbr] || `--venue-${abbr.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}`;
+      const computed = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
+      const currentColor = computed || venueInfo.color;
+      return /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px", display: "flex", alignItems: "center", gap: "10px" } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: "0.78rem", color: "var(--text-muted)", whiteSpace: "nowrap" } }, "Strip Color (", abbr, ")"), /* @__PURE__ */ React.createElement(
         "input",
         {
           type: "color",
           defaultValue: currentColor,
           onChange: async (e) => {
             const color = e.target.value;
+            if (!VENUE_BRAND_VAR[abbr]) VENUE_BRAND_VAR[abbr] = cssVar;
             document.documentElement.style.setProperty(cssVar, color);
             try {
-              await fetch(`${API_URL}/venue-colors/${encodeURIComponent(venueInfo.abbr)}`, {
+              await fetch(`${API_URL}/venue-colors/${encodeURIComponent(abbr)}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
                 body: JSON.stringify({ color })
@@ -5505,8 +5614,8 @@ function TournamentsView({ tournaments, mySchedule, onToggle, gameVariants, venu
       const da = parseTournamentTime(a);
       const db = parseTournamentTime(b);
       if (da !== db) return da - db;
-      const na = a.event_number.startsWith("SAT") ? 1e4 + parseInt(a.event_number.slice(4)) : parseInt(a.event_number) || 9999;
-      const nb = b.event_number.startsWith("SAT") ? 1e4 + parseInt(b.event_number.slice(4)) : parseInt(b.event_number) || 9999;
+      const na = (a.event_number || "").startsWith("SAT") ? 1e4 + parseInt((a.event_number || "").slice(4)) : parseInt(a.event_number) || 9999;
+      const nb = (b.event_number || "").startsWith("SAT") ? 1e4 + parseInt((b.event_number || "").slice(4)) : parseInt(b.event_number) || 9999;
       return na - nb;
     });
   }, [tournaments, deferredSearch, filters, endedVenues]);
@@ -6921,8 +7030,16 @@ function ScheduleExportModal({ events, onClose }) {
     });
   }, "toggleVenue");
   const filteredEvents = useMemo(
-    () => events.filter((e) => selectedVenues.has(getVenueInfo(e.venue).abbr) && (!excludeSatellites || !e.is_satellite)),
-    [events, selectedVenues, excludeSatellites]
+    () => events.filter((e) => {
+      if (!selectedVenues.has(getVenueInfo(e.venue).abbr)) return false;
+      if (excludeSatellites && e.is_satellite) return false;
+      if (groupByBuyin && buyinRanges.length > 0) {
+        const b = Number(e.buyin) || 0;
+        if (!buyinRanges.some((r) => b >= r.min && b <= (r.max === Infinity ? 1e12 : r.max))) return false;
+      }
+      return true;
+    }),
+    [events, selectedVenues, excludeSatellites, groupByBuyin, buyinRanges]
   );
   const handlePDF = /* @__PURE__ */ __name(async () => {
     if (!filteredEvents.length) return;
@@ -6938,7 +7055,7 @@ function ScheduleExportModal({ events, onClose }) {
     if (!filteredEvents.length) return;
     setGenerating(true);
     setTimeout(() => {
-      const imgs = generateScheduleImages(filteredEvents, docTitle, { light: lightMode });
+      const imgs = generateScheduleImages(filteredEvents, docTitle, { light: lightMode, groupByBuyin, buyinRanges: groupByBuyin ? buyinRanges : void 0 });
       setCanvases(imgs);
       setMode("preview");
       setGenerating(false);
@@ -8121,12 +8238,13 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     const stack = (lu == null ? void 0 : lu.stack) ? Number(lu.stack).toLocaleString() : null;
     const blinds = (lu == null ? void 0 : lu.bb) ? `${lu.sb ? Number(lu.sb).toLocaleString() : "?"}/${Number(lu.bb).toLocaleString()}${lu.bbAnte || lu.bb_ante ? "/" + Number(lu.bbAnte || lu.bb_ante).toLocaleString() : ""}` : null;
     return /* @__PURE__ */ React.createElement("div", { key: f.id, className: "dash-friend-chip", onClick: () => onNavigate("social") }, /* @__PURE__ */ React.createElement(Avatar, { src: f.avatar, username: f.username, size: 28 }), /* @__PURE__ */ React.createElement("div", { className: "friend-info" }, /* @__PURE__ */ React.createElement("div", { className: "friend-name" }, displayName(f)), /* @__PURE__ */ React.createElement("div", { className: "friend-event" }, (lu == null ? void 0 : lu.eventName) || "Playing"), stack && /* @__PURE__ */ React.createElement("div", { className: "friend-stack" }, stack, blinds ? ` @ ${blinds}` : "")));
-  }))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Table Scanner ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, fontSize: "0.7rem", color: "var(--text-muted)" } }, "(WSOP Live / PokerStars Live)"))), /* @__PURE__ */ React.createElement(TableScanner, null)), /* @__PURE__ */ React.createElement("div", { className: "dash-bottom-stack" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Results"), plData.count > 0 && dashRates && /* @__PURE__ */ React.createElement(
+  }))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Table Scanner ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, fontSize: "0.7rem", color: "var(--text-muted)" } }, "(WSOP Live / PokerStars Live)"))), /* @__PURE__ */ React.createElement(TableScanner, null)), /* @__PURE__ */ React.createElement("div", { className: "dash-bottom-stack" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", width: "calc(33.33% - 3px)" } }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Results"), plData.count > 0 && dashRates && /* @__PURE__ */ React.createElement(
     "select",
     {
       value: dashCurrency,
       onChange: (e) => onDashCurrencyChange(e.target.value),
       style: {
+        marginLeft: "auto",
         fontSize: "0.65rem",
         padding: "2px 4px",
         border: "1px solid var(--border)",
@@ -8512,7 +8630,9 @@ function AdminView({ token, onNavigate }) {
 }
 __name(AdminView, "AdminView");
 function MoreView({ onNavigate, onExport, hasSchedule, isAdmin, handReplayerAccess }) {
-  return /* @__PURE__ */ React.createElement("div", { className: "more-menu" }, /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("schedule") }, /* @__PURE__ */ React.createElement(Icon.user, null), /* @__PURE__ */ React.createElement("div", null, "My Schedule", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "View your saved events"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("tracking") }, /* @__PURE__ */ React.createElement(Icon.tracking, null), /* @__PURE__ */ React.createElement("div", null, "Results & Tracking", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Log buy-ins, cashes, and track your P&L"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("calendar") }, /* @__PURE__ */ React.createElement(Icon.calendar, null), /* @__PURE__ */ React.createElement("div", null, "Calendar View", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "See your schedule day by day"))), (handReplayerAccess || isAdmin) && /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("hands") }, /* @__PURE__ */ React.createElement(Icon.cards, null), /* @__PURE__ */ React.createElement("div", null, "Hand Replayer", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Record and replay poker hands"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: onExport, disabled: !hasSchedule, style: !hasSchedule ? { opacity: 0.4, cursor: "default" } : void 0 }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" })), /* @__PURE__ */ React.createElement("div", null, "Export Schedule", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, hasSchedule ? "Download PDF or share images of your schedule" : "Save events to your schedule first"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("settings") }, /* @__PURE__ */ React.createElement(Icon.gear, null), /* @__PURE__ */ React.createElement("div", null, "Settings", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Account, sharing, appearance"))), isAdmin && /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("admin") }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 15a3 3 0 100-6 3 3 0 000 6z" }), /* @__PURE__ */ React.createElement("path", { d: "M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" })), /* @__PURE__ */ React.createElement("div", null, "Admin", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "User accounts & management"))));
+  return /* @__PURE__ */ React.createElement("div", { className: "more-menu" }, /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("schedule") }, /* @__PURE__ */ React.createElement(Icon.user, null), /* @__PURE__ */ React.createElement("div", null, "My Schedule", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "View your saved events"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("tracking") }, /* @__PURE__ */ React.createElement(Icon.tracking, null), /* @__PURE__ */ React.createElement("div", null, "Results & Tracking", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Log buy-ins, cashes, and track your P&L"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("calendar") }, /* @__PURE__ */ React.createElement(Icon.calendar, null), /* @__PURE__ */ React.createElement("div", null, "Calendar View", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "See your schedule day by day"))), (handReplayerAccess || isAdmin) && /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("hands") }, /* @__PURE__ */ React.createElement(Icon.cards, null), /* @__PURE__ */ React.createElement("div", null, "Hand Replayer", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Record and replay poker hands"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: onExport, disabled: !hasSchedule, style: !hasSchedule ? { opacity: 0.4, cursor: "default" } : void 0 }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" })), /* @__PURE__ */ React.createElement("div", null, "Export Schedule", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, hasSchedule ? "Download PDF or share images of your schedule" : "Save events to your schedule first"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("settings") }, /* @__PURE__ */ React.createElement(Icon.gear, null), /* @__PURE__ */ React.createElement("div", null, "Settings", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Account, sharing, appearance"))), /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => {
+    window.location.reload();
+  } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "23 4 23 10 17 10" }), /* @__PURE__ */ React.createElement("path", { d: "M20.49 15a9 9 0 11-2.12-9.36L23 10" })), /* @__PURE__ */ React.createElement("div", null, "Refresh", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "Reload the app and fetch latest data"))), isAdmin && /* @__PURE__ */ React.createElement("button", { className: "more-menu-item", onClick: () => onNavigate("admin") }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 15a3 3 0 100-6 3 3 0 000 6z" }), /* @__PURE__ */ React.createElement("path", { d: "M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" })), /* @__PURE__ */ React.createElement("div", null, "Admin", /* @__PURE__ */ React.createElement("div", { className: "menu-item-desc" }, "User accounts & management"))));
 }
 __name(MoreView, "MoreView");
 function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
@@ -8560,6 +8680,11 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
   const toast = useToast();
   const displayName = useDisplayName();
   const [debugInput, setDebugInput] = useState(_debugNow);
+  const [iconBg, setIconBg] = useState(() => localStorage.getItem("iconBg") || "#0d1525");
+  const iconColorRef = useRef(null);
+  const applyIconBg = /* @__PURE__ */ __name((color) => {
+    localStorage.setItem("iconBg", color);
+  }, "applyIconBg");
   const applyDebugTime = /* @__PURE__ */ __name((val) => {
     setDebugInput(val);
     setDebugNow(val);
@@ -8639,14 +8764,41 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
       className: `settings-toggle ${contrast === "high" ? "on" : ""}`,
       onClick: toggleContrast
     }
-  )), /* @__PURE__ */ React.createElement("div", { className: "settings-row" }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Display font"), /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "settings-row" }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Icon background"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } }, /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      onClick: () => {
+        var _a;
+        return (_a = iconColorRef.current) == null ? void 0 : _a.click();
+      },
+      style: { width: 28, height: 28, borderRadius: 6, border: "2px solid var(--border)", background: iconBg, cursor: "pointer", position: "relative", overflow: "hidden" }
+    },
+    /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        ref: iconColorRef,
+        type: "color",
+        value: iconBg,
+        onChange: (e) => {
+          setIconBg(e.target.value);
+          localStorage.setItem("iconBg", e.target.value);
+          applyIconBg(e.target.value);
+        },
+        style: { opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer", border: "none", padding: 0 }
+      }
+    )
+  ), iconBg !== "#0d1525" && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", style: { fontSize: "0.72rem", padding: "3px 8px" }, onClick: () => {
+    setIconBg("#0d1525");
+    localStorage.setItem("iconBg", "#0d1525");
+    applyIconBg("#0d1525");
+  } }, "Reset"))), /* @__PURE__ */ React.createElement("div", { className: "settings-row" }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Display font"), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn btn-ghost btn-sm",
       onClick: toggleSerifFont,
-      style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontFamily: serifFont === "univers" ? "'Univers', sans-serif" : serifFont === "helvetica" ? "'Helvetica Neue', Helvetica, sans-serif" : "'Libre Baskerville', Georgia, serif" }
+      style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontFamily: serifFont === "univers" ? "'Univers', sans-serif" : "'Libre Baskerville', Georgia, serif" }
     },
-    serifFont === "univers" ? "Univers" : serifFont === "helvetica" ? "Helvetica" : "Baskerville"
+    serifFont === "univers" ? "Univers" : "Baskerville"
   )))), isAdmin && /* @__PURE__ */ React.createElement("div", { className: "settings-section" }, /* @__PURE__ */ React.createElement("div", { className: "settings-section-label" }, "Debug Tools"), /* @__PURE__ */ React.createElement("div", { className: "settings-card" }, /* @__PURE__ */ React.createElement("div", { className: "settings-row", style: { flexDirection: "column", alignItems: "stretch", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "settings-row-label" }, "Simulated date & time"), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -8967,10 +9119,12 @@ function App() {
   }, "guardedFetch");
   const applyVenueColors = /* @__PURE__ */ __name((colors) => {
     for (const [abbr, color] of Object.entries(colors)) {
-      const cssVar = VENUE_BRAND_VAR[abbr];
-      if (cssVar) {
-        document.documentElement.style.setProperty(cssVar, color);
+      let cssVar = VENUE_BRAND_VAR[abbr];
+      if (!cssVar) {
+        cssVar = `--venue-${abbr.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}`;
+        VENUE_BRAND_VAR[abbr] = cssVar;
       }
+      document.documentElement.style.setProperty(cssVar, color);
     }
   }, "applyVenueColors");
   const fetchVenueColors = /* @__PURE__ */ __name(async () => {
@@ -9752,7 +9906,7 @@ function App() {
       },
       serifFont,
       toggleSerifFont: () => setSerifFont((f) => {
-        const order = ["baskerville", "univers", "helvetica"];
+        const order = ["baskerville", "univers"];
         return order[(order.indexOf(f) + 1) % order.length];
       }),
       onLogout: handleLogout,

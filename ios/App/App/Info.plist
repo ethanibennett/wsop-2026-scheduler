@@ -47,6 +47,8 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>futurega.me uses the camera for table scanning and registration photos</string>
 	<key>NSPhotoLibraryUsageDescription</key>

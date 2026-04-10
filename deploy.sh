@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── Flags ──
+DEPLOY_IOS=false
+for arg in "$@"; do
+  case "$arg" in
+    --ios) DEPLOY_IOS=true ;;
+  esac
+done
+
 # ── Config ──
 PROD_URL="https://futurega.me"
 LOCAL_URL="http://localhost:3001"
@@ -50,15 +58,17 @@ fi
 info "Building web assets..."
 node build.js
 
-# ── Step 2: Bump iOS build number ──
-CURRENT_BUILD=$(grep -m1 'CURRENT_PROJECT_VERSION' "$IOS_PROJECT/project.pbxproj" | sed 's/.*= //;s/;.*//')
-NEW_BUILD=$((CURRENT_BUILD + 1))
-sed -i '' "s/CURRENT_PROJECT_VERSION = $CURRENT_BUILD;/CURRENT_PROJECT_VERSION = $NEW_BUILD;/g" "$IOS_PROJECT/project.pbxproj"
-info "iOS build number: $CURRENT_BUILD → $NEW_BUILD"
+if $DEPLOY_IOS; then
+  # ── Step 2: Bump iOS build number ──
+  CURRENT_BUILD=$(grep -m1 'CURRENT_PROJECT_VERSION' "$IOS_PROJECT/project.pbxproj" | sed 's/.*= //;s/;.*//')
+  NEW_BUILD=$((CURRENT_BUILD + 1))
+  sed -i '' "s/CURRENT_PROJECT_VERSION = $CURRENT_BUILD;/CURRENT_PROJECT_VERSION = $NEW_BUILD;/g" "$IOS_PROJECT/project.pbxproj"
+  info "iOS build number: $CURRENT_BUILD → $NEW_BUILD"
 
-# ── Step 3: Sync web assets to iOS ──
-info "Syncing to iOS..."
-npx cap sync ios 2>&1 | grep -E "✔|error" || true
+  # ── Step 3: Sync web assets to iOS ──
+  info "Syncing to iOS..."
+  npx cap sync ios 2>&1 | grep -E "✔|error" || true
+fi
 
 # ── Step 4: Export local tournament DB ──
 info "Logging in to local server..."
@@ -88,43 +98,47 @@ fi
 info "Pushing to origin/master..."
 git push origin master
 
-# ── Step 6: Archive iOS app ──
-info "Archiving iOS app..."
-xcodebuild -project "$IOS_PROJECT" \
-  -scheme "$IOS_SCHEME" \
-  -configuration Release \
-  -destination 'generic/platform=iOS' \
-  -archivePath "$ARCHIVE_PATH" \
-  archive \
-  -allowProvisioningUpdates \
-  -authenticationKeyPath "$ASC_KEY_PATH" \
-  -authenticationKeyID "$ASC_KEY_ID" \
-  -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-  2>&1 | tail -3
+if $DEPLOY_IOS; then
+  # ── Step 6: Archive iOS app ──
+  info "Archiving iOS app..."
+  xcodebuild -project "$IOS_PROJECT" \
+    -scheme "$IOS_SCHEME" \
+    -configuration Release \
+    -destination 'generic/platform=iOS' \
+    -archivePath "$ARCHIVE_PATH" \
+    archive \
+    -allowProvisioningUpdates \
+    -authenticationKeyPath "$ASC_KEY_PATH" \
+    -authenticationKeyID "$ASC_KEY_ID" \
+    -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+    2>&1 | tail -3
 
-if [ ! -d "$ARCHIVE_PATH" ]; then
-  error "Archive failed"
-  exit 1
-fi
-info "Archive succeeded"
+  if [ ! -d "$ARCHIVE_PATH" ]; then
+    error "Archive failed"
+    exit 1
+  fi
+  info "Archive succeeded"
 
-# ── Step 7: Upload to TestFlight ──
-info "Uploading to TestFlight..."
-rm -rf "$EXPORT_PATH"
-xcodebuild -exportArchive \
-  -archivePath "$ARCHIVE_PATH" \
-  -exportOptionsPlist "$EXPORT_OPTIONS" \
-  -exportPath "$EXPORT_PATH" \
-  -allowProvisioningUpdates \
-  -authenticationKeyPath "$ASC_KEY_PATH" \
-  -authenticationKeyID "$ASC_KEY_ID" \
-  -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-  2>&1 | tail -5
+  # ── Step 7: Upload to TestFlight ──
+  info "Uploading to TestFlight..."
+  rm -rf "$EXPORT_PATH"
+  xcodebuild -exportArchive \
+    -archivePath "$ARCHIVE_PATH" \
+    -exportOptionsPlist "$EXPORT_OPTIONS" \
+    -exportPath "$EXPORT_PATH" \
+    -allowProvisioningUpdates \
+    -authenticationKeyPath "$ASC_KEY_PATH" \
+    -authenticationKeyID "$ASC_KEY_ID" \
+    -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+    2>&1 | tail -5
 
-if [ $? -eq 0 ]; then
-  info "TestFlight upload complete (build $NEW_BUILD)"
+  if [ $? -eq 0 ]; then
+    info "TestFlight upload complete (build $NEW_BUILD)"
+  else
+    warn "TestFlight upload failed — you may need to upload from Xcode Organizer"
+  fi
 else
-  warn "TestFlight upload failed — you may need to upload from Xcode Organizer"
+  info "Skipping iOS build (use --ios to include TestFlight)"
 fi
 
 # ── Step 8: Wait for Render deploy ──
@@ -247,4 +261,6 @@ rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
 echo
 info "Deploy complete ✓"
 echo -e "  ${GREEN}Web:${NC}       $PROD_URL"
-echo -e "  ${GREEN}TestFlight:${NC} Build $NEW_BUILD"
+if $DEPLOY_IOS; then
+  echo -e "  ${GREEN}TestFlight:${NC} Build $NEW_BUILD"
+fi

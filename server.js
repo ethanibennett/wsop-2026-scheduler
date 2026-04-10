@@ -196,33 +196,85 @@ app.get('/', serveIndex);
 
 // Hendon Mob lookup — resolve via DuckDuckGo, redirect user straight to Hendon Mob
 const hendonCache = new Map();
-app.get('/api/hendon-redirect', async (req, res) => {
-  const name = req.query.name;
-  if (!name) return res.status(400).send('name required');
+const hendonWinningsCache = new Map();
 
+// Find Hendon Mob profile URL for a player name
+async function findHendonUrl(name) {
   const key = name.toLowerCase().trim();
-  if (hendonCache.has(key)) return res.redirect(hendonCache.get(key));
+  if (hendonCache.has(key)) return hendonCache.get(key);
 
   const ddgUrl = `https://duckduckgo.com/?q=${encodeURIComponent('\\ site:thehendonmob.com ' + name)}`;
   try {
     const resp = await fetch(ddgUrl, { redirect: 'manual', headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }});
-    // DDG returns HTML with a /l/?uddg= redirect containing the actual URL
     const html = await resp.text();
     const match = html.match(/uddg=(https?[^&"]+)/);
     if (match) {
       const finalUrl = decodeURIComponent(match[1]);
-      if (finalUrl.includes('thehendonmob.com')) {
+      if (finalUrl.includes('thehendonmob.com') && finalUrl.includes('/player.php')) {
         hendonCache.set(key, finalUrl);
-        return res.redirect(finalUrl);
+        return finalUrl;
       }
     }
-    // Fallback: send to DDG search results
-    res.redirect(ddgUrl.replace('%5C%20', ''));
-  } catch {
-    res.redirect(ddgUrl.replace('%5C%20', ''));
-  }
+  } catch {}
+  return null;
+}
+
+// Scrape lifetime winnings from a Hendon Mob profile page
+async function scrapeHendonWinnings(profileUrl) {
+  if (hendonWinningsCache.has(profileUrl)) return hendonWinningsCache.get(profileUrl);
+  try {
+    const resp = await fetch(profileUrl, { headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }});
+    const html = await resp.text();
+    // Look for "All Time Money List" or total winnings — typically in a format like "$1,234,567"
+    // Hendon Mob shows "Total Live Earnings" with the dollar amount
+    const earningsMatch = html.match(/Total\s+Live\s+Earnings[^$]*\$([\d,]+)/i)
+      || html.match(/All\s+Time\s+Money[^$]*\$([\d,]+)/i)
+      || html.match(/<div[^>]*class="[^"]*earnings[^"]*"[^>]*>[^$]*\$([\d,]+)/i);
+    if (earningsMatch) {
+      const amount = '$' + earningsMatch[1];
+      hendonWinningsCache.set(profileUrl, amount);
+      return amount;
+    }
+    // Try broader pattern — find the largest dollar amount on the page (likely total earnings)
+    const allAmounts = [...html.matchAll(/\$([\d,]{4,})/g)].map(m => parseInt(m[1].replace(/,/g, '')));
+    if (allAmounts.length) {
+      const max = Math.max(...allAmounts);
+      const amount = '$' + max.toLocaleString();
+      hendonWinningsCache.set(profileUrl, amount);
+      return amount;
+    }
+  } catch {}
+  return null;
+}
+
+// Batch lookup: resolve Hendon Mob winnings for multiple players
+app.post('/api/hendon-winnings', authenticateToken, async (req, res) => {
+  const { names } = req.body;
+  if (!names || !Array.isArray(names)) return res.status(400).json({ error: 'names array required' });
+
+  const results = {};
+  await Promise.all(names.slice(0, 10).map(async (name) => {
+    const url = await findHendonUrl(name);
+    if (!url) return;
+    const winnings = await scrapeHendonWinnings(url);
+    if (winnings) results[name] = { url, winnings };
+  }));
+
+  res.json(results);
+});
+app.get('/api/hendon-redirect', async (req, res) => {
+  const name = req.query.name;
+  if (!name) return res.status(400).send('name required');
+
+  const url = await findHendonUrl(name);
+  if (url) return res.redirect(url);
+
+  const ddgUrl = `https://duckduckgo.com/?q=${encodeURIComponent('site:thehendonmob.com ' + name)}`;
+  res.redirect(ddgUrl);
 });
 
 // File upload configuration
@@ -583,7 +635,8 @@ async function initDatabase() {
       `SELECT id, event_number, buyin FROM tournaments
        WHERE buyin > 0 AND rake_pct IS NULL
        AND (venue LIKE '%WSOP%' OR venue LIKE '%Horseshoe%' OR venue LIKE '%Paris Las Vegas%')
-       AND venue != 'WSOP Europe'`
+       AND venue != 'WSOP Europe'
+       AND venue NOT LIKE '%WSOPC%'`
     );
     let backfillCount = 0;
     while (backfillStmt.step()) {
@@ -1803,6 +1856,7 @@ async function initDatabase() {
           'Caesars Palace': 'CAESARS',
           'Seminole Hard Rock': 'SHR',
           'WSOP Europe': 'WSOPE',
+          'WSOPC Horseshoe Las Vegas': 'WSOPC-LV',
         };
 
         function generateStableId(row) {
@@ -2411,6 +2465,7 @@ const VENUE_ABBR_MAP = {
   'Lodge Poker Club': 'LODGE', 'bestbet Jacksonville': 'BESTBET',
   "Bally's Lake Tahoe": 'BALLY', "Harrah's Cherokee": 'CHEROKEE',
   'Choctaw Casino': 'CHOCTAW', 'Horseshoe Tunica': 'TUNICA',
+  'WSOPC Horseshoe Las Vegas': 'WSOPC-LV',
 };
 
 function generateStableId(venue, eventNumber, eventName, date, time, buyin) {
@@ -8120,6 +8175,9 @@ app.post('/api/tournaments/sync', authenticateToken, express.json({ limit: '50mb
 
     await saveDatabase();
     console.log(`[Sync] ${inserted} new, ${updated} updated, ${skipped} skipped`);
+    if (inserted > 0) {
+      sendPushToAdmin('Events Synced', `${inserted} new events added via sync`).catch(() => {});
+    }
     res.json({ inserted, updated, skipped, total: tournaments.length });
   } catch (err) {
     console.error('[Sync] Error:', err.message);
@@ -8160,15 +8218,25 @@ Extract every player row. For each return:
 Return ONLY valid JSON array with keys "name", "chips", "seat", "isHero". No markdown.
 Example: [{"name":"John Smith","chips":"30,000","seat":"12-5","isHero":false},{"name":"Ethan Bennett","chips":"32,700","seat":"13-7","isHero":true}]`,
 
-      wsop: `This is a WSOP Live poker tournament table screenshot showing players seated around a green felt table. Extract every visible player name label around the table.
+      wsop: `This is a WSOP Live poker tournament table screenshot. It shows players seated around a green felt table, and above the table there is a row showing the table info (e.g. "Day 2 010" means Table 10).
 
-For each player return:
-- name: the player's name as shown
-- chips: chip count if visible (e.g. "45,200" or "45K"), or null
-- position: seat number 1 through N going clockwise around the table, where 1 is the top-left seat
+The WSOP Live app uses FIXED seat positions on screen. Map each player to their seat number based on where they appear:
+- Seat 1: top-right of the table
+- Seat 2: right side, upper
+- Seat 3: right side, lower
+- Seat 4: bottom-right of the table
+- Seat 5: bottom-center of the table
+- Seat 6: bottom-left of the table
+- Seat 7: left side, lower
+- Seat 8: left side, upper
+- Seat 9: top-left of the table
+Empty seats will have no name label — skip them.
 
-Return ONLY valid JSON — an array of objects with keys "name", "chips", "position". No markdown, no explanation.
-Example: [{"name":"John Smith","chips":"45,200","position":1},{"name":"Jane Doe","chips":null,"position":2},...]`,
+Also extract the table number from the header row above the table. The format is like "Day 2 010" where "010" means Table 10 (strip leading zeros).
+
+Return ONLY valid JSON object with keys "table" (number or null) and "players" (array). Each player has "name", "chips" (e.g. "405.0K" or "1.1M", or null), "seat" (1-9).
+No markdown, no explanation.
+Example: {"table":10,"players":[{"name":"John Smith","chips":"405.0K","seat":1},{"name":"Jane Doe","chips":"1.1M","seat":5}]}`,
     };
 
     const prompt = promptByFormat[format] || promptByFormat.pokerstars;
@@ -8191,16 +8259,25 @@ Example: [{"name":"John Smith","chips":"45,200","position":1},{"name":"Jane Doe"
     const text = message.content[0]?.text?.trim() || '';
     // Strip markdown code fences if present
     const json = text.includes('```') ? text.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/, '').trim() : text.trim();
-    let players;
+    let parsed;
     try {
-      players = JSON.parse(json);
+      parsed = JSON.parse(json);
     } catch (e) {
       console.error('[ScanTable] Failed to parse Claude response:', text);
       return res.status(422).json({ error: 'Could not parse player data from image', raw: text });
     }
 
-    console.log(`[ScanTable] Extracted ${players.length} players:`, players.map(p => `${p.name} seat=${p.seat} hero=${p.isHero}`).join(', '));
-    res.json({ players });
+    // WSOP format returns { table, players }, PokerStars returns array directly
+    let players, tableNumber = null;
+    if (format === 'wsop' && parsed && !Array.isArray(parsed)) {
+      tableNumber = parsed.table || null;
+      players = parsed.players || [];
+    } else {
+      players = Array.isArray(parsed) ? parsed : [];
+    }
+
+    console.log(`[ScanTable] Extracted ${players.length} players${tableNumber ? ' at table ' + tableNumber : ''}:`, players.map(p => `${p.name} seat=${p.seat} hero=${p.isHero}`).join(', '));
+    res.json({ players, tableNumber });
   } catch (err) {
     console.error('[ScanTable] Error:', err.status || '', err.message, err.error?.message || '');
     const msg = err.status === 401 ? 'API key invalid or expired'

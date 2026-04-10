@@ -89,6 +89,7 @@
       --venue-cherokee:      #e91e90;
       --venue-choctaw:       #dc2626;
       --venue-tunica:        #0d6efd;
+      --venue-wsopc-lv:      #d4a017;
     }
 
     [data-theme="light"] {
@@ -135,6 +136,7 @@
       --venue-cherokee:      #d81b7f;
       --venue-choctaw:       #e53935;
       --venue-tunica:        #0d6efd;
+      --venue-wsopc-lv:      #d4a017;
     }
 
     /* Dusk theme — deep navy/blue dark variant */
@@ -182,6 +184,7 @@
       --venue-cherokee:      #e91e90;
       --venue-choctaw:       #dc2626;
       --venue-tunica:        #0d6efd;
+      --venue-wsopc-lv:      #d4a017;
     }
 
     /* Cloudy theme — muted grey light variant */
@@ -229,6 +232,7 @@
       --venue-cherokee:      #d81b7f;
       --venue-choctaw:       #e53935;
       --venue-tunica:        #0d6efd;
+      --venue-wsopc-lv:      #d4a017;
     }
 
     /* High contrast — dark */
@@ -2036,7 +2040,8 @@
 
     /* ── Bottom tab bar ── */
     .bottom-nav {
-      height: var(--tab-h);
+      height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+      padding-bottom: env(safe-area-inset-bottom, 0px);
       background: var(--surface);
       border-top: 1px solid var(--border);
       display: flex;
@@ -3363,7 +3368,7 @@
     .back-to-today-fab {
       position: fixed;
       bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 16px);
-      right: 16px;
+      left: 50%;
       z-index: 50;
       background: var(--accent);
       color: var(--bg);
@@ -3381,14 +3386,14 @@
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
-      transform: translateY(10px);
+      transform: translate(-50%, 10px);
       transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
     }
     .back-to-today-fab.visible {
       opacity: 1;
       visibility: visible;
       pointer-events: auto;
-      transform: translateY(0);
+      transform: translate(-50%, 0);
       transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0s;
     }
     .back-to-today-fab .fab-arrow-down { display: none; }
@@ -3533,7 +3538,10 @@
       transition: left 0.4s ease, top 0.4s ease;
     }
     .table-scanner-seat.seat-left { transform: translate(0%, -50%); }
+    .table-scanner-seat.seat-left .table-scanner-name-stack { text-align: left; }
     .table-scanner-seat.seat-right { transform: translate(-100%, -50%); }
+    .table-scanner-seat.seat-right .table-scanner-name-stack { text-align: right; }
+    .table-scanner-seat.seat-center .table-scanner-name-stack { text-align: center; }
     .table-scanner-link {
       display: flex;
       align-items: center;
@@ -3543,8 +3551,8 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 0.7rem;
-      font-weight: 500;
-      color: var(--accent);
+      font-weight: 600;
+      color: var(--text);
       text-decoration: none;
       white-space: nowrap;
       transition: background 0.15s;
