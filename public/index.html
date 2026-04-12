@@ -52,6 +52,17 @@
   <script crossorigin src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <link rel="stylesheet" href="/styles.css?v=1774530000">
+  <style>
+    /* Critical layout — inlined to bypass PWA cache */
+    html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
+    .app-shell {
+      padding-top: env(safe-area-inset-top, 0px) !important;
+      padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    }
+    /* iOS standalone PWA fallback when env() returns 0 */
+    @media screen and (display-mode: standalone) {
+      .app-shell { padding-top: max(env(safe-area-inset-top, 0px), 47px) !important; }
+    }
   </style>
 </head>
 <body>
