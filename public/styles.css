@@ -290,6 +290,7 @@
 
     html, body {
       height: 100%;
+      height: -webkit-fill-available;
       overflow: hidden;
       overscroll-behavior: none;
     }
@@ -305,7 +306,7 @@
     button, input, select, textarea { font-family: inherit; }
 
     /* ── Layout shell ── */
-    #root { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; background: var(--bg); }
+    #root { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; background: var(--surface); height: 100vh; height: -webkit-fill-available; }
 
     .app-shell {
       display: flex; flex-direction: column; overflow: hidden;
@@ -2096,6 +2097,7 @@
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       padding: 12px 12px 80px; /* bottom pad clears the tab bar */
+      background: var(--bg);
     }
     .view-fade {
       animation: viewFadeIn 0.2s ease-out;
@@ -2160,6 +2162,15 @@
       flex-shrink: 0;
       position: relative;
       z-index: 100;
+    }
+    .bottom-nav::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -50px;
+      height: 50px;
+      background: var(--surface);
     }
 
     .nav-tab {

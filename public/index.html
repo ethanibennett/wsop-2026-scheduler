@@ -38,10 +38,27 @@
         // If env() returned 0, use known iPhone safe area (47px for notch, 34px for home indicator)
         if (topInset < 1) topInset = 47;
         var bottomInset = 34;
+        // Use window.innerHeight for bulletproof full-screen height
+        var h = window.innerHeight;
         var s = document.createElement('style');
-        s.textContent = '#root{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;}.app-shell{padding-top:' + topInset + 'px!important;}.bottom-nav{height:calc(56px + ' + bottomInset + 'px)!important;padding-bottom:' + bottomInset + 'px!important;}';
+        s.textContent = 'html,body{height:' + h + 'px!important;overflow:hidden!important;margin:0!important;padding:0!important;}#root{position:fixed!important;top:0!important;left:0!important;right:0!important;height:' + h + 'px!important;background:var(--surface)!important;overflow:hidden!important;}.app-shell{padding-top:' + topInset + 'px!important;height:' + h + 'px!important;box-sizing:border-box!important;}.content-area{background:var(--bg)!important;}.bottom-nav{height:calc(56px + ' + bottomInset + 'px)!important;padding-bottom:' + bottomInset + 'px!important;}.bottom-nav::after{content:"";position:absolute;left:0;right:0;bottom:-50px;height:50px;background:var(--surface);}';
         document.head.appendChild(s);
+        // Also handle orientation changes
+        window.addEventListener('resize', function() {
+          var nh = window.innerHeight;
+          document.getElementById('root').style.height = nh + 'px';
+          document.querySelector('.app-shell').style.height = nh + 'px';
+        });
       }
+    })();
+    // Auto-reload on new deploy — checks version every 60s
+    (function() {
+      var BUILD_VERSION = '20260412a';
+      setInterval(function() {
+        fetch('/version.txt?t=' + Date.now()).then(function(r) { return r.text(); }).then(function(v) {
+          if (v.trim() && v.trim() !== BUILD_VERSION) { window.location.reload(); }
+        }).catch(function() {});
+      }, 60000);
     })();
   </script>
   <script>
@@ -69,17 +86,18 @@
   <script crossorigin src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <link rel="stylesheet" href="/styles.css?v=1774530000">
+  <link rel="stylesheet" href="/styles.css?v=1774540000">
   <style>
     /* Critical layout — inlined to bypass PWA cache */
-    html, body { height: 100%; overflow: hidden; margin: 0; padding: 0; }
+    html, body { height: 100%; height: -webkit-fill-available; overflow: hidden; margin: 0; padding: 0; }
+    #root { height: 100vh; height: -webkit-fill-available; }
     .app-shell {
       padding-top: env(safe-area-inset-top, 0px) !important;
-      padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     }
     /* iOS standalone PWA fallback when env() returns 0 */
     @media screen and (display-mode: standalone) {
       .app-shell { padding-top: max(env(safe-area-inset-top, 0px), 47px) !important; }
+      html, body, #root { height: -webkit-fill-available !important; }
     }
   </style>
 </head>
