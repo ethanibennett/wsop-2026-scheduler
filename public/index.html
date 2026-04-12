@@ -25,6 +25,24 @@
       var mc = {dark:'#111111',dusk:'#0d1525',light:'#f5f5f5',cloudy:'#cbcbcb'};
       if (meta) meta.setAttribute('content', mc[t] || '#111111');
     })();
+    // Force safe area layout for iOS standalone PWA
+    (function() {
+      var isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+      if (isStandalone) {
+        // Detect actual safe area inset — create test element
+        var test = document.createElement('div');
+        test.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none;';
+        document.documentElement.appendChild(test);
+        var topInset = test.getBoundingClientRect().top;
+        document.documentElement.removeChild(test);
+        // If env() returned 0, use known iPhone safe area (47px for notch, 34px for home indicator)
+        if (topInset < 1) topInset = 47;
+        var bottomInset = 34;
+        var s = document.createElement('style');
+        s.textContent = '.app-shell{padding-top:' + topInset + 'px!important;padding-bottom:' + bottomInset + 'px!important;}';
+        document.head.appendChild(s);
+      }
+    })();
   </script>
   <script>
     // Global error handler — surfaces runtime errors visibly during debugging
