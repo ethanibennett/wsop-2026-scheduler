@@ -1166,7 +1166,49 @@
 
     /* Draw discard section */
     .replayer-draw-section { margin-top:6px; padding:6px 8px; background:var(--surface2); border-radius:4px; }
-    .replayer-draw-label { font-size:0.6rem; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; margin-bottom:4px; }
+    .replayer-draw-label { font-size:0.65rem; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; margin-bottom:6px; letter-spacing:0.03em; }
+
+    /* Draw info bar in replay mode */
+    .replayer-draw-info-bar {
+      text-align: center; padding: 6px 10px; background: var(--surface2); border-radius: 6px;
+      font-family: 'Univers Condensed','Univers',sans-serif;
+    }
+    .replayer-draw-info-label {
+      font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-muted); margin-bottom: 4px; font-weight: 600;
+    }
+    .replayer-draw-info-players {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    }
+    .replayer-draw-info-item {
+      display: flex; align-items: center; gap: 4px; font-size: 0.7rem;
+    }
+    .replayer-draw-info-name {
+      font-weight: 600; color: var(--text);
+    }
+    .replayer-draw-pat-badge {
+      display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.62rem;
+      background: rgba(136,136,136,0.15); color: var(--text-muted); font-weight: 600;
+      letter-spacing: 0.02em; font-family: 'Univers Condensed','Univers',sans-serif;
+    }
+    .replayer-draw-count-badge {
+      display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.62rem;
+      background: rgba(34,197,94,0.12); color: #4ade80; font-weight: 600;
+      letter-spacing: 0.02em; font-family: 'Univers Condensed','Univers',sans-serif;
+    }
+    .replayer-draw-discarded-cards { opacity: 0.5; }
+    .replayer-draw-discarded-cards .card-img,
+    .replayer-draw-discarded-cards .card-classic {
+      filter: grayscale(0.7) brightness(0.6); position: relative;
+    }
+    .replayer-draw-new-cards .card-img,
+    .replayer-draw-new-cards .card-classic {
+      animation: draw-card-arrive 0.3s ease-out;
+    }
+    @keyframes draw-card-arrive {
+      from { opacity: 0; transform: translateY(-6px) scale(0.85); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
 
     /* Replay mode */
     .replayer-replay { display:flex; flex-direction:column; gap:8px; }

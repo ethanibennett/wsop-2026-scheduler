@@ -45,13 +45,24 @@ if [ -z "$RENDER_API_KEY" ]; then
   exit 1
 fi
 
-# Prompt for admin credentials (used for DB sync)
+# Admin credentials for DB sync — check render.env, then env vars, then prompt
+CREDS_FILE="$HOME/.claude/projects/-Users-ethanibennett-WSOP-scheduler/render.env"
+if [ -z "${ADMIN_EMAIL:-}" ]; then
+  ADMIN_EMAIL=$(grep '^ADMIN_EMAIL=' "$CREDS_FILE" 2>/dev/null | cut -d= -f2-) || true
+fi
+if [ -z "${ADMIN_PASS:-}" ]; then
+  ADMIN_PASS=$(grep '^ADMIN_PASS=' "$CREDS_FILE" 2>/dev/null | cut -d= -f2-) || true
+fi
 if [ -z "${ADMIN_EMAIL:-}" ]; then
   read -rp "Admin email: " ADMIN_EMAIL
+  # Save for next time
+  echo "ADMIN_EMAIL=$ADMIN_EMAIL" >> "$CREDS_FILE"
 fi
 if [ -z "${ADMIN_PASS:-}" ]; then
   read -rsp "Admin password: " ADMIN_PASS
   echo
+  # Save for next time
+  echo "ADMIN_PASS=$ADMIN_PASS" >> "$CREDS_FILE"
 fi
 
 # ── Step 1: Build web ──
@@ -71,12 +82,26 @@ if $DEPLOY_IOS; then
 fi
 
 # ── Step 4: Export local tournament DB ──
+# Start local server if not running
+LOCAL_STARTED=false
+if ! curl -sf "$LOCAL_URL/api/tournaments" > /dev/null 2>&1; then
+  info "Starting local server for DB sync..."
+  JWT_SECRET="dev-secret-not-for-production" DB_PATH="$PROJECT_ROOT/poker-tournaments.db" node "$PROJECT_ROOT/server.js" &
+  LOCAL_PID=$!
+  LOCAL_STARTED=true
+  # Wait for server to be ready
+  for i in $(seq 1 15); do
+    if curl -sf "$LOCAL_URL/api/tournaments" > /dev/null 2>&1; then break; fi
+    sleep 1
+  done
+fi
+
 info "Logging in to local server..."
 LOCAL_TOKEN=$(curl -sf "$LOCAL_URL/api/login" \
   -H 'Content-Type: application/json' \
   -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])" 2>/dev/null) || {
-  warn "Could not log in to local server (is it running on port 3001?). Skipping local → prod sync."
+  warn "Could not log in to local server. Skipping local → prod sync."
   LOCAL_TOKEN=""
 }
 
@@ -252,6 +277,13 @@ if [ -n "$LOCAL_TOKEN" ] && [ -n "$PROD_TOKEN" ]; then
   fi
 elif [ -n "$PROD_TOKEN" ]; then
   warn "Local server not available — skipping production → local sync"
+fi
+
+# Kill auto-started local server
+if $LOCAL_STARTED; then
+  info "Stopping local server (PID $LOCAL_PID)..."
+  kill "$LOCAL_PID" 2>/dev/null || true
+  wait "$LOCAL_PID" 2>/dev/null || true
 fi
 
 # Cleanup temp files

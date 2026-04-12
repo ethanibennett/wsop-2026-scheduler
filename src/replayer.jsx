@@ -1,6 +1,54 @@
     var { useState, useEffect, useMemo, useCallback, useRef } = React;
     const { createPortal } = ReactDOM;
 
+    // Compute a player's current hand in draw games after applying discards/draws up to a given street.
+    // Returns the card notation string with discarded cards removed and new cards added.
+    function computeDrawHand(originalCards, draws, upToStreetIdx) {
+      if (!originalCards) return '';
+      var current = originalCards;
+      for (var si = 0; si <= upToStreetIdx; si++) {
+        if (!draws || !draws[si]) continue;
+        var draw = draws[si];
+        if (!draw || draw.discarded === 0) continue;
+        if (draw.discardedCards) {
+          // Remove specific discarded cards from current hand
+          var discarded = parseCardNotation(draw.discardedCards);
+          var currentParsed = parseCardNotation(current);
+          var remaining = [];
+          var discardSet = {};
+          discarded.forEach(function(c) { discardSet[c.rank + c.suit] = (discardSet[c.rank + c.suit] || 0) + 1; });
+          currentParsed.forEach(function(c) {
+            var key = c.rank + c.suit;
+            if (discardSet[key] && discardSet[key] > 0) { discardSet[key]--; }
+            else { remaining.push(c); }
+          });
+          // Build string from remaining cards
+          current = remaining.map(function(c) { return c.rank + c.suit; }).join('');
+        } else {
+          // No specific cards: just trim from the end
+          var parsed = parseCardNotation(current);
+          var keep = Math.max(0, parsed.length - draw.discarded);
+          current = parsed.slice(0, keep).map(function(c) { return c.rank + c.suit; }).join('');
+        }
+        // Add new cards
+        if (draw.newCards) {
+          current += draw.newCards;
+        }
+      }
+      return current;
+    }
+
+    // Get all draw entries for a specific player across streets, indexed by street
+    function getPlayerDrawsByStreet(hand, playerIdx) {
+      var result = {};
+      hand.streets.forEach(function(s, si) {
+        if (!s.draws) return;
+        var d = s.draws.find(function(d) { return d.player === playerIdx; });
+        if (d) result[si] = d;
+      });
+      return result;
+    }
+
     function getGameCategory(gameType) {
       const cfg = HAND_CONFIG[gameType];
       if (!cfg) return 'community';
@@ -208,6 +256,40 @@
       return bestIdx;
     }
 
+    // Detect if any active player shows an open pair on 4th street (stud games).
+    // In limit stud, when an open pair is showing on 4th street, the big bet
+    // may optionally be used instead of the small bet.
+    // Returns true if any player's door card (street 0, card index 2 for hero,
+    // or the single visible card for opponents) matches their 4th street card.
+    function studHasOpenPairOn4th(hand) {
+      if (!hand.streets || !hand.streets[0] || !hand.streets[1]) return false;
+      var heroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+      var numPlayers = hand.players.length;
+      for (var pi = 0; pi < numPlayers; pi++) {
+        var doorCard = null;
+        var fourthCard = null;
+        if (pi === heroIdx) {
+          var s0Cards = parseCardNotation((hand.streets[0] && hand.streets[0].cards.hero) || '');
+          var s1Cards = parseCardNotation((hand.streets[1] && hand.streets[1].cards.hero) || '');
+          // Door card is index 2 (3rd card dealt) in the hero's 3rd street cards
+          doorCard = s0Cards.length >= 3 ? s0Cards[2] : null;
+          // 4th street card is the first card on street 1
+          fourthCard = s1Cards.length >= 1 ? s1Cards[0] : null;
+        } else {
+          var oppSlot = pi < heroIdx ? pi : pi - 1;
+          var s0Opp = parseCardNotation(((hand.streets[0] && hand.streets[0].cards.opponents) || [])[oppSlot] || '');
+          var s1Opp = parseCardNotation(((hand.streets[1] && hand.streets[1].cards.opponents) || [])[oppSlot] || '');
+          // Opponent door card is the single visible card on 3rd street
+          doorCard = s0Opp.length >= 1 ? s0Opp[0] : null;
+          fourthCard = s1Opp.length >= 1 ? s1Opp[0] : null;
+        }
+        if (doorCard && fourthCard && doorCard.suit !== 'x' && fourthCard.suit !== 'x' && doorCard.rank === fourthCard.rank) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     function formatChipAmount(val) {
       if (!val && val !== 0) return '';
       const n = Number(val);
@@ -390,8 +472,10 @@
         const ante = blinds.ante || 0;
 
         // Fixed limit: small bet = bb, big bet = 2*bb
+        // Stud 4th street exception: if any player shows an open pair, the big bet may be used
         const isSmallBetStreet = (gameCfg.flSmallStreets || []).includes(currentStreetIdx);
-        const fixedBet = betting === 'fl' ? (isSmallBetStreet ? (bb || 100) : (bb || 100) * 2) : 0;
+        const stud4thOpenPair = gameCfg.isStud && currentStreetIdx === 1 && studHasOpenPairOn4th(hand);
+        const fixedBet = betting === 'fl' ? ((isSmallBetStreet && !stud4thOpenPair) ? (bb || 100) : (bb || 100) * 2) : 0;
         const raiseCap = gameCfg.raiseCap || 4;
 
         // Track current bet level and raise count
@@ -571,7 +655,20 @@
           const draws = [...(s.draws || [])];
           const existing = draws.findIndex(d => d.player === playerIdx);
           if (existing >= 0) draws[existing] = { ...draws[existing], discarded: Number(val) || 0 };
-          else draws.push({ player: playerIdx, discarded: Number(val) || 0 });
+          else draws.push({ player: playerIdx, discarded: Number(val) || 0, discardedCards: '', newCards: '' });
+          return { ...s, draws };
+        });
+      };
+      const updateDrawField = (streetIdx, playerIdx, field, val) => {
+        updateStreet(streetIdx, s => {
+          const draws = [...(s.draws || [])];
+          const existing = draws.findIndex(d => d.player === playerIdx);
+          if (existing >= 0) draws[existing] = { ...draws[existing], [field]: val };
+          else {
+            var entry = { player: playerIdx, discarded: 0, discardedCards: '', newCards: '' };
+            entry[field] = val;
+            draws.push(entry);
+          }
           return { ...s, draws };
         });
       };
@@ -666,17 +763,42 @@
             {/* Draw game discard entry */}
             {(category === 'draw_triple' || category === 'draw_single') && currentStreetIdx > 0 && (
               <div className="replayer-draw-section">
-                <div className="replayer-draw-label">Cards Drawn</div>
+                <div className="replayer-draw-label">
+                  {currentStreet.name || ('Draw ' + currentStreetIdx)} -- Discards & Draws
+                </div>
                 {hand.players.map((p, pi) => {
                   const draw = (currentStreet.draws || []).find(d => d.player === pi);
+                  const discardCount = draw ? draw.discarded : 0;
+                  const isPatText = discardCount === 0 && draw ? ' (Stand Pat)' : '';
                   return (
-                    <div key={pi} className="replayer-row" style={{marginBottom:'2px'}}>
-                      <span style={{fontSize:'0.65rem',color:'var(--text-muted)',minWidth:'50px'}}>{p.name}</span>
-                      <div className="replayer-field" style={{flex:'0 0 50px'}}>
-                        <input type="number" min="0" max="5" value={draw ? draw.discarded : ''}
-                          onChange={e => updateDrawDiscard(currentStreetIdx, pi, e.target.value)}
-                          placeholder="0" />
+                    <div key={pi} className="replayer-draw-player-block" style={{marginBottom:'6px',padding:'4px 0',borderBottom:'1px solid var(--border)'}}>
+                      <div className="replayer-row" style={{marginBottom:'2px',alignItems:'center'}}>
+                        <span style={{fontSize:'0.65rem',color:'var(--text-muted)',minWidth:'55px',fontWeight:600}}>{p.name}{isPatText}</span>
+                        <div className="replayer-field" style={{flex:'0 0 45px'}}>
+                          <label style={{fontSize:'0.55rem'}}>Discard</label>
+                          <input type="number" min="0" max={gameCfg.heroCards || 5} value={draw ? draw.discarded : ''}
+                            onChange={e => updateDrawDiscard(currentStreetIdx, pi, e.target.value)}
+                            placeholder="0" />
+                        </div>
                       </div>
+                      {discardCount > 0 && (
+                        <div className="replayer-row" style={{marginTop:'2px',gap:'4px'}}>
+                          <div className="replayer-field" style={{flex:1}}>
+                            <label style={{fontSize:'0.55rem'}}>Discarded Cards</label>
+                            <input type="text" placeholder={'e.g. 7h3c' + (discardCount > 2 ? '9d' : '')}
+                              value={(draw && draw.discardedCards) || ''}
+                              onChange={e => updateDrawField(currentStreetIdx, pi, 'discardedCards', e.target.value)} />
+                            {(draw && draw.discardedCards) && <CardRow text={draw.discardedCards} max={discardCount} />}
+                          </div>
+                          <div className="replayer-field" style={{flex:1}}>
+                            <label style={{fontSize:'0.55rem'}}>New Cards</label>
+                            <input type="text" placeholder={'e.g. Ah5s' + (discardCount > 2 ? 'Kd' : '')}
+                              value={(draw && draw.newCards) || ''}
+                              onChange={e => updateDrawField(currentStreetIdx, pi, 'newCards', e.target.value)} />
+                            {(draw && draw.newCards) && <CardRow text={draw.newCards} max={discardCount} />}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -840,8 +962,51 @@
       var street = hand.streets[streetIdx];
       if (!street) return 'The hand begins...';
       var streetName = street.name || 'Preflop';
+      var category = getGameCategory(hand.gameType);
+      var isDrawStreet = (category === 'draw_triple' || category === 'draw_single') && streetIdx > 0;
       if (actionIdx < 0) {
+        // Stud street introductions
+        if (category === 'stud') {
+          var _ante = (hand.blinds || {}).ante || 0;
+          if (streetIdx === 0) {
+            var doorInfo = '';
+            var _isRazz = hand.gameType === 'Razz' || hand.gameType === '2-7 Razz';
+            var _biIdx = findStudBringIn(hand, _isRazz);
+            if (_biIdx >= 0 && hand.players[_biIdx]) {
+              var biPlayer = hand.players[_biIdx];
+              var _hi = hand.heroIdx != null ? hand.heroIdx : 0;
+              var _dc = '';
+              if (_biIdx === _hi) {
+                var _hc = parseCardNotation((hand.streets[0] && hand.streets[0].cards.hero) || '');
+                if (_hc.length >= 3) _dc = _hc[2].rank + _hc[2].suit;
+              } else {
+                var _os = _biIdx < _hi ? _biIdx : _biIdx - 1;
+                var _oc = parseCardNotation(((hand.streets[0] && hand.streets[0].cards.opponents) || [])[_os] || '');
+                if (_oc.length >= 1) _dc = _oc[0].rank + _oc[0].suit;
+              }
+              var _SW = {h:'hearts',d:'diamonds',c:'clubs',s:'spades'};
+              var _RW = {'A':'Ace','K':'King','Q':'Queen','J':'Jack','T':'Ten','9':'Nine','8':'Eight','7':'Seven','6':'Six','5':'Five','4':'Four','3':'Three','2':'Two'};
+              if (_dc && _dc.length >= 2) {
+                doorInfo = ' ' + biPlayer.name + ' shows the ' + (_RW[_dc[0]]||_dc[0]) + ' of ' + (_SW[_dc[1]]||_dc[1]) + ' as the door card and has the bring-in.';
+              } else {
+                doorInfo = ' ' + biPlayer.name + ' has the bring-in.';
+              }
+            }
+            return hand.players.length + ' players ante ' + formatChipAmount(_ante) + '. Cards are dealt \u2014 two down, one up.' + doorInfo;
+          }
+          if (streetIdx === 4) return '7th Street: a final card is dealt face down to each remaining player. The pot stands at ' + formatChipAmount(pot) + '.';
+          return streetName + ': a card is dealt face up to each remaining player. The pot stands at ' + formatChipAmount(pot) + '.';
+        }
         if (streetIdx === 0) return 'Cards are dealt. ' + hand.players.length + ' players at the table. Blinds are ' + formatChipAmount((hand.blinds || {}).sb || 0) + '/' + formatChipAmount((hand.blinds || {}).bb || 0) + '.';
+        // Draw street commentary
+        if (isDrawStreet && street.draws && street.draws.length > 0) {
+          var drawParts = street.draws.map(function(d) {
+            var pName = hand.players[d.player] ? hand.players[d.player].name : '?';
+            if (d.discarded === 0) return pName + ' stands pat';
+            return pName + ' discards ' + d.discarded;
+          });
+          return streetName + '. ' + drawParts.join('. ') + '. The pot is ' + formatChipAmount(pot) + '.';
+        }
         return streetName + ' is dealt. The pot stands at ' + formatChipAmount(pot) + '.';
       }
       var actions = street.actions || [];
@@ -855,9 +1020,19 @@
         case 'fold': return name + posStr + ' releases their hand into the muck.';
         case 'check': return name + posStr + ' taps the table. Check.';
         case 'call': return name + posStr + ' makes the call for ' + formatChipAmount(act.amount) + '.';
-        case 'bet': return name + posStr + ' leads out with a bet of ' + formatChipAmount(act.amount) + ' into a ' + formatChipAmount(pot - act.amount) + ' pot.';
+        case 'bet':
+          // In stud, after a bring-in, the first full bet is a "complete"
+          if (category === 'stud' && streetIdx === 0) {
+            var _hasBringIn = actions.slice(0, actionIdx).some(function(a) { return a.action === 'bring-in'; });
+            var _priorBets = actions.slice(0, actionIdx).filter(function(a) { return a.action === 'bet' || a.action === 'raise'; }).length;
+            if (_hasBringIn && _priorBets === 0) {
+              return name + posStr + ' completes to ' + formatChipAmount(act.amount) + '.';
+            }
+          }
+          return name + posStr + ' leads out with a bet of ' + formatChipAmount(act.amount) + ' into a ' + formatChipAmount(pot - act.amount) + ' pot.';
         case 'raise': return name + posStr + ' fires a raise to ' + formatChipAmount(act.amount) + '! The pot swells to ' + formatChipAmount(pot) + '.';
         case 'all-in': return name + posStr + ' moves ALL IN for ' + formatChipAmount(act.amount) + '! A pivotal moment at the table.';
+        case 'bring-in': return name + posStr + ' posts the bring-in of ' + formatChipAmount(act.amount) + '.';
         default: return name + ' acts (' + act.action + ').';
       }
     }
@@ -990,11 +1165,23 @@
         try {
           var hole = parseCardNotation(holeStr).filter(function(c) { return c.suit !== 'x'; });
           if (hole.length < 2) return 0;
+          var all = hole.concat(bCards);
           var ev;
+          if (gameEval.type === 'low') {
+            ev = gameEval.lowType === 'a5' ? bestLowA5Hand(all, false) : bestLow27Hand(all);
+            return ev && ev.score < Infinity ? (1e9 - ev.score) : 0;
+          }
+          if (gameEval.type === 'hilo') {
+            var hiEv = gameEval.method === 'omaha' ? bestOmahaHigh(hole, bCards) : bestHighHand(all);
+            var loEv = gameEval.method === 'omaha' ? bestOmahaLow(hole, bCards) : bestLowA5Hand(all, true);
+            var hiScore = hiEv && hiEv.score ? hiEv.score : 0;
+            var loScore = loEv && loEv.qualified ? (1e9 - loEv.score) : 0;
+            return hiScore + loScore;
+          }
           if (gameEval.method === 'omaha') {
             ev = bestOmahaHigh(hole, bCards);
           } else {
-            ev = bestHighHand(hole.concat(bCards));
+            ev = bestHighHand(all);
           }
           return ev && ev.score ? ev.score : 0;
         } catch (e) { return 0; }
@@ -1457,17 +1644,28 @@
         return board;
       }, [hand, streetIdx, category]);
 
-      // Build cumulative hero/opponent cards for stud
-      const heroCards = useMemo(() => {
-        if (category !== 'stud') return hand.streets[0]?.cards.hero || '';
-        let cards = '';
-        for (let si = 0; si <= streetIdx; si++) {
-          if (hand.streets[si]?.cards.hero) cards += hand.streets[si].cards.hero;
-        }
-        return cards;
-      }, [hand, streetIdx, category]);
+      // Build cumulative hero/opponent cards for stud and draw games
+      const isDrawGame = category === 'draw_triple' || category === 'draw_single';
 
       const replayHeroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+
+      const heroCards = useMemo(() => {
+        if (category === 'stud') {
+          let cards = '';
+          for (let si = 0; si <= streetIdx; si++) {
+            if (hand.streets[si]?.cards.hero) cards += hand.streets[si].cards.hero;
+          }
+          return cards;
+        }
+        if (isDrawGame) {
+          // Apply draws to hero's initial hand up to current street
+          var base = hand.streets[0]?.cards.hero || '';
+          var heroDraws = getPlayerDrawsByStreet(hand, replayHeroIdx);
+          // Only apply draws for streets we've passed (current street's draw happens at start of that street)
+          return computeDrawHand(base, heroDraws, streetIdx - 1);
+        }
+        return hand.streets[0]?.cards.hero || '';
+      }, [hand, streetIdx, category, isDrawGame, replayHeroIdx]);
 
       const opponentCards = useMemo(() => {
         // Build a card string for each player index (excluding hero)
@@ -1475,14 +1673,21 @@
         return hand.players.map((_, pi) => {
           if (pi === replayHeroIdx) return null; // hero, skip
           var oppSlot = pi > replayHeroIdx ? pi - 1 : pi;
-          if (category !== 'stud') return hand.streets[0]?.cards.opponents?.[oppSlot] || '';
-          let cards = '';
-          for (let si = 0; si <= streetIdx; si++) {
-            if (hand.streets[si]?.cards.opponents?.[oppSlot]) cards += hand.streets[si].cards.opponents[oppSlot];
+          if (category === 'stud') {
+            let cards = '';
+            for (let si = 0; si <= streetIdx; si++) {
+              if (hand.streets[si]?.cards.opponents?.[oppSlot]) cards += hand.streets[si].cards.opponents[oppSlot];
+            }
+            return cards;
           }
-          return cards;
+          if (isDrawGame) {
+            var base = hand.streets[0]?.cards.opponents?.[oppSlot] || '';
+            var oppDraws = getPlayerDrawsByStreet(hand, pi);
+            return computeDrawHand(base, oppDraws, streetIdx - 1);
+          }
+          return hand.streets[0]?.cards.opponents?.[oppSlot] || '';
         });
-      }, [hand, streetIdx, category, replayHeroIdx]);
+      }, [hand, streetIdx, category, replayHeroIdx, isDrawGame]);
 
       // Calculate current pot and stacks (stacks update per action, pot display updates per street)
       const { stacks, pot, folded } = useMemo(() => {
@@ -2011,13 +2216,26 @@
               var splitCount = isSplitResult ? hand.result.winners.filter(function(w) { return w.split; }).length : 0;
               if (isSplitResult && splitCount >= 2) {
                 var splitAmt = Math.floor(pot / splitCount);
+                var _isHiLo = isHiLo && hand.result.winners.some(function(w) { return w.label; });
                 return <div className="replayer-pot-display replayer-split-pot">
-                  <div className="replayer-pot-label">Split Pot</div>
+                  <div className="replayer-pot-label">{_isHiLo ? 'Hi/Lo Split' : 'Split Pot'}</div>
                   <div className="replayer-split-circles">
-                    {Array.from({length: Math.min(splitCount, 3)}, function(_, i) {
+                    {hand.result.winners.filter(function(w) { return w.split; }).slice(0, 3).map(function(w, i) {
+                      var pName = hand.players[w.playerIdx] ? hand.players[w.playerIdx].name : '?';
+                      var shortLabel = '';
+                      if (w.label) {
+                        // Extract just the Hi/Lo part from label like "Name wins Hi: ..., Lo: ..."
+                        var hiMatch = w.label.match(/Hi:\s*([^,]+)/);
+                        var loMatch = w.label.match(/Lo:\s*(.+)/);
+                        if (hiMatch) shortLabel = 'Hi';
+                        if (loMatch) shortLabel = shortLabel ? 'Hi+Lo' : 'Lo';
+                      }
                       return <div key={i} className="replayer-split-circle" style={{
                         marginLeft: i > 0 ? '-8px' : 0, zIndex: splitCount - i,
-                      }}>{formatChipAmount(splitAmt)}</div>;
+                      }} title={w.label || ''}>
+                        {shortLabel ? <span style={{fontSize:'0.45rem',display:'block',lineHeight:1}}>{shortLabel}</span> : null}
+                        {formatChipAmount(splitAmt)}
+                      </div>;
                     })}
                   </div>
                 </div>;
@@ -2254,12 +2472,36 @@
 
           {/* Draw info for draw games */}
           {(category === 'draw_triple' || category === 'draw_single') && currentStreet.draws && currentStreet.draws.length > 0 && (
-            <div style={{textAlign:'center',fontSize:'0.68rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
-              {currentStreet.draws.map(d => (
-                <span key={d.player} style={{marginRight:'8px'}}>
-                  {hand.players[d.player]?.name}: drew {d.discarded}
-                </span>
-              ))}
+            <div className="replayer-draw-info-bar">
+              <div className="replayer-draw-info-label">{currentStreet.name || 'Draw'}</div>
+              <div className="replayer-draw-info-players">
+                {currentStreet.draws.map(d => {
+                  var pName = hand.players[d.player]?.name || '?';
+                  var isPat = d.discarded === 0;
+                  return (
+                    <div key={d.player} className={'replayer-draw-info-item' + (isPat ? ' pat' : '')}>
+                      <span className="replayer-draw-info-name">{pName}</span>
+                      {isPat ? (
+                        <span className="replayer-draw-pat-badge">Stand Pat</span>
+                      ) : (
+                        <span className="replayer-draw-count-badge">
+                          {d.discarded === 1 ? 'draws 1' : 'draws ' + d.discarded}
+                        </span>
+                      )}
+                      {d.discardedCards && !isPat && (
+                        <span className="replayer-draw-discarded-cards">
+                          <CardRow text={d.discardedCards} max={d.discarded} />
+                        </span>
+                      )}
+                      {d.newCards && !isPat && (
+                        <span className="replayer-draw-new-cards">
+                          <CardRow text={d.newCards} max={d.discarded} />
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -2525,7 +2767,7 @@
 
       // Scroll to top when entering board_entry or result phase
       useEffect(function() {
-        if (phase === 'board_entry' || phase === 'stud_deal' || phase === 'draw_discard' || phase === 'showdown' || phase === 'result') {
+        if (phase === 'board_entry' || phase === 'stud_deal' || phase === 'draw_discard' || phase === 'draw_cards_entry' || phase === 'showdown' || phase === 'result') {
           var container = document.querySelector('.content-area');
           if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -2590,7 +2832,7 @@
                 return Object.assign({}, s, { actions: [] });
               });
               if (si < currentStreetIdx) setCurrentStreetIdx(si);
-              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry' || phase === 'draw_discard') setPhase('action');
+              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry' || phase === 'draw_discard' || phase === 'draw_cards_entry') setPhase('action');
               return Object.assign({}, prev, { streets: streets });
             }
           }
@@ -2611,7 +2853,7 @@
                 return Object.assign({}, s, { actions: acts.slice(0, -1) });
               });
               if (si < currentStreetIdx) setCurrentStreetIdx(si);
-              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry' || phase === 'draw_discard') setPhase('action');
+              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry' || phase === 'draw_discard' || phase === 'draw_cards_entry') setPhase('action');
               return Object.assign({}, prev, { streets: streets });
             }
           }
@@ -2690,8 +2932,10 @@
       var isHeadsUp = activePlayerCount <= 2;
 
       // Fixed limit bet size
+      // Stud 4th street exception: if any player shows an open pair, the big bet may be used
       var flIsSmall = flSmallStreets.includes(currentStreetIdx);
-      var flBetSize = flIsSmall ? ((hand.blinds || {}).bb || 100) : ((hand.blinds || {}).bb || 100) * 2;
+      var stud4thOpenPair = gameCfg.isStud && currentStreetIdx === 1 && studHasOpenPairOn4th(hand);
+      var flBetSize = (flIsSmall && !stud4thOpenPair) ? ((hand.blinds || {}).bb || 100) : ((hand.blinds || {}).bb || 100) * 2;
       // flRaiseToTotal = the total amount the raiser will have committed this street
       var flRaiseToTotal = streetBets.maxBet + flBetSize;
       // Incremental amount the raiser needs to ADD (accounting for chips already in)
@@ -3177,7 +3421,7 @@
       }
 
       // ── DRAW DISCARD PHASE ──
-      if (phase === 'draw_discard') {
+      if (phase === 'draw_discard' || phase === 'draw_cards_entry') {
         var nextDrawStreet = currentStreetIdx + 1;
         var drawStreetName = currentStreet.name || 'Draw';
         var isBadugi = hand.gameType === 'Badugi' || hand.gameType === 'Badeucy' || hand.gameType === 'Badacy';
@@ -3196,7 +3440,7 @@
           setHand(function(prev) {
             var streets = prev.streets.map(function(s, si) {
               if (si !== currentStreetIdx) return s;
-              var draws = (s.draws || []).concat([{ player: playerIdx, discarded: discardCount }]);
+              var draws = (s.draws || []).concat([{ player: playerIdx, discarded: discardCount, discardedCards: '', newCards: '' }]);
               return Object.assign({}, s, { draws: draws });
             });
             return Object.assign({}, prev, { streets: streets });
@@ -3214,11 +3458,86 @@
           });
         };
 
+        var updateDrawCardsFn = function(playerIdx, field, val) {
+          setHand(function(prev) {
+            var streets = prev.streets.map(function(s, si) {
+              if (si !== currentStreetIdx) return s;
+              var draws = (s.draws || []).map(function(d) {
+                if (d.player !== playerIdx) return d;
+                var upd = Object.assign({}, d); upd[field] = val; return upd;
+              });
+              return Object.assign({}, s, { draws: draws });
+            });
+            return Object.assign({}, prev, { streets: streets });
+          });
+        };
+
+        var getDrawPlayerHand = function(pi) {
+          var dhi = hand.heroIdx != null ? hand.heroIdx : 0;
+          var oppSlot = pi > dhi ? pi - 1 : pi;
+          var base = pi === dhi ? (hand.streets[0]?.cards.hero || '') : (hand.streets[0]?.cards.opponents?.[oppSlot] || '');
+          return computeDrawHand(base, getPlayerDrawsByStreet(hand, pi), currentStreetIdx - 1);
+        };
+
+        // ── DRAW CARDS ENTRY SUB-PHASE ──
+        if (phase === 'draw_cards_entry') {
+          return (
+            <div className="gto-entry">
+              <div className="gto-phase-card">
+                <div className="replayer-section">
+                  <div className="replayer-section-title">Card Details -- {drawStreetName}</div>
+                  <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'10px'}}>
+                    Optionally specify which cards were discarded and drawn. Skip to continue.
+                  </p>
+                  {drawActivePlayers.map(function(pi) {
+                    var p = hand.players[pi];
+                    var de = (currentStreet.draws || []).find(function(d) { return d.player === pi; });
+                    if (!de) return null;
+                    var isPat = de.discarded === 0;
+                    var curHand = getDrawPlayerHand(pi);
+                    return (
+                      <div key={pi} style={{marginBottom:'10px',padding:'8px 10px',background:'var(--surface2)',borderRadius:'6px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}}>
+                          <span style={{fontWeight:700,fontSize:'0.78rem'}}>{p.name}</span>
+                          <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>{p.position}</span>
+                          {isPat && <span className="replayer-draw-pat-badge">Stand Pat</span>}
+                          {!isPat && <span className="replayer-draw-count-badge">Discards {de.discarded}</span>}
+                        </div>
+                        {curHand && <div style={{marginBottom:'4px'}}><span style={{fontSize:'0.6rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.03em'}}>Current Hand</span><CardRow text={curHand} max={gameCfg.heroCards || 5} /></div>}
+                        {!isPat && (
+                          <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                            <div className="replayer-field" style={{flex:1,minWidth:'80px'}}>
+                              <label style={{fontSize:'0.55rem'}}>Discarded</label>
+                              <input type="text" placeholder={'e.g. 7h3c'} value={de.discardedCards || ''} onChange={function(e) { updateDrawCardsFn(pi, 'discardedCards', e.target.value); }} />
+                              {de.discardedCards && <CardRow text={de.discardedCards} max={de.discarded} />}
+                            </div>
+                            <div className="replayer-field" style={{flex:1,minWidth:'80px'}}>
+                              <label style={{fontSize:'0.55rem'}}>New Cards</label>
+                              <input type="text" placeholder={'e.g. Ah5s'} value={de.newCards || ''} onChange={function(e) { updateDrawCardsFn(pi, 'newCards', e.target.value); }} />
+                              {de.newCards && <CardRow text={de.newCards} max={de.discarded} />}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="gto-street-card">
+                <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+                  <button className="btn btn-ghost btn-sm" onClick={function() { setPhase('draw_discard'); }}>Back</button>
+                  <button className="btn btn-primary btn-sm" onClick={function() { setCurrentStreetIdx(nextDrawStreet); setPhase('action'); }}>Continue</button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div className="gto-entry">
             <div className="gto-phase-card">
               <div className="replayer-section">
-                <div className="replayer-section-title">Draw Round — {drawStreetName}</div>
+                <div className="replayer-section-title">Draw Round -- {drawStreetName}</div>
                 <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'10px'}}>
                   Each player declares how many cards to discard. Stand Pat = keep all cards.
                 </p>
@@ -3227,7 +3546,7 @@
                   var existingDraw = (currentStreet.draws || []).find(function(d) { return d.player === pi; });
                   var isDeclared = !!existingDraw;
                   var isCurrentTarget = pi === currentDrawPlayer;
-                  var isAllIn = allInSet.has(pi);
+                  var curHand = getDrawPlayerHand(pi);
 
                   return (
                     <div key={pi} className={'gto-seat' + (isCurrentTarget ? ' active' : '') + (isDeclared ? ' gto-draw-declared' : '')}
@@ -3248,6 +3567,7 @@
                             )}
                           </div>
                         </div>
+                        {curHand && <div style={{padding:'4px 10px'}}><CardRow text={curHand} max={gameCfg.heroCards || 5} /></div>}
                         {isCurrentTarget && !isDeclared && (
                           <div className="gto-draw-buttons">
                             <button className="gto-draw-btn pat" onClick={function() { addDraw(pi, 0); }}>
@@ -3299,8 +3619,8 @@
                 }}>Back</button>
                 <button className="btn btn-primary btn-sm"
                   disabled={!allDrawsDeclared}
-                  onClick={function() { setCurrentStreetIdx(nextDrawStreet); setPhase('action'); }}>
-                  Continue
+                  onClick={function() { setPhase('draw_cards_entry'); }}>
+                  Enter Cards
                 </button>
               </div>
             </div>
@@ -3553,7 +3873,7 @@
 
       // ── SHOWDOWN PHASE ──
       if (phase === 'showdown') {
-        // Collect used cards (hero, all board streets)
+        // Collect used cards (hero, all board streets, all opponent streets)
         var sdUsedCards = new Set();
         hand.streets.forEach(function(s) {
           parseCardNotation(s.cards.hero || '').forEach(function(c) { if (c.suit !== 'x') sdUsedCards.add(c.rank + c.suit); });
@@ -3574,13 +3894,40 @@
           { key: 's', label: '♠' }
         ];
         var sdMaxCards = gameCfg.heroCards || 2;
+        var isStudShowdown = category === 'stud';
+
+        // For stud: accumulate cards from all streets for each player
+        var getStudAllCards = function(oppSlot) {
+          var accumulated = '';
+          hand.streets.forEach(function(s) {
+            var oppC = (s.cards.opponents || [])[oppSlot] || '';
+            if (oppC && oppC !== 'MUCK') accumulated += oppC;
+          });
+          return accumulated;
+        };
+        var getStudHeroAllCards = function() {
+          var accumulated = '';
+          hand.streets.forEach(function(s) {
+            if (s.cards.hero) accumulated += s.cards.hero;
+          });
+          return accumulated;
+        };
+
+        // Get combined card string for an opponent (stud=all streets, else=street 0)
+        var getOppCardStr = function(oppSlot) {
+          if (isStudShowdown) return getStudAllCards(oppSlot);
+          return (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppSlot]) || '';
+        };
 
         // Track which opponent we're entering cards for
+        // For stud, we need remaining down cards at showdown (holes + 7th street)
+        // Opponent's known cards come from all streets, missing cards need to be entered
         var sdActiveIdx = -1;
         for (var sdi = 0; sdi < showdownPlayers.length; sdi++) {
           var oppIdx = showdownPlayers[sdi].idx;
-          var oppCardStr = (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppIdx > heroIdx ? oppIdx - 1 : oppIdx]) || '';
-          var oppCards = parseCardNotation(oppCardStr).filter(function(c) { return c.suit !== 'x'; });
+          var oppSlot = oppIdx > heroIdx ? oppIdx - 1 : oppIdx;
+          var oppCardStr = getOppCardStr(oppSlot);
+          var oppCards = oppCardStr === 'MUCK' ? [] : parseCardNotation(oppCardStr).filter(function(c) { return c.suit !== 'x'; });
           if (oppCardStr !== 'MUCK' && oppCards.length < sdMaxCards) { sdActiveIdx = sdi; break; }
         }
 
@@ -3594,45 +3941,84 @@
             </div>
             {showdownPlayers.map(function(o, si) {
               var oppSlot = o.idx > heroIdx ? o.idx - 1 : o.idx;
-              var oppCardStr = (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppSlot]) || '';
-              var isMucked = oppCardStr === 'MUCK';
+              var oppCardStr = getOppCardStr(oppSlot);
+              var isMucked = oppCardStr === 'MUCK' || (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppSlot]) === 'MUCK';
               var oppParsed = isMucked ? [] : parseCardNotation(oppCardStr).filter(function(c) { return c.suit !== 'x'; });
               var oppCardSet = new Set(oppParsed.map(function(c) { return c.rank + c.suit; }));
               var isComplete = isMucked || oppParsed.length >= sdMaxCards;
               var isActiveOpp = si === sdActiveIdx;
 
+              // For stud: show how many known vs unknown cards
+              var studKnownCount = 0;
+              if (isStudShowdown && !isMucked) {
+                // Count visible cards already entered on streets (door card + 4th-6th up cards)
+                for (var _si = 0; _si < hand.streets.length; _si++) {
+                  var _sc = (hand.streets[_si].cards.opponents || [])[oppSlot] || '';
+                  parseCardNotation(_sc).filter(function(c) { return c.suit !== 'x'; }).forEach(function() { studKnownCount++; });
+                }
+              }
+              var studMissingCount = isStudShowdown ? Math.max(0, sdMaxCards - oppParsed.length) : 0;
+
               // Build used set excluding this opponent's own cards
               var thisUsed = new Set(sdUsedCards);
-              // Add other opponents' cards
               showdownPlayers.forEach(function(other) {
                 if (other.idx === o.idx) return;
                 var otherSlot = other.idx > heroIdx ? other.idx - 1 : other.idx;
-                var otherStr = (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[otherSlot]) || '';
+                var otherStr = getOppCardStr(otherSlot);
                 if (otherStr !== 'MUCK') {
                   parseCardNotation(otherStr).forEach(function(c) { if (c.suit !== 'x') thisUsed.add(c.rank + c.suit); });
                 }
               });
               oppParsed.forEach(function(c) { thisUsed.delete(c.rank + c.suit); });
 
+              // For stud showdown, write new hidden cards to street 0 (prepend for hole cards)
+              // For non-stud, write to street 0 as before
               var toggleSdCard = function(card) {
                 if (oppCardSet.has(card)) {
-                  var remaining = oppParsed.map(function(c) { return c.rank + c.suit; }).filter(function(c) { return c !== card; });
-                  var newVal = remaining.join('');
-                  setHand(function(prev) {
-                    var opps = (prev.streets[0].cards.opponents || []).slice();
-                    opps[oppSlot] = newVal;
-                    var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
-                    return Object.assign({}, prev, { streets: streets });
-                  });
+                  // Remove card — for stud, rebuild all streets; for non-stud, edit street 0
+                  if (isStudShowdown) {
+                    // Remove from whichever street has it
+                    setHand(function(prev) {
+                      var streets = prev.streets.map(function(s) {
+                        var opps = (s.cards.opponents || []).slice();
+                        var curr = opps[oppSlot] || '';
+                        if (curr.indexOf(card) >= 0) {
+                          opps[oppSlot] = curr.replace(card, '');
+                          return Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) });
+                        }
+                        return s;
+                      });
+                      return Object.assign({}, prev, { streets: streets });
+                    });
+                  } else {
+                    var remaining = oppParsed.map(function(c) { return c.rank + c.suit; }).filter(function(c) { return c !== card; });
+                    var newVal = remaining.join('');
+                    setHand(function(prev) {
+                      var opps = (prev.streets[0].cards.opponents || []).slice();
+                      opps[oppSlot] = newVal;
+                      var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
+                      return Object.assign({}, prev, { streets: streets });
+                    });
+                  }
                 } else {
                   if (oppParsed.length >= sdMaxCards) return;
-                  var newVal = oppCardStr + card;
-                  setHand(function(prev) {
-                    var opps = (prev.streets[0].cards.opponents || []).slice();
-                    opps[oppSlot] = newVal;
-                    var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
-                    return Object.assign({}, prev, { streets: streets });
-                  });
+                  if (isStudShowdown) {
+                    // For stud, prepend hidden cards to street 0 so order is hole1,hole2,door,4th,5th,6th,7th
+                    setHand(function(prev) {
+                      var opps = (prev.streets[0].cards.opponents || []).slice();
+                      opps[oppSlot] = card + (opps[oppSlot] || '');
+                      var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
+                      return Object.assign({}, prev, { streets: streets });
+                    });
+                  } else {
+                    var newVal = oppCardStr + card;
+                    setHand(function(prev) {
+                      var opps = (prev.streets[0].cards.opponents || []).slice();
+                      opps[oppSlot] = newVal;
+                      var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
+                      return Object.assign({}, prev, { streets: streets });
+                    });
+                  }
                 }
               };
 
@@ -3646,12 +4032,24 @@
               };
 
               var clearOppCards = function() {
-                setHand(function(prev) {
-                  var opps = (prev.streets[0].cards.opponents || []).slice();
-                  opps[oppSlot] = '';
-                  var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
-                  return Object.assign({}, prev, { streets: streets });
-                });
+                if (isStudShowdown) {
+                  // Clear cards from all streets for this opponent
+                  setHand(function(prev) {
+                    var streets = prev.streets.map(function(s) {
+                      var opps = (s.cards.opponents || []).slice();
+                      opps[oppSlot] = '';
+                      return Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) });
+                    });
+                    return Object.assign({}, prev, { streets: streets });
+                  });
+                } else {
+                  setHand(function(prev) {
+                    var opps = (prev.streets[0].cards.opponents || []).slice();
+                    opps[oppSlot] = '';
+                    var streets = prev.streets.map(function(s, i) { return i === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: opps }) }) : s; });
+                    return Object.assign({}, prev, { streets: streets });
+                  });
+                }
               };
 
               return (
@@ -3674,7 +4072,12 @@
                       <div style={{textAlign:'center',padding:'8px 0',fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.75rem',color:'var(--text-muted)',fontStyle:'italic'}}>Mucked</div>
                     ) : (
                       <React.Fragment>
-                        {oppParsed.length > 0 && <div style={{margin:'4px 0'}}><CardRow text={oppCardStr} max={sdMaxCards} /></div>}
+                        {oppParsed.length > 0 && <div style={{margin:'4px 0'}}>
+                          <CardRow text={oppCardStr} stud={isStudShowdown} max={sdMaxCards} />
+                          {isStudShowdown && studMissingCount > 0 && <div style={{fontSize:'0.6rem',color:'var(--text-muted)',marginTop:'2px'}}>
+                            {studKnownCount} known cards, {studMissingCount} hidden card{studMissingCount !== 1 ? 's' : ''} remaining
+                          </div>}
+                        </div>}
                         {!isComplete && (
                           <div className="card-picker-grid">
                             {sdAllSuits.map(function(suit) {
@@ -3707,16 +4110,16 @@
               <button className="btn btn-primary btn-sm" onClick={function() {
                 // Auto-evaluate showdown winners
                 var playerHands = [];
-                // Hero
-                var heroCardStr = (hand.streets[0].cards.hero || '');
+                // Hero — for stud, accumulate from all streets
+                var heroCardStr = isStudShowdown ? getStudHeroAllCards() : (hand.streets[0].cards.hero || '');
                 var heroParsed = parseCardNotation(heroCardStr).filter(function(c) { return c.suit !== 'x'; });
                 if (heroParsed.length > 0) {
                   playerHands.push({ idx: heroIdx, cards: heroParsed });
                 }
-                // Opponents
+                // Opponents — for stud, accumulate from all streets
                 showdownPlayers.forEach(function(o) {
                   var oppSlot = o.idx > heroIdx ? o.idx - 1 : o.idx;
-                  var oppStr = (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppSlot]) || '';
+                  var oppStr = getOppCardStr(oppSlot);
                   if (oppStr === 'MUCK' || !oppStr) return;
                   var oppParsed = parseCardNotation(oppStr).filter(function(c) { return c.suit !== 'x'; });
                   if (oppParsed.length > 0) {
@@ -3736,6 +4139,27 @@
                   });
                 } else if (playerHands.length > 1) {
                   var winners = evaluateShowdown(hand.gameType, playerHands, boardParsed);
+                  // Add hi/lo split labels for hilo games
+                  var _ec = GAME_EVAL[hand.gameType];
+                  if (_ec && _ec.type === 'hilo' && winners.some(function(w){return w.split;})) {
+                    var _hs={}; var _ls={};
+                    playerHands.forEach(function(ph){
+                      var al=boardParsed.length?ph.cards.concat(boardParsed):ph.cards;
+                      _hs[ph.idx]=_ec.method==='omaha'?bestOmahaHigh(ph.cards,boardParsed):bestHighHand(al);
+                      var lo=_ec.method==='omaha'?bestOmahaLow(ph.cards,boardParsed):bestLowA5Hand(al,true);
+                      _ls[ph.idx]=lo&&lo.qualified?lo:null;
+                    });
+                    var _bh=-1;var _bl=Infinity;
+                    Object.keys(_hs).forEach(function(k){if(_hs[k]&&_hs[k].score>_bh)_bh=_hs[k].score;});
+                    Object.keys(_ls).forEach(function(k){if(_ls[k]&&_ls[k].score<_bl)_bl=_ls[k].score;});
+                    winners=winners.map(function(w){
+                      var lb=[];
+                      if(_hs[w.playerIdx]&&_hs[w.playerIdx].score===_bh)lb.push('Hi: '+(_hs[w.playerIdx].shortName||_hs[w.playerIdx].name));
+                      if(_ls[w.playerIdx]&&_ls[w.playerIdx].score===_bl)lb.push('Lo: '+_ls[w.playerIdx].name);
+                      if(lb.length)return Object.assign({},w,{label:hand.players[w.playerIdx].name+' wins '+lb.join(', ')});
+                      return w;
+                    });
+                  }
                   if (winners.length > 0) {
                     setHand(function(prev) {
                       return Object.assign({}, prev, { result: Object.assign({}, prev.result, { winners: winners }) });
@@ -3930,8 +4354,9 @@
                               <span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack))}</span>
                             </button>
                           </div>
-                        ) : isLimitGame && gameCfg.isStud && currentStreetIdx === 0 && (currentStreet.actions || []).length > 0 && streetBets.maxBet <= bringInAmount && streetBetRaiseCount === 0 ? (
+                        ) : gameCfg.isStud && currentStreetIdx === 0 && (currentStreet.actions || []).length > 0 && streetBets.maxBet <= bringInAmount && streetBetRaiseCount === 0 ? (
                           /* ── Stud 3rd street after bring-in: anyone can "complete" to full small bet ── */
+                          /* Applies to all stud betting types (limit, pot-limit, no-limit) */
                           <div className="gto-action-row">
                             <button className="gto-action-btn" onClick={function() { addAction('fold'); }}>
                               <span className="gto-action-icon fold">✕</span>
@@ -3945,6 +4370,14 @@
                               <span className="gto-action-icon raise">▲</span>
                               <span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack + playerContrib))}</span>
                             </button>
+                            {/* NL/PL stud: allow raise beyond the complete amount */}
+                            {!isLimitGame && playerStack > (flBetSize - playerContrib) && <button className="gto-action-btn" onClick={function() {
+                              setShowRaiseInput(true);
+                              setBetAmount(String(Math.min(flBetSize - playerContrib, playerStack)));
+                            }}>
+                              <span className="gto-action-icon raise">▲</span>
+                              <span className="gto-action-label">Raise</span>
+                            </button>}
                           </div>
                         ) : isLimitGame ? (
                           /* ── Fixed Limit: no amount input, fixed bet/raise sizes ── */
@@ -4205,7 +4638,8 @@
         return bettingStructure + ' ' + selectedGame;
       }, [bettingStructure, selectedGame]);
 
-      const gameTypes = Object.keys(HAND_CONFIG).filter(k => k !== 'OFC Pineapple' && k !== 'OFC');
+      var _nlPlStudTypes = ['NL Stud Hi', 'NL Stud 8', 'NL Razz', 'PL Stud Hi', 'PL Stud 8', 'PL Razz'];
+      const gameTypes = Object.keys(HAND_CONFIG).filter(k => k !== 'OFC Pineapple' && k !== 'OFC' && _nlPlStudTypes.indexOf(k) < 0);
 
       const fetchHands = async () => {
         if (!token) return;
@@ -4233,8 +4667,8 @@
 
       // Game selection config
       var structureGameMap = {
-        'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
-        'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': 'PL 2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+        'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'NL Stud Hi', 'Stud 8': 'NL Stud 8', 'Razz': 'NL Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+        'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'PL Stud Hi', 'Stud 8': 'PL Stud 8', 'Razz': 'PL Razz', '2-7 Triple Draw': 'PL 2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
         'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE', 'Omaha': 'O8', 'Omaha 8/b': 'O8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
       };
       var defaultStructure = {
