@@ -4247,8 +4247,18 @@
               <button className="btn btn-primary btn-sm" onClick={function() {
                 // Auto-evaluate showdown winners
                 var playerHands = [];
-                // Hero — for stud, accumulate from all streets
-                var heroCardStr = isStudShowdown ? getStudHeroAllCards() : (hand.streets[0].cards.hero || '');
+                // Hero — for stud, accumulate from all streets; for draw, apply draws to get final hand
+                var isDrawShowdown = category === 'draw_triple' || category === 'draw_single';
+                var heroCardStr;
+                if (isStudShowdown) {
+                  heroCardStr = getStudHeroAllCards();
+                } else if (isDrawShowdown) {
+                  var heroBase = hand.streets[0].cards.hero || '';
+                  var heroDraws = getPlayerDrawsByStreet(hand, heroIdx);
+                  heroCardStr = computeDrawHand(heroBase, heroDraws, hand.streets.length - 1);
+                } else {
+                  heroCardStr = hand.streets[0].cards.hero || '';
+                }
                 var heroParsed = parseCardNotation(heroCardStr).filter(function(c) { return c.suit !== 'x'; });
                 if (heroParsed.length > 0) {
                   playerHands.push({ idx: heroIdx, cards: heroParsed });

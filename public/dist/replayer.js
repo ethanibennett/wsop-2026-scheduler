@@ -3906,7 +3906,17 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
       })))));
     }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "6px", justifyContent: "flex-end", padding: "10px 0" } }, /* @__PURE__ */ React.createElement("button", { className: "gto-undo-btn", onClick: undoLastAction }, "Undo"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-primary btn-sm", onClick: function() {
       var playerHands = [];
-      var heroCardStr = isStudShowdown ? getStudHeroAllCards() : hand.streets[0].cards.hero || "";
+      var isDrawShowdown = category === "draw_triple" || category === "draw_single";
+      var heroCardStr;
+      if (isStudShowdown) {
+        heroCardStr = getStudHeroAllCards();
+      } else if (isDrawShowdown) {
+        var heroBase = hand.streets[0].cards.hero || "";
+        var heroDraws = getPlayerDrawsByStreet(hand, heroIdx);
+        heroCardStr = computeDrawHand(heroBase, heroDraws, hand.streets.length - 1);
+      } else {
+        heroCardStr = hand.streets[0].cards.hero || "";
+      }
       var heroParsed = parseCardNotation(heroCardStr).filter(function(c) {
         return c.suit !== "x";
       });
