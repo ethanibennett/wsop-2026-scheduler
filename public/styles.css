@@ -290,6 +290,7 @@
 
     html, body {
       height: 100%;
+      overflow: hidden;
       overscroll-behavior: none;
     }
 
@@ -314,12 +315,12 @@
     .top-bar {
       height: var(--header-h);
       padding-top: env(safe-area-inset-top, 0px);
+      box-sizing: content-box;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
-      position: sticky;
-      top: 0;
+      position: relative;
       justify-content: space-between;
       padding-left: 16px;
       padding-right: 16px;
@@ -2096,7 +2097,6 @@
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       padding: 12px 12px 80px; /* bottom pad clears the tab bar */
-      /* no extra margin needed — sticky header/footer stay in flex flow */
     }
     .view-fade {
       animation: viewFadeIn 0.2s ease-out;
@@ -2159,8 +2159,7 @@
       display: flex;
       align-items: stretch;
       flex-shrink: 0;
-      position: sticky;
-      bottom: 0;
+      position: relative;
       z-index: 100;
     }
 
