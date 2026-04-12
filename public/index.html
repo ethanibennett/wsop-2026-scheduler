@@ -46,8 +46,10 @@
         // Also handle orientation changes
         window.addEventListener('resize', function() {
           var nh = window.innerHeight;
-          document.getElementById('root').style.height = nh + 'px';
-          document.querySelector('.app-shell').style.height = nh + 'px';
+          var r = document.getElementById('root');
+          var a = document.querySelector('.app-shell');
+          if (r) r.style.height = nh + 'px';
+          if (a) a.style.height = nh + 'px';
         });
       }
     })();
