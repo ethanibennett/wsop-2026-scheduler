@@ -39,7 +39,7 @@
         if (topInset < 1) topInset = 47;
         var bottomInset = 34;
         var s = document.createElement('style');
-        s.textContent = '.app-shell{height:100vh!important;padding-top:' + topInset + 'px!important;}.bottom-nav{height:calc(56px + ' + bottomInset + 'px)!important;padding-bottom:' + bottomInset + 'px!important;}';
+        s.textContent = '#root{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;}.app-shell{padding-top:' + topInset + 'px!important;}.bottom-nav{height:calc(56px + ' + bottomInset + 'px)!important;padding-bottom:' + bottomInset + 'px!important;}';
         document.head.appendChild(s);
       }
     })();
