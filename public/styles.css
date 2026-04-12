@@ -296,7 +296,7 @@
 
     body {
       font-family: 'Univers Condensed', 'Univers', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg);
+      background: var(--surface);
       color: var(--text);
       font-size: 16px;
       line-height: 1.5;
@@ -305,7 +305,7 @@
     button, input, select, textarea { font-family: inherit; }
 
     /* ── Layout shell ── */
-    #root { position: fixed; inset: 0; display: flex; flex-direction: column; }
+    #root { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; }
 
     .app-shell {
       display: flex; flex-direction: column; overflow: hidden;
