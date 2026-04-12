@@ -38,24 +38,14 @@
         // If env() returned 0, use known iPhone safe area (47px for notch, 34px for home indicator)
         if (topInset < 1) topInset = 47;
         var bottomInset = 34;
-        // Use window.innerHeight for bulletproof full-screen height
-        var h = window.innerHeight;
         var s = document.createElement('style');
-        s.textContent = 'html,body{height:' + h + 'px!important;overflow:hidden!important;margin:0!important;padding:0!important;}#root{position:fixed!important;top:0!important;left:0!important;right:0!important;height:' + h + 'px!important;background:var(--surface)!important;overflow:hidden!important;}.app-shell{padding-top:' + topInset + 'px!important;height:' + h + 'px!important;box-sizing:border-box!important;}.content-area{background:var(--bg)!important;}.bottom-nav{height:calc(56px + ' + bottomInset + 'px)!important;padding-bottom:' + bottomInset + 'px!important;}.bottom-nav::after{content:"";position:absolute;left:0;right:0;bottom:-50px;height:50px;background:var(--surface);}';
+        s.textContent = 'html,body{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;overflow:hidden!important;margin:0!important;padding:0!important;background:var(--surface)!important;}#root{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:var(--surface)!important;overflow:hidden!important;}.app-shell{padding-top:' + topInset + 'px!important;}.content-area{background:var(--bg)!important;}.bottom-nav{height:calc(56px + ' + bottomInset + 'px)!important;padding-bottom:' + bottomInset + 'px!important;}.bottom-nav::after{content:"";position:absolute;left:0;right:0;bottom:-50px;height:50px;background:var(--surface);}';
         document.head.appendChild(s);
-        // Also handle orientation changes
-        window.addEventListener('resize', function() {
-          var nh = window.innerHeight;
-          var r = document.getElementById('root');
-          var a = document.querySelector('.app-shell');
-          if (r) r.style.height = nh + 'px';
-          if (a) a.style.height = nh + 'px';
-        });
       }
     })();
     // Auto-reload on new deploy — checks version every 60s
     (function() {
-      var BUILD_VERSION = '20260412a';
+      var BUILD_VERSION = '20260412b';
       setInterval(function() {
         fetch('/version.txt?t=' + Date.now()).then(function(r) { return r.text(); }).then(function(v) {
           if (v.trim() && v.trim() !== BUILD_VERSION) { window.location.reload(); }
@@ -91,15 +81,14 @@
   <link rel="stylesheet" href="/styles.css?v=1774540000">
   <style>
     /* Critical layout — inlined to bypass PWA cache */
-    html, body { height: 100%; height: -webkit-fill-available; overflow: hidden; margin: 0; padding: 0; }
-    #root { height: 100vh; height: -webkit-fill-available; }
+    html, body { position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; margin: 0; padding: 0; background: var(--surface); }
+    #root { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
     .app-shell {
       padding-top: env(safe-area-inset-top, 0px) !important;
     }
     /* iOS standalone PWA fallback when env() returns 0 */
     @media screen and (display-mode: standalone) {
       .app-shell { padding-top: max(env(safe-area-inset-top, 0px), 47px) !important; }
-      html, body, #root { height: -webkit-fill-available !important; }
     }
   </style>
 </head>
