@@ -39,13 +39,13 @@
         if (topInset < 1) topInset = 47;
         var bottomInset = 34;
         var s = document.createElement('style');
-        s.textContent = 'html,body{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;overflow:hidden!important;margin:0!important;padding:0!important;background:var(--surface)!important;}#root{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:var(--surface)!important;overflow:hidden!important;}.app-shell{padding-top:' + topInset + 'px!important;}.content-area{background:var(--bg)!important;}.bottom-nav{height:calc(56px + ' + bottomInset + 'px)!important;padding-bottom:' + bottomInset + 'px!important;}.bottom-nav::after{content:"";position:absolute;left:0;right:0;bottom:-50px;height:50px;background:var(--surface);}';
+        s.textContent = 'html,body{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:-' + bottomInset + 'px!important;overflow:hidden!important;margin:0!important;padding:0!important;background:var(--surface)!important;}#root{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:-' + bottomInset + 'px!important;background:var(--surface)!important;overflow:hidden!important;}.app-shell{padding-top:' + topInset + 'px!important;padding-bottom:' + bottomInset + 'px!important;}.content-area{background:var(--bg)!important;}.bottom-nav{flex-shrink:0!important;}';
         document.head.appendChild(s);
       }
     })();
     // Auto-reload on new deploy — checks version every 60s
     (function() {
-      var BUILD_VERSION = '20260412b';
+      var BUILD_VERSION = '20260412c';
       setInterval(function() {
         fetch('/version.txt?t=' + Date.now()).then(function(r) { return r.text(); }).then(function(v) {
           if (v.trim() && v.trim() !== BUILD_VERSION) { window.location.reload(); }
@@ -78,13 +78,14 @@
   <script crossorigin src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <link rel="stylesheet" href="/styles.css?v=1774540000">
+  <link rel="stylesheet" href="/styles.css?v=1774550000">
   <style>
     /* Critical layout — inlined to bypass PWA cache */
     html, body { position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; margin: 0; padding: 0; background: var(--surface); }
-    #root { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
+    #root { position: fixed; top: 0; left: 0; right: 0; bottom: calc(0px - env(safe-area-inset-bottom, 0px)); }
     .app-shell {
       padding-top: env(safe-area-inset-top, 0px) !important;
+      padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     }
     /* iOS standalone PWA fallback when env() returns 0 */
     @media screen and (display-mode: standalone) {
