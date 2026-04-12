@@ -143,8 +143,8 @@
           const suitSet = new Set(combo.map(c => c.suit));
           const rankSet = new Set(combo.map(c => c.rank));
           if (suitSet.size === n && rankSet.size === n) {
-            // Valid n-card badugi — score by ranks ascending (lower = better), A=1
-            const vals = combo.map(c => RANK_VAL[c.rank] === 14 ? 1 : RANK_VAL[c.rank]).sort((a, b) => a - b);
+            // Valid n-card badugi — score by ranks descending (highest card dominates, lower = better), A=1
+            const vals = combo.map(c => RANK_VAL[c.rank] === 14 ? 1 : RANK_VAL[c.rank]).sort((a, b) => b - a);
             const P = 15;
             let score = 0;
             for (let i = 0; i < vals.length; i++) score += vals[i] * Math.pow(P, n - 1 - i);
