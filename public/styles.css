@@ -305,17 +305,17 @@
     button, input, select, textarea { font-family: inherit; }
 
     /* ── Layout shell ── */
-    #root { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; }
+    #root { display: flex; flex-direction: column; min-height: 100%; }
 
     .app-shell {
       display: flex; flex-direction: column; overflow: hidden;
-      flex: 1;
+      height: 100vh; height: 100dvh;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     .top-bar {
       height: var(--header-h);
-      padding-top: env(safe-area-inset-top, 0px);
-      box-sizing: content-box;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       display: flex;
@@ -2152,8 +2152,7 @@
 
     /* ── Bottom tab bar ── */
     .bottom-nav {
-      height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+      height: var(--tab-h);
       background: var(--surface);
       border-top: 1px solid var(--border);
       display: flex;
