@@ -3699,7 +3699,7 @@
             const formData = new FormData();
             formData.append('image', file);
             const token = localStorage.getItem('token');
-            const resp = await fetch('/api/scan-table', {
+            const resp = await fetch(API_URL + '/scan-table', {
               method: 'POST',
               headers: token ? { Authorization: 'Bearer ' + token } : {},
               body: formData,
@@ -3774,7 +3774,7 @@
             formData.append('image', file);
             formData.append('format', 'wsop');
             const token = localStorage.getItem('token');
-            const resp = await fetch('/api/scan-table', {
+            const resp = await fetch(API_URL + '/scan-table', {
               method: 'POST',
               headers: token ? { Authorization: 'Bearer ' + token } : {},
               body: formData,
@@ -5819,7 +5819,7 @@
       const doGeoSearch = useCallback((q) => {
         if (!q || q.length < 2) { setGeoResults([]); return; }
         setGeoLoading(true);
-        fetch(`/api/geocode?q=${encodeURIComponent(q)}`, {
+        fetch(`${API_URL}/geocode?q=${encodeURIComponent(q)}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
           .then(r => r.json())
@@ -9587,7 +9587,7 @@
 
       const handleAcceptGroupInvite = async (inviteId) => {
         try {
-          const res = await fetch(`/api/group-invites/${inviteId}/accept`, {
+          const res = await fetch(`${API_URL}/group-invites/${inviteId}/accept`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -9600,7 +9600,7 @@
 
       const handleDeclineGroupInvite = async (inviteId) => {
         try {
-          const res = await fetch(`/api/group-invites/${inviteId}/decline`, {
+          const res = await fetch(`${API_URL}/group-invites/${inviteId}/decline`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -9610,7 +9610,7 @@
 
       const handleAcceptBuddy = async (requestId) => {
         try {
-          const res = await fetch(`/api/share-request/${requestId}/accept`, {
+          const res = await fetch(`${API_URL}/share-request/${requestId}/accept`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -9623,7 +9623,7 @@
 
       const handleDeclineBuddy = async (requestId) => {
         try {
-          const res = await fetch(`/api/share-request/${requestId}/reject`, {
+          const res = await fetch(`${API_URL}/share-request/${requestId}/reject`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -10852,7 +10852,7 @@
 
       const fetchNotifications = async () => {
         try {
-          const res = await fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } });
+          const res = await fetch(API_URL + '/notifications', { headers: { Authorization: `Bearer ${token}` } });
           if (res.ok) {
             const data = await res.json();
             setNotifications({
@@ -10867,7 +10867,7 @@
 
       const markNotificationsSeen = async () => {
         try {
-          await fetch('/api/seen-notifications', {
+          await fetch(API_URL + '/seen-notifications', {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -11054,7 +11054,7 @@
       };
 
       const adminEditTournament = async (tournamentId, fields) => {
-        const res = await fetch(`/api/tournaments/${tournamentId}`, {
+        const res = await fetch(`${API_URL}/tournaments/${tournamentId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(fields),

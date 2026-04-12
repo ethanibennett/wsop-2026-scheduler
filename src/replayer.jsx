@@ -1890,7 +1890,7 @@
           setDrawDiscardAnims(function(prev) { return prev.map(function(a) { return Object.assign({}, a, { phase: 'fade' }); }); });
         }, 600);
         var t2 = setTimeout(function() { setDrawDiscardAnims([]); }, 1000);
-        return function() { clearTimeout(t1); clearTimeout(t2); };
+        return function() { clearTimeout(t1); clearTimeout(t2); setDrawDiscardAnims([]); };
       }, [streetIdx, actionIdx, isDrawGame, hand, rSettings.animateDeal]);
 
       // Keyboard shortcuts: arrows, space, Home, End

@@ -3447,7 +3447,7 @@ function TableScanner() {
         const formData = new FormData();
         formData.append("image", file);
         const token = localStorage.getItem("token");
-        const resp = await fetch("/api/scan-table", {
+        const resp = await fetch(API_URL + "/scan-table", {
           method: "POST",
           headers: token ? { Authorization: "Bearer " + token } : {},
           body: formData
@@ -3515,7 +3515,7 @@ function TableScanner() {
         formData.append("image", file);
         formData.append("format", "wsop");
         const token = localStorage.getItem("token");
-        const resp = await fetch("/api/scan-table", {
+        const resp = await fetch(API_URL + "/scan-table", {
           method: "POST",
           headers: token ? { Authorization: "Bearer " + token } : {},
           body: formData
@@ -5260,7 +5260,7 @@ function LocationDropdown({ rect, filters, setFiltersWithScroll, setLocationDrop
       return;
     }
     setGeoLoading(true);
-    fetch(`/api/geocode?q=${encodeURIComponent(q)}`, {
+    fetch(`${API_URL}/geocode?q=${encodeURIComponent(q)}`, {
       headers: { "Authorization": `Bearer ${token}` }
     }).then((r) => r.json()).then((data) => {
       setGeoResults(data.results || []);
@@ -8314,7 +8314,7 @@ function NotificationsPanel({ notifications, token, onClose, fetchNotifications,
   const isEmpty = groupInvites.length === 0 && buddyRequests.length === 0 && acceptedBuddies.length === 0 && swapSuggestions.length === 0;
   const handleAcceptGroupInvite = /* @__PURE__ */ __name(async (inviteId) => {
     try {
-      const res = await fetch(`/api/group-invites/${inviteId}/accept`, {
+      const res = await fetch(`${API_URL}/group-invites/${inviteId}/accept`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -8327,7 +8327,7 @@ function NotificationsPanel({ notifications, token, onClose, fetchNotifications,
   }, "handleAcceptGroupInvite");
   const handleDeclineGroupInvite = /* @__PURE__ */ __name(async (inviteId) => {
     try {
-      const res = await fetch(`/api/group-invites/${inviteId}/decline`, {
+      const res = await fetch(`${API_URL}/group-invites/${inviteId}/decline`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -8337,7 +8337,7 @@ function NotificationsPanel({ notifications, token, onClose, fetchNotifications,
   }, "handleDeclineGroupInvite");
   const handleAcceptBuddy = /* @__PURE__ */ __name(async (requestId) => {
     try {
-      const res = await fetch(`/api/share-request/${requestId}/accept`, {
+      const res = await fetch(`${API_URL}/share-request/${requestId}/accept`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -8350,7 +8350,7 @@ function NotificationsPanel({ notifications, token, onClose, fetchNotifications,
   }, "handleAcceptBuddy");
   const handleDeclineBuddy = /* @__PURE__ */ __name(async (requestId) => {
     try {
-      const res = await fetch(`/api/share-request/${requestId}/reject`, {
+      const res = await fetch(`${API_URL}/share-request/${requestId}/reject`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -9425,7 +9425,7 @@ function App() {
   }, "fetchGroupSchedule");
   const fetchNotifications = /* @__PURE__ */ __name(async () => {
     try {
-      const res = await fetch("/api/notifications", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(API_URL + "/notifications", { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         setNotifications({
@@ -9440,7 +9440,7 @@ function App() {
   }, "fetchNotifications");
   const markNotificationsSeen = /* @__PURE__ */ __name(async () => {
     try {
-      await fetch("/api/seen-notifications", {
+      await fetch(API_URL + "/seen-notifications", {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -9639,7 +9639,7 @@ function App() {
     }
   }, "handleAvatarRemove");
   const adminEditTournament = /* @__PURE__ */ __name(async (tournamentId, fields) => {
-    const res = await fetch(`/api/tournaments/${tournamentId}`, {
+    const res = await fetch(`${API_URL}/tournaments/${tournamentId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(fields)

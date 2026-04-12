@@ -1867,6 +1867,7 @@ function HandReplayerReplay({ hand, onEdit, onBack, cardSplay }) {
     return function() {
       clearTimeout(t1);
       clearTimeout(t2);
+      setDrawDiscardAnims([]);
     };
   }, [streetIdx, actionIdx, isDrawGame, hand, rSettings.animateDeal]);
   useEffect(function() {
