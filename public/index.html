@@ -51,14 +51,12 @@
   <script crossorigin src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <link rel="stylesheet" href="/styles.css?v=1774480291">
+  <link rel="stylesheet" href="/styles.css?v=1774530000">
   </style>
 </head>
 <body>
   <div id="splash" style="position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);transition:opacity 0.4s ease-out;">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -10 110 110" style="width:80px;height:80px;fill:var(--text);opacity:0.7;margin-bottom:20px;">
-      <path d="m25.129 72.754h-2.9102c-0.86328 0-1.5625 0.69922-1.5625 1.5625v8.1562h-3.9922c-0.86719 0-1.5625 0.69922-1.5625 1.5625v9.7148c0 0.86328 0.69531 1.5625 1.5625 1.5625h66.668c0.86719 0 1.5625-0.69922 1.5625-1.5625v-9.7148c0-0.86328-0.69531-1.5625-1.5625-1.5625h-3.9922v-8.1562c0-0.86328-0.69922-1.5625-1.5625-1.5625h-2.9102c8.4023-7.0508 13.73-17.637 13.73-29.461 0-21.305-17.297-38.602-38.602-38.602-21.305 0-38.602 17.297-38.602 38.602 0 11.824 5.3281 22.414 13.73 29.461zm56.645 12.844v6.5898h-63.543v-6.5898zm-5.5547-9.7188v6.5938h-52.438v-6.5938zm-45.879-3.125c-9.5469-6.3203-15.82-17.164-15.82-29.461 0-19.582 15.898-35.477 35.477-35.477 19.582 0 35.477 15.898 35.477 35.477 0 12.297-6.2734 23.145-15.82 29.461h-39.316-0.003907zm46.328-38.234c0.91016 2.7578 1.3984 5.7109 1.3984 8.7734 0 0.86328 0.69922 1.5625 1.5625 1.5625 0.86328 0 1.5625-0.69922 1.5625-1.5625 0-3.4023-0.54688-6.6797-1.5547-9.75-0.26953-0.82031-1.1523-1.2656-1.9727-0.99219-0.82031 0.26953-1.2656 1.1523-0.99609 1.9727zm-26.668-19.297c9.6406 0 18.148 4.8672 23.207 12.281 0.48438 0.71094 1.4609 0.89844 2.1719 0.41016 0.71094-0.48437 0.89844-1.4609 0.41016-2.1719-5.6172-8.2344-15.074-13.645-25.789-13.645-0.86328 0-1.5625 0.69922-1.5625 1.5625 0 0.85938 0.69922 1.5625 1.5625 1.5625z" fill-rule="evenodd"/>
-    </svg>
+    <img src="/favicon.svg" alt="" style="width:80px;height:80px;margin-bottom:20px;" />
     <h1 style="font-family:'Libre Baskerville',Georgia,serif;font-size:1.6rem;color:var(--text);letter-spacing:-0.02em;margin:0;">futurega.me</h1>
     <p style="font-family:'Univers Condensed','Univers',sans-serif;font-size:0.8rem;color:var(--text-muted);margin-top:4px;">spring/summer 2026</p>
   </div>
@@ -74,7 +72,7 @@
           setTimeout(function() {
             splash.style.opacity = '0';
             setTimeout(function() { splash.remove(); }, 400);
-          }, 600);
+          }, 1500);
         }
       });
       obs.observe(document.getElementById('root'), { childList: true });
