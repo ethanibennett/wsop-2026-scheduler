@@ -347,6 +347,36 @@
 
     var DEFAULT_OPP_NAMES = ['Jason Blodgett', 'Keith McCormack', 'Alex Charron', 'Kevin DiPasquale', 'Cristian Gutierrez', 'Derek Nold', 'Anthony Hall', 'Aidan Long'];
 
+    // Load table scan player names from localStorage (set by TableScanner)
+    function getTableScanNames() {
+      try {
+        var raw = localStorage.getItem('tableScanPlayers');
+        if (!raw) return null;
+        var players = JSON.parse(raw);
+        if (!Array.isArray(players) || players.length === 0) return null;
+        return players;
+      } catch { return null; }
+    }
+
+    // Get player name for seat index, using scan data if available
+    function getSeatName(idx, heroIdx, heroName) {
+      var scan = getTableScanNames();
+      if (scan && scan.length > 0) {
+        // Find the hero in scan data (isHero flag or match by heroName)
+        var heroScanIdx = scan.findIndex(function(p) { return p.isHero; });
+        if (heroScanIdx < 0) heroScanIdx = 0;
+        // Map replayer seat index to scan index, rotating so heroScanIdx aligns with heroIdx
+        var offset = (idx - heroIdx + scan.length) % scan.length;
+        var scanIdx = (heroScanIdx + offset) % scan.length;
+        if (scan[scanIdx] && scan[scanIdx].name) {
+          if (idx === heroIdx) return heroName || scan[scanIdx].name;
+          return scan[scanIdx].name;
+        }
+      }
+      if (idx === 0) return heroName || 'Hero';
+      return DEFAULT_OPP_NAMES[idx - 1] || 'Opp ' + idx;
+    }
+
     function getStudPositionLabels(numPlayers) {
       return Array.from({ length: numPlayers }, function(_, i) { return 'Seat ' + (i + 1); });
     }
@@ -354,13 +384,14 @@
     function createEmptyHand(gameType, heroName) {
       const streetDef = getStreetDef(gameType);
       const gameCfg = HAND_CONFIG[gameType] || HAND_CONFIG_DEFAULT;
+      var scan = getTableScanNames();
       // OFC: 2-3 players, no blinds/positions
       if (gameType === 'OFC') {
         const numPlayers = 2;
         return {
           gameType,
           players: Array.from({ length: numPlayers }, function(_, i) {
-            return { name: i === 0 ? (heroName || 'Hero') : (DEFAULT_OPP_NAMES[i - 1] || 'Opp ' + i), position: i === 0 ? 'BTN' : 'BB', startingStack: 0 };
+            return { name: getSeatName(i, 0, heroName), position: i === 0 ? 'BTN' : 'BB', startingStack: 0 };
           }),
           blinds: { sb: 0, bb: 0, ante: 0 },
           streets: streetDef.streets.map((name, i) => ({
@@ -377,13 +408,15 @@
           result: null,
         };
       }
-      const numPlayers = gameCfg.isStud ? 8 : 6;
+      // Use scan player count if available, clamped to 2-10
+      var defaultNum = gameCfg.isStud ? 8 : 6;
+      const numPlayers = scan ? Math.max(2, Math.min(10, scan.length)) : defaultNum;
       const positions = gameCfg.isStud ? getStudPositionLabels(numPlayers) : getPositionLabels(numPlayers);
       const defaultAnte = (gameCfg.hasBoard && !gameCfg.isStud) ? 200 : 0;
       return {
         gameType,
         players: Array.from({ length: numPlayers }, function(_, i) {
-          return { name: i === 0 ? (heroName || 'Hero') : (DEFAULT_OPP_NAMES[i - 1] || 'Opp ' + i), position: positions[i] || '', startingStack: 50000 };
+          return { name: getSeatName(i, 0, heroName), position: positions[i] || '', startingStack: 50000 };
         }),
         blinds: { sb: 100, bb: 200, ante: defaultAnte },
         streets: streetDef.streets.map((name, i) => ({
@@ -764,7 +797,7 @@
             {(category === 'draw_triple' || category === 'draw_single') && currentStreetIdx > 0 && (
               <div className="replayer-draw-section">
                 <div className="replayer-draw-label">
-                  {currentStreet.name || ('Draw ' + currentStreetIdx)} -- Discards & Draws
+                  {currentStreet.name || 'Draw'} -- Discards & Draws
                 </div>
                 {hand.players.map((p, pi) => {
                   const draw = (currentStreet.draws || []).find(d => d.player === pi);
@@ -1561,6 +1594,9 @@
       }, [streetIdx]);
       useEffect(function() { prevStreetRef.current = streetIdx; }, [streetIdx]);
 
+      // Draw discard animation state
+      const [drawDiscardAnims, setDrawDiscardAnims] = useState([]); // [{id, playerIdx, count, phase}]
+
       // Fold, showdown, and street-clear effects are placed after currentActions is declared (below)
 
       // Flying chip helper
@@ -1681,9 +1717,8 @@
             return cards;
           }
           if (isDrawGame) {
-            var base = hand.streets[0]?.cards.opponents?.[oppSlot] || '';
-            var oppDraws = getPlayerDrawsByStreet(hand, pi);
-            return computeDrawHand(base, oppDraws, streetIdx - 1);
+            // Opponent cards are entered as their final showdown hand — don't apply draws
+            return hand.streets[0]?.cards.opponents?.[oppSlot] || '';
           }
           return hand.streets[0]?.cards.opponents?.[oppSlot] || '';
         });
@@ -1838,6 +1873,25 @@
       useEffect(() => {
         if (showResult && playing) setPlaying(false);
       }, [showResult, playing]);
+
+      // Trigger draw discard animation when entering a draw street
+      useEffect(function() {
+        if (!isDrawGame || !rSettings.animateDeal) return;
+        var st = hand.streets[streetIdx];
+        if (!st || !st.draws || st.draws.length === 0) return;
+        // Only animate when street just changed (actionIdx reset to -1)
+        if (actionIdx !== -1) return;
+        var anims = st.draws.map(function(d, i) {
+          return { id: streetIdx + '-' + d.player + '-' + i, playerIdx: d.player, count: d.discarded, phase: 'fly' };
+        }).filter(function(a) { return a.count > 0; });
+        if (anims.length === 0) return;
+        setDrawDiscardAnims(anims);
+        var t1 = setTimeout(function() {
+          setDrawDiscardAnims(function(prev) { return prev.map(function(a) { return Object.assign({}, a, { phase: 'fade' }); }); });
+        }, 600);
+        var t2 = setTimeout(function() { setDrawDiscardAnims([]); }, 1000);
+        return function() { clearTimeout(t1); clearTimeout(t2); };
+      }, [streetIdx, actionIdx, isDrawGame, hand, rSettings.animateDeal]);
 
       // Keyboard shortcuts: arrows, space, Home, End
       useEffect(function() {
@@ -2366,6 +2420,11 @@
                     {handName && (
                       <div className="replayer-seat-hand-name">{handName}</div>
                     )}
+                    {isDrawGame && currentStreet.draws && currentStreet.draws.length > 0 && (() => {
+                      var d = currentStreet.draws.find(function(dr) { return dr.player === pi; });
+                      if (!d) return null;
+                      return <div className="replayer-seat-draw-badge">{d.discarded === 0 ? 'Pat' : 'D' + d.discarded}</div>;
+                    })()}
                   </div>
                 );
               });
@@ -2466,7 +2525,28 @@
                 });
               });
 
-              return [...seatEls, ...betChips, dealerEl, ...flyChipEls];
+              // Render draw discard animations
+              var drawDiscardEls = [];
+              if (drawDiscardAnims.length > 0) {
+                drawDiscardAnims.forEach(function(anim) {
+                  var seatPos = seats[anim.playerIdx] || [50, 50];
+                  for (var ci = 0; ci < Math.min(anim.count, 5); ci++) {
+                    var spread = (ci - (anim.count - 1) / 2) * 8;
+                    drawDiscardEls.push(React.createElement('div', {
+                      key: 'dd-' + anim.id + '-' + ci,
+                      className: 'replayer-draw-discard-card' + (anim.phase === 'fade' ? ' fade-out' : ''),
+                      style: {
+                        '--dd-x0': seatPos[0] + '%',
+                        '--dd-y0': seatPos[1] + '%',
+                        '--dd-spread': spread + 'px',
+                        animationDelay: (ci * 60) + 'ms',
+                      },
+                    }));
+                  }
+                });
+              }
+
+              return [...seatEls, ...betChips, dealerEl, ...flyChipEls, ...drawDiscardEls];
             })()}
           </div>
 
@@ -2627,6 +2707,7 @@
       const [currentStreetIdx, setCurrentStreetIdx] = useState(0);
       const [showRaiseInput, setShowRaiseInput] = useState(false);
       const [betAmount, setBetAmount] = useState('');
+      const [showHeroCardPicker, setShowHeroCardPicker] = useState(false);
       var studDealTargetState = useState(0);
       const activeSeatRef = useRef(null);
 
@@ -2875,10 +2956,12 @@
 
       var setNumPlayers = function(n) {
         setHand(function(prev) {
+          var heroI = prev.players.findIndex(function(p) { return p.name === (heroName || 'Hero'); });
+          if (heroI < 0) heroI = 0;
           var positions = getPositionLabels(n);
           var players = Array.from({ length: n }, function(_, i) {
             if (prev.players[i]) return Object.assign({}, prev.players[i], { position: positions[i] || '' });
-            return { name: i === 0 ? (prev.players[0] ? prev.players[0].name : 'Hero') : (DEFAULT_OPP_NAMES[i - 1] || 'Opp ' + i), position: positions[i] || '', startingStack: prev.players[0] ? prev.players[0].startingStack : 50000 };
+            return { name: getSeatName(i, heroI, heroName), position: positions[i] || '', startingStack: prev.players[0] ? prev.players[0].startingStack : 50000 };
           });
           var streets = prev.streets.map(function(s) {
             return Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: Array.from({ length: n - 1 }, function(_, j) { return (s.cards.opponents && s.cards.opponents[j]) || ''; }) }) });
@@ -3020,7 +3103,7 @@
             var newOfcRows = Object.assign({}, prev.ofcRows || {});
             for (var i = 0; i < n; i++) {
               if (prev.players[i]) { players.push(prev.players[i]); }
-              else { players.push({ name: i === 0 ? (heroName || 'Hero') : (DEFAULT_OPP_NAMES[i - 1] || 'Opp ' + i), position: '', startingStack: 0 }); }
+              else { players.push({ name: getSeatName(i, 0, heroName), position: '', startingStack: 0 }); }
               if (!newOfcRows[i]) newOfcRows[i] = { top: '', middle: '', bottom: '' };
             }
             return Object.assign({}, prev, { players: players, ofcRows: newOfcRows });
@@ -3078,7 +3161,7 @@
             </div></div>
             <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 0'}}>
               <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
-              <button className="btn btn-primary btn-sm" onClick={function() { setPhase(category === 'ofc' ? 'ofc_entry' : 'hero_cards'); }}>Next</button>
+              <button className="btn btn-primary btn-sm" onClick={function() { setPhase(category === 'ofc' ? 'ofc_entry' : gameCfg.isStud ? 'door_cards' : 'action'); }}>Next</button>
             </div>
           </div>
         );
@@ -3412,7 +3495,7 @@
             </div>
             <div className="gto-street-card">
               <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
-                <button className="btn btn-ghost btn-sm" onClick={function() { setPhase('hero_cards'); }}>Back</button>
+                <button className="btn btn-ghost btn-sm" onClick={function() { setPhase('setup'); }}>Back</button>
                 <button className="btn btn-primary btn-sm" onClick={function() { setPhase('action'); }}>Start Action</button>
               </div>
             </div>
@@ -3494,22 +3577,60 @@
                     var de = (currentStreet.draws || []).find(function(d) { return d.player === pi; });
                     if (!de) return null;
                     var isPat = de.discarded === 0;
-                    var curHand = getDrawPlayerHand(pi);
+                    var isHero = pi === (hand.heroIdx != null ? hand.heroIdx : 0);
+                    var curHand = isHero ? getDrawPlayerHand(pi) : null;
                     return (
                       <div key={pi} style={{marginBottom:'10px',padding:'8px 10px',background:'var(--surface2)',borderRadius:'6px'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom: isHero ? '6px' : '0'}}>
                           <span style={{fontWeight:700,fontSize:'0.78rem'}}>{p.name}</span>
                           <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>{p.position}</span>
                           {isPat && <span className="replayer-draw-pat-badge">Stand Pat</span>}
                           {!isPat && <span className="replayer-draw-count-badge">Discards {de.discarded}</span>}
                         </div>
-                        {curHand && <div style={{marginBottom:'4px'}}><span style={{fontSize:'0.6rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.03em'}}>Current Hand</span><CardRow text={curHand} max={gameCfg.heroCards || 5} /></div>}
-                        {!isPat && (
-                          <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                        {isHero && curHand && (function() {
+                          var handCards = parseCardNotation(curHand);
+                          var discardedSet = new Set(parseCardNotation(de.discardedCards || '').map(function(c) { return c.rank + c.suit; }));
+                          var toggleDiscard = function(card) {
+                            if (isPat) return;
+                            var cardKey = card.rank + card.suit;
+                            var currentDiscarded = parseCardNotation(de.discardedCards || '');
+                            var currentSet = new Set(currentDiscarded.map(function(c) { return c.rank + c.suit; }));
+                            var newDiscarded;
+                            if (currentSet.has(cardKey)) {
+                              newDiscarded = currentDiscarded.filter(function(c) { return (c.rank + c.suit) !== cardKey; }).map(function(c) { return c.rank + c.suit; }).join('');
+                            } else {
+                              if (currentDiscarded.length >= de.discarded) return;
+                              newDiscarded = (de.discardedCards || '') + cardKey;
+                            }
+                            updateDrawCardsFn(pi, 'discardedCards', newDiscarded);
+                          };
+                          return (
+                            <div style={{marginBottom:'4px'}}>
+                              <span style={{fontSize:'0.6rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.03em'}}>
+                                {isPat ? 'Current Hand' : 'Tap to select discards'}
+                              </span>
+                              <div className="card-row" style={{gap:'2px',flexWrap:'nowrap'}}>
+                                {handCards.map(function(c, ci) {
+                                  var isDiscarded = discardedSet.has(c.rank + c.suit);
+                                  return React.createElement('img', {
+                                    key: ci,
+                                    className: 'card-img draw-selectable' + (isDiscarded ? ' draw-discarded' : ''),
+                                    src: '/cards/cards_gui_' + c.rank + c.suit + '.svg',
+                                    alt: c.rank + c.suit,
+                                    loading: 'eager',
+                                    onClick: function() { toggleDiscard(c); },
+                                    style: { cursor: isPat ? 'default' : 'pointer' }
+                                  });
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        {isHero && !isPat && (
+                          <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'4px'}}>
                             <div className="replayer-field" style={{flex:1,minWidth:'80px'}}>
                               <label style={{fontSize:'0.55rem'}}>Discarded</label>
                               <input type="text" placeholder={'e.g. 7h3c'} value={de.discardedCards || ''} onChange={function(e) { updateDrawCardsFn(pi, 'discardedCards', e.target.value); }} />
-                              {de.discardedCards && <CardRow text={de.discardedCards} max={de.discarded} />}
                             </div>
                             <div className="replayer-field" style={{flex:1,minWidth:'80px'}}>
                               <label style={{fontSize:'0.55rem'}}>New Cards</label>
@@ -3548,6 +3669,17 @@
                   var isCurrentTarget = pi === currentDrawPlayer;
                   var curHand = getDrawPlayerHand(pi);
 
+                  // Build draw history for this player across previous streets
+                  var drawHistory = [];
+                  for (var si = 0; si < currentStreetIdx; si++) {
+                    var pastStreet = hand.streets[si];
+                    if (!pastStreet || !pastStreet.draws || !pastStreet.draws.length) continue;
+                    var pastDraw = pastStreet.draws.find(function(d) { return d.player === pi; });
+                    if (pastDraw) {
+                      drawHistory.push(pastDraw.discarded === 0 ? 'Pat' : 'D' + pastDraw.discarded);
+                    }
+                  }
+
                   return (
                     <div key={pi} className={'gto-seat' + (isCurrentTarget ? ' active' : '') + (isDeclared ? ' gto-draw-declared' : '')}
                       style={{marginBottom:'6px'}}>
@@ -3566,6 +3698,11 @@
                               </span>
                             )}
                           </div>
+                          {drawHistory.length > 0 && (
+                            <div className="gto-seat-draw-history">
+                              {drawHistory.join(' / ')}
+                            </div>
+                          )}
                         </div>
                         {curHand && <div style={{padding:'4px 10px'}}><CardRow text={curHand} max={gameCfg.heroCards || 5} /></div>}
                         {isCurrentTarget && !isDeclared && (
@@ -4331,9 +4468,29 @@
                         if (!accumulated) return null;
                         return <span className="gto-seat-hero-cards" style={dimStyle}><CardRow text={accumulated} stud={true} max={7} /></span>;
                       })()
-                      : i === heroIdx && hand.streets[0] && hand.streets[0].cards.hero && (
-                        <span className="gto-seat-hero-cards"><CardRow text={hand.streets[0].cards.hero} max={gameCfg.heroCards || 2} /></span>
-                      )}
+                      : (function() {
+                        /* Draw & community games: show hero's current hand (after draws) */
+                        if (i !== heroIdx) return null;
+                        var isDrawGame = category === 'draw_triple' || category === 'draw_single';
+                        var baseCards = '';
+                        if (hand.streets[0]) baseCards = hand.streets[0].cards.hero || '';
+                        if (!baseCards) return null;
+                        var displayCards = isDrawGame ? computeDrawHand(baseCards, getPlayerDrawsByStreet(hand, i), currentStreetIdx - 1) : baseCards;
+                        return <span className="gto-seat-hero-cards">
+                          <CardRow text={displayCards} max={gameCfg.heroCards || 2} />
+                        </span>;
+                      })()}
+                      {(category === 'draw_triple' || category === 'draw_single') && (function() {
+                        var dh = [];
+                        for (var si = 0; si < currentStreetIdx; si++) {
+                          var ps = hand.streets[si];
+                          if (!ps || !ps.draws || !ps.draws.length) continue;
+                          var pd = ps.draws.find(function(d) { return d.player === i; });
+                          if (pd) dh.push(pd.discarded === 0 ? 'Pat' : 'D' + pd.discarded);
+                        }
+                        if (dh.length === 0) return null;
+                        return <span className="gto-seat-draw-history">{dh.join(' / ')}</span>;
+                      })()}
                       {act && !isActive && <span className={'gto-seat-result-badge ' + act.action}>{actionLabel}</span>}
                     </div>
                   </div>
@@ -4342,6 +4499,67 @@
                   <div className="gto-seat-detail-wrap">
                     <div className="gto-seat-detail-inner">
                       <div className="gto-seat-detail">
+                        {/* Hero card picker — shows when hero is active */}
+                        {i === heroIdx && isActive && !gameCfg.isStud && (function() {
+                          var hcBase = (hand.streets[0] && hand.streets[0].cards.hero) || '';
+                          var isDrawGame = category === 'draw_triple' || category === 'draw_single';
+                          var hcDisplay = isDrawGame ? computeDrawHand(hcBase, getPlayerDrawsByStreet(hand, i), currentStreetIdx - 1) : hcBase;
+                          var hcParsed = parseCardNotation(hcDisplay);
+                          var hcSet = new Set(hcParsed.map(function(c) { return c.rank + c.suit; }));
+                          var hcMaxCards = gameCfg.heroCards || 2;
+                          var heroHasCards = hcParsed.length >= hcMaxCards;
+                          var pickerOpen = showHeroCardPicker || !heroHasCards;
+                          if (!pickerOpen) return null;
+                          var hcRanks = ['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+                          var hcSuits = [
+                            { key: 'h', color: '#ef4444' },
+                            { key: 'd', color: '#3b82f6' },
+                            { key: 'c', color: '#22c55e' },
+                            { key: 's', color: 'var(--text)' }
+                          ];
+                          var toggleCard = function(card) {
+                            setHand(function(prev) {
+                              var base = (prev.streets[0] && prev.streets[0].cards.hero) || '';
+                              var curParsed = parseCardNotation(base);
+                              var curSet = new Set(curParsed.map(function(c) { return c.rank + c.suit; }));
+                              if (curSet.has(card)) {
+                                var newCards = curParsed.filter(function(c) { return (c.rank + c.suit) !== card; }).map(function(c) { return c.rank + c.suit; }).join('');
+                              } else {
+                                if (curParsed.length >= hcMaxCards) return prev;
+                                var newCards = base + card;
+                              }
+                              var streets = prev.streets.map(function(s, si) {
+                                return si === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { hero: newCards }) }) : s;
+                              });
+                              return Object.assign({}, prev, { streets: streets });
+                            });
+                          };
+                          return (
+                            <div style={{padding:'6px 8px',borderBottom: heroHasCards ? '1px solid var(--border)' : 'none'}}>
+                              <div style={{fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',marginBottom:'4px',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.04em'}}>
+                                {heroHasCards ? 'Edit Cards' : 'Select Your Cards'}
+                              </div>
+                              <div className="card-picker-grid" style={{gap:'3px'}}>
+                                {hcSuits.map(function(suit) {
+                                  return React.createElement(React.Fragment, { key: suit.key },
+                                    hcRanks.map(function(rank) {
+                                      var card = rank + suit.key;
+                                      var isSelected = hcSet.has(card);
+                                      var cls = 'card-picker-btn' + (isSelected ? ' selected' : '');
+                                      return React.createElement('button', {
+                                        key: card, className: cls,
+                                        onClick: function() { toggleCard(card); }
+                                      }, React.createElement('img', {
+                                        src: '/cards/cards_gui_' + rank + suit.key + '.svg',
+                                        alt: card, loading: 'eager'
+                                      }));
+                                    })
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {/* Stud bring-in: first action on 3rd street for the bring-in player */}
                         {gameCfg.isStud && currentStreetIdx === 0 && studInfo && studInfo.bringInIdx === currentActor && !(currentStreet.actions || []).length ? (
                           <div className="gto-action-row">

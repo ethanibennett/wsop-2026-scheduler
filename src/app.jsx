@@ -2916,7 +2916,10 @@
       // PS Live has mixed backgrounds: white rows (dark text) and dark/purple rows (light text).
       // Strategy: per-row normalization — detect each row's background brightness and
       // invert dark rows so all text ends up dark-on-light for Tesseract.
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Failed to read image'));
+        reader.onload = () => {
         const img = new Image();
         img.onload = () => {
           const scale = 3;
@@ -2966,7 +2969,9 @@
           ctx.putImageData(id, 0, 0);
           c.toBlob((blob) => resolve({ gray3x: blob }), 'image/png');
         };
-        img.src = URL.createObjectURL(file);
+        img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
       });
     }
 
@@ -3215,7 +3220,10 @@
     }
 
     function preprocessImage(file) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Failed to read image'));
+        reader.onload = () => {
         const img = new Image();
         img.onload = () => {
           // Step 1: Detect the green table felt region
@@ -3295,7 +3303,9 @@
             resolve({ tableBlob, headerBlob: headerBlob ? await headerBlob : null });
           }, 'image/png');
         };
-        img.src = URL.createObjectURL(file);
+        img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
       });
     }
 
@@ -3357,6 +3367,15 @@
       const ovalRef = useRef(null);
       const fileRef = useRef(null);
       const colorRef = useRef(null);
+
+      // Persist scan results so the hand replayer can use them
+      useEffect(() => {
+        if (state === 'results' && players.length > 0) {
+          try {
+            localStorage.setItem('tableScanPlayers', JSON.stringify(players));
+          } catch {}
+        }
+      }, [state, players]);
 
       const SCANNER_LAYOUTS = {
         2:  [[50,12],[50,88]],
@@ -10251,7 +10270,7 @@
     // Street definitions by game category
     const STREET_DEFS = {
       community: { streets: ['Preflop', 'Flop', 'Turn', 'River'], boardCards: [0, 3, 1, 1] },
-      draw_triple: { streets: ['Pre-Draw', 'Draw 1', 'Draw 2', 'Draw 3'], boardCards: [0, 0, 0, 0] },
+      draw_triple: { streets: ['Pre-Draw', 'First Draw', 'Second Draw', 'Third Draw'], boardCards: [0, 0, 0, 0] },
       draw_single: { streets: ['Pre-Draw', 'Draw'], boardCards: [0, 0] },
       stud: { streets: ['3rd Street', '4th Street', '5th Street', '6th Street', '7th Street'], boardCards: [0, 0, 0, 0, 0] },
       ofc: { streets: ['Initial (5)', 'Card 6', 'Card 7', 'Card 8', 'Card 9', 'Card 10', 'Card 11', 'Card 12', 'Card 13'], boardCards: [0, 0, 0, 0, 0, 0, 0, 0, 0] },

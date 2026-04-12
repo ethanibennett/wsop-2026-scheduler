@@ -328,6 +328,36 @@ function ChipStack({ amount }) {
 }
 __name(ChipStack, "ChipStack");
 var DEFAULT_OPP_NAMES = ["Jason Blodgett", "Keith McCormack", "Alex Charron", "Kevin DiPasquale", "Cristian Gutierrez", "Derek Nold", "Anthony Hall", "Aidan Long"];
+function getTableScanNames() {
+  try {
+    var raw = localStorage.getItem("tableScanPlayers");
+    if (!raw) return null;
+    var players = JSON.parse(raw);
+    if (!Array.isArray(players) || players.length === 0) return null;
+    return players;
+  } catch (e) {
+    return null;
+  }
+}
+__name(getTableScanNames, "getTableScanNames");
+function getSeatName(idx, heroIdx, heroName) {
+  var scan = getTableScanNames();
+  if (scan && scan.length > 0) {
+    var heroScanIdx = scan.findIndex(function(p) {
+      return p.isHero;
+    });
+    if (heroScanIdx < 0) heroScanIdx = 0;
+    var offset = (idx - heroIdx + scan.length) % scan.length;
+    var scanIdx = (heroScanIdx + offset) % scan.length;
+    if (scan[scanIdx] && scan[scanIdx].name) {
+      if (idx === heroIdx) return heroName || scan[scanIdx].name;
+      return scan[scanIdx].name;
+    }
+  }
+  if (idx === 0) return heroName || "Hero";
+  return DEFAULT_OPP_NAMES[idx - 1] || "Opp " + idx;
+}
+__name(getSeatName, "getSeatName");
 function getStudPositionLabels(numPlayers) {
   return Array.from({ length: numPlayers }, function(_, i) {
     return "Seat " + (i + 1);
@@ -337,12 +367,13 @@ __name(getStudPositionLabels, "getStudPositionLabels");
 function createEmptyHand(gameType, heroName) {
   const streetDef = getStreetDef(gameType);
   const gameCfg = HAND_CONFIG[gameType] || HAND_CONFIG_DEFAULT;
+  var scan = getTableScanNames();
   if (gameType === "OFC") {
     const numPlayers2 = 2;
     return {
       gameType,
       players: Array.from({ length: numPlayers2 }, function(_, i) {
-        return { name: i === 0 ? heroName || "Hero" : DEFAULT_OPP_NAMES[i - 1] || "Opp " + i, position: i === 0 ? "BTN" : "BB", startingStack: 0 };
+        return { name: getSeatName(i, 0, heroName), position: i === 0 ? "BTN" : "BB", startingStack: 0 };
       }),
       blinds: { sb: 0, bb: 0, ante: 0 },
       streets: streetDef.streets.map((name, i) => ({
@@ -359,13 +390,14 @@ function createEmptyHand(gameType, heroName) {
       result: null
     };
   }
-  const numPlayers = gameCfg.isStud ? 8 : 6;
+  var defaultNum = gameCfg.isStud ? 8 : 6;
+  const numPlayers = scan ? Math.max(2, Math.min(10, scan.length)) : defaultNum;
   const positions = gameCfg.isStud ? getStudPositionLabels(numPlayers) : getPositionLabels(numPlayers);
   const defaultAnte = gameCfg.hasBoard && !gameCfg.isStud ? 200 : 0;
   return {
     gameType,
     players: Array.from({ length: numPlayers }, function(_, i) {
-      return { name: i === 0 ? heroName || "Hero" : DEFAULT_OPP_NAMES[i - 1] || "Opp " + i, position: positions[i] || "", startingStack: 5e4 };
+      return { name: getSeatName(i, 0, heroName), position: positions[i] || "", startingStack: 5e4 };
     }),
     blinds: { sb: 100, bb: 200, ante: defaultAnte },
     streets: streetDef.streets.map((name, i) => ({
@@ -659,7 +691,7 @@ function HandReplayerEntry({ hand, setHand, onDone, onCancel }) {
       max: gameCfg.heroCards,
       placeholderCount: !(currentStreet.cards.opponents || [])[oi] ? gameCfg.heroCards : 0
     }
-  ))), (category === "draw_triple" || category === "draw_single") && currentStreetIdx > 0 && /* @__PURE__ */ React.createElement("div", { className: "replayer-draw-section" }, /* @__PURE__ */ React.createElement("div", { className: "replayer-draw-label" }, currentStreet.name || "Draw " + currentStreetIdx, " -- Discards & Draws"), hand.players.map((p, pi) => {
+  ))), (category === "draw_triple" || category === "draw_single") && currentStreetIdx > 0 && /* @__PURE__ */ React.createElement("div", { className: "replayer-draw-section" }, /* @__PURE__ */ React.createElement("div", { className: "replayer-draw-label" }, currentStreet.name || "Draw", " -- Discards & Draws"), hand.players.map((p, pi) => {
     const draw = (currentStreet.draws || []).find((d) => d.player === pi);
     const discardCount = draw ? draw.discarded : 0;
     const isPatText = discardCount === 0 && draw ? " (Stand Pat)" : "";
@@ -1541,6 +1573,7 @@ function HandReplayerReplay({ hand, onEdit, onBack, cardSplay }) {
   useEffect(function() {
     prevStreetRef.current = streetIdx;
   }, [streetIdx]);
+  const [drawDiscardAnims, setDrawDiscardAnims] = useState([]);
   var spawnFlyingChips = useCallback(function(fromPct, toPct, count, toWinner) {
     if (!tableRef.current) return;
     var rect = tableRef.current.getBoundingClientRect();
@@ -1658,9 +1691,7 @@ function HandReplayerReplay({ hand, onEdit, onBack, cardSplay }) {
         return cards;
       }
       if (isDrawGame) {
-        var base = ((_d = (_c = hand.streets[0]) == null ? void 0 : _c.cards.opponents) == null ? void 0 : _d[oppSlot]) || "";
-        var oppDraws = getPlayerDrawsByStreet(hand, pi);
-        return computeDrawHand(base, oppDraws, streetIdx - 1);
+        return ((_d = (_c = hand.streets[0]) == null ? void 0 : _c.cards.opponents) == null ? void 0 : _d[oppSlot]) || "";
       }
       return ((_f = (_e = hand.streets[0]) == null ? void 0 : _e.cards.opponents) == null ? void 0 : _f[oppSlot]) || "";
     });
@@ -1811,6 +1842,33 @@ function HandReplayerReplay({ hand, onEdit, onBack, cardSplay }) {
   useEffect(() => {
     if (showResult && playing) setPlaying(false);
   }, [showResult, playing]);
+  useEffect(function() {
+    if (!isDrawGame || !rSettings.animateDeal) return;
+    var st = hand.streets[streetIdx];
+    if (!st || !st.draws || st.draws.length === 0) return;
+    if (actionIdx !== -1) return;
+    var anims = st.draws.map(function(d, i) {
+      return { id: streetIdx + "-" + d.player + "-" + i, playerIdx: d.player, count: d.discarded, phase: "fly" };
+    }).filter(function(a) {
+      return a.count > 0;
+    });
+    if (anims.length === 0) return;
+    setDrawDiscardAnims(anims);
+    var t1 = setTimeout(function() {
+      setDrawDiscardAnims(function(prev) {
+        return prev.map(function(a) {
+          return Object.assign({}, a, { phase: "fade" });
+        });
+      });
+    }, 600);
+    var t2 = setTimeout(function() {
+      setDrawDiscardAnims([]);
+    }, 1e3);
+    return function() {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [streetIdx, actionIdx, isDrawGame, hand, rSettings.animateDeal]);
   useEffect(function() {
     var handler = /* @__PURE__ */ __name(function(e) {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
@@ -2317,7 +2375,14 @@ function HandReplayerReplay({ hand, onEdit, onBack, cardSplay }) {
           if (lastAct.amount) label += " " + formatChipAmount(lastAct.amount);
           return /* @__PURE__ */ React.createElement("div", { className: "replayer-action-badge-outer " + badgeClass }, label);
         })(),
-        handName && /* @__PURE__ */ React.createElement("div", { className: "replayer-seat-hand-name" }, handName)
+        handName && /* @__PURE__ */ React.createElement("div", { className: "replayer-seat-hand-name" }, handName),
+        isDrawGame && currentStreet.draws && currentStreet.draws.length > 0 && (() => {
+          var d = currentStreet.draws.find(function(dr) {
+            return dr.player === pi;
+          });
+          if (!d) return null;
+          return /* @__PURE__ */ React.createElement("div", { className: "replayer-seat-draw-badge" }, d.discarded === 0 ? "Pat" : "D" + d.discarded);
+        })()
       );
     });
     const betChips = hand.players.map((p, pi) => {
@@ -2412,7 +2477,26 @@ function HandReplayerReplay({ hand, onEdit, onBack, cardSplay }) {
         }
       });
     });
-    return [...seatEls, ...betChips, dealerEl, ...flyChipEls];
+    var drawDiscardEls = [];
+    if (drawDiscardAnims.length > 0) {
+      drawDiscardAnims.forEach(function(anim) {
+        var seatPos = seats[anim.playerIdx] || [50, 50];
+        for (var ci = 0; ci < Math.min(anim.count, 5); ci++) {
+          var spread = (ci - (anim.count - 1) / 2) * 8;
+          drawDiscardEls.push(React.createElement("div", {
+            key: "dd-" + anim.id + "-" + ci,
+            className: "replayer-draw-discard-card" + (anim.phase === "fade" ? " fade-out" : ""),
+            style: {
+              "--dd-x0": seatPos[0] + "%",
+              "--dd-y0": seatPos[1] + "%",
+              "--dd-spread": spread + "px",
+              animationDelay: ci * 60 + "ms"
+            }
+          }));
+        }
+      });
+    }
+    return [...seatEls, ...betChips, dealerEl, ...flyChipEls, ...drawDiscardEls];
   })()), (category === "draw_triple" || category === "draw_single") && currentStreet.draws && currentStreet.draws.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "replayer-draw-info-bar" }, /* @__PURE__ */ React.createElement("div", { className: "replayer-draw-info-label" }, currentStreet.name || "Draw"), /* @__PURE__ */ React.createElement("div", { className: "replayer-draw-info-players" }, currentStreet.draws.map((d) => {
     var _a;
     var pName = ((_a = hand.players[d.player]) == null ? void 0 : _a.name) || "?";
@@ -2464,6 +2548,7 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
   const [currentStreetIdx, setCurrentStreetIdx] = useState(0);
   const [showRaiseInput, setShowRaiseInput] = useState(false);
   const [betAmount, setBetAmount] = useState("");
+  const [showHeroCardPicker, setShowHeroCardPicker] = useState(false);
   var studDealTargetState = useState(0);
   const activeSeatRef = useRef(null);
   var gameCfg = HAND_CONFIG[hand.gameType] || HAND_CONFIG_DEFAULT;
@@ -2706,10 +2791,14 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
   }, "updatePlayerField");
   var setNumPlayers = /* @__PURE__ */ __name(function(n) {
     setHand(function(prev) {
+      var heroI = prev.players.findIndex(function(p) {
+        return p.name === (heroName || "Hero");
+      });
+      if (heroI < 0) heroI = 0;
       var positions = getPositionLabels(n);
       var players = Array.from({ length: n }, function(_, i) {
         if (prev.players[i]) return Object.assign({}, prev.players[i], { position: positions[i] || "" });
-        return { name: i === 0 ? prev.players[0] ? prev.players[0].name : "Hero" : DEFAULT_OPP_NAMES[i - 1] || "Opp " + i, position: positions[i] || "", startingStack: prev.players[0] ? prev.players[0].startingStack : 5e4 };
+        return { name: getSeatName(i, heroI, heroName), position: positions[i] || "", startingStack: prev.players[0] ? prev.players[0].startingStack : 5e4 };
       });
       var streets = prev.streets.map(function(s) {
         return Object.assign({}, s, { cards: Object.assign({}, s.cards, { opponents: Array.from({ length: n - 1 }, function(_, j) {
@@ -2817,7 +2906,7 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
           if (prev.players[i]) {
             players.push(prev.players[i]);
           } else {
-            players.push({ name: i === 0 ? heroName || "Hero" : DEFAULT_OPP_NAMES[i - 1] || "Opp " + i, position: "", startingStack: 0 });
+            players.push({ name: getSeatName(i, 0, heroName), position: "", startingStack: 0 });
           }
           if (!newOfcRows[i]) newOfcRows[i] = { top: "", middle: "", bottom: "" };
         }
@@ -2862,7 +2951,7 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
         updatePlayerField(i, "startingStack", e.target.value);
       }, placeholder: "Stack" })));
     }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "6px", justifyContent: "flex-end", padding: "10px 0" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: onCancel }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-primary btn-sm", onClick: function() {
-      setPhase(category === "ofc" ? "ofc_entry" : "hero_cards");
+      setPhase(category === "ofc" ? "ofc_entry" : gameCfg.isStud ? "door_cards" : "action");
     } }, "Next")));
   }
   if (phase === "ofc_entry") {
@@ -3177,7 +3266,7 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
         })
       );
     })))), /* @__PURE__ */ React.createElement("div", { className: "gto-street-card" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "6px", justifyContent: "flex-end", padding: "10px 12px" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: function() {
-      setPhase("hero_cards");
+      setPhase("setup");
     } }, "Back"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-primary btn-sm", onClick: function() {
       setPhase("action");
     } }, "Start Action"))));
@@ -3248,10 +3337,50 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
         });
         if (!de) return null;
         var isPat = de.discarded === 0;
-        var curHand = getDrawPlayerHand(pi);
-        return /* @__PURE__ */ React.createElement("div", { key: pi, style: { marginBottom: "10px", padding: "8px 10px", background: "var(--surface2)", borderRadius: "6px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: "0.78rem" } }, p.name), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)" } }, p.position), isPat && /* @__PURE__ */ React.createElement("span", { className: "replayer-draw-pat-badge" }, "Stand Pat"), !isPat && /* @__PURE__ */ React.createElement("span", { className: "replayer-draw-count-badge" }, "Discards ", de.discarded)), curHand && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "4px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.03em" } }, "Current Hand"), /* @__PURE__ */ React.createElement(CardRow, { text: curHand, max: gameCfg.heroCards || 5 })), !isPat && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { className: "replayer-field", style: { flex: 1, minWidth: "80px" } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: "0.55rem" } }, "Discarded"), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "e.g. 7h3c", value: de.discardedCards || "", onChange: function(e) {
+        var isHero = pi === (hand.heroIdx != null ? hand.heroIdx : 0);
+        var curHand = isHero ? getDrawPlayerHand(pi) : null;
+        return /* @__PURE__ */ React.createElement("div", { key: pi, style: { marginBottom: "10px", padding: "8px 10px", background: "var(--surface2)", borderRadius: "6px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: isHero ? "6px" : "0" } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: "0.78rem" } }, p.name), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--text-muted)" } }, p.position), isPat && /* @__PURE__ */ React.createElement("span", { className: "replayer-draw-pat-badge" }, "Stand Pat"), !isPat && /* @__PURE__ */ React.createElement("span", { className: "replayer-draw-count-badge" }, "Discards ", de.discarded)), isHero && curHand && (function() {
+          var handCards = parseCardNotation(curHand);
+          var discardedSet = new Set(parseCardNotation(de.discardedCards || "").map(function(c) {
+            return c.rank + c.suit;
+          }));
+          var toggleDiscard = /* @__PURE__ */ __name(function(card) {
+            if (isPat) return;
+            var cardKey = card.rank + card.suit;
+            var currentDiscarded = parseCardNotation(de.discardedCards || "");
+            var currentSet = new Set(currentDiscarded.map(function(c) {
+              return c.rank + c.suit;
+            }));
+            var newDiscarded;
+            if (currentSet.has(cardKey)) {
+              newDiscarded = currentDiscarded.filter(function(c) {
+                return c.rank + c.suit !== cardKey;
+              }).map(function(c) {
+                return c.rank + c.suit;
+              }).join("");
+            } else {
+              if (currentDiscarded.length >= de.discarded) return;
+              newDiscarded = (de.discardedCards || "") + cardKey;
+            }
+            updateDrawCardsFn(pi, "discardedCards", newDiscarded);
+          }, "toggleDiscard");
+          return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "4px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.03em" } }, isPat ? "Current Hand" : "Tap to select discards"), /* @__PURE__ */ React.createElement("div", { className: "card-row", style: { gap: "2px", flexWrap: "nowrap" } }, handCards.map(function(c, ci) {
+            var isDiscarded = discardedSet.has(c.rank + c.suit);
+            return React.createElement("img", {
+              key: ci,
+              className: "card-img draw-selectable" + (isDiscarded ? " draw-discarded" : ""),
+              src: "/cards/cards_gui_" + c.rank + c.suit + ".svg",
+              alt: c.rank + c.suit,
+              loading: "eager",
+              onClick: /* @__PURE__ */ __name(function() {
+                toggleDiscard(c);
+              }, "onClick"),
+              style: { cursor: isPat ? "default" : "pointer" }
+            });
+          })));
+        })(), isHero && !isPat && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "4px" } }, /* @__PURE__ */ React.createElement("div", { className: "replayer-field", style: { flex: 1, minWidth: "80px" } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: "0.55rem" } }, "Discarded"), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "e.g. 7h3c", value: de.discardedCards || "", onChange: function(e) {
           updateDrawCardsFn(pi, "discardedCards", e.target.value);
-        } }), de.discardedCards && /* @__PURE__ */ React.createElement(CardRow, { text: de.discardedCards, max: de.discarded })), /* @__PURE__ */ React.createElement("div", { className: "replayer-field", style: { flex: 1, minWidth: "80px" } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: "0.55rem" } }, "New Cards"), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "e.g. Ah5s", value: de.newCards || "", onChange: function(e) {
+        } })), /* @__PURE__ */ React.createElement("div", { className: "replayer-field", style: { flex: 1, minWidth: "80px" } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: "0.55rem" } }, "New Cards"), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "e.g. Ah5s", value: de.newCards || "", onChange: function(e) {
           updateDrawCardsFn(pi, "newCards", e.target.value);
         } }), de.newCards && /* @__PURE__ */ React.createElement(CardRow, { text: de.newCards, max: de.discarded }))));
       }))), /* @__PURE__ */ React.createElement("div", { className: "gto-street-card" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "6px", justifyContent: "flex-end", padding: "10px 12px" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ghost btn-sm", onClick: function() {
@@ -3269,6 +3398,17 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
       var isDeclared = !!existingDraw;
       var isCurrentTarget = pi === currentDrawPlayer;
       var curHand = getDrawPlayerHand(pi);
+      var drawHistory = [];
+      for (var si = 0; si < currentStreetIdx; si++) {
+        var pastStreet = hand.streets[si];
+        if (!pastStreet || !pastStreet.draws || !pastStreet.draws.length) continue;
+        var pastDraw = pastStreet.draws.find(function(d) {
+          return d.player === pi;
+        });
+        if (pastDraw) {
+          drawHistory.push(pastDraw.discarded === 0 ? "Pat" : "D" + pastDraw.discarded);
+        }
+      }
       return /* @__PURE__ */ React.createElement(
         "div",
         {
@@ -3277,7 +3417,7 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
           style: { marginBottom: "6px" }
         },
         /* @__PURE__ */ React.createElement("div", { className: "gto-seat-strip" }, p.position),
-        /* @__PURE__ */ React.createElement("div", { className: "gto-seat-content" }, /* @__PURE__ */ React.createElement("div", { className: "gto-seat-bar" }, /* @__PURE__ */ React.createElement("div", { className: "gto-seat-row1" }, /* @__PURE__ */ React.createElement("span", { className: "gto-seat-pos" }, p.position), /* @__PURE__ */ React.createElement("span", { className: "gto-seat-stack" }, formatChipAmount(currentStacks[pi]))), /* @__PURE__ */ React.createElement("div", { className: "gto-seat-row2" }, /* @__PURE__ */ React.createElement("span", { className: "gto-seat-name" }, p.name), isDeclared && /* @__PURE__ */ React.createElement("span", { className: "gto-seat-result-badge check", style: { marginLeft: "auto" } }, existingDraw.discarded === 0 ? "Stand Pat" : "Drew " + existingDraw.discarded))), curHand && /* @__PURE__ */ React.createElement("div", { style: { padding: "4px 10px" } }, /* @__PURE__ */ React.createElement(CardRow, { text: curHand, max: gameCfg.heroCards || 5 })), isCurrentTarget && !isDeclared && /* @__PURE__ */ React.createElement("div", { className: "gto-draw-buttons" }, /* @__PURE__ */ React.createElement("button", { className: "gto-draw-btn pat", onClick: function() {
+        /* @__PURE__ */ React.createElement("div", { className: "gto-seat-content" }, /* @__PURE__ */ React.createElement("div", { className: "gto-seat-bar" }, /* @__PURE__ */ React.createElement("div", { className: "gto-seat-row1" }, /* @__PURE__ */ React.createElement("span", { className: "gto-seat-pos" }, p.position), /* @__PURE__ */ React.createElement("span", { className: "gto-seat-stack" }, formatChipAmount(currentStacks[pi]))), /* @__PURE__ */ React.createElement("div", { className: "gto-seat-row2" }, /* @__PURE__ */ React.createElement("span", { className: "gto-seat-name" }, p.name), isDeclared && /* @__PURE__ */ React.createElement("span", { className: "gto-seat-result-badge check", style: { marginLeft: "auto" } }, existingDraw.discarded === 0 ? "Stand Pat" : "Drew " + existingDraw.discarded)), drawHistory.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "gto-seat-draw-history" }, drawHistory.join(" / "))), curHand && /* @__PURE__ */ React.createElement("div", { style: { padding: "4px 10px" } }, /* @__PURE__ */ React.createElement(CardRow, { text: curHand, max: gameCfg.heroCards || 5 })), isCurrentTarget && !isDeclared && /* @__PURE__ */ React.createElement("div", { className: "gto-draw-buttons" }, /* @__PURE__ */ React.createElement("button", { className: "gto-draw-btn pat", onClick: function() {
           addDraw(pi, 0);
         } }, "Stand Pat"), Array.from({ length: maxDiscard }, function(_, n) {
           return n + 1;
@@ -3955,7 +4095,91 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
         }
         if (!accumulated) return null;
         return /* @__PURE__ */ React.createElement("span", { className: "gto-seat-hero-cards", style: dimStyle }, /* @__PURE__ */ React.createElement(CardRow, { text: accumulated, stud: true, max: 7 }));
-      })() : i === heroIdx && hand.streets[0] && hand.streets[0].cards.hero && /* @__PURE__ */ React.createElement("span", { className: "gto-seat-hero-cards" }, /* @__PURE__ */ React.createElement(CardRow, { text: hand.streets[0].cards.hero, max: gameCfg.heroCards || 2 })), act && !isActive && /* @__PURE__ */ React.createElement("span", { className: "gto-seat-result-badge " + act.action }, actionLabel))), /* @__PURE__ */ React.createElement("div", { className: "gto-seat-detail-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "gto-seat-detail-inner" }, /* @__PURE__ */ React.createElement("div", { className: "gto-seat-detail" }, gameCfg.isStud && currentStreetIdx === 0 && studInfo && studInfo.bringInIdx === currentActor && !(currentStreet.actions || []).length ? /* @__PURE__ */ React.createElement("div", { className: "gto-action-row" }, /* @__PURE__ */ React.createElement("button", { className: "gto-action-btn", onClick: function() {
+      })() : (function() {
+        if (i !== heroIdx) return null;
+        var isDrawGame = category === "draw_triple" || category === "draw_single";
+        var baseCards = "";
+        if (hand.streets[0]) baseCards = hand.streets[0].cards.hero || "";
+        if (!baseCards) return null;
+        var displayCards = isDrawGame ? computeDrawHand(baseCards, getPlayerDrawsByStreet(hand, i), currentStreetIdx - 1) : baseCards;
+        return /* @__PURE__ */ React.createElement("span", { className: "gto-seat-hero-cards" }, /* @__PURE__ */ React.createElement(CardRow, { text: displayCards, max: gameCfg.heroCards || 2 }));
+      })(), (category === "draw_triple" || category === "draw_single") && (function() {
+        var dh = [];
+        for (var si = 0; si < currentStreetIdx; si++) {
+          var ps = hand.streets[si];
+          if (!ps || !ps.draws || !ps.draws.length) continue;
+          var pd = ps.draws.find(function(d) {
+            return d.player === i;
+          });
+          if (pd) dh.push(pd.discarded === 0 ? "Pat" : "D" + pd.discarded);
+        }
+        if (dh.length === 0) return null;
+        return /* @__PURE__ */ React.createElement("span", { className: "gto-seat-draw-history" }, dh.join(" / "));
+      })(), act && !isActive && /* @__PURE__ */ React.createElement("span", { className: "gto-seat-result-badge " + act.action }, actionLabel))), /* @__PURE__ */ React.createElement("div", { className: "gto-seat-detail-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "gto-seat-detail-inner" }, /* @__PURE__ */ React.createElement("div", { className: "gto-seat-detail" }, i === heroIdx && isActive && !gameCfg.isStud && (function() {
+        var hcBase = hand.streets[0] && hand.streets[0].cards.hero || "";
+        var isDrawGame = category === "draw_triple" || category === "draw_single";
+        var hcDisplay = isDrawGame ? computeDrawHand(hcBase, getPlayerDrawsByStreet(hand, i), currentStreetIdx - 1) : hcBase;
+        var hcParsed = parseCardNotation(hcDisplay);
+        var hcSet = new Set(hcParsed.map(function(c) {
+          return c.rank + c.suit;
+        }));
+        var hcMaxCards = gameCfg.heroCards || 2;
+        var heroHasCards = hcParsed.length >= hcMaxCards;
+        var pickerOpen = showHeroCardPicker || !heroHasCards;
+        if (!pickerOpen) return null;
+        var hcRanks = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"];
+        var hcSuits = [
+          { key: "h", color: "#ef4444" },
+          { key: "d", color: "#3b82f6" },
+          { key: "c", color: "#22c55e" },
+          { key: "s", color: "var(--text)" }
+        ];
+        var toggleCard2 = /* @__PURE__ */ __name(function(card) {
+          setHand(function(prev) {
+            var base = prev.streets[0] && prev.streets[0].cards.hero || "";
+            var curParsed = parseCardNotation(base);
+            var curSet = new Set(curParsed.map(function(c) {
+              return c.rank + c.suit;
+            }));
+            if (curSet.has(card)) {
+              var newCards = curParsed.filter(function(c) {
+                return c.rank + c.suit !== card;
+              }).map(function(c) {
+                return c.rank + c.suit;
+              }).join("");
+            } else {
+              if (curParsed.length >= hcMaxCards) return prev;
+              var newCards = base + card;
+            }
+            var streets = prev.streets.map(function(s, si) {
+              return si === 0 ? Object.assign({}, s, { cards: Object.assign({}, s.cards, { hero: newCards }) }) : s;
+            });
+            return Object.assign({}, prev, { streets });
+          });
+        }, "toggleCard");
+        return /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 8px", borderBottom: heroHasCards ? "1px solid var(--border)" : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.65rem", fontWeight: 700, color: "var(--text-muted)", marginBottom: "4px", fontFamily: "'Univers Condensed','Univers',sans-serif", textTransform: "uppercase", letterSpacing: "0.04em" } }, heroHasCards ? "Edit Cards" : "Select Your Cards"), /* @__PURE__ */ React.createElement("div", { className: "card-picker-grid", style: { gap: "3px" } }, hcSuits.map(function(suit) {
+          return React.createElement(
+            React.Fragment,
+            { key: suit.key },
+            hcRanks.map(function(rank) {
+              var card = rank + suit.key;
+              var isSelected = hcSet.has(card);
+              var cls = "card-picker-btn" + (isSelected ? " selected" : "");
+              return React.createElement("button", {
+                key: card,
+                className: cls,
+                onClick: /* @__PURE__ */ __name(function() {
+                  toggleCard2(card);
+                }, "onClick")
+              }, React.createElement("img", {
+                src: "/cards/cards_gui_" + rank + suit.key + ".svg",
+                alt: card,
+                loading: "eager"
+              }));
+            })
+          );
+        })));
+      })(), gameCfg.isStud && currentStreetIdx === 0 && studInfo && studInfo.bringInIdx === currentActor && !(currentStreet.actions || []).length ? /* @__PURE__ */ React.createElement("div", { className: "gto-action-row" }, /* @__PURE__ */ React.createElement("button", { className: "gto-action-btn", onClick: function() {
         addAction("bring-in", bringInAmount);
       } }, /* @__PURE__ */ React.createElement("span", { className: "gto-action-icon call" }, "⬤"), /* @__PURE__ */ React.createElement("span", { className: "gto-action-label" }, "Bring In ", formatChipAmount(bringInAmount))), /* @__PURE__ */ React.createElement("button", { className: "gto-action-btn", onClick: function() {
         addAction("bet", Math.min(flBetSize, playerStack));

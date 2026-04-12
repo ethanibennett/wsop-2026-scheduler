@@ -940,6 +940,14 @@
       background: var(--surface); border-color: var(--border);
     }
 
+    .gto-seat-draw-history {
+      font-size: 0.6rem; font-weight: 600; color: var(--accent2);
+      padding: 2px 6px; margin-left: auto; letter-spacing: 0.02em;
+      font-family: 'Univers Condensed','Univers',sans-serif;
+      background: rgba(136,136,136,0.15); border-radius: 4px;
+      white-space: nowrap;
+    }
+
     /* Expanded action panel — animated like cal-event-detail-wrap */
     .gto-seat-detail-wrap {
       display: grid;
@@ -1201,6 +1209,15 @@
       background: rgba(34,197,94,0.12); color: #4ade80; font-weight: 600;
       letter-spacing: 0.02em; font-family: 'Univers Condensed','Univers',sans-serif;
     }
+    /* Draw card selection — tap to discard */
+    .card-img.draw-selectable { transition: filter 0.25s ease, opacity 0.25s ease, transform 0.2s ease; }
+    .card-img.draw-selectable:active { transform: scale(0.92); }
+    .card-img.draw-discarded {
+      filter: grayscale(0.8) brightness(0.45);
+      opacity: 0.5;
+      transform: translateY(4px);
+    }
+
     .replayer-draw-discarded-cards { opacity: 0.5; }
     .replayer-draw-discarded-cards .card-img,
     .replayer-draw-discarded-cards .card-classic {
@@ -1480,6 +1497,22 @@
     }
     .replayer-seat.loser .replayer-seat-hand-name { color:#f87171; border-color:rgba(248,113,113,0.4); }
     .replayer-seat.split .replayer-seat-hand-name { color:#facc15; border-color:rgba(250,204,21,0.4); }
+
+    /* Draw discard badge on seat */
+    .replayer-seat-draw-badge {
+      position:absolute; left:50%; transform:translateX(-50%);
+      bottom:-2px;
+      font-size:0.48rem; font-weight:700; font-family:'Univers Condensed','Univers',sans-serif;
+      color:#60a5fa; background:rgba(30,58,138,0.85);
+      border:1px solid rgba(96,165,250,0.4); border-radius:4px;
+      padding:1px 5px; white-space:nowrap;
+      box-shadow:0 1px 3px rgba(0,0,0,0.3);
+      animation:drawBadgePop 0.3s ease-out;
+    }
+    @keyframes drawBadgePop {
+      0% { opacity:0; transform:translateX(-50%) scale(0.7); }
+      100% { opacity:1; transform:translateX(-50%) scale(1); }
+    }
 
     /* Felt color picker & card theme */
     .replayer-options-row {
@@ -2063,6 +2096,27 @@
     @keyframes flyChipToWinner {
       0% { left:var(--fly-x0); top:var(--fly-y0); opacity:1; transform:scale(1); }
       100% { left:var(--fly-x1); top:var(--fly-y1); opacity:0; transform:scale(0.4); }
+    }
+
+    /* ── Draw discard card animation ── */
+    .replayer-draw-discard-card {
+      position:absolute; width:18px; height:26px; border-radius:3px;
+      background:linear-gradient(135deg, #1a3a6a 0%, #0d2240 100%);
+      border:1px solid rgba(255,255,255,0.25);
+      box-shadow:0 2px 6px rgba(0,0,0,0.5);
+      z-index:12; pointer-events:none;
+      animation:drawDiscardFly 0.55s cubic-bezier(0.23,1,0.32,1) forwards;
+    }
+    .replayer-draw-discard-card.fade-out {
+      animation:drawDiscardFade 0.35s ease-out forwards;
+    }
+    @keyframes drawDiscardFly {
+      0% { left:var(--dd-x0); top:var(--dd-y0); opacity:1; transform:translate(-50%,-50%) rotate(0deg) scale(1); }
+      100% { left:50%; top:50%; opacity:0.85; transform:translate(calc(-50% + var(--dd-spread)), -50%) rotate(-8deg) scale(0.85); }
+    }
+    @keyframes drawDiscardFade {
+      0% { left:50%; top:50%; opacity:0.85; transform:translate(calc(-50% + var(--dd-spread)), -50%) rotate(-8deg) scale(0.85); }
+      100% { left:50%; top:50%; opacity:0; transform:translate(calc(-50% + var(--dd-spread)), -50%) rotate(-12deg) scale(0.5); }
     }
 
     /* ── Player stats overlay ── */

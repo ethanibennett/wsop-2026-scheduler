@@ -2575,47 +2575,52 @@ function detectImageFormat(img) {
 }
 __name(detectImageFormat, "detectImageFormat");
 function preprocessPokerStarsImage(file) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = 3;
-      const w = img.width * scale;
-      const h = img.height * scale;
-      const c = document.createElement("canvas");
-      c.width = w;
-      c.height = h;
-      const ctx = c.getContext("2d");
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, 0, w, h);
-      const id = ctx.getImageData(0, 0, w, h);
-      const d = id.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
-        d[i] = d[i + 1] = d[i + 2] = gray;
-      }
-      for (let y = 0; y < h; y++) {
-        let rowSum = 0;
-        for (let x = 0; x < w; x++) {
-          rowSum += d[(y * w + x) * 4];
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = 3;
+        const w = img.width * scale;
+        const h = img.height * scale;
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const ctx = c.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, w, h);
+        const id = ctx.getImageData(0, 0, w, h);
+        const d = id.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const gray = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+          d[i] = d[i + 1] = d[i + 2] = gray;
         }
-        const avgBrightness = rowSum / w;
-        if (avgBrightness < 160) {
+        for (let y = 0; y < h; y++) {
+          let rowSum = 0;
           for (let x = 0; x < w; x++) {
-            const idx = (y * w + x) * 4;
-            d[idx] = d[idx + 1] = d[idx + 2] = 255 - d[idx];
+            rowSum += d[(y * w + x) * 4];
+          }
+          const avgBrightness = rowSum / w;
+          if (avgBrightness < 160) {
+            for (let x = 0; x < w; x++) {
+              const idx = (y * w + x) * 4;
+              d[idx] = d[idx + 1] = d[idx + 2] = 255 - d[idx];
+            }
           }
         }
-      }
-      for (let i = 0; i < d.length; i += 4) {
-        const v = d[i];
-        const stretched = v < 80 ? 0 : v > 180 ? 255 : Math.round((v - 80) * (255 / 100));
-        d[i] = d[i + 1] = d[i + 2] = stretched;
-      }
-      ctx.putImageData(id, 0, 0);
-      c.toBlob((blob) => resolve({ gray3x: blob }), "image/png");
+        for (let i = 0; i < d.length; i += 4) {
+          const v = d[i];
+          const stretched = v < 80 ? 0 : v > 180 ? 255 : Math.round((v - 80) * (255 / 100));
+          d[i] = d[i + 1] = d[i + 2] = stretched;
+        }
+        ctx.putImageData(id, 0, 0);
+        c.toBlob((blob) => resolve({ gray3x: blob }), "image/png");
+      };
+      img.src = reader.result;
     };
-    img.src = URL.createObjectURL(file);
+    reader.readAsDataURL(file);
   });
 }
 __name(preprocessPokerStarsImage, "preprocessPokerStarsImage");
@@ -3015,71 +3020,76 @@ function parsePokerStarsTableFromText(ocrText) {
 }
 __name(parsePokerStarsTableFromText, "parsePokerStarsTableFromText");
 function preprocessImage(file) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const tmpCanvas = document.createElement("canvas");
-      tmpCanvas.width = img.width;
-      tmpCanvas.height = img.height;
-      const tmpCtx = tmpCanvas.getContext("2d");
-      tmpCtx.drawImage(img, 0, 0);
-      const fullPixels = tmpCtx.getImageData(0, 0, img.width, img.height).data;
-      let tableTop = -1, tableBottom = -1;
-      for (let y = 0; y < img.height; y++) {
-        let greenCount = 0;
-        for (let x = 0; x < img.width; x++) {
-          const idx = (y * img.width + x) * 4;
-          const r = fullPixels[idx], g = fullPixels[idx + 1], b = fullPixels[idx + 2];
-          if (g > r * 1.2 && g > b * 1.2 && g > 30) greenCount++;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const tmpCanvas = document.createElement("canvas");
+        tmpCanvas.width = img.width;
+        tmpCanvas.height = img.height;
+        const tmpCtx = tmpCanvas.getContext("2d");
+        tmpCtx.drawImage(img, 0, 0);
+        const fullPixels = tmpCtx.getImageData(0, 0, img.width, img.height).data;
+        let tableTop = -1, tableBottom = -1;
+        for (let y = 0; y < img.height; y++) {
+          let greenCount = 0;
+          for (let x = 0; x < img.width; x++) {
+            const idx = (y * img.width + x) * 4;
+            const r = fullPixels[idx], g = fullPixels[idx + 1], b = fullPixels[idx + 2];
+            if (g > r * 1.2 && g > b * 1.2 && g > 30) greenCount++;
+          }
+          if (greenCount / img.width > 0.1) {
+            if (tableTop === -1) tableTop = y;
+            tableBottom = y;
+          }
         }
-        if (greenCount / img.width > 0.1) {
-          if (tableTop === -1) tableTop = y;
-          tableBottom = y;
+        const pad = Math.round(img.height * 0.02);
+        const cropY = Math.max(0, (tableTop !== -1 ? tableTop : 0) - pad);
+        const cropEnd = Math.min(img.height, (tableBottom !== -1 ? tableBottom : img.height) + pad);
+        const cropH = cropEnd - cropY;
+        let headerBlob = null;
+        if (cropY > 30) {
+          const hCanvas = document.createElement("canvas");
+          const hScale = 2;
+          hCanvas.width = img.width * hScale;
+          hCanvas.height = cropY * hScale;
+          const hCtx = hCanvas.getContext("2d");
+          hCtx.drawImage(img, 0, 0, img.width, cropY, 0, 0, hCanvas.width, hCanvas.height);
+          const hData = hCtx.getImageData(0, 0, hCanvas.width, hCanvas.height);
+          const hd = hData.data;
+          for (let i = 0; i < hd.length; i += 4) {
+            const gray = 0.299 * hd[i] + 0.587 * hd[i + 1] + 0.114 * hd[i + 2];
+            hd[i] = hd[i + 1] = hd[i + 2] = 255 - gray;
+          }
+          hCtx.putImageData(hData, 0, 0);
+          headerBlob = new Promise((r) => hCanvas.toBlob(r, "image/png"));
         }
-      }
-      const pad = Math.round(img.height * 0.02);
-      const cropY = Math.max(0, (tableTop !== -1 ? tableTop : 0) - pad);
-      const cropEnd = Math.min(img.height, (tableBottom !== -1 ? tableBottom : img.height) + pad);
-      const cropH = cropEnd - cropY;
-      let headerBlob = null;
-      if (cropY > 30) {
-        const hCanvas = document.createElement("canvas");
-        const hScale = 2;
-        hCanvas.width = img.width * hScale;
-        hCanvas.height = cropY * hScale;
-        const hCtx = hCanvas.getContext("2d");
-        hCtx.drawImage(img, 0, 0, img.width, cropY, 0, 0, hCanvas.width, hCanvas.height);
-        const hData = hCtx.getImageData(0, 0, hCanvas.width, hCanvas.height);
-        const hd = hData.data;
-        for (let i = 0; i < hd.length; i += 4) {
-          const gray = 0.299 * hd[i] + 0.587 * hd[i + 1] + 0.114 * hd[i + 2];
-          hd[i] = hd[i + 1] = hd[i + 2] = 255 - gray;
+        const scale = 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width * scale;
+        canvas.height = cropH * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, cropY, img.width, cropH, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          const inverted = 255 - gray;
+          const val = inverted < 80 ? Math.max(0, inverted * 0.5) : inverted > 180 ? 255 : Math.round((inverted - 80) / 100 * 255);
+          d[i] = d[i + 1] = d[i + 2] = val;
         }
-        hCtx.putImageData(hData, 0, 0);
-        headerBlob = new Promise((r) => hCanvas.toBlob(r, "image/png"));
-      }
-      const scale = 2;
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width * scale;
-      canvas.height = cropH * scale;
-      const ctx = canvas.getContext("2d");
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, cropY, img.width, cropH, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imageData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-        const inverted = 255 - gray;
-        const val = inverted < 80 ? Math.max(0, inverted * 0.5) : inverted > 180 ? 255 : Math.round((inverted - 80) / 100 * 255);
-        d[i] = d[i + 1] = d[i + 2] = val;
-      }
-      ctx.putImageData(imageData, 0, 0);
-      canvas.toBlob(async (tableBlob) => {
-        resolve({ tableBlob, headerBlob: headerBlob ? await headerBlob : null });
-      }, "image/png");
+        ctx.putImageData(imageData, 0, 0);
+        canvas.toBlob(async (tableBlob) => {
+          resolve({ tableBlob, headerBlob: headerBlob ? await headerBlob : null });
+        }, "image/png");
+      };
+      img.src = reader.result;
     };
-    img.src = URL.createObjectURL(file);
+    reader.readAsDataURL(file);
   });
 }
 __name(preprocessImage, "preprocessImage");
@@ -3138,6 +3148,14 @@ function TableScanner() {
   const ovalRef = useRef(null);
   const fileRef = useRef(null);
   const colorRef = useRef(null);
+  useEffect(() => {
+    if (state === "results" && players.length > 0) {
+      try {
+        localStorage.setItem("tableScanPlayers", JSON.stringify(players));
+      } catch (e) {
+      }
+    }
+  }, [state, players]);
   const SCANNER_LAYOUTS = {
     2: [[50, 12], [50, 88]],
     3: [[50, 12], [85, 75], [15, 75]],
@@ -8830,7 +8848,7 @@ function SettingsView({ username, avatar, realName, nameMode, onToggleNameMode, 
 __name(SettingsView, "SettingsView");
 const STREET_DEFS = {
   community: { streets: ["Preflop", "Flop", "Turn", "River"], boardCards: [0, 3, 1, 1] },
-  draw_triple: { streets: ["Pre-Draw", "Draw 1", "Draw 2", "Draw 3"], boardCards: [0, 0, 0, 0] },
+  draw_triple: { streets: ["Pre-Draw", "First Draw", "Second Draw", "Third Draw"], boardCards: [0, 0, 0, 0] },
   draw_single: { streets: ["Pre-Draw", "Draw"], boardCards: [0, 0] },
   stud: { streets: ["3rd Street", "4th Street", "5th Street", "6th Street", "7th Street"], boardCards: [0, 0, 0, 0, 0] },
   ofc: { streets: ["Initial (5)", "Card 6", "Card 7", "Card 8", "Card 9", "Card 10", "Card 11", "Card 12", "Card 13"], boardCards: [0, 0, 0, 0, 0, 0, 0, 0, 0] }
