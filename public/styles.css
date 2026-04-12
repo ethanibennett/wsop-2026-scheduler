@@ -313,13 +313,16 @@
 
     .top-bar {
       height: var(--header-h);
+      padding-top: env(safe-area-inset-top, 0px);
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
-      position: relative;
+      position: sticky;
+      top: 0;
       justify-content: space-between;
-      padding: 0 16px;
+      padding-left: 16px;
+      padding-right: 16px;
       flex-shrink: 0;
       z-index: 100;
     }
@@ -2093,6 +2096,7 @@
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       padding: 12px 12px 80px; /* bottom pad clears the tab bar */
+      /* no extra margin needed — sticky header/footer stay in flex flow */
     }
     .view-fade {
       animation: viewFadeIn 0.2s ease-out;
@@ -2155,7 +2159,9 @@
       display: flex;
       align-items: stretch;
       flex-shrink: 0;
-      z-index: 10;
+      position: sticky;
+      bottom: 0;
+      z-index: 100;
     }
 
     .nav-tab {
