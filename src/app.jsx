@@ -3662,12 +3662,17 @@
         setEventTitle('');
 
         try {
-          // Detect image format first
+          // Read file as data URL (more reliable than createObjectURL in Capacitor/WKWebView)
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Failed to read image file'));
+            reader.readAsDataURL(file);
+          });
+          // Detect image format
           const formatImg = new Image();
-          const formatUrl = URL.createObjectURL(file);
-          await new Promise((resolve) => { formatImg.onload = resolve; formatImg.src = formatUrl; });
+          await new Promise((resolve, reject) => { formatImg.onload = resolve; formatImg.onerror = reject; formatImg.src = dataUrl; });
           const format = detectImageFormat(formatImg);
-          URL.revokeObjectURL(formatUrl);
 
           if (format === 'pokerstars') {
             // ── PokerStars Live: use Claude Vision API via server ──

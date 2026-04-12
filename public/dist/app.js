@@ -3411,14 +3411,19 @@ function TableScanner() {
     setPlayers([]);
     setEventTitle("");
     try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Failed to read image file"));
+        reader.readAsDataURL(file);
+      });
       const formatImg = new Image();
-      const formatUrl = URL.createObjectURL(file);
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         formatImg.onload = resolve;
-        formatImg.src = formatUrl;
+        formatImg.onerror = reject;
+        formatImg.src = dataUrl;
       });
       const format = detectImageFormat(formatImg);
-      URL.revokeObjectURL(formatUrl);
       if (format === "pokerstars") {
         setProgress(30);
         const formData = new FormData();
