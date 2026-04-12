@@ -65,6 +65,10 @@
     const RESET_MATCH = window.location.hash.match(/^#reset\?token=([a-f0-9]{64})$/);
     const RESET_TOKEN = RESET_MATCH ? RESET_MATCH[1] : null;
 
+    // Detect shared hand URL: /#h/ENCODED_STRING
+    const HAND_MATCH = window.location.hash.match(/^#h\/(.+)$/);
+    const HAND_SHORTHAND = HAND_MATCH ? decodeURIComponent(HAND_MATCH[1]) : null;
+
     // Debug: override "today" for testing via Settings page
     // Stored in localStorage('debugNow') — mutable at runtime
 
@@ -9402,20 +9406,18 @@
           {/* ── Results ── */}
           <div className="dashboard-section">
             <div className="dashboard-section-header">
-              <div style={{display:'flex',alignItems:'center',width:'calc(33.33% - 3px)'}}>
-                <div className="dashboard-section-title">Results</div>
-                {plData.count > 0 && dashRates && (
-                  <select value={dashCurrency} onChange={e => onDashCurrencyChange(e.target.value)}
-                    style={{marginLeft:'auto',fontSize:'0.65rem',padding:'2px 4px',border:'1px solid var(--border)',borderRadius:'5px',
-                      background:'var(--surface)',color:'var(--text)',cursor:'pointer',fontWeight:600}}>
-                    <option value="NATIVE">Native</option>
-                    {Object.keys(CURRENCY_CONFIG).map(c => (
-                      <option key={c} value={c}>{(CURRENCY_CONFIG[c]||{}).symbol} {c}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              {plData.count > 0 && (
+              <div className="dashboard-section-title">Results</div>
+              {plData.count > 0 && dashRates && (
+                <select value={dashCurrency} onChange={e => onDashCurrencyChange(e.target.value)}
+                  style={{marginLeft:'auto',fontSize:'0.65rem',padding:'2px 4px',border:'1px solid var(--border)',borderRadius:'5px',
+                    background:'var(--surface)',color:'var(--text)',cursor:'pointer',fontWeight:600}}>
+                  <option value="NATIVE">Native</option>
+                  {Object.keys(CURRENCY_CONFIG).map(c => (
+                    <option key={c} value={c}>{(CURRENCY_CONFIG[c]||{}).symbol} {c}</option>
+                  ))}
+                </select>
+              )}
+              {plData.count > 0 && !dashRates && (
                 <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
               )}
             </div>
@@ -10247,6 +10249,7 @@
       draw_triple: { streets: ['Pre-Draw', 'Draw 1', 'Draw 2', 'Draw 3'], boardCards: [0, 0, 0, 0] },
       draw_single: { streets: ['Pre-Draw', 'Draw'], boardCards: [0, 0] },
       stud: { streets: ['3rd Street', '4th Street', '5th Street', '6th Street', '7th Street'], boardCards: [0, 0, 0, 0, 0] },
+      ofc: { streets: ['Initial (5)', 'Card 6', 'Card 7', 'Card 8', 'Card 9', 'Card 10', 'Card 11', 'Card 12', 'Card 13'], boardCards: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
     };
 
 
@@ -10316,6 +10319,21 @@
       // ── Hand replayer access ──
       const [handReplayerAccess, setHandReplayerAccess] = useState(localStorage.getItem('handReplayerAccess') === 'true');
 
+      // ── Shared hand from URL hash ──
+      const [sharedHandData, setSharedHandData] = useState(() => {
+        if (HAND_SHORTHAND && window.decodeHand) {
+          try {
+            const decoded = window.decodeHand(HAND_SHORTHAND);
+            if (decoded) {
+              // Clear the hash so refresh doesn't re-trigger
+              if (window.history.replaceState) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              return decoded;
+            }
+          } catch (e) { console.error('Failed to decode shared hand:', e); }
+        }
+        return null;
+      });
+
       // ── Real name / display name state ──
       const [realName, setRealName] = useState(localStorage.getItem('realName') || null);
       const [showRealNamePrompt, setShowRealNamePrompt] = useState(false);
@@ -10381,6 +10399,33 @@
         document.documentElement.dataset.serif = serifFont === 'baskerville' ? '' : serifFont;
         localStorage.setItem('serifFont', serifFont);
       }, [serifFont]);
+
+      // ── If a shared hand was decoded from URL, switch to hands tab on mount ──
+      useEffect(() => {
+        if (sharedHandData) {
+          setCurrentView('hands');
+        }
+      }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+      // ── Listen for hashchange to handle #h/ hand links without full reload ──
+      useEffect(() => {
+        const onHashChange = () => {
+          const m = window.location.hash.match(/^#h\/(.+)$/);
+          if (m && window.decodeHand) {
+            try {
+              const shorthand = decodeURIComponent(m[1]);
+              const decoded = window.decodeHand(shorthand);
+              if (decoded) {
+                setSharedHandData(decoded);
+                setCurrentView('hands');
+                if (window.history.replaceState) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              }
+            } catch (e) { console.error('Failed to decode shared hand from hashchange:', e); }
+          }
+        };
+        window.addEventListener('hashchange', onHashChange);
+        return () => window.removeEventListener('hashchange', onHashChange);
+      }, [setCurrentView]);
 
       const toggleTheme = () => setTheme(t => {
         const i = THEME_ORDER.indexOf(t);
@@ -11311,8 +11356,8 @@
 
             <div className={'tab-panel' + (currentView === 'hands' ? ' tab-active' : '')} data-tab="hands" style={{display: currentView === 'hands' ? undefined : 'none', height: currentView === 'hands' ? '100%' : undefined}}>
             {visitedTabs.has('hands') && (
-              ['ham', 'ham5'].includes((username || '').toLowerCase())
-                ? <HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} />
+              ['ham', 'ham5'].includes((username || '').toLowerCase()) || sharedHandData
+                ? <HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} />
                 : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
                     <div style={{fontSize:'2.5rem',marginBottom:'12px'}}>🃏</div>
                     <h2 style={{fontFamily:"'Univers Condensed', 'Univers', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Hand Replayer</h2>

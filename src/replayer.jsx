@@ -4,6 +4,7 @@
     function getGameCategory(gameType) {
       const cfg = HAND_CONFIG[gameType];
       if (!cfg) return 'community';
+      if (gameType === 'OFC') return 'ofc';
       if (cfg.isStud) return 'stud';
       if (cfg.hasBoard) return 'community';
       // Draw games
@@ -27,17 +28,15 @@
     }
 
     // Position labels based on player count
-    // Standard poker seating: BTN, SB, BB, then early→late positions ending at CO
+    // Preflop action order: early positions → late positions → blinds
     function getPositionLabels(numPlayers) {
       if (numPlayers <= 2) return ['BTN/SB', 'BB'];
       if (numPlayers === 3) return ['BTN', 'SB', 'BB'];
-      // 4–10 players: always BTN/SB/BB, then fill middle seats from a fixed pool
-      // Pool ordered early→late: UTG, UTG+1, UTG+2, LJ, HJ, CO
-      var middle = ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO'];
-      var need = numPlayers - 3; // seats between BB and BTN
-      // Take the last `need` from the pool so CO is always present, then HJ, etc.
+      // 4–10 players: early→late positions, then BTN, SB, BB last
+      var middle = ['UTG', 'UTG+1', 'MP1', 'MP2', 'LJ', 'HJ', 'CO'];
+      var need = numPlayers - 3;
       var picked = middle.slice(Math.max(0, middle.length - need));
-      return ['BTN', 'SB', 'BB'].concat(picked);
+      return picked.concat(['BTN', 'SB', 'BB']);
     }
 
     // Action order: preflop starts at UTG (index 3+), postflop starts at SB (index 1)
@@ -62,19 +61,24 @@
         return indices;
       }
 
+      // Position layout: [early...late, BTN, SB, BB]
+      // BTN = n-3, SB = n-2, BB = n-1 (for 4+ players)
+      var btnIdx = n <= 3 ? 0 : n - 3;
+      var sbIdx = n <= 3 ? (n <= 2 ? 0 : 1) : n - 2;
+      var bbIdx = n <= 2 ? 1 : n - 1;
+
       if (n === 2) {
         // Heads-up: preflop BTN/SB first, postflop BB first
         indices = isPreflop ? [0, 1] : [1, 0];
       } else if (isPreflop) {
-        // Preflop: UTG first (seat 3), then around to BB (seat 2)
-        for (var i = 3; i < n; i++) indices.push(i);
-        indices.push(0); // BTN
-        indices.push(1); // SB
-        indices.push(2); // BB
+        // Preflop: UTG first (seat 0), then around to BB (last seat)
+        for (var i = 0; i < n; i++) indices.push(i);
       } else {
-        // Postflop: SB first (seat 1), then around to BTN (seat 0)
-        for (var i = 1; i < n; i++) indices.push(i);
-        indices.push(0);
+        // Postflop: SB first, then BB, then early positions through BTN
+        indices.push(sbIdx);
+        indices.push(bbIdx);
+        for (var i = 0; i < btnIdx; i++) indices.push(i);
+        indices.push(btnIdx);
       }
       return indices.filter(function(i) { return i < n; });
     }
@@ -268,14 +272,38 @@
     function createEmptyHand(gameType, heroName) {
       const streetDef = getStreetDef(gameType);
       const gameCfg = HAND_CONFIG[gameType] || HAND_CONFIG_DEFAULT;
+      // OFC: 2-3 players, no blinds/positions
+      if (gameType === 'OFC') {
+        const numPlayers = 2;
+        return {
+          gameType,
+          players: Array.from({ length: numPlayers }, function(_, i) {
+            return { name: i === 0 ? (heroName || 'Hero') : (DEFAULT_OPP_NAMES[i - 1] || 'Opp ' + i), position: i === 0 ? 'BTN' : 'BB', startingStack: 0 };
+          }),
+          blinds: { sb: 0, bb: 0, ante: 0 },
+          streets: streetDef.streets.map((name, i) => ({
+            name,
+            cards: { hero: '', opponents: [''], board: '' },
+            actions: [],
+            draws: [],
+          })),
+          ofcRows: {
+            0: { top: '', middle: '', bottom: '' },
+            1: { top: '', middle: '', bottom: '' },
+          },
+          heroIdx: 0,
+          result: null,
+        };
+      }
       const numPlayers = gameCfg.isStud ? 8 : 6;
       const positions = gameCfg.isStud ? getStudPositionLabels(numPlayers) : getPositionLabels(numPlayers);
+      const defaultAnte = (gameCfg.hasBoard && !gameCfg.isStud) ? 200 : 0;
       return {
         gameType,
         players: Array.from({ length: numPlayers }, function(_, i) {
           return { name: i === 0 ? (heroName || 'Hero') : (DEFAULT_OPP_NAMES[i - 1] || 'Opp ' + i), position: positions[i] || '', startingStack: 50000 };
         }),
-        blinds: { sb: 100, bb: 200, ante: 0 },
+        blinds: { sb: 100, bb: 200, ante: defaultAnte },
         streets: streetDef.streets.map((name, i) => ({
           name,
           cards: {
@@ -295,18 +323,27 @@
     function calcPotsAndStacks(hand, upToStreet, upToAction) {
       const blinds = hand.blinds || { sb: 0, bb: 0, ante: 0 };
       const stacks = hand.players.map(p => p.startingStack);
-      let pot = hand.players.length * (blinds.ante || 0);
-      stacks.forEach((_, i) => { stacks[i] -= (blinds.ante || 0); });
+      const category = getGameCategory(hand.gameType);
+      const isBBante = category !== 'stud' && (blinds.ante || 0) > 0;
+
+      if (!isBBante) {
+        // Per-player ante (stud games)
+        stacks.forEach((_, i) => { stacks[i] -= (blinds.ante || 0); });
+      }
+      let pot = isBBante ? 0 : hand.players.length * (blinds.ante || 0);
 
       // Post blinds on first street
       if (hand.streets.length > 0 && hand.streets[0].actions) {
-        const category = getGameCategory(hand.gameType);
         if (category !== 'stud') {
           // SB and BB
           const sbIdx = hand.players.findIndex(p => p.position === 'SB' || p.position === 'BTN/SB');
           const bbIdx = hand.players.findIndex(p => p.position === 'BB');
           if (sbIdx >= 0) { stacks[sbIdx] -= (blinds.sb || 0); pot += (blinds.sb || 0); }
-          if (bbIdx >= 0) { stacks[bbIdx] -= (blinds.bb || 0); pot += (blinds.bb || 0); }
+          if (bbIdx >= 0) {
+            stacks[bbIdx] -= (blinds.bb || 0); pot += (blinds.bb || 0);
+            // BB ante: BB posts an additional ante amount
+            if (isBBante) { stacks[bbIdx] -= (blinds.ante || 0); pot += (blinds.ante || 0); }
+          }
         }
       }
 
@@ -358,43 +395,45 @@
         const raiseCap = gameCfg.raiseCap || 4;
 
         // Track current bet level and raise count
-        var currentBet = 0;
+        // NOTE: amounts in actions are INCREMENTS (chips added), not totals.
+        // playerContrib tracks total committed this street for each player.
+        var maxBet = 0;          // highest total any player has committed this street
         var raiseCount = 0;
-        var totalPot = ante * hand.players.length;
-        var playerInvested = {};
+        var isBBanteCtx = category !== 'stud' && ante > 0;
+        var totalPot = isBBanteCtx ? 0 : ante * hand.players.length;
+        var playerContrib = {};  // total chips committed this street, per player
 
-        // On preflop, SB and BB are implicit
+        // On preflop, SB and BB are implicit — find by position, not hardcoded index
         if (currentStreetIdx === 0 && (gameCfg.hasBoard || !gameCfg.isStud)) {
-          playerInvested[0] = sb; // SB
-          playerInvested[1] = bb; // BB
-          currentBet = bb;
+          var sbIdx = hand.players.findIndex(function(p) { return p.position === 'SB' || p.position === 'BTN/SB'; });
+          var bbIdx = hand.players.findIndex(function(p) { return p.position === 'BB'; });
+          if (sbIdx >= 0) playerContrib[sbIdx] = sb;
+          if (bbIdx >= 0) playerContrib[bbIdx] = bb;
+          maxBet = bb;
           totalPot += sb + bb;
-          raiseCount = 0; // BB counts as the opening "bet", first raise is raise #1
+          // BB ante: BB posts additional ante (dead money, not a bet)
+          if (isBBanteCtx) totalPot += ante;
+          raiseCount = 0;
         }
 
         for (var i = 0; i < actions.length; i++) {
           var act = actions[i];
-          var prevInvested = playerInvested[act.player] || 0;
-          if (act.action === 'bet') {
-            currentBet = act.amount;
-            playerInvested[act.player] = act.amount;
-            totalPot += act.amount - prevInvested;
-            raiseCount = 1;
-          } else if (act.action === 'raise') {
-            currentBet = act.amount;
-            playerInvested[act.player] = act.amount;
-            totalPot += act.amount - prevInvested;
-            raiseCount++;
-          } else if (act.action === 'call') {
-            playerInvested[act.player] = currentBet;
-            totalPot += currentBet - prevInvested;
-          } else if (act.action === 'all-in') {
-            playerInvested[act.player] = act.amount;
-            totalPot += act.amount - prevInvested;
-            if (act.amount > currentBet) {
-              currentBet = act.amount;
-              raiseCount++;
+          var prevContrib = playerContrib[act.player] || 0;
+          if (act.action === 'fold') continue;
+          if (act.action === 'bet' || act.action === 'raise' || act.action === 'call' || act.action === 'all-in') {
+            // act.amount is the INCREMENT (additional chips put in)
+            playerContrib[act.player] = prevContrib + (act.amount || 0);
+            totalPot += (act.amount || 0);
+            if (playerContrib[act.player] > maxBet) {
+              maxBet = playerContrib[act.player];
             }
+            if (act.action === 'bet') raiseCount = 1;
+            else if (act.action === 'raise') raiseCount++;
+            else if (act.action === 'all-in' && playerContrib[act.player] > maxBet) raiseCount++;
+          } else if (act.action === 'bring-in') {
+            playerContrib[act.player] = act.amount || 0;
+            totalPot += (act.amount || 0);
+            if (playerContrib[act.player] > maxBet) maxBet = playerContrib[act.player];
           }
         }
 
@@ -402,25 +441,40 @@
         const foldedPlayers = new Set(actions.filter(a => a.action === 'fold').map(a => a.player));
         const activePlayers = hand.players.map((_, i) => i).filter(i => !foldedPlayers.has(i));
         const nextPlayer = activePlayers[actions.length % activePlayers.length] || 0;
-        const nextPlayerInvested = playerInvested[nextPlayer] || 0;
-        const facingBet = currentBet > nextPlayerInvested;
-        const callAmount = currentBet - nextPlayerInvested;
+        const nextPlayerInvested = playerContrib[nextPlayer] || 0;
+        const facingBet = maxBet > nextPlayerInvested;
+        const callAmount = Math.max(maxBet - nextPlayerInvested, 0);
 
         // Limit: fixed raise amount
         var raiseToAmount = 0;
         var betAmount = 0;
         var potRaiseAmount = 0;
+        var potRaiseIncrement = 0;
         var canRaise = true;
 
         if (betting === 'fl') {
           betAmount = fixedBet;
-          raiseToAmount = currentBet + fixedBet;
+          raiseToAmount = maxBet + fixedBet;
           canRaise = raiseCount < raiseCap;
         } else if (betting === 'pl') {
-          // Pot-limit: max raise = pot after calling
+          // ── Pot-limit max raise: the "trail" formula ──
+          // The maximum raise in pot-limit is calculated as:
+          //   1. Player calls (adding callAmount to pot)
+          //   2. Pot after calling = totalPot + callAmount
+          //   3. Player can then raise BY (pot after calling)
+          //   4. Total raise-to = maxBet + (pot after calling)
+          //   5. Increment = callAmount + (pot after calling)
+          //
+          // Equivalently using the dealer's "trail" shortcut:
+          //   Trail = totalPot - maxBet (dead money: pot minus the live bet)
+          //   Max raise-to = 3 × maxBet + trail = 2 × maxBet + totalPot
+          //   Max raise increment = max raise-to - nextPlayerInvested
+          //
+          // For an opening bet (maxBet = 0): max bet = totalPot
           var potAfterCall = totalPot + callAmount;
-          potRaiseAmount = potAfterCall + currentBet; // raise TO this amount
-          betAmount = totalPot; // opening bet can be up to pot
+          potRaiseAmount = maxBet + potAfterCall;         // raise TO this total
+          potRaiseIncrement = potRaiseAmount - nextPlayerInvested; // chips to add
+          betAmount = totalPot;                           // opening bet max = pot
           raiseToAmount = potRaiseAmount;
         } else {
           // No-limit: any amount
@@ -429,8 +483,8 @@
         }
 
         return {
-          betting, facingBet, currentBet, callAmount, raiseCount, raiseCap,
-          fixedBet, betAmount, raiseToAmount, potRaiseAmount, canRaise,
+          betting, facingBet, currentBet: maxBet, callAmount, raiseCount, raiseCap,
+          fixedBet, betAmount, raiseToAmount, potRaiseAmount, potRaiseIncrement, canRaise,
           nextPlayer, totalPot, nextPlayerInvested
         };
       }, [hand, currentStreetIdx, gameCfg]);
@@ -440,12 +494,26 @@
         var amount = 0;
 
         if (action === 'bet') {
-          amount = ctx.betting === 'fl' ? ctx.fixedBet : (Number(actionAmount) || 0);
+          var rawBet = ctx.betting === 'fl' ? ctx.fixedBet : (Number(actionAmount) || 0);
+          // Pot-limit: cap bet at pot size
+          if (ctx.betting === 'pl') rawBet = Math.min(rawBet, ctx.betAmount);
+          amount = rawBet;
         } else if (action === 'raise') {
-          amount = ctx.betting === 'fl' ? ctx.raiseToAmount : (Number(actionAmount) || 0);
+          if (ctx.betting === 'fl') {
+            // Fixed limit: increment = raise-to minus what player already has in
+            amount = ctx.raiseToAmount - ctx.nextPlayerInvested;
+          } else {
+            // NL/PL: user types the raise-to total, convert to increment
+            var typedTotal = Number(actionAmount) || 0;
+            // Pot-limit: cap at pot-raise-to
+            if (ctx.betting === 'pl') typedTotal = Math.min(typedTotal, ctx.potRaiseAmount);
+            amount = typedTotal - ctx.nextPlayerInvested;
+          }
         } else if (action === 'call') {
-          amount = ctx.currentBet;
+          amount = ctx.callAmount;
         }
+
+        if (amount < 0) amount = 0;
 
         updateStreet(currentStreetIdx, s => {
           const actions = [...(s.actions || []), { player: ctx.nextPlayer, action, amount }];
@@ -532,7 +600,7 @@
                 <input type="text" inputMode="decimal" value={(hand.blinds || {}).bb || ''} onChange={e => setHand(prev => ({ ...prev, blinds: { ...(prev.blinds || {}), bb: Number(e.target.value) || 0 } }))} />
               </div>
               <div className="replayer-field">
-                <label>Ante</label>
+                <label>{category === 'stud' ? 'Ante' : 'BB Ante'}</label>
                 <input type="text" inputMode="decimal" value={(hand.blinds || {}).ante || ''} onChange={e => setHand(prev => ({ ...prev, blinds: { ...(prev.blinds || {}), ante: Number(e.target.value) || 0 } }))} />
               </div>
             </div>
@@ -634,13 +702,15 @@
               <div className="replayer-row" style={{marginTop:'6px',gap:'4px'}}>
                 <div className="replayer-field" style={{flex:'0 0 80px'}}>
                   <input type="text" inputMode="decimal"
-                    placeholder={bettingContext.betting === 'pl' ? 'Amount (max pot)' : 'Amount'}
+                    placeholder={bettingContext.betting === 'pl'
+                      ? (bettingContext.facingBet ? 'Raise to (max ' + formatChipAmount(bettingContext.potRaiseAmount) + ')' : 'Bet (max ' + formatChipAmount(bettingContext.betAmount) + ')')
+                      : 'Amount'}
                     value={actionAmount}
                     onChange={e => setActionAmount(e.target.value)} />
                 </div>
-                {bettingContext.betting === 'pl' && bettingContext.facingBet && (
+                {bettingContext.betting === 'pl' && (
                   <button style={{fontSize:'0.6rem',padding:'2px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}
-                    onClick={() => setActionAmount(String(bettingContext.potRaiseAmount))}>Pot</button>
+                    onClick={() => setActionAmount(String(bettingContext.facingBet ? bettingContext.potRaiseAmount : bettingContext.betAmount))}>{bettingContext.facingBet ? 'Pot Raise' : 'Pot Bet'}</button>
                 )}
               </div>
             )}
@@ -1218,6 +1288,19 @@
       var _showHandStrength = useReplayerSetting('ShowHandStrength', false);
       var _showPotOdds = useReplayerSetting('ShowPotOdds', false);
       var _showCommentary = useReplayerSetting('ShowCommentary', false);
+      const [shareLinkCopied, setShareLinkCopied] = useState(false);
+      const copyShareLink = useCallback(() => {
+        if (!window.encodeHand) return;
+        try {
+          var shorthand = window.encodeHand(hand);
+          if (!shorthand) return;
+          var url = window.location.origin + '/#h/' + encodeURIComponent(shorthand);
+          navigator.clipboard.writeText(url).then(() => {
+            setShareLinkCopied(true);
+            setTimeout(() => setShareLinkCopied(false), 2000);
+          });
+        } catch (e) { console.error('Failed to generate share link:', e); }
+      }, [hand]);
       var _showTimeline = useReplayerSetting('ShowTimeline', true);
       var _showPlayerStats = useReplayerSetting('ShowPlayerStats', false);
       var _showNuts = useReplayerSetting('ShowNutsHighlight', false);
@@ -1426,7 +1509,7 @@
         // Manual result from hand.result (for custom games or overrides)
         if (showResult && hand.result && hand.result.winners) {
           return hand.result.winners.map(w => {
-            var pName = w.playerIdx === 0 ? 'Hero' : (hand.players[w.playerIdx]?.name || 'Player');
+            var pName = w.playerIdx === replayHeroIdx ? 'Hero' : (hand.players[w.playerIdx]?.name || 'Player');
             // Evaluate the winning hand name
             var winHandName = '';
             var pCards = w.playerIdx === replayHeroIdx ? heroCards : (opponentCards[w.playerIdx] || '');
@@ -1448,11 +1531,11 @@
             }
             var label = w.label || (pName + ' wins' + (winHandName ? ', ' + winHandName : ''));
             return {
-              index: w.playerIdx > 0 ? w.playerIdx - 1 : 0,
+              index: w.playerIdx,
               result: {
-                outcome: w.playerIdx === 0 ? 'hero' : (w.split ? 'split' : 'opponent'),
+                outcome: w.playerIdx === replayHeroIdx ? 'hero' : (w.split ? 'split' : 'opponent'),
                 text: label,
-                color: w.split ? 'yellow' : (w.playerIdx === 0 ? 'green' : 'red'),
+                color: w.split ? 'yellow' : (w.playerIdx === replayHeroIdx ? 'green' : 'red'),
               },
             };
           });
@@ -1579,7 +1662,7 @@
           }
           // Auto-eval result
           if (evalResult) {
-            if (playerIdx === 0) {
+            if (playerIdx === replayHeroIdx) {
               const heroWins = evalResult.some(r => r.result.outcome === 'hero');
               const heroLoses = evalResult.some(r => r.result.outcome === 'opponent');
               const heroSplits = evalResult.some(r => r.result.outcome === 'split');
@@ -1587,7 +1670,7 @@
               if (heroLoses && !heroWins) return 'loser';
               if (heroSplits) return 'split';
             } else {
-              const oppResult = evalResult.find(r => r.index === playerIdx - 1);
+              const oppResult = evalResult.find(r => r.index === playerIdx);
               if (oppResult) {
                 if (oppResult.result.outcome === 'opponent') return 'winner';
                 if (oppResult.result.outcome === 'hero') return 'loser';
@@ -1613,25 +1696,16 @@
         if (cfg.type === 'hilo') {
           // Evaluate both high and low
           var hiEv = cfg.method === 'omaha' ? bestOmahaHigh(parsed, board) : bestHighHand(parsed.concat(board));
-          var loEv = bestLowA5Hand(
-            cfg.method === 'omaha' ? parsed.concat(board) : parsed.concat(board),
-            cfg.method === 'omaha',
-            cfg.method === 'omaha' ? { hand: parsed, board: board } : null
-          );
-          // For Omaha hi/lo, use bestOmahaLow if available
-          if (cfg.method === 'omaha' && typeof bestOmahaLow === 'function') {
+          var loEv;
+          if (cfg.method === 'omaha') {
             loEv = bestOmahaLow(parsed, board);
+          } else {
+            loEv = bestLowA5Hand(parsed.concat(board), true); // 8-or-better for hilo
           }
           var parts = [];
           if (hiEv) parts.push('Hi: ' + (useShort ? (hiEv.shortName || hiEv.name) : hiEv.name));
-          if (loEv && loEv.qualified !== false) {
-            // Format low as card ranks descending
-            var loCards = loEv.cards || loEv.hand || [];
-            var loStr = loCards.length ? loCards.map(function(c) {
-              var r = typeof c === 'string' ? c : (c.rank || '');
-              return r === '1' || r === 'A' || r === '14' ? 'A' : r === 'T' || r === '10' ? 'T' : r;
-            }).join('') : (loEv.shortName || loEv.name || '');
-            parts.push('Lo: ' + loStr);
+          if (loEv && loEv.qualified !== false && loEv.name) {
+            parts.push('Lo: ' + loEv.name);
           }
           return parts.length ? parts.join('\n') : null;
         }
@@ -1798,6 +1872,97 @@
       var shapeClass = rSettings.tableShape !== 'oval' ? ' shape-' + rSettings.tableShape : '';
       var fourColorClass = rSettings.fourColorDeck ? ' four-color-deck' : '';
       var boardAnimClass = getBoardAnimClass();
+
+      // ── OFC Replay View ──
+      if (hand.gameType === 'OFC') {
+        var ofcRows = hand.ofcRows || {};
+        var ofcStreetDef = getStreetDef('OFC');
+        var ofcStreetNames = ofcStreetDef.streets;
+        // Determine how many cards to show per row based on current street
+        // Street 0 = Initial (5 cards placed), streets 1-8 = cards 6-13
+        var ofcCardsShownPerPlayer = function(pi) {
+          var pr = ofcRows[pi] || { top: '', middle: '', bottom: '' };
+          var topCards = parseCardNotation(pr.top || '').filter(function(c) { return c.suit !== 'x'; });
+          var midCards = parseCardNotation(pr.middle || '').filter(function(c) { return c.suit !== 'x'; });
+          var botCards = parseCardNotation(pr.bottom || '').filter(function(c) { return c.suit !== 'x'; });
+          var totalCards = topCards.length + midCards.length + botCards.length;
+          var cardsToShow = streetIdx === 0 ? Math.min(5, totalCards) : Math.min(5 + streetIdx, totalCards);
+          // Show cards proportionally across rows up to cardsToShow
+          var shown = { top: '', middle: '', bottom: '' };
+          var remaining = cardsToShow;
+          // Show bottom first, then middle, then top (fill from bottom up, which is how OFC is typically played)
+          var botShow = Math.min(botCards.length, remaining);
+          shown.bottom = botCards.slice(0, botShow).map(function(c) { return c.rank + c.suit; }).join('');
+          remaining -= botShow;
+          var midShow = Math.min(midCards.length, remaining);
+          shown.middle = midCards.slice(0, midShow).map(function(c) { return c.rank + c.suit; }).join('');
+          remaining -= midShow;
+          var topShow = Math.min(topCards.length, remaining);
+          shown.top = topCards.slice(0, topShow).map(function(c) { return c.rank + c.suit; }).join('');
+          return shown;
+        };
+        var ofcTotalStreets = ofcStreetNames.length;
+        return (
+          <div className="replayer-replay ofc-replay">
+            {showSettings && <ReplayerSettingsPanel onClose={function() { setShowSettings(false); }} settings={rSettings} onUpdate={handleSettingsUpdate} />}
+            <div className="ofc-replay-board">
+              {hand.players.map(function(p, pi) {
+                var shownCards = ofcCardsShownPerPlayer(pi);
+                var pr = ofcRows[pi] || { top: '', middle: '', bottom: '' };
+                var isHero = pi === (hand.heroIdx || 0);
+                return (
+                  <div key={pi} className={'ofc-replay-player' + (isHero ? ' ofc-hero' : '')}>
+                    <div className="ofc-replay-player-name">{p.name}</div>
+                    <div className="ofc-replay-rows">
+                      <div className="ofc-replay-row ofc-replay-row-top">
+                        <div className="ofc-replay-row-label">Top</div>
+                        <CardRow text={showResult ? pr.top : shownCards.top} max={3} placeholderCount={3} cardTheme={rSettings.cardTheme} />
+                      </div>
+                      <div className="ofc-replay-row ofc-replay-row-middle">
+                        <div className="ofc-replay-row-label">Middle</div>
+                        <CardRow text={showResult ? pr.middle : shownCards.middle} max={5} placeholderCount={5} cardTheme={rSettings.cardTheme} />
+                      </div>
+                      <div className="ofc-replay-row ofc-replay-row-bottom">
+                        <div className="ofc-replay-row-label">Bottom</div>
+                        <CardRow text={showResult ? pr.bottom : shownCards.bottom} max={5} placeholderCount={5} cardTheme={rSettings.cardTheme} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Street indicator */}
+            <div className="ofc-street-indicator">
+              <span className="ofc-street-name">{ofcStreetNames[streetIdx] || 'Final'}</span>
+              <span className="ofc-street-count">{streetIdx + 1} / {ofcTotalStreets}</span>
+            </div>
+            {/* Controls */}
+            <div className="replayer-controls" style={{marginTop:'8px'}}>
+              <button className="btn btn-ghost btn-sm" disabled={streetIdx === 0 && !showResult} onClick={function() {
+                if (showResult) { setShowResult(false); }
+                else if (streetIdx > 0) { setStreetIdx(streetIdx - 1); }
+              }}>Prev</button>
+              <button className="btn btn-ghost btn-sm" disabled={showResult} onClick={function() {
+                if (streetIdx < ofcTotalStreets - 1) { setStreetIdx(streetIdx + 1); }
+                else { setShowResult(true); }
+              }}>Next</button>
+              <button className="btn btn-ghost btn-sm" onClick={function() { setShowResult(!showResult); }}>
+                {showResult ? 'Hide All' : 'Show All'}
+              </button>
+            </div>
+            <div style={{display:'flex',gap:'6px',justifyContent:'space-between',marginTop:'12px'}}>
+              <button className="btn btn-ghost btn-sm" onClick={onBack}>Back to List</button>
+              <div style={{display:'flex',gap:'6px'}}>
+                <button className="btn btn-ghost btn-sm" onClick={copyShareLink} title="Copy share link">
+                  {shareLinkCopied ? 'Copied!' : 'Share Link'}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={function() { setShowSettings(!showSettings); }}>Settings</button>
+                <button className="btn btn-primary btn-sm" onClick={onEdit}>Edit</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
 
       return (
         <div className={'replayer-replay' + fourColorClass}>
@@ -2182,6 +2347,9 @@
                 <div style={{display:'flex',gap:'6px',justifyContent:'center'}}>
                   <button className="btn btn-ghost btn-sm" onClick={onBack}>Back</button>
                   <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>
+                  <button className="btn btn-ghost btn-sm" onClick={copyShareLink} title="Copy share link">
+                    {shareLinkCopied ? 'Copied!' : 'Link'}
+                  </button>
                   <button className="btn btn-ghost btn-sm" onClick={shareReplayImage} title="Share as image">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'14px',height:'14px'}}>
                       <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -2250,13 +2418,24 @@
       // All seats in position order (for rendering)
       var isRazz = hand.gameType === 'Razz' || hand.gameType === '2-7 Razz';
       var isStudLow = isRazz;
+      // Folded set from prior streets only (for determining stud action order at start of street)
+      var priorStreetFoldedSet = useMemo(function() {
+        var f = new Set();
+        for (var si = 0; si < currentStreetIdx; si++) {
+          for (var ai = 0; ai < (hand.streets[si].actions || []).length; ai++) {
+            var act = hand.streets[si].actions[ai];
+            if (act.action === 'fold') f.add(act.player);
+          }
+        }
+        return f;
+      }, [hand.streets, currentStreetIdx]);
       var studInfo = useMemo(function() {
         if (!gameCfg.isStud) return null;
         var is3rdStreet = currentStreetIdx === 0;
         var bringInIdx = is3rdStreet ? findStudBringIn(hand, isStudLow) : -1;
-        var bestBoardIdx = !is3rdStreet ? findStudBestBoard(hand, currentStreetIdx, foldedSet, isStudLow) : -1;
+        var bestBoardIdx = !is3rdStreet ? findStudBestBoard(hand, currentStreetIdx, priorStreetFoldedSet, isStudLow) : -1;
         return { isStud: true, is3rdStreet: is3rdStreet, bringInIdx: bringInIdx, bestBoardIdx: bestBoardIdx };
-      }, [gameCfg.isStud, currentStreetIdx, hand, isStudLow, foldedSet]);
+      }, [gameCfg.isStud, currentStreetIdx, hand, isStudLow, priorStreetFoldedSet]);
 
       var seatOrder = useMemo(function() {
         return getActionOrder(hand.players, isPreflop, studInfo);
@@ -2340,12 +2519,13 @@
         if (nextStreet >= hand.streets.length) { setPhase('showdown'); return; }
         if (category === 'community') { setPhase('board_entry'); }
         else if (category === 'stud') { setPhase('stud_deal'); }
+        else if (category === 'draw_triple' || category === 'draw_single') { setPhase('draw_discard'); }
         else { setCurrentStreetIdx(nextStreet); }
       }, [isBettingComplete, phase, handOver]);
 
       // Scroll to top when entering board_entry or result phase
       useEffect(function() {
-        if (phase === 'board_entry' || phase === 'stud_deal' || phase === 'showdown' || phase === 'result') {
+        if (phase === 'board_entry' || phase === 'stud_deal' || phase === 'draw_discard' || phase === 'showdown' || phase === 'result') {
           var container = document.querySelector('.content-area');
           if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -2360,7 +2540,17 @@
         var tid = setTimeout(function() {
           if (gen !== scrollGenRef.current) return;
           var el = activeSeatRef.current;
-          if (el) scrollBelowSticky(el, 8);
+          if (!el) return;
+          var container = el.closest('.content-area');
+          if (!container) return;
+          var caTop = container.getBoundingClientRect().top;
+          var sticky = container.querySelector('.gto-sticky-header');
+          var stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
+          var elAbsTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+          var target = elAbsTop - stickyH - 8;
+          if (Math.abs(container.scrollTop - target) > 2) {
+            container.scrollTo({ top: target, behavior: 'smooth' });
+          }
         }, 180);
         return function() { clearTimeout(tid); };
       }, [currentActor, phase, currentStreetIdx]);
@@ -2400,7 +2590,7 @@
                 return Object.assign({}, s, { actions: [] });
               });
               if (si < currentStreetIdx) setCurrentStreetIdx(si);
-              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry') setPhase('action');
+              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry' || phase === 'draw_discard') setPhase('action');
               return Object.assign({}, prev, { streets: streets });
             }
           }
@@ -2421,7 +2611,7 @@
                 return Object.assign({}, s, { actions: acts.slice(0, -1) });
               });
               if (si < currentStreetIdx) setCurrentStreetIdx(si);
-              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry') setPhase('action');
+              if (phase === 'result' || phase === 'showdown' || phase === 'board_entry' || phase === 'draw_discard') setPhase('action');
               return Object.assign({}, prev, { streets: streets });
             }
           }
@@ -2461,22 +2651,15 @@
       var setHeroSeat = function(newIdx) {
         if (newIdx === heroIdx) return;
         setHand(function(prev) {
+          var n = prev.players.length;
+          // Rotate names/stacks so hero moves to clicked position, keeping relative seating
+          // Positions stay fixed on each row — names shift circularly
+          var shift = newIdx - heroIdx;
           var players = prev.players.map(function(p, i) {
-            if (i === newIdx) {
-              // This seat becomes hero
-              return Object.assign({}, p, { name: heroName || 'Hero' });
-            }
-            if (i === heroIdx) {
-              // Old hero seat gets an opponent name
-              // Find the first unused opponent name
-              var usedNames = new Set(prev.players.map(function(pl) { return pl.name; }));
-              var oppName = 'Opp';
-              for (var oi = 0; oi < DEFAULT_OPP_NAMES.length; oi++) {
-                if (!usedNames.has(DEFAULT_OPP_NAMES[oi])) { oppName = DEFAULT_OPP_NAMES[oi]; break; }
-              }
-              return Object.assign({}, p, { name: oppName });
-            }
-            return p;
+            // Row i gets the name/stack from row (i - shift + n) % n
+            var srcIdx = ((i - shift) % n + n) % n;
+            var src = prev.players[srcIdx];
+            return Object.assign({}, p, { name: src.name, startingStack: src.startingStack });
           });
           return Object.assign({}, prev, { players: players, heroIdx: newIdx });
         });
@@ -2516,17 +2699,28 @@
       // Can raise? Cap at 4 bets+raises per street (1 bet + 3 raises), uncapped heads-up
       var flCanRaise = isHeadsUp || streetBetRaiseCount < flRaiseCap;
 
-      // Pot-limit max raise calculation
-      // Formula: pot-size raise = call + (pot after calling)
-      // pot after calling = current pot + call amount
-      // Total raise-to = current contrib + call amount + pot after calling
+      // ── Pot-limit max raise: the "trail" formula ──
+      //
+      // The maximum raise in pot-limit is NOT simply "the pot." It accounts
+      // for the call amount and all dead money (the "trail"):
+      //
+      //   1. Player first calls: adds callAmount to pot
+      //   2. Pot after calling = currentPot + callAmount
+      //   3. Player can raise BY (pot after calling)
+      //   4. Total raise-to = streetBets.maxBet + (pot after calling)
+      //   5. Increment (chips added) = raise-to - playerContrib
+      //
+      // Dealer shortcut ("trail formula"):
+      //   Trail = currentPot - streetBets.maxBet  (dead money = pot minus live bet)
+      //   Max raise-to = 3 × streetBets.maxBet + trail
+      //                = 2 × streetBets.maxBet + currentPot
+      //   Max increment = currentPot + 2 × callAmount
+      //
+      // For an opening bet (no one has bet yet): max bet = currentPot
+      //
       var plPotAfterCall = currentPot + callAmount;
-      // The raise SIZE = pot after calling
-      // The raise-to TOTAL = playerContrib + callAmount + plPotAfterCall
-      var plRaiseToTotal = playerContrib + callAmount + plPotAfterCall;
-      // The incremental amount the raiser adds
+      var plRaiseToTotal = streetBets.maxBet + plPotAfterCall;
       var plMaxRaiseIncrement = plRaiseToTotal - playerContrib;
-      // For an opening bet (no one has bet yet), max bet = current pot
       var plMaxBet = currentPot;
 
       // NL/PL min-raise: at least the size of the last raise/bet, minimum BB
@@ -2575,50 +2769,216 @@
 
       // ── SETUP PHASE ──
       if (phase === 'setup') {
+        var isOfc = category === 'ofc';
+        var setNumPlayersOfc = function(n) {
+          setHand(function(prev) {
+            var players = [];
+            var newOfcRows = Object.assign({}, prev.ofcRows || {});
+            for (var i = 0; i < n; i++) {
+              if (prev.players[i]) { players.push(prev.players[i]); }
+              else { players.push({ name: i === 0 ? (heroName || 'Hero') : (DEFAULT_OPP_NAMES[i - 1] || 'Opp ' + i), position: '', startingStack: 0 }); }
+              if (!newOfcRows[i]) newOfcRows[i] = { top: '', middle: '', bottom: '' };
+            }
+            return Object.assign({}, prev, { players: players, ofcRows: newOfcRows });
+          });
+        };
         return (
           <div className="gto-entry">
             <div className="gto-phase-card"><div className="replayer-section">
-              <div className="replayer-section-title">Players & Blinds</div>
+              <div className="replayer-section-title">{isOfc ? 'Players' : 'Players & Blinds'}</div>
               <div className="replayer-row" style={{marginBottom:'8px'}}>
                 <div className="replayer-field" style={{flex:'0 0 70px'}}>
                   <label>Players</label>
-                  <select value={hand.players.length} onChange={function(e) { setNumPlayers(Number(e.target.value)); }}>
-                    {[2,3,4,5,6,7,8,9,10].map(function(n) { return <option key={n} value={n}>{n}</option>; })}
-                  </select>
+                  {isOfc ? (
+                    <select value={hand.players.length} onChange={function(e) { setNumPlayersOfc(Number(e.target.value)); }}>
+                      {[2,3].map(function(n) { return <option key={n} value={n}>{n}</option>; })}
+                    </select>
+                  ) : (
+                    <select value={hand.players.length} onChange={function(e) { setNumPlayers(Number(e.target.value)); }}>
+                      {[2,3,4,5,6,7,8,9,10].map(function(n) { return <option key={n} value={n}>{n}</option>; })}
+                    </select>
+                  )}
                 </div>
-                <div className="replayer-field">
+                {!isOfc && <div className="replayer-field">
                   <label>SB</label>
                   <input type="text" inputMode="decimal" value={(hand.blinds || {}).sb || ''} onChange={function(e) { setHand(function(prev) { return Object.assign({}, prev, { blinds: Object.assign({}, prev.blinds || {}, { sb: Number(e.target.value) || 0 }) }); }); }} />
-                </div>
-                <div className="replayer-field">
+                </div>}
+                {!isOfc && <div className="replayer-field">
                   <label>BB</label>
                   <input type="text" inputMode="decimal" value={(hand.blinds || {}).bb || ''} onChange={function(e) { setHand(function(prev) { return Object.assign({}, prev, { blinds: Object.assign({}, prev.blinds || {}, { bb: Number(e.target.value) || 0 }) }); }); }} />
-                </div>
-                <div className="replayer-field">
-                  <label>Ante</label>
+                </div>}
+                {!isOfc && <div className="replayer-field">
+                  <label>{category === 'stud' ? 'Ante' : 'BB Ante'}</label>
                   <input type="text" inputMode="decimal" value={(hand.blinds || {}).ante || ''} onChange={function(e) { setHand(function(prev) { return Object.assign({}, prev, { blinds: Object.assign({}, prev.blinds || {}, { ante: Number(e.target.value) || 0 }) }); }); }} />
-                </div>
+                </div>}
               </div>
+              {!isOfc && <div style={{marginBottom:'4px',display:'flex'}}>
+                <span style={{fontSize:'0.65rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',width:'32px',textAlign:'center'}}>Hero</span>
+              </div>}
               {hand.players.map(function(p, i) {
                 var isHero = i === heroIdx;
                 return (
                   <div key={i} className="replayer-player-row">
-                    <span className={'replayer-player-pos' + (isHero ? ' hero' : '')}
+                    {!isOfc && <span className={'replayer-player-pos' + (isHero ? ' hero' : '')}
                       style={{cursor:'pointer'}}
-                      onClick={function() { setHeroSeat(i); }}>{p.position}</span>
+                      onClick={function() { setHeroSeat(i); }}>{p.position}</span>}
                     <div className="replayer-field" style={{flex:'1 1 80px'}}>
                       <input type="text" style={{textAlign:'left'}} value={p.name} onChange={function(e) { updatePlayerField(i, 'name', e.target.value); }} placeholder="Name" />
                     </div>
-                    <div className="replayer-field" style={{flex:'0 0 80px'}}>
+                    {!isOfc && <div className="replayer-field" style={{flex:'0 0 80px'}}>
                       <input type="text" inputMode="decimal" style={{textAlign:'right'}} value={p.startingStack} onChange={function(e) { updatePlayerField(i, 'startingStack', e.target.value); }} placeholder="Stack" />
-                    </div>
+                    </div>}
                   </div>
                 );
               })}
             </div></div>
             <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 0'}}>
               <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
-              <button className="btn btn-primary btn-sm" onClick={function() { setPhase('hero_cards'); }}>Next</button>
+              <button className="btn btn-primary btn-sm" onClick={function() { setPhase(category === 'ofc' ? 'ofc_entry' : 'hero_cards'); }}>Next</button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── OFC ENTRY PHASE ──
+      if (phase === 'ofc_entry') {
+        var ofcRows = hand.ofcRows || {};
+        var updateOfcRow = function(playerIdx, row, value) {
+          setHand(function(prev) {
+            var newRows = Object.assign({}, prev.ofcRows || {});
+            newRows[playerIdx] = Object.assign({}, newRows[playerIdx] || { top: '', middle: '', bottom: '' });
+            newRows[playerIdx][row] = value;
+            return Object.assign({}, prev, { ofcRows: newRows });
+          });
+        };
+        var ofcRowLabels = [
+          { key: 'top', label: 'Top (3 cards)', max: 3 },
+          { key: 'middle', label: 'Middle (5 cards)', max: 5 },
+          { key: 'bottom', label: 'Bottom (5 cards)', max: 5 },
+        ];
+        // Collect all used cards across all players and rows
+        var allUsedOfc = new Set();
+        hand.players.forEach(function(_, pi) {
+          var pr = ofcRows[pi] || {};
+          ['top', 'middle', 'bottom'].forEach(function(r) {
+            if (pr[r]) parseCardNotation(pr[r]).forEach(function(c) { if (c.suit !== 'x') allUsedOfc.add(c.rank + c.suit); });
+          });
+        });
+        // Card picker for OFC
+        var ofcAllRanks = 'AKQJT98765432'.split('');
+        var ofcAllSuits = ['h', 'd', 'c', 's'];
+        var ofcPickerTarget = useState(null); // { playerIdx, row }
+        var ofcPickerState = ofcPickerTarget[0];
+        var setOfcPickerState = ofcPickerTarget[1];
+        var ofcToggleCard = function(rank, suit) {
+          if (!ofcPickerState) return;
+          var card = rank + suit;
+          var pi = ofcPickerState.playerIdx;
+          var row = ofcPickerState.row;
+          var rowDef = ofcRowLabels.find(function(r) { return r.key === row; });
+          var maxCards = rowDef ? rowDef.max : 5;
+          var current = (ofcRows[pi] || {})[row] || '';
+          var parsed = parseCardNotation(current).filter(function(c) { return c.suit !== 'x'; });
+          var existing = parsed.map(function(c) { return c.rank + c.suit; });
+          var idx = existing.indexOf(card);
+          if (idx >= 0) {
+            existing.splice(idx, 1);
+          } else if (existing.length < maxCards) {
+            existing.push(card);
+          }
+          updateOfcRow(pi, row, existing.join(''));
+        };
+        var ofcPickerSelectedSet = new Set();
+        if (ofcPickerState) {
+          var _cr = (ofcRows[ofcPickerState.playerIdx] || {})[ofcPickerState.row] || '';
+          parseCardNotation(_cr).forEach(function(c) { if (c.suit !== 'x') ofcPickerSelectedSet.add(c.rank + c.suit); });
+        }
+
+        // Validate: check total cards per player
+        var ofcValid = true;
+        var ofcValidMsg = '';
+        hand.players.forEach(function(p, pi) {
+          var pr = ofcRows[pi] || {};
+          var topCount = parseCardNotation(pr.top || '').filter(function(c) { return c.suit !== 'x'; }).length;
+          var midCount = parseCardNotation(pr.middle || '').filter(function(c) { return c.suit !== 'x'; }).length;
+          var botCount = parseCardNotation(pr.bottom || '').filter(function(c) { return c.suit !== 'x'; }).length;
+          var total = topCount + midCount + botCount;
+          if (total > 0 && total < 13) { ofcValid = false; ofcValidMsg = p.name + ' needs 13 cards total (' + total + ' placed)'; }
+          if (topCount > 0 && topCount !== 3) { ofcValid = false; ofcValidMsg = p.name + ' top row needs exactly 3 cards'; }
+          if (midCount > 0 && midCount !== 5) { ofcValid = false; ofcValidMsg = p.name + ' middle row needs exactly 5 cards'; }
+          if (botCount > 0 && botCount !== 5) { ofcValid = false; ofcValidMsg = p.name + ' bottom row needs exactly 5 cards'; }
+        });
+        // At least hero must have cards
+        var heroRows = ofcRows[0] || {};
+        var heroTotal = parseCardNotation(heroRows.top || '').filter(function(c) { return c.suit !== 'x'; }).length +
+          parseCardNotation(heroRows.middle || '').filter(function(c) { return c.suit !== 'x'; }).length +
+          parseCardNotation(heroRows.bottom || '').filter(function(c) { return c.suit !== 'x'; }).length;
+        if (heroTotal === 0) { ofcValid = false; ofcValidMsg = 'Place cards for at least Hero'; }
+
+        return (
+          <div className="gto-entry">
+            <div className="gto-phase-card"><div className="replayer-section">
+              <div className="replayer-section-title">OFC Card Placement</div>
+              <div style={{fontSize:'0.65rem',color:'var(--text-muted)',marginBottom:'10px'}}>
+                Place 13 cards per player into 3 rows: Top (3), Middle (5), Bottom (5). Tap a row to open the card picker.
+              </div>
+              {hand.players.map(function(p, pi) {
+                var pr = ofcRows[pi] || { top: '', middle: '', bottom: '' };
+                return (
+                  <div key={pi} className="ofc-player-section">
+                    <div className="ofc-player-name">{p.name}</div>
+                    <div className="ofc-rows">
+                      {ofcRowLabels.map(function(rowDef) {
+                        var isActive = ofcPickerState && ofcPickerState.playerIdx === pi && ofcPickerState.row === rowDef.key;
+                        return (
+                          <div key={rowDef.key} className={'ofc-row' + (isActive ? ' ofc-row-active' : '')}
+                            onClick={function() { setOfcPickerState(isActive ? null : { playerIdx: pi, row: rowDef.key }); }}>
+                            <div className="ofc-row-label">{rowDef.label}</div>
+                            <div className="ofc-row-cards">
+                              <CardRow text={pr[rowDef.key] || ''} max={rowDef.max} placeholderCount={rowDef.max} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Card picker inline for active row */}
+                    {ofcPickerState && ofcPickerState.playerIdx === pi && (
+                      <div className="ofc-card-picker">
+                        {ofcAllRanks.map(function(rank) {
+                          return (
+                            <div key={rank} className="ofc-picker-rank-row">
+                              {ofcAllSuits.map(function(suit) {
+                                var card = rank + suit;
+                                var isUsed = allUsedOfc.has(card) && !ofcPickerSelectedSet.has(card);
+                                var isSelected = ofcPickerSelectedSet.has(card);
+                                var suitSymbols = { h: '\u2665', d: '\u2666', c: '\u2663', s: '\u2660' };
+                                var suitColors = { h: '#ef4444', d: '#3b82f6', c: '#22c55e', s: '#a78bfa' };
+                                return (
+                                  <button key={card}
+                                    className={'ofc-picker-card' + (isSelected ? ' selected' : '') + (isUsed ? ' used' : '')}
+                                    disabled={isUsed}
+                                    onClick={function(e) { e.stopPropagation(); ofcToggleCard(rank, suit); }}
+                                    style={{color: isUsed ? 'var(--text-muted)' : suitColors[suit]}}>
+                                    {rank}{suitSymbols[suit]}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div></div>
+            {ofcValidMsg && <div style={{fontSize:'0.65rem',color:'#ef4444',padding:'4px 0'}}>{ofcValidMsg}</div>}
+            <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 0'}}>
+              <button className="btn btn-ghost btn-sm" onClick={function() { setPhase('setup'); }}>Back</button>
+              <button className="btn btn-primary btn-sm" disabled={!ofcValid} onClick={function() {
+                // Save OFC data and finish
+                onDone(hand);
+              }}>Done</button>
             </div>
           </div>
         );
@@ -2810,6 +3170,138 @@
               <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
                 <button className="btn btn-ghost btn-sm" onClick={function() { setPhase('hero_cards'); }}>Back</button>
                 <button className="btn btn-primary btn-sm" onClick={function() { setPhase('action'); }}>Start Action</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── DRAW DISCARD PHASE ──
+      if (phase === 'draw_discard') {
+        var nextDrawStreet = currentStreetIdx + 1;
+        var drawStreetName = currentStreet.name || 'Draw';
+        var isBadugi = hand.gameType === 'Badugi' || hand.gameType === 'Badeucy' || hand.gameType === 'Badacy';
+        var maxDiscard = isBadugi ? 4 : 5;
+        // Active players (not folded, not all-in)
+        var drawActivePlayers = seatOrder.filter(function(i) { return !foldedSet.has(i); });
+        // Track which player we're entering discards for
+        var drawPlayerQueue = drawActivePlayers.filter(function(pi) {
+          var existingDraw = (currentStreet.draws || []).find(function(d) { return d.player === pi; });
+          return !existingDraw;
+        });
+        var currentDrawPlayer = drawPlayerQueue.length > 0 ? drawPlayerQueue[0] : -1;
+        var allDrawsDeclared = drawPlayerQueue.length === 0;
+
+        var addDraw = function(playerIdx, discardCount) {
+          setHand(function(prev) {
+            var streets = prev.streets.map(function(s, si) {
+              if (si !== currentStreetIdx) return s;
+              var draws = (s.draws || []).concat([{ player: playerIdx, discarded: discardCount }]);
+              return Object.assign({}, s, { draws: draws });
+            });
+            return Object.assign({}, prev, { streets: streets });
+          });
+        };
+
+        var undoLastDraw = function() {
+          setHand(function(prev) {
+            var streets = prev.streets.map(function(s, si) {
+              if (si !== currentStreetIdx) return s;
+              var draws = (s.draws || []).slice(0, -1);
+              return Object.assign({}, s, { draws: draws });
+            });
+            return Object.assign({}, prev, { streets: streets });
+          });
+        };
+
+        return (
+          <div className="gto-entry">
+            <div className="gto-phase-card">
+              <div className="replayer-section">
+                <div className="replayer-section-title">Draw Round — {drawStreetName}</div>
+                <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'10px'}}>
+                  Each player declares how many cards to discard. Stand Pat = keep all cards.
+                </p>
+                {drawActivePlayers.map(function(pi) {
+                  var p = hand.players[pi];
+                  var existingDraw = (currentStreet.draws || []).find(function(d) { return d.player === pi; });
+                  var isDeclared = !!existingDraw;
+                  var isCurrentTarget = pi === currentDrawPlayer;
+                  var isAllIn = allInSet.has(pi);
+
+                  return (
+                    <div key={pi} className={'gto-seat' + (isCurrentTarget ? ' active' : '') + (isDeclared ? ' gto-draw-declared' : '')}
+                      style={{marginBottom:'6px'}}>
+                      <div className="gto-seat-strip">{p.position}</div>
+                      <div className="gto-seat-content">
+                        <div className="gto-seat-bar">
+                          <div className="gto-seat-row1">
+                            <span className="gto-seat-pos">{p.position}</span>
+                            <span className="gto-seat-stack">{formatChipAmount(currentStacks[pi])}</span>
+                          </div>
+                          <div className="gto-seat-row2">
+                            <span className="gto-seat-name">{p.name}</span>
+                            {isDeclared && (
+                              <span className="gto-seat-result-badge check" style={{marginLeft:'auto'}}>
+                                {existingDraw.discarded === 0 ? 'Stand Pat' : 'Drew ' + existingDraw.discarded}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {isCurrentTarget && !isDeclared && (
+                          <div className="gto-draw-buttons">
+                            <button className="gto-draw-btn pat" onClick={function() { addDraw(pi, 0); }}>
+                              Stand Pat
+                            </button>
+                            {Array.from({length: maxDiscard}, function(_, n) { return n + 1; }).map(function(count) {
+                              return (
+                                <button key={count} className="gto-draw-btn" onClick={function() { addDraw(pi, count); }}>
+                                  {count}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="gto-street-card">
+              <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+                {(currentStreet.draws || []).length > 0 && (
+                  <button className="gto-undo-btn" onClick={undoLastDraw}>Undo</button>
+                )}
+                <button className="btn btn-ghost btn-sm" onClick={function() {
+                  // Clear draws on this street and undo the last betting action to return to action phase
+                  setHand(function(prev) {
+                    // Find last action on current street and remove it + clear draws
+                    for (var si = currentStreetIdx; si >= 0; si--) {
+                      var acts = prev.streets[si].actions || [];
+                      if (acts.length > 0) {
+                        var streets = prev.streets.map(function(s, i) {
+                          if (i < si) return s;
+                          if (i === si) {
+                            var updated = Object.assign({}, s, { actions: acts.slice(0, -1) });
+                            if (i === currentStreetIdx) updated.draws = [];
+                            return updated;
+                          }
+                          return Object.assign({}, s, { actions: [], draws: [] });
+                        });
+                        if (si < currentStreetIdx) setCurrentStreetIdx(si);
+                        return Object.assign({}, prev, { streets: streets });
+                      }
+                    }
+                    return prev;
+                  });
+                  setPhase('action');
+                }}>Back</button>
+                <button className="btn btn-primary btn-sm"
+                  disabled={!allDrawsDeclared}
+                  onClick={function() { setCurrentStreetIdx(nextDrawStreet); setPhase('action'); }}>
+                  Continue
+                </button>
               </div>
             </div>
           </div>
@@ -3347,8 +3839,9 @@
             var act = playerActions[i];
             var isFolded = foldedSet.has(i);
             // Hide players who folded on a previous street; show those who folded this street (dimmed)
+            // Exception: in stud games, always show folded players (their upcards remain visible for info tracking)
             var foldedOnPriorStreet = isFolded && !(currentStreet.actions || []).some(function(a) { return a.player === i && a.action === 'fold'; });
-            if (foldedOnPriorStreet && !isPreflop) return null;
+            if (foldedOnPriorStreet && !isPreflop && category !== 'stud') return null;
             var seatClass = 'gto-seat' + (isActive ? ' active' : '') + (isFolded ? ' folded' : (act && !isActive) ? ' acted-' + act.action : '');
             var actionLabel = act ? (act.action.charAt(0).toUpperCase() + act.action.slice(1) + (act.amount > 0 ? ' ' + formatChipAmount(act.amount) : '')) : '';
             return (
@@ -3378,9 +3871,24 @@
                             accumulated += ((st.cards.opponents || [])[oppSlot] || '');
                           }
                         }
+                        var dimStyle = isFolded ? {opacity: 0.4, filter: 'grayscale(60%)'} : {};
                         /* For opponents: show 2 face-down hole cards + their visible cards + 7th street face-down if applicable */
+                        /* For folded opponents: only show upcards (dimmed), no downcards */
                         if (!isHero) {
                           var oppVisible = parseCardNotation(accumulated).filter(function(c) { return c.suit !== 'x'; });
+                          if (isFolded) {
+                            /* Folded: show only upcards, dimmed — no hole card backs */
+                            if (oppVisible.length === 0) return null;
+                            return (
+                              <span className="gto-seat-hero-cards" style={dimStyle}>
+                                <div className="card-row" style={{gap:'2px',flexWrap:'nowrap'}}>
+                                  {oppVisible.map(function(c, ci) {
+                                    return <img key={ci} className="card-img" src={'/cards/cards_gui_' + c.rank + c.suit + '.svg'} alt={c.rank+c.suit} loading="eager" />;
+                                  })}
+                                </div>
+                              </span>
+                            );
+                          }
                           var downAfter = currentStreetIdx >= 4 ? 1 : 0; // 7th street
                           return (
                             <span className="gto-seat-hero-cards">
@@ -3395,8 +3903,9 @@
                             </span>
                           );
                         }
+                        /* Hero folded: show cards dimmed */
                         if (!accumulated) return null;
-                        return <span className="gto-seat-hero-cards"><CardRow text={accumulated} stud={true} max={7} /></span>;
+                        return <span className="gto-seat-hero-cards" style={dimStyle}><CardRow text={accumulated} stud={true} max={7} /></span>;
                       })()
                       : i === heroIdx && hand.streets[0] && hand.streets[0].cards.hero && (
                         <span className="gto-seat-hero-cards"><CardRow text={hand.streets[0].cards.hero} max={gameCfg.heroCards || 2} /></span>
@@ -3531,6 +4040,9 @@
                                     return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(pillAmt)); }}>{s.label}</button>;
                                   })}
                                 </div>
+                                <div className="gto-raise-slider-row">
+                                  <input type="range" className="gto-raise-slider" min={canCheck ? Math.min((hand.blinds || {}).bb || 0, playerStack) : Math.min(minRaiseIncrement, playerStack)} max={canCheck ? Math.min(plMaxBet, playerStack) : Math.min(plMaxRaiseIncrement, playerStack)} step={1} value={Number(betAmount) || 0} onChange={function(e) { setBetAmount(e.target.value); }} />
+                                </div>
                                 <div className="gto-raise-input-row">
                                   <input type="text" inputMode="decimal" value={betAmount} onChange={function(e) { setBetAmount(e.target.value); }} autoFocus />
                                   <button className="btn btn-primary btn-sm" onClick={function() {
@@ -3595,10 +4107,28 @@
                             {showRaiseInput && (
                               <React.Fragment>
                                 <div className="gto-sizing-row">
-                                  {[{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(function(s) {
-                                    return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(Math.min(Math.round(currentPot * s.mult), playerStack))); }}>{s.label}</button>;
+                                  {[{label:'Min',mult:0},{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(function(s) {
+                                    var pillAmt;
+                                    if (canCheck) {
+                                      // Opening bet: fraction of current pot, min = BB
+                                      pillAmt = s.mult === 0 ? Math.min((hand.blinds || {}).bb || 0, playerStack) : Math.min(Math.round(currentPot * s.mult), playerStack);
+                                    } else {
+                                      // Facing a bet: "X pot" means raise by X * pot-after-calling
+                                      // The increment = call + raise_size, where raise_size = fraction * (pot + call)
+                                      if (s.mult === 0) {
+                                        pillAmt = Math.min(minRaiseIncrement, playerStack);
+                                      } else {
+                                        var potAfterCall = currentPot + callAmount;
+                                        var raiseSize = Math.round(potAfterCall * s.mult);
+                                        pillAmt = Math.min(callAmount + raiseSize, playerStack);
+                                      }
+                                    }
+                                    return <button key={s.label} className="gto-sizing-pill" onClick={function() { setBetAmount(String(pillAmt)); }}>{s.label}</button>;
                                   })}
                                   <button className="gto-sizing-pill" onClick={function() { setBetAmount(String(playerStack)); }}>All-In</button>
+                                </div>
+                                <div className="gto-raise-slider-row">
+                                  <input type="range" className="gto-raise-slider" min={canCheck ? Math.min((hand.blinds || {}).bb || 0, playerStack) : Math.min(minRaiseIncrement, playerStack)} max={playerStack} step={1} value={Number(betAmount) || 0} onChange={function(e) { setBetAmount(e.target.value); }} />
                                 </div>
                                 <div className="gto-raise-input-row">
                                   <input type="text" inputMode="decimal" value={betAmount} onChange={function(e) { setBetAmount(e.target.value); }} autoFocus />
@@ -3643,11 +4173,11 @@
     }
 
     // ── Main Hand Replayer View ──
-    function HandReplayerView({ token, heroName, cardSplay }) {
-      const [mode, setMode] = useState('list'); // 'list' | 'entry' | 'replay'
+    function HandReplayerView({ token, heroName, cardSplay, initialHand, onClearInitialHand }) {
+      const [mode, setMode] = useState(initialHand ? 'replay' : 'list'); // 'list' | 'entry' | 'replay'
       const [entryMode, setEntryMode] = useState('gto'); // 'gto' | 'classic'
       const [savedHands, setSavedHands] = useState([]);
-      const [currentHand, setCurrentHand] = useState(null);
+      const [currentHand, setCurrentHand] = useState(initialHand || null);
       const [currentHandId, setCurrentHandId] = useState(null);
       const [selectedGameType, setSelectedGameType] = useState('NLH');
       const [title, setTitle] = useState('');
@@ -3675,7 +4205,7 @@
         return bettingStructure + ' ' + selectedGame;
       }, [bettingStructure, selectedGame]);
 
-      const gameTypes = Object.keys(HAND_CONFIG).filter(k => k !== 'OFC Pineapple');
+      const gameTypes = Object.keys(HAND_CONFIG).filter(k => k !== 'OFC Pineapple' && k !== 'OFC');
 
       const fetchHands = async () => {
         if (!token) return;
@@ -3689,11 +4219,23 @@
 
       useEffect(() => { fetchHands(); }, [token]);
 
+      // Handle initialHand prop changes (e.g., from hashchange events)
+      useEffect(() => {
+        if (initialHand) {
+          setCurrentHand(initialHand);
+          setMode('replay');
+          setTitle('');
+          setNotes('');
+          // Clear the prop so going Back works normally
+          if (onClearInitialHand) onClearInitialHand();
+        }
+      }, [initialHand]);
+
       // Game selection config
       var structureGameMap = {
-        'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi' },
-        'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': 'PL 2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi' },
-        'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE', 'Omaha': 'O8', 'Omaha 8/b': 'O8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi' },
+        'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+        'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': 'PL 2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+        'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE', 'Omaha': 'O8', 'Omaha 8/b': 'O8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
       };
       var defaultStructure = {
         "Hold'em": 'No Limit', 'Pineapple': 'No Limit', 'Short Deck': 'No Limit',
@@ -3703,6 +4245,7 @@
         'A-5 Triple Draw': 'Limit', 'A-5 Single Draw': 'No Limit',
         'Badugi': 'Limit', 'Badeucy': 'Limit', 'Badacey': 'Limit',
         'Archie': 'Limit', 'Ari': 'Limit', '5-Card Draw': 'No Limit',
+        'OFC': 'No Limit',
       };
       var handleGameSelect = function(game) {
         setSelectedGame(game);
@@ -3715,6 +4258,7 @@
         { label: 'Omaha', games: ['Omaha', 'Omaha 8/b', 'Big O'] },
         { label: 'Stud', games: ['Stud Hi', 'Stud 8', 'Razz'] },
         { label: 'Draw', games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw', 'Badugi', 'Badeucy', 'Badacey', 'Archie', 'Ari', '5-Card Draw'] },
+        { label: 'Chinese', games: ['OFC'] },
       ];
       var handleStructureChange = function(s) {
         setBettingStructure(s);
@@ -3761,7 +4305,7 @@
               { name: 'Hero', position: 'BTN', startingStack: 50000 },
               { name: 'Opp 1', position: 'BB', startingStack: 50000 },
             ],
-            blinds: { sb: 100, bb: 200, ante: 0 },
+            blinds: { sb: 100, bb: 200, ante: (hasBoard && !isStud) ? 200 : 0 },
             streets: customDef.streets.map(name => ({
               name,
               cards: { hero: '', opponents: [''], board: '' },
@@ -3887,6 +4431,7 @@
           { label: 'Community', games: ['NLH', 'LHE', 'PLH', 'PLO', 'PLO8', 'O8', 'Big O', 'LO Hi'] },
           { label: 'Draw', games: ['2-7 TD', 'NL 2-7 SD', 'PL 2-7 TD', 'L 2-7 TD', 'A-5 TD', 'Badugi', 'Badeucy', 'Badacy', 'PL 5CD Hi'] },
           { label: 'Stud', games: ['Razz', 'Stud Hi', 'Stud 8', 'Stud Hi-Lo', '2-7 Razz'] },
+          { label: 'Chinese', games: ['OFC'] },
         ];
         return React.createElement(React.Fragment, null,
           groups.map(g => (
@@ -3915,10 +4460,10 @@
               <div className="replayer-header">
                 <h2>New Hand</h2>
               </div>
-              <div className="live-update-tabs" style={{marginBottom:'8px'}}>
+              {currentHand.gameType !== 'OFC' && <div className="live-update-tabs" style={{marginBottom:'8px'}}>
                 <button className={entryMode === 'gto' ? 'active' : ''} onClick={() => setEntryMode('gto')}>GTO Style</button>
                 <button className={entryMode === 'classic' ? 'active' : ''} onClick={() => setEntryMode('classic')}>Classic</button>
-              </div>
+              </div>}
               <div className="replayer-row" style={{marginBottom:'8px'}}>
                 <div className="replayer-field">
                   <label>Title</label>
@@ -3927,7 +4472,7 @@
               </div>
               <div id="gto-sticky-slot"></div>
             </div>
-            {entryMode === 'gto' ? (
+            {(entryMode === 'gto' || currentHand.gameType === 'OFC') ? (
               <GTOEntryView
                 hand={currentHand}
                 setHand={setCurrentHand}

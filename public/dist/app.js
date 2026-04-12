@@ -93,6 +93,8 @@ const SHARED_MATCH = window.location.pathname.match(/^\/shared\/([a-f0-9]+)$/);
 const SHARED_TOKEN = SHARED_MATCH ? SHARED_MATCH[1] : null;
 const RESET_MATCH = window.location.hash.match(/^#reset\?token=([a-f0-9]{64})$/);
 const RESET_TOKEN = RESET_MATCH ? RESET_MATCH[1] : null;
+const HAND_MATCH = window.location.hash.match(/^#h\/(.+)$/);
+const HAND_SHORTHAND = HAND_MATCH ? decodeURIComponent(HAND_MATCH[1]) : null;
 const Icon = {
   search: /* @__PURE__ */ __name(() => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "8" }), /* @__PURE__ */ React.createElement("path", { d: "M21 21l-4.35-4.35" })), "search"),
   filter: /* @__PURE__ */ __name(() => /* @__PURE__ */ React.createElement("svg", { viewBox: "10 10 80 80", fill: "currentColor", style: { width: "14px", height: "14px" } }, /* @__PURE__ */ React.createElement("path", { d: "M79.93,28.82H45.04c-0.83,0-1.5-0.67-1.5-1.5s0.67-1.5,1.5-1.5h34.89c0.83,0,1.5,0.67,1.5,1.5S80.76,28.82,79.93,28.82z" }), /* @__PURE__ */ React.createElement("path", { d: "M28.77,28.82h-8.71c-0.83,0-1.5-0.67-1.5-1.5s0.67-1.5,1.5-1.5h8.71c0.83,0,1.5,0.67,1.5,1.5S29.6,28.82,28.77,28.82z" }), /* @__PURE__ */ React.createElement("path", { d: "M36.92,36.95c-5.32,0-9.64-4.32-9.64-9.63c0-5.32,4.32-9.64,9.64-9.64c5.31,0,9.63,4.32,9.63,9.64 C46.54,32.63,42.23,36.95,36.92,36.95z M36.92,20.68c-3.66,0-6.64,2.98-6.64,6.64c0,3.66,2.98,6.63,6.64,6.63 c3.66,0,6.63-2.97,6.63-6.63C43.54,23.66,40.57,20.68,36.92,20.68z" }), /* @__PURE__ */ React.createElement("path", { d: "M79.93,51.5H67.04c-0.83,0-1.5-0.67-1.5-1.5s0.67-1.5,1.5-1.5h12.89c0.83,0,1.5,0.67,1.5,1.5S80.76,51.5,79.93,51.5z" }), /* @__PURE__ */ React.createElement("path", { d: "M50.77,51.5H20.06c-0.83,0-1.5-0.67-1.5-1.5s0.67-1.5,1.5-1.5h30.71c0.83,0,1.5,0.67,1.5,1.5S51.6,51.5,50.77,51.5z" }), /* @__PURE__ */ React.createElement("path", { d: "M58.92,59.63c-5.32,0-9.64-4.32-9.64-9.63c0-5.32,4.32-9.64,9.64-9.64c5.31,0,9.63,4.32,9.63,9.64 C68.54,55.31,64.22,59.63,58.92,59.63z M58.92,43.36c-3.66,0-6.64,2.98-6.64,6.64c0,3.66,2.98,6.63,6.64,6.63 c3.66,0,6.63-2.97,6.63-6.63C65.54,46.34,62.57,43.36,58.92,43.36z" }), /* @__PURE__ */ React.createElement("path", { d: "M79.93,74.18H49.04c-0.83,0-1.5-0.67-1.5-1.5s0.67-1.5,1.5-1.5h30.89c0.83,0,1.5,0.67,1.5,1.5S80.76,74.18,79.93,74.18z" }), /* @__PURE__ */ React.createElement("path", { d: "M32.77,74.18H20.06c-0.83,0-1.5-0.67-1.5-1.5s0.67-1.5,1.5-1.5h12.71c0.83,0,1.5,0.67,1.5,1.5S33.6,74.18,32.77,74.18z" }), /* @__PURE__ */ React.createElement("path", { d: "M40.92,82.32c-5.32,0-9.64-4.33-9.64-9.64c0-5.31,4.32-9.63,9.64-9.63c5.31,0,9.63,4.32,9.63,9.63 C50.54,78,46.23,82.32,40.92,82.32z M40.92,66.05c-3.66,0-6.64,2.97-6.64,6.63c0,3.66,2.98,6.64,6.64,6.64 c3.66,0,6.63-2.98,6.63-6.64C47.54,69.02,44.57,66.05,40.92,66.05z" })), "filter"),
@@ -8238,7 +8240,7 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     const stack = (lu == null ? void 0 : lu.stack) ? Number(lu.stack).toLocaleString() : null;
     const blinds = (lu == null ? void 0 : lu.bb) ? `${lu.sb ? Number(lu.sb).toLocaleString() : "?"}/${Number(lu.bb).toLocaleString()}${lu.bbAnte || lu.bb_ante ? "/" + Number(lu.bbAnte || lu.bb_ante).toLocaleString() : ""}` : null;
     return /* @__PURE__ */ React.createElement("div", { key: f.id, className: "dash-friend-chip", onClick: () => onNavigate("social") }, /* @__PURE__ */ React.createElement(Avatar, { src: f.avatar, username: f.username, size: 28 }), /* @__PURE__ */ React.createElement("div", { className: "friend-info" }, /* @__PURE__ */ React.createElement("div", { className: "friend-name" }, displayName(f)), /* @__PURE__ */ React.createElement("div", { className: "friend-event" }, (lu == null ? void 0 : lu.eventName) || "Playing"), stack && /* @__PURE__ */ React.createElement("div", { className: "friend-stack" }, stack, blinds ? ` @ ${blinds}` : "")));
-  }))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Table Scanner ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, fontSize: "0.7rem", color: "var(--text-muted)" } }, "(WSOP Live / PokerStars Live)"))), /* @__PURE__ */ React.createElement(TableScanner, null)), /* @__PURE__ */ React.createElement("div", { className: "dash-bottom-stack" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", width: "calc(33.33% - 3px)" } }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Results"), plData.count > 0 && dashRates && /* @__PURE__ */ React.createElement(
+  }))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Table Scanner ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, fontSize: "0.7rem", color: "var(--text-muted)" } }, "(WSOP Live / PokerStars Live)"))), /* @__PURE__ */ React.createElement(TableScanner, null)), /* @__PURE__ */ React.createElement("div", { className: "dash-bottom-stack" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Results"), plData.count > 0 && dashRates && /* @__PURE__ */ React.createElement(
     "select",
     {
       value: dashCurrency,
@@ -8257,7 +8259,7 @@ function DashboardView({ mySchedule, myActiveUpdates, trackingData, shareBuddies
     },
     /* @__PURE__ */ React.createElement("option", { value: "NATIVE" }, "Native"),
     Object.keys(CURRENCY_CONFIG).map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, (CURRENCY_CONFIG[c] || {}).symbol, " ", c))
-  )), plData.count > 0 && /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, plData.count, " result", plData.count !== 1 ? "s" : "")), plData.count > 0 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-grid" }, (() => {
+  ), plData.count > 0 && !dashRates && /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, plData.count, " result", plData.count !== 1 ? "s" : "")), plData.count > 0 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-grid" }, (() => {
     const fmtPl = /* @__PURE__ */ __name((v) => formatCurrencyAmount(v, dashCurrency === "NATIVE" ? "USD" : dashCurrency), "fmtPl");
     return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card dash-pl-btn", onClick: () => setPlDropdown((d) => d === "buyins" ? null : "buyins") }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-value" }, fmtPl(plData.invested)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Total Buyins ▾"), plDropdown === "buyins" && /* @__PURE__ */ React.createElement("div", { className: "dash-pl-dropdown" }, Object.entries(plData.byVenue).filter(([, v]) => v.invested > 0).sort((a, b) => b[1].invested - a[1].invested).map(([venue, v]) => /* @__PURE__ */ React.createElement("div", { key: venue, className: "dash-pl-dropdown-row" }, /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-venue" }, venue), /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-amount" }, fmtPl(v.invested)))))), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card dash-pl-btn", onClick: () => setPlDropdown((d) => d === "cashes" ? null : "cashes") }, /* @__PURE__ */ React.createElement("div", { className: "dash-pl-value" }, fmtPl(plData.cashed)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Cashes ▾"), plDropdown === "cashes" && /* @__PURE__ */ React.createElement("div", { className: "dash-pl-dropdown" }, Object.entries(plData.byVenue).filter(([, v]) => v.cashed > 0).sort((a, b) => b[1].cashed - a[1].cashed).map(([venue, v]) => /* @__PURE__ */ React.createElement("div", { key: venue, className: "dash-pl-dropdown-row" }, /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-venue" }, venue), /* @__PURE__ */ React.createElement("span", { className: "dash-pl-dropdown-amount" }, fmtPl(v.cashed)))))), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-card" }, /* @__PURE__ */ React.createElement("div", { className: `dash-pl-value ${plData.net >= 0 ? "positive" : "negative"}` }, plData.net >= 0 ? "+" : "", fmtPl(plData.net)), /* @__PURE__ */ React.createElement("div", { className: "dash-pl-label" }, "Net — ", plData.roi >= 0 ? "+" : "", plData.roi.toFixed(1), "% ROI")));
   })())) : /* @__PURE__ */ React.createElement("div", { className: "dash-empty", style: { padding: "12px 16px" } }, /* @__PURE__ */ React.createElement(Icon.tracking, null), /* @__PURE__ */ React.createElement("div", null, "No results logged yet"))), /* @__PURE__ */ React.createElement("div", { className: "dashboard-section" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-header" }, /* @__PURE__ */ React.createElement("div", { className: "dashboard-section-title" }, "Connections"), allConnections.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "dashboard-section-badge" }, activeFriends.length > 0 ? `${activeFriends.length} live` : `${allConnections.length}`)), allConnections.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "dash-connections-row" }, allConnections.slice(0, 10).map((f) => /* @__PURE__ */ React.createElement(
@@ -8825,7 +8827,8 @@ const STREET_DEFS = {
   community: { streets: ["Preflop", "Flop", "Turn", "River"], boardCards: [0, 3, 1, 1] },
   draw_triple: { streets: ["Pre-Draw", "Draw 1", "Draw 2", "Draw 3"], boardCards: [0, 0, 0, 0] },
   draw_single: { streets: ["Pre-Draw", "Draw"], boardCards: [0, 0] },
-  stud: { streets: ["3rd Street", "4th Street", "5th Street", "6th Street", "7th Street"], boardCards: [0, 0, 0, 0, 0] }
+  stud: { streets: ["3rd Street", "4th Street", "5th Street", "6th Street", "7th Street"], boardCards: [0, 0, 0, 0, 0] },
+  ofc: { streets: ["Initial (5)", "Card 6", "Card 7", "Card 8", "Card 9", "Card 10", "Card 11", "Card 12", "Card 13"], boardCards: [0, 0, 0, 0, 0, 0, 0, 0, 0] }
 };
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || sessionStorage.getItem("token"));
@@ -8885,6 +8888,20 @@ function App() {
   const [debugTimeKey, setDebugTimeKey] = useState(0);
   const [avatar, setAvatar] = useState(localStorage.getItem("avatar") || null);
   const [handReplayerAccess, setHandReplayerAccess] = useState(localStorage.getItem("handReplayerAccess") === "true");
+  const [sharedHandData, setSharedHandData] = useState(() => {
+    if (HAND_SHORTHAND && window.decodeHand) {
+      try {
+        const decoded = window.decodeHand(HAND_SHORTHAND);
+        if (decoded) {
+          if (window.history.replaceState) window.history.replaceState(null, "", window.location.pathname + window.location.search);
+          return decoded;
+        }
+      } catch (e) {
+        console.error("Failed to decode shared hand:", e);
+      }
+    }
+    return null;
+  });
   const [realName, setRealName] = useState(localStorage.getItem("realName") || null);
   const [showRealNamePrompt, setShowRealNamePrompt] = useState(false);
   const [nameMode, setNameMode] = useState(localStorage.getItem("displayNameMode") || "real");
@@ -8932,6 +8949,31 @@ function App() {
     document.documentElement.dataset.serif = serifFont === "baskerville" ? "" : serifFont;
     localStorage.setItem("serifFont", serifFont);
   }, [serifFont]);
+  useEffect(() => {
+    if (sharedHandData) {
+      setCurrentView("hands");
+    }
+  }, []);
+  useEffect(() => {
+    const onHashChange = /* @__PURE__ */ __name(() => {
+      const m = window.location.hash.match(/^#h\/(.+)$/);
+      if (m && window.decodeHand) {
+        try {
+          const shorthand = decodeURIComponent(m[1]);
+          const decoded = window.decodeHand(shorthand);
+          if (decoded) {
+            setSharedHandData(decoded);
+            setCurrentView("hands");
+            if (window.history.replaceState) window.history.replaceState(null, "", window.location.pathname + window.location.search);
+          }
+        } catch (e) {
+          console.error("Failed to decode shared hand from hashchange:", e);
+        }
+      }
+    }, "onHashChange");
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [setCurrentView]);
   const toggleTheme = /* @__PURE__ */ __name(() => setTheme((t) => {
     const i = THEME_ORDER.indexOf(t);
     return THEME_ORDER[(i + 1) % THEME_ORDER.length];
@@ -9879,7 +9921,7 @@ function App() {
       onDelete: deleteTracking,
       myActiveUpdates
     }
-  )), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "hands" ? " tab-active" : ""), "data-tab": "hands", style: { display: currentView === "hands" ? void 0 : "none", height: currentView === "hands" ? "100%" : void 0 } }, visitedTabs.has("hands") && (["ham", "ham5"].includes((username || "").toLowerCase()) ? /* @__PURE__ */ React.createElement(HandReplayerView, { token, heroName: realName || username || "Hero", cardSplay }) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2.5rem", marginBottom: "12px" } }, "🃏"), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "'Univers Condensed', 'Univers', sans-serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--text)", margin: "0 0 8px" } }, "Hand Replayer"), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 } }, "Coming Soon")))), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "settings" ? " tab-active" : ""), "data-tab": "settings", style: { display: currentView === "settings" ? void 0 : "none", height: currentView === "settings" ? "100%" : void 0 } }, visitedTabs.has("settings") && /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "hands" ? " tab-active" : ""), "data-tab": "hands", style: { display: currentView === "hands" ? void 0 : "none", height: currentView === "hands" ? "100%" : void 0 } }, visitedTabs.has("hands") && (["ham", "ham5"].includes((username || "").toLowerCase()) || sharedHandData ? /* @__PURE__ */ React.createElement(HandReplayerView, { token, heroName: realName || username || "Hero", cardSplay, initialHand: sharedHandData, onClearInitialHand: () => setSharedHandData(null) }) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2.5rem", marginBottom: "12px" } }, "🃏"), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "'Univers Condensed', 'Univers', sans-serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--text)", margin: "0 0 8px" } }, "Hand Replayer"), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 } }, "Coming Soon")))), /* @__PURE__ */ React.createElement("div", { className: "tab-panel" + (currentView === "settings" ? " tab-active" : ""), "data-tab": "settings", style: { display: currentView === "settings" ? void 0 : "none", height: currentView === "settings" ? "100%" : void 0 } }, visitedTabs.has("settings") && /* @__PURE__ */ React.createElement(
     SettingsView,
     {
       username,
