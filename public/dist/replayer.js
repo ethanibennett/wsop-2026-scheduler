@@ -815,6 +815,23 @@ function useReplayerSetting(key, defaultVal) {
   return [val, update];
 }
 __name(useReplayerSetting, "useReplayerSetting");
+function computePlayerContrib(hand, streetIdx, actions, upToIdx, playerIdx) {
+  var total = 0;
+  var category = getGameCategory(hand.gameType);
+  if (streetIdx === 0 && category !== "stud") {
+    var pos = hand.players[playerIdx] && hand.players[playerIdx].position;
+    if (pos === "SB" || pos === "BTN/SB") total = (hand.blinds || {}).sb || 0;
+    else if (pos === "BB") total = (hand.blinds || {}).bb || 0;
+  }
+  for (var i = 0; i <= upToIdx && i < actions.length; i++) {
+    if (actions[i].player === playerIdx) {
+      if (actions[i].action === "bring-in") total = actions[i].amount || 0;
+      else if (actions[i].action !== "fold") total += actions[i].amount || 0;
+    }
+  }
+  return total;
+}
+__name(computePlayerContrib, "computePlayerContrib");
 function generateCommentary(hand, streetIdx, actionIdx, pot, stacks) {
   var street = hand.streets[streetIdx];
   if (!street) return "The hand begins...";
@@ -892,7 +909,7 @@ function generateCommentary(hand, streetIdx, actionIdx, pot, stacks) {
       }
       return name + posStr + " leads out with a bet of " + formatChipAmount(act.amount) + " into a " + formatChipAmount(pot - act.amount) + " pot.";
     case "raise":
-      return name + posStr + " fires a raise to " + formatChipAmount(act.amount) + "! The pot swells to " + formatChipAmount(pot) + ".";
+      return name + posStr + " fires a raise to " + formatChipAmount(computePlayerContrib(hand, streetIdx, actions, actionIdx, act.player)) + "! The pot swells to " + formatChipAmount(pot) + ".";
     case "all-in":
       return name + posStr + " moves ALL IN for " + formatChipAmount(act.amount) + "! A pivotal moment at the table.";
     case "bring-in":
@@ -2373,7 +2390,13 @@ function HandReplayerReplay({ hand, onEdit, onBack, cardSplay }) {
           if (actText === "raise" && lastAct.amount && lastAct.amount >= stacks[pi] + (lastAct.amount || 0)) badgeClass = "action-allin";
           if (!actText) return null;
           var label = actText;
-          if (lastAct.amount) label += " " + formatChipAmount(lastAct.amount);
+          if (lastAct.amount) {
+            if (actText === "raise") {
+              label += " " + formatChipAmount(computePlayerContrib(hand, streetIdx, currentActions, actionIdx, pi));
+            } else {
+              label += " " + formatChipAmount(lastAct.amount);
+            }
+          }
           return /* @__PURE__ */ React.createElement("div", { className: "replayer-action-badge-outer " + badgeClass }, label);
         })(),
         handName && /* @__PURE__ */ React.createElement("div", { className: "replayer-seat-hand-name" }, handName),
@@ -3455,10 +3478,26 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
         className: "btn btn-primary btn-sm",
         disabled: !allDrawsDeclared,
         onClick: function() {
-          setPhase("draw_cards_entry");
+          var heroIdx2 = hand.heroIdx != null ? hand.heroIdx : 0;
+          var heroDraw = (currentStreet.draws || []).find(function(d) {
+            return d.player === heroIdx2;
+          });
+          var heroIsPat = heroDraw && heroDraw.discarded === 0;
+          if (heroIsPat) {
+            setCurrentStreetIdx(nextDrawStreet);
+            setPhase("action");
+          } else {
+            setPhase("draw_cards_entry");
+          }
         }
       },
-      "Enter Cards"
+      (function() {
+        var heroIdx2 = hand.heroIdx != null ? hand.heroIdx : 0;
+        var heroDraw = (currentStreet.draws || []).find(function(d) {
+          return d.player === heroIdx2;
+        });
+        return heroDraw && heroDraw.discarded === 0 ? "Continue" : "Enter Cards";
+      })()
     ))));
   }
   if (phase === "stud_deal") {

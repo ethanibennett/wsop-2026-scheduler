@@ -228,6 +228,9 @@
       if (!v.includes('horseshoe') && !v.includes('paris') && v !== 'wsop europe') return false;
       const name = (t.event_name || '').toLowerCase();
       if (name.includes('circuit') && v !== 'wsop europe') return false;
+      // WSOPC venues award rings, not bracelets
+      const info = getVenueInfo(t.venue);
+      if (/^WSOPC/.test(info.longName)) return false;
       return !NON_BRACELET_KEYWORDS.some(kw => name.includes(kw));
     }
 

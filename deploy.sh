@@ -211,13 +211,19 @@ fi
 
 # ── Step 9: Login to production ──
 info "Logging in to production..."
-PROD_TOKEN=$(curl -sf "$PROD_URL/api/login" \
-  -H 'Content-Type: application/json' \
-  -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])" 2>/dev/null) || {
-  error "Could not log in to production. DB sync skipped."
+PROD_TOKEN=""
+for attempt in 1 2 3; do
+  PROD_TOKEN=$(curl -sf -m 30 "$PROD_URL/api/login" \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])" 2>/dev/null) && break
+  warn "Login attempt $attempt failed, retrying in 5s..."
   PROD_TOKEN=""
-}
+  sleep 5
+done
+if [ -z "$PROD_TOKEN" ]; then
+  error "Could not log in to production after 3 attempts. DB sync skipped."
+fi
 
 # ── Step 10: Sync local → production ──
 if [ -n "$LOCAL_TOKEN" ] && [ -n "$PROD_TOKEN" ]; then

@@ -18,7 +18,7 @@
 
     var SHORTHAND_STREET_DEFS = {
       community: { streets: ['Preflop', 'Flop', 'Turn', 'River'], boardCards: [0, 3, 1, 1] },
-      draw_triple: { streets: ['Pre-Draw', 'Draw 1', 'Draw 2', 'Draw 3'], boardCards: [0, 0, 0, 0] },
+      draw_triple: { streets: ['Pre-Draw', 'First Draw', 'Second Draw', 'Third Draw'], boardCards: [0, 0, 0, 0] },
       draw_single: { streets: ['Pre-Draw', 'Draw'], boardCards: [0, 0] },
       stud: { streets: ['3rd Street', '4th Street', '5th Street', '6th Street', '7th Street'], boardCards: [0, 0, 0, 0, 0] },
       ofc: { streets: ['Initial (5)', 'Card 6', 'Card 7', 'Card 8', 'Card 9', 'Card 10', 'Card 11', 'Card 12', 'Card 13'], boardCards: [0, 0, 0, 0, 0, 0, 0, 0, 0] }

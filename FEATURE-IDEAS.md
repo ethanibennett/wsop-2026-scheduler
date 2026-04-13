@@ -624,15 +624,172 @@
 
 ---
 
+## Apple Watch Companion
+
+### 51. Next Event Complication
+
+**What it does:** A glanceable Watch complication showing your next scheduled tournament -- venue, buy-in, and countdown timer. Tapping opens a detail view with the full day's schedule. Updates automatically as events start and end.
+
+**Why it's valuable:** Players check their phone constantly for "what's next." A wrist glance eliminates that friction entirely, especially when phones aren't allowed at the table.
+
+**Difficulty:** Low-Medium
+
+**Monetization:** Included with premium subscription.
+
+---
+
+### 52. Break & Hydration Timer
+
+**What it does:** Syncs with tournament blind level timing. Sends haptic taps for break reminders, hydration nudges every 45 minutes, and stretch prompts. Configurable intensity -- "gentle" (occasional taps) to "strict" (won't stop buzzing until you stand up). Tracks compliance over a series.
+
+**Why it's valuable:** Dehydration and prolonged sitting measurably degrade decision-making. A discrete wrist tap is the perfect delivery mechanism -- no phone needed, no table disruption.
+
+**Difficulty:** Low-Medium
+
+**Monetization:** Free basic reminders, premium tracking and correlation with results.
+
+---
+
+### 53. Quick Chip Count Logger
+
+**What it does:** Digital crown scroll to your approximate chip count, one tap to save. Automatically tags the count to your current tournament and blind level. Friends tracking your progress see updates in real-time. Alternative: voice input via Watch mic during breaks.
+
+**Why it's valuable:** Chip count logging during breaks is tedious on a phone. A 3-second wrist interaction makes it effortless, which means players actually do it -- feeding live updates and connection features.
+
+**Difficulty:** Medium
+
+**Monetization:** Premium feature tied to live updates.
+
+---
+
+### 54. Late Reg Alerts
+
+**What it does:** Haptic notification when a scheduled event's late registration window is closing. Configurable lead times (30 min, 15 min, 5 min). Shows starting stack in BB at current blind level so you can make an informed decision without pulling out your phone.
+
+**Why it's valuable:** Players miss late reg windows because they're focused on their current table. A wrist buzz with key info enables split-second decisions.
+
+**Difficulty:** Low
+
+**Monetization:** Included with premium.
+
+---
+
+### 55. Tilt Pulse Monitor
+
+**What it does:** Monitors heart rate via HealthKit during active tournament sessions. Establishes your baseline resting heart rate, then alerts when stress indicators spike significantly above baseline. Sends a gentle haptic pattern with a breathing exercise prompt. Tracks heart rate patterns correlated with bust-outs over time.
+
+**Why it's valuable:** Tilt manifests physically before players consciously recognize it. Biometric detection catches tilt earlier than self-awareness, when intervention is most effective.
+
+**Difficulty:** Medium-High
+
+**Monetization:** Premium wellness feature. Partnership potential with health/wellness brands.
+
+---
+
+### 56. Session Timer & Activity Tracking
+
+**What it does:** Auto-detects when you're at a poker venue (using location) and starts a session timer. Tracks total hours played, break time taken, steps during breaks. End-of-session summary: "You played 9h 23m, took 4 breaks totaling 52 min, walked 2,100 steps." Correlates session length with results over time.
+
+**Why it's valuable:** Players lose track of time at the table. Objective session data reveals patterns ("my ROI drops sharply after hour 8") that drive better scheduling decisions.
+
+**Difficulty:** Medium
+
+**Monetization:** Premium analytics feature.
+
+---
+
+### 57. Connection Activity Glance
+
+**What it does:** Quick glance showing which friends are currently at a table, their tournament, and last chip count update. Tap to send a pre-written encouragement message ("GL!", "Ship it!", "Take a break!") without typing.
+
+**Why it's valuable:** Social features are the stickiest part of the app. Making them accessible from the wrist during play -- when phones are inconvenient -- keeps the social loop active.
+
+**Difficulty:** Medium
+
+**Monetization:** Included with social features.
+
+---
+
+### 58. Sleep Score Pre-Game
+
+**What it does:** Pulls last night's sleep data from HealthKit (duration, quality, HRV). Before you register for a tournament, shows a readiness score: "Sleep: 5.8h / Fair quality. Your ROI on <6h sleep nights is -18%. Consider the 2 PM event instead." Over time, builds a personal sleep-performance model.
+
+**Why it's valuable:** Sleep is the highest-leverage non-poker variable in tournament results. Making the connection visible at the moment of decision (registration) changes behavior.
+
+**Difficulty:** Medium
+
+**Monetization:** Premium wellness tier.
+
+---
+
+## Dynamic Island / Live Activities
+
+### 59. Live Tournament Tracker
+
+**What it does:** When you mark a tournament as "playing," a Live Activity appears on the Dynamic Island and lock screen. Shows: tournament name, current blind level, your chip count (last logged), time until next break, and a compact progress bar. Updates via push notifications or manual chip count entries from the Watch.
+
+**Why it's valuable:** The Dynamic Island is the most visible real estate on iPhone. Having your tournament status always visible -- without opening the app -- is the ultimate convenience feature. Friends with your shared schedule see your Live Activity status too.
+
+**Difficulty:** Medium-High (requires native Swift Widget Extension + APNS)
+
+**Monetization:** Premium feature. Potential signature feature for marketing.
+
+---
+
+### 60. Break Countdown Island
+
+**What it does:** During tournament breaks, the Dynamic Island switches to a countdown timer showing time remaining until play resumes. Haptic alert at 2 minutes and 30 seconds remaining. Expands to show the upcoming blind level and ante.
+
+**Why it's valuable:** Players wander during breaks and lose track of time. A persistent, visible countdown prevents late returns (and the penalties/missed hands that come with them).
+
+**Difficulty:** Medium (extends Live Activity from #59)
+
+**Monetization:** Included with Live Tournament Tracker.
+
+---
+
+### 61. Late Reg Live Activity
+
+**What it does:** For events on your schedule that you haven't started playing, shows a Live Activity with the late registration countdown. Tapping expands to show current field size (if available), starting stack in BB, and a "Register Now" button that opens the app to that event's detail view.
+
+**Why it's valuable:** Late reg decisions are time-sensitive. Having the countdown persistently visible -- with the key decision data -- means you never accidentally miss a window.
+
+**Difficulty:** Medium (extends Live Activity infrastructure)
+
+**Monetization:** Included with premium.
+
+---
+
+## App Suite Architecture
+
+### 62. Three-App Split
+
+**What it does:** futurega.me evolves into a suite of three focused apps sharing a common backend and user system:
+
+- **futurega.me: planner** -- Tournament scheduling, social connections, series tracking, table scanner, live updates
+- **futurega.me: replayer** -- Comprehensive hand replayer with social media integration, game builder, AI hand analysis
+- **futurega.me: manager** -- Bankroll tracker, staking marketplace, P&L analytics, tilt detection
+
+**Why it's valuable:** Each app serves a distinct use case and audience. A recreational player might only want the planner. A coach might live in the replayer. A professional might need all three. Splitting allows focused UX, independent App Store presence, and tiered pricing.
+
+**Architecture:** Monorepo with shared packages (auth, API, theme, user system). Vite migration (in progress) is laying the groundwork by splitting the monolithic codebase into feature modules.
+
+**Difficulty:** High (already in progress via Vite migration)
+
+**Monetization:** Each app has its own free tier + premium. Bundle discount for all three.
+
+---
+
 ## Summary: Priority Matrix
 
 | Tier | Features | Rationale |
 |------|----------|-----------|
 | **Build First** | Overlap Engine, Grind Planner, Bankroll Autopilot, Late Reg Calculator, Exit Interview, Payout Chop Calculator | Core utility features that solve daily pain points |
 | **High Impact** | Sweat Network, Leak Finder, Fantasy WSOP, Action Marketplace, Poker Passport, Seat Draw Intel | Drive engagement, retention, and differentiation |
-| **Differentiators** | Ghost Coach, Simulation Engine, Sleep Score, Poker Time Machine, Poker Genome, Voice Notes | These are the features no competitor will have |
+| **Platform** | Dynamic Island Live Activity, Apple Watch Companion (Next Event, Break Timer, Chip Logger), Three-App Split | Native platform integration that competitors can't match |
+| **Differentiators** | Ghost Coach, Simulation Engine, Sleep Score, Poker Time Machine, Poker Genome, Voice Notes, Tilt Pulse | Features no competitor will have |
 | **Engagement Drivers** | Bad Beat Vault, Prop Bet Board, Community Scouting, Deadpool, Table Talk | Social hooks that drive daily opens and sharing |
-| **Long Tail** | AR Overlay, Chip Count Snap, Smart Watch, Venue Heatmaps, Poker Playlist, Digital Card Protector | Cool but lower priority -- build when core is solid |
+| **Long Tail** | AR Overlay, Chip Count Snap, Venue Heatmaps, Poker Playlist, Digital Card Protector, Session Timer | Cool but lower priority -- build when core is solid |
 
 ---
 

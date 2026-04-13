@@ -3160,12 +3160,12 @@ function TableScanner() {
     2: [[50, 12], [50, 88]],
     3: [[50, 12], [85, 75], [15, 75]],
     4: [[50, 12], [98, 50], [50, 88], [2, 50]],
-    5: [[50, 12], [98, 40], [80, 88], [20, 88], [2, 40]],
+    5: [[50, 8], [98, 50], [80, 92], [20, 92], [2, 50]],
     6: [[30, 12], [70, 12], [98, 50], [70, 88], [30, 88], [2, 50]],
-    7: [[50, 5], [98, 25], [98, 65], [72, 95], [28, 95], [2, 65], [2, 25]],
+    7: [[50, 5], [98, 35], [98, 65], [72, 95], [28, 95], [2, 65], [2, 35]],
     8: [[30, 10], [70, 10], [98, 37], [98, 63], [70, 90], [30, 90], [2, 63], [2, 37]],
     9: [[50, 10], [82, 10], [98, 37], [98, 63], [72, 90], [28, 90], [2, 63], [2, 37], [18, 10]],
-    10: [[35, 2], [65, 2], [98, 20], [98, 50], [98, 80], [65, 98], [35, 98], [2, 80], [2, 50], [2, 20]]
+    10: [[35, 2], [65, 2], [98, 26], [98, 50], [98, 74], [65, 98], [35, 98], [2, 74], [2, 50], [2, 26]]
   };
   function getDisplayPlayers(rawPlayers) {
     const hasSeatData = rawPlayers.some((p) => p.seat);
@@ -3180,30 +3180,30 @@ function TableScanner() {
     const n = Math.min(Math.max(sorted.length, 2), 10);
     const heroIdx = sorted.findIndex((p) => p.isHero);
     const PORTRAIT_LAYOUTS = {
-      2: [[50, 10], [50, 90]],
-      3: [[50, 10], [98, 50], [2, 50]],
-      4: [[50, 10], [98, 50], [50, 90], [2, 50]],
-      5: [[50, 10], [98, 35], [98, 65], [50, 90], [2, 50]],
-      6: [[50, 10], [98, 30], [98, 70], [50, 90], [2, 70], [2, 30]],
-      7: [[50, 10], [98, 25], [98, 50], [98, 75], [50, 90], [2, 50], [2, 25]],
-      8: [[50, 6], [98, 22], [98, 50], [98, 78], [50, 94], [2, 78], [2, 50], [2, 22]],
-      9: [[30, 6], [98, 22], [98, 50], [98, 78], [50, 94], [2, 78], [2, 50], [2, 22], [70, 6]],
-      10: [[30, 6], [70, 6], [98, 22], [98, 50], [98, 78], [70, 94], [30, 94], [2, 78], [2, 50], [2, 22]]
+      2: [[50, 5], [50, 95]],
+      3: [[50, 5], [98, 50], [2, 50]],
+      4: [[50, 5], [98, 50], [50, 95], [2, 50]],
+      5: [[50, 5], [98, 35], [98, 65], [50, 95], [2, 50]],
+      6: [[50, 5], [98, 35], [98, 65], [50, 95], [2, 65], [2, 35]],
+      7: [[50, 5], [98, 28], [98, 50], [98, 72], [50, 95], [2, 50], [2, 28]],
+      8: [[50, 5], [98, 23], [98, 50], [98, 77], [50, 95], [2, 77], [2, 50], [2, 23]],
+      9: [[30, 5], [98, 23], [98, 50], [98, 77], [50, 95], [2, 77], [2, 50], [2, 23], [70, 5]],
+      10: [[30, 5], [70, 5], [98, 23], [98, 50], [98, 77], [70, 95], [30, 95], [2, 77], [2, 50], [2, 23]]
     };
     const PORTRAIT_STAGGERED = {
-      2: [[50, 10], [50, 90]],
-      3: [[50, 10], [98, 50], [2, 50]],
-      4: [[50, 10], [98, 45], [50, 90], [2, 55]],
-      5: [[50, 10], [98, 35], [98, 65], [50, 90], [2, 50]],
-      6: [[50, 10], [98, 28], [98, 68], [50, 90], [2, 72], [2, 32]],
-      7: [[50, 10], [98, 24], [98, 50], [98, 76], [50, 90], [2, 55], [2, 28]],
-      8: [[50, 6], [98, 20], [98, 46], [98, 72], [50, 94], [2, 80], [2, 54], [2, 28]],
-      9: [[30, 6], [98, 20], [98, 46], [98, 72], [50, 94], [2, 80], [2, 54], [2, 28], [70, 6]],
-      10: [[30, 6], [70, 6], [98, 20], [98, 46], [98, 72], [70, 94], [30, 94], [2, 80], [2, 54], [2, 28]]
+      2: [[50, 5], [50, 95]],
+      3: [[50, 5], [98, 50], [2, 50]],
+      4: [[50, 5], [98, 45], [50, 95], [2, 55]],
+      5: [[50, 5], [98, 33], [98, 67], [50, 95], [2, 50]],
+      6: [[50, 5], [98, 28], [98, 68], [50, 95], [2, 72], [2, 32]],
+      7: [[50, 5], [98, 26], [98, 50], [98, 74], [50, 95], [2, 55], [2, 28]],
+      8: [[50, 5], [98, 20], [98, 46], [98, 72], [50, 95], [2, 80], [2, 54], [2, 28]],
+      9: [[30, 5], [98, 20], [98, 46], [98, 72], [50, 95], [2, 80], [2, 54], [2, 28], [70, 5]],
+      10: [[30, 5], [70, 5], [98, 20], [98, 46], [98, 72], [70, 95], [30, 95], [2, 80], [2, 54], [2, 28]]
     };
     function resolveCollisions(rawCoords, minX, minY) {
       const s = rawCoords.map((c) => [c[0], c[1]]);
-      for (let pass = 0; pass < 5; pass++) {
+      for (let pass = 0; pass < 8; pass++) {
         for (let i = 0; i < s.length; i++) {
           for (let j = i + 1; j < s.length; j++) {
             const dx = s[j][0] - s[i][0];
@@ -3211,11 +3211,11 @@ function TableScanner() {
             const adx = Math.abs(dx), ady = Math.abs(dy);
             if (adx < minX && ady < minY) {
               if (adx / minX < ady / minY) {
-                const pushX = (minX - adx) / 2 * 0.5;
+                const pushX = (minX - adx) / 2 * 0.7;
                 s[i][0] -= Math.sign(dx || 1) * pushX;
                 s[j][0] += Math.sign(dx || 1) * pushX;
               } else {
-                const pushY = (minY - ady) / 2 * 0.5;
+                const pushY = (minY - ady) / 2 * 0.7;
                 s[i][1] -= Math.sign(dy || 1) * pushY;
                 s[j][1] += Math.sign(dy || 1) * pushY;
               }
@@ -3964,7 +3964,8 @@ function CalendarEventRow({ tournament, isInSchedule, onToggle, isPast, showMini
       style: { background: stripColor, color: stripTextColor, cursor: "pointer" },
       onClick: () => setOpen((o) => !o)
     },
-    open && venue.longName ? venue.longName : venue.abbr
+    /* @__PURE__ */ React.createElement("span", { className: "venue-strip-abbr" }, venue.abbr),
+    /* @__PURE__ */ React.createElement("span", { className: "venue-strip-full" }, venue.longName || venue.abbr)
   ), /* @__PURE__ */ React.createElement("div", { className: "cal-event-row-content", style: isInSchedule ? { borderColor: conditions && conditions.length > 0 ? venue.abbr === "WSOP" ? "var(--venue-wsop-cond)" : stripColor : stripColor } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "cal-event-bar", onClick: () => setOpen((o) => !o) }, tournament.venue === "Personal" ? /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2", style: { display: "flex", alignItems: "center", gap: "8px" } }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name", style: { fontSize: "0.88rem" } }, tournament.event_name === "Travel Day" ? "✈️" : "🏖️", " ", tournament.event_name), tournament.notes && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--text-muted)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "— ", tournament.notes)) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row1" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-time" }, timeLabel), /* @__PURE__ */ React.createElement("span", { className: "cal-event-buyin" }, currencySymbol(tournament.venue), Number(tournament.buyin).toLocaleString())), /* @__PURE__ */ React.createElement("div", { className: "cal-bar-row2" }, /* @__PURE__ */ React.createElement("span", { className: "cal-event-name" }, formatEventName(tournament.event_name)), isBounty && !isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.crosshairs, null)), isSat && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.satellite, null)), isRestart && /* @__PURE__ */ React.createElement("span", { className: "cal-bounty-icon" }, /* @__PURE__ */ React.createElement(Icon.restart, null)), bracelet && /* @__PURE__ */ React.createElement("span", { className: "cal-bracelet-icon" }, /* @__PURE__ */ React.createElement(Icon.bracelet, null)), isRingEvent && /* @__PURE__ */ React.createElement("span", { className: "cal-ring-icon" }, /* @__PURE__ */ React.createElement(Icon.ring, null))))), showMiniLateReg && !open && /* @__PURE__ */ React.createElement(MiniLateRegBar, { lateRegEnd: tournament.late_reg_end, date: tournament.date, time: tournament.time, venueAbbr: venue.abbr, venue: tournament.venue }), /* @__PURE__ */ React.createElement("div", { className: `cal-event-chevron ${open ? "open" : ""}`, onClick: () => setOpen((o) => !o) }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" }))), /* @__PURE__ */ React.createElement("div", { className: `cal-event-detail-wrap ${open ? "open" : ""}`, onClick: (e) => {
     const tag = e.target.tagName;
     if (tag === "A" || tag === "BUTTON" || tag === "INPUT") return;
@@ -4495,7 +4496,41 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
             setFilters((f) => __spreadProps(__spreadValues({}, f), { dateTo: v >= totalDays ? "" : addDays(minDate, v) }));
           }
         }
-      )), /* @__PURE__ */ React.createElement("div", { className: "date-slider-labels" }, /* @__PURE__ */ React.createElement("span", null, fmtShortDate(fromDate)), /* @__PURE__ */ React.createElement("span", null, fmtShortDate(toDate)))));
+      )), /* @__PURE__ */ React.createElement("div", { className: "date-slider-labels" }, /* @__PURE__ */ React.createElement("label", { className: "date-slider-date-link" }, fmtShortDate(fromDate), /* @__PURE__ */ React.createElement(
+        "input",
+        {
+          type: "date",
+          value: fromDate,
+          min: minDate,
+          max: toDate,
+          onChange: (e) => {
+            const v = e.target.value;
+            if (!v) {
+              setFilters((f) => __spreadProps(__spreadValues({}, f), { dateFrom: "" }));
+              return;
+            }
+            const idx = daysBetween(minDate, v);
+            setFilters((f) => __spreadProps(__spreadValues({}, f), { dateFrom: idx <= 0 ? "" : v }));
+          }
+        }
+      )), /* @__PURE__ */ React.createElement("label", { className: "date-slider-date-link" }, fmtShortDate(toDate), /* @__PURE__ */ React.createElement(
+        "input",
+        {
+          type: "date",
+          value: toDate,
+          min: fromDate,
+          max: maxDate,
+          onChange: (e) => {
+            const v = e.target.value;
+            if (!v) {
+              setFilters((f) => __spreadProps(__spreadValues({}, f), { dateTo: "" }));
+              return;
+            }
+            const idx = daysBetween(minDate, v);
+            setFilters((f) => __spreadProps(__spreadValues({}, f), { dateTo: idx >= totalDays ? "" : v }));
+          }
+        }
+      )))));
     })(), /* @__PURE__ */ React.createElement("div", { className: "filter-group filter-span2" }, /* @__PURE__ */ React.createElement("label", { style: { cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }, onClick: () => setWhereOpen((w) => !w) }, "Series", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", transition: "transform 0.15s", transform: whereOpen ? "rotate(180deg)" : "rotate(0deg)" } }, "▼")), whereOpen && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "6px" } }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", fontWeight: 600, textTransform: "none", letterSpacing: 0, cursor: "pointer", color: "var(--text)" } }, /* @__PURE__ */ React.createElement(
       "input",
       {
