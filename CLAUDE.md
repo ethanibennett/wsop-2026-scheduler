@@ -96,6 +96,11 @@ If SMTP is not configured, reset links are logged to the server console.
 - Groups: GET/POST `/api/groups`, DELETE `/api/groups/:id`, GET `/api/groups/:id/members`, POST `/api/groups/:id/members`, GET `/api/groups/:id/feed`, POST `/api/groups/:id/messages`, GET `/api/groups/:id/schedule`, GET/PUT `/api/groups/:id/leaderboard`
 - Group Invites: GET `/api/groups/:id/invites`, PUT `/api/group-invites/:id/accept`, PUT `/api/group-invites/:id/decline`
 - Hand Replayer: GET/POST `/api/replayer/hands`, PUT/DELETE `/api/replayer/hands/:id`, GET/POST/DELETE `/api/replayer/games`
+- Schedule Docs: GET `/api/schedule-docs` (list all), GET `/api/schedule-docs/:venue/:type/:filename` (serve file)
+- Structure Parsing: POST `/api/parse-structure` (upload structure sheets → AI extraction → update tournament records)
+
+## Schedule Documents
+Source schedules and structure sheets are archived in `schedule-docs/<Venue>/schedules/` and `schedule-docs/<Venue>/structures/`. Files are auto-archived when users import via `/api/upload-schedule`, `/api/parse-schedule`, or `/api/parse-structure`. Structure sheets update existing tournament records with granular data (starting chips, level durations, blind levels, re-entry, late reg, day length).
 
 ## Dev Server Config
 The `.claude/` directory is gitignored. For Claude Code preview tools, create `.claude/launch.json`:

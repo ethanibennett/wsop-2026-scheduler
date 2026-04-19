@@ -18,6 +18,28 @@ const webpush = require('web-push');
 const sampleTournaments = require('./sample-data');
 const Anthropic = require('@anthropic-ai/sdk');
 
+// ── Schedule document archiving ──
+// Folder layout: schedule-docs/<Venue>/schedules/  — event listings, PDFs, images
+//                schedule-docs/<Venue>/structures/ — blind structures, level sheets
+const SCHEDULE_DOCS_DIR = path.join(__dirname, 'schedule-docs');
+async function archiveScheduleDoc(venue, filename, buffer, docType) {
+  try {
+    const safeVenue = (venue || 'unknown').replace(/[^a-zA-Z0-9 _\-\/]/g, '').trim();
+    const subDir = docType === 'structure' ? 'structures' : 'schedules';
+    const venueDir = path.join(SCHEDULE_DOCS_DIR, safeVenue, subDir);
+    await fs.mkdir(venueDir, { recursive: true });
+    const safeName = filename.replace(/[^a-zA-Z0-9._\-]/g, '_');
+    const ts = new Date().toISOString().slice(0, 10);
+    const dest = path.join(venueDir, `${ts}_${safeName}`);
+    await fs.writeFile(dest, buffer);
+    console.log(`[ScheduleDocs] Archived ${(buffer.length / 1024).toFixed(0)}KB ${subDir} → ${dest}`);
+    return dest;
+  } catch (err) {
+    console.error('[ScheduleDocs] Archive failed:', err.message);
+    return null;
+  }
+}
+
 // ── Web Push (VAPID) setup ──
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -286,6 +308,11 @@ let SQL;
 const DB_PATH = process.env.DB_PATH || 'poker-tournaments.db';
 
 // ── Re-entry normalization ──
+function normalizeLevelDuration(val) {
+  if (val == null) return val;
+  return String(val).replace(/\s*min(ute)?s?\s*$/i, '').trim();
+}
+
 function normalizeReentry(val) {
   if (!val) return val;
   const v = val.trim();
@@ -2319,6 +2346,15 @@ async function initDatabase() {
         console.log(`Cleared hallucinated rake data from ${changed} WSOPC Cherokee events`);
       }
     },
+    {
+      name: 'dedup-daily-deepstacks-2026-04',
+      fn: () => {
+        db.run(`DELETE FROM tournaments WHERE venue = 'Horseshoe / Paris Las Vegas' AND event_name LIKE '%Daily Deepstack%' AND stable_id IS NULL`);
+        const deleted = db.getRowsModified();
+        db.run(`UPDATE tournaments SET is_deepstack = 1 WHERE venue = 'Horseshoe / Paris Las Vegas' AND event_name LIKE '%Daily Deepstack%'`);
+        console.log(`Removed ${deleted} duplicate Daily Deepstack events`);
+      }
+    },
   ];
 
   for (const mig of dataMigrations) {
@@ -2414,7 +2450,7 @@ async function initDatabase() {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           t.eventNumber, normalizeEventName(t.eventName, t.gameVariant), t.date, t.time, t.buyin,
-          t.startingChips || null, t.levelDuration || null,
+          t.startingChips || null, normalizeLevelDuration(t.levelDuration) || null,
           normalizeReentry(t.reentry) || null, t.lateReg || null, t.lateRegEnd || null,
           t.gameVariant, t.venue, t.notes || null,
           t.category || null, t.isSatellite ? 1 : 0, t.targetEvent || null,
@@ -2870,7 +2906,7 @@ app.post('/api/upload-schedule', authenticateToken, requireRegistered, upload.si
           tournament.time || '12:00PM',
           tournament.buyin,
           tournament.startingChips || null,
-          tournament.levelDuration || null,
+          normalizeLevelDuration(tournament.levelDuration) || null,
           normalizeReentry(tournament.reentry) || null,
           tournament.lateReg || null,
           tournament.gameVariant,
@@ -2894,7 +2930,9 @@ app.post('/api/upload-schedule', authenticateToken, requireRegistered, upload.si
 
     await saveDatabase();
 
-    // Clean up uploaded file
+    // Archive the uploaded file instead of deleting
+    const detectedVenue = tournaments.length > 0 ? (tournaments[0].venue || 'unknown') : 'unknown';
+    await archiveScheduleDoc(detectedVenue, req.file.originalname, dataBuffer);
     await fs.unlink(req.file.path);
 
     res.json({
@@ -6596,6 +6634,29 @@ app.get('/api/replayer/hands', authenticateToken, (req, res) => {
   }
 });
 
+app.get('/api/replayer/hands/:id', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const stmt = db.prepare(`
+      SELECT sh.*, u.username
+      FROM saved_hands sh
+      JOIN users u ON sh.user_id = u.id
+      WHERE sh.id = ? AND (sh.user_id = ? OR sh.is_public = 1)
+    `);
+    stmt.bind([id, req.user.id]);
+    if (!stmt.step()) {
+      stmt.free();
+      return res.status(404).json({ error: 'Hand not found' });
+    }
+    const hand = stmt.getAsObject();
+    stmt.free();
+    res.json(hand);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to load hand' });
+  }
+});
+
 app.post('/api/replayer/hands', authenticateToken, requireRegistered, async (req, res) => {
   try {
     const hand = req.body;
@@ -7080,7 +7141,7 @@ For each event line, output a JSON object with these fields:
     • Words like Championship, Classic, Open, Hybrid, Kickoff, Closer, Frenzy, Monster Stack, Survivor, Bounty, C-Note, Mystery describe FORMAT — they do NOT indicate a variant. Default to NLH.
     • "Hybrid" means online-to-live format — it is NLH, NOT Mixed
 - "event_name": Build from ONLY what is printed on the schedule — NEVER invent words:
-    • Prepend variant abbreviation (NLH, PLO, etc.) UNLESS it's a Satellite or demographic event (Seniors, Ladies, Kings & Queens)
+    • Prepend variant abbreviation (NLH, PLO, etc.) to ALL events including demographic events (Seniors, Ladies, Kings & Queens). ONLY exception: pure Satellites keep their original naming without variant prefix.
     • Strip: buy-in amounts, GTD amounts, re-entry policy, variant text (since it's in the prefix)
     • After stripping, use ONLY the remaining descriptive words from the original text
     • If no descriptive words remain after stripping, the name is JUST the variant prefix (e.g. "NLH")
@@ -7092,7 +7153,8 @@ For each event line, output a JSON object with these fields:
       "$600 No Limit Hold'em 1A $150K GTD (2Day)" → "NLH Flight A" (event_number: "1")
       "$400 PLO 8-Max" → "PLO 8-Max"
       "$1,100 NLH Monster Stack" → "NLH Monster Stack"
-      "$300 Seniors No Limit Hold'em" → "Seniors"
+      "$300 Seniors No Limit Hold'em" → "NLH Seniors"
+      "$500 Ladies PLO" → "PLO Ladies"
       "$2,200 NLH Championship" → "NLH Championship" (Championship IS in the original text)
 - "event_number": as shown, or null
 - "starting_chips": integer, or null
@@ -7332,9 +7394,9 @@ function postProcessEvents(allEvents, userVenue) {
     }
 
     if (ev.event_name) {
-      const isSatOrDemo = ev.is_satellite ||
-        /\b(Satellite|Seniors|Ladies|Kings\s*&\s*Queens)\b/i.test(ev.event_name);
-      ev.event_name = normalizeEventName(ev.event_name, isSatOrDemo ? null : ev.game_variant);
+      const isSatellite = ev.is_satellite ||
+        /\b(Satellite)\b/i.test(ev.event_name);
+      ev.event_name = normalizeEventName(ev.event_name, isSatellite ? null : ev.game_variant);
     }
 
     if (ev.buyin != null) ev.buyin = parseInt(String(ev.buyin).replace(/[$,]/g, '')) || 0;
@@ -7432,6 +7494,12 @@ app.post('/api/parse-schedule', authenticateToken, requireRegistered, scheduleUp
     const { deduplicated, warnings } = postProcessEvents(allEvents, userVenue);
 
     console.log(`[ParseSchedule] Total: ${allEvents.length} raw -> ${deduplicated.length} deduplicated events from ${visionContent.length} file(s)`);
+
+    // Archive uploaded files
+    const detectedVenue = deduplicated.length > 0 ? deduplicated[0].venue : (userVenue || 'unknown');
+    for (const file of files) {
+      archiveScheduleDoc(detectedVenue, file.originalname, file.buffer);
+    }
 
     res.json({
       events: deduplicated,
@@ -7549,11 +7617,15 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
     const pageErrors = [];
     let allEvents = [];
 
+    // Track fetched content for archiving
+    const _urlArchiveBuffers = [];
+
     if (contentType.includes('application/pdf') || url.toLowerCase().endsWith('.pdf')) {
       // PDF — download and run through vision pipeline
       console.log(`[ParseURL] Detected PDF`);
       const buffer = Buffer.from(await resp.arrayBuffer());
       console.log(`[ParseURL] Downloaded ${(buffer.length / 1024).toFixed(0)}KB PDF`);
+      _urlArchiveBuffers.push({ name: url.split('/').pop() || 'schedule.pdf', buffer });
       const visionContent = [
         { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') } },
       ];
@@ -7565,6 +7637,8 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
       console.log(`[ParseURL] Detected image (${imgType})`);
       const buffer = Buffer.from(await resp.arrayBuffer());
       console.log(`[ParseURL] Downloaded ${(buffer.length / 1024).toFixed(0)}KB image`);
+      const ext = imgType.includes('png') ? '.png' : imgType.includes('webp') ? '.webp' : '.jpg';
+      _urlArchiveBuffers.push({ name: (url.split('/').pop() || 'schedule') + ext, buffer });
       const visionContent = [
         { type: 'image', source: { type: 'base64', media_type: imgType, data: buffer.toString('base64') } },
       ];
@@ -7574,6 +7648,9 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
       // HTML web page — extract images and/or text
       console.log(`[ParseURL] Detected HTML page`);
       const html = await resp.text();
+      // Archive the HTML snapshot
+      const hostname = new URL(url).hostname.replace(/^www\./, '');
+      _urlArchiveBuffers.push({ name: `${hostname}.html`, buffer: Buffer.from(html) });
 
       // ── Extract embedded images (tweets, social media posts, etc.) ──
       const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
@@ -7760,6 +7837,19 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
     const { deduplicated, warnings } = postProcessEvents(allEvents, userVenue);
     console.log(`[ParseURL] Total: ${allEvents.length} raw -> ${deduplicated.length} deduplicated events`);
 
+    // Archive the fetched content + a URL reference
+    const detectedVenue = deduplicated.length > 0 ? deduplicated[0].venue : (userVenue || 'unknown');
+    for (const arch of _urlArchiveBuffers) {
+      archiveScheduleDoc(detectedVenue, arch.name, arch.buffer);
+    }
+    // Also save a small reference file linking the URL to what was extracted
+    try {
+      const refName = url.replace(/[^a-zA-Z0-9._\-]/g, '_').slice(-80) + '.ref.txt';
+      await archiveScheduleDoc(detectedVenue, refName, Buffer.from(
+        `Source URL: ${url}\nFetched: ${new Date().toISOString()}\nContent-Type: ${contentType}\nEvents extracted: ${deduplicated.length}\nVenue: ${detectedVenue}\n`
+      ));
+    } catch (_) {}
+
     res.json({
       events: deduplicated,
       pageCount: 1,
@@ -7773,6 +7863,201 @@ app.post('/api/parse-schedule-url', authenticateToken, requireRegistered, expres
   } catch (err) {
     console.error('[ParseURL] Error:', err.message);
     res.status(err.status || 500).json({ error: `URL parsing failed: ${err.message}` });
+  }
+});
+
+// ── Schedule documents listing ──
+app.get('/api/schedule-docs', authenticateToken, async (req, res) => {
+  try {
+    const venues = [];
+    try {
+      const entries = await fs.readdir(SCHEDULE_DOCS_DIR, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const venuePath = path.join(SCHEDULE_DOCS_DIR, entry.name);
+        const schedules = [];
+        const structures = [];
+        for (const subDir of ['schedules', 'structures']) {
+          const subPath = path.join(venuePath, subDir);
+          try {
+            const files = await fs.readdir(subPath);
+            for (const f of files) {
+              const stat = await fs.stat(path.join(subPath, f));
+              const item = { name: f, size: stat.size, modified: stat.mtime };
+              if (subDir === 'structures') structures.push(item);
+              else schedules.push(item);
+            }
+          } catch (e) { if (e.code !== 'ENOENT') throw e; }
+        }
+        // Also list any files directly in the venue folder (legacy)
+        try {
+          const topFiles = await fs.readdir(venuePath, { withFileTypes: true });
+          for (const f of topFiles) {
+            if (f.isFile()) {
+              const stat = await fs.stat(path.join(venuePath, f.name));
+              schedules.push({ name: f.name, size: stat.size, modified: stat.mtime });
+            }
+          }
+        } catch (_) {}
+        if (schedules.length > 0 || structures.length > 0) {
+          venues.push({ venue: entry.name, schedules, structures });
+        }
+      }
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    res.json({ docs: venues });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/schedule-docs/:venue/:type/:filename', authenticateToken, async (req, res) => {
+  const safeVenue = req.params.venue.replace(/[^a-zA-Z0-9 _\-]/g, '');
+  const safeType = req.params.type === 'structures' ? 'structures' : 'schedules';
+  const safeFile = req.params.filename.replace(/\.\./g, '');
+  const filePath = path.join(SCHEDULE_DOCS_DIR, safeVenue, safeType, safeFile);
+  try {
+    await fs.access(filePath);
+    res.sendFile(filePath);
+  } catch {
+    res.status(404).json({ error: 'File not found' });
+  }
+});
+
+// ── Parse structure sheet and update tournament records ──
+app.post('/api/parse-structure', authenticateToken, requireRegistered, scheduleUpload.array('file', 20), async (req, res) => {
+  const files = req.files || [];
+  if (files.length === 0) return res.status(400).json({ error: 'No files provided' });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+
+  const userVenue = req.body?.venue || '';
+
+  try {
+    const client = new Anthropic({ apiKey, timeout: 180000 });
+
+    const visionContent = [];
+    const sourceNames = [];
+    for (const file of files) {
+      const mime = file.mimetype || '';
+      const isImage = mime.startsWith('image/');
+      const isPdf = mime === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf');
+      if (!isImage && !isPdf) continue;
+      sourceNames.push(file.originalname);
+      const base64 = file.buffer.toString('base64');
+      if (isPdf) {
+        visionContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } });
+      } else {
+        visionContent.push({ type: 'image', source: { type: 'base64', media_type: mime, data: base64 } });
+      }
+    }
+
+    if (visionContent.length === 0) return res.status(400).json({ error: 'No valid files' });
+
+    const structurePrompt = `Extract tournament structure data from this structure sheet. Return a JSON array where each object represents one event/structure with these fields:
+- event_name: string (event title as shown)
+- event_number: string or null (e.g. "Event #5" → "5")
+- buyin: number (total buy-in in dollars)
+- starting_chips: number
+- level_duration: string (e.g. "30", "40", "60" in minutes)
+- levels: array of {level: number, small_blind: number, big_blind: number, ante: number} (as many as shown)
+- reentry: string ("Unlimited", "1", "2", or null)
+- late_reg: string (e.g. "end of level 12" or "4 hours")
+- late_reg_end: string (specific time if shown, e.g. "Level 12")
+- day_length: string (e.g. "10 levels", "end of level 15")
+- game_variant: string (NLH, PLO, Mixed, etc.)
+- venue: string (if identifiable from the document)
+- notes: string (any additional info: add-ons, bounty amounts, flight info, etc.)
+
+Return ONLY the JSON array, no markdown or explanation.`;
+
+    const result = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8192,
+      messages: [{
+        role: 'user',
+        content: [...visionContent, { type: 'text', text: structurePrompt }],
+      }],
+    });
+
+    let text = result.content.map(c => c.type === 'text' ? c.text : '').join('');
+    // Strip code fences if present
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    let structures;
+    try { structures = JSON.parse(text); } catch {
+      // Try to repair
+      const match = text.match(/\[[\s\S]*\]/);
+      if (match) structures = JSON.parse(match[0]);
+      else return res.status(422).json({ error: 'Could not parse structure data from AI response' });
+    }
+    if (!Array.isArray(structures)) structures = [structures];
+
+    // Archive source files
+    const detectedVenue = structures[0]?.venue || userVenue || 'unknown';
+    for (const file of files) {
+      archiveScheduleDoc(detectedVenue, file.originalname, file.buffer, 'structure');
+    }
+
+    // Match structures to existing tournament records and update
+    let matched = 0;
+    let unmatched = 0;
+    const updates = [];
+
+    for (const s of structures) {
+      const venue = s.venue || userVenue;
+      if (!venue) { unmatched++; continue; }
+
+      // Try to match by event number + venue first, then by name + buyin
+      let row = null;
+      if (s.event_number) {
+        row = db.prepare('SELECT id, event_name, stable_id FROM tournaments WHERE venue = ? AND event_number = ? LIMIT 1').get(venue, s.event_number);
+      }
+      if (!row && s.event_name && s.buyin) {
+        row = db.prepare('SELECT id, event_name, stable_id FROM tournaments WHERE venue = ? AND event_name LIKE ? AND buyin = ? LIMIT 1').get(venue, `%${s.event_name.slice(0, 30)}%`, s.buyin);
+      }
+
+      if (row) {
+        const setClauses = [];
+        const params = [];
+        if (s.starting_chips) { setClauses.push('starting_chips = ?'); params.push(s.starting_chips); }
+        if (s.level_duration) { setClauses.push('level_duration = ?'); params.push(String(s.level_duration)); }
+        if (s.reentry) { setClauses.push('reentry = ?'); params.push(s.reentry); }
+        if (s.late_reg) { setClauses.push('late_reg = ?'); params.push(s.late_reg); }
+        if (s.late_reg_end) { setClauses.push('late_reg_end = ?'); params.push(s.late_reg_end); }
+        if (s.day_length) { setClauses.push('day_length = ?'); params.push(s.day_length); }
+        if (sourceNames.length > 0) {
+          setClauses.push('structure_sheet_path = ?');
+          params.push(sourceNames.join(', '));
+        }
+
+        if (setClauses.length > 0) {
+          params.push(row.id);
+          db.run(`UPDATE tournaments SET ${setClauses.join(', ')} WHERE id = ?`, params);
+          updates.push({ id: row.id, event: row.event_name, fields: setClauses.length });
+          matched++;
+        }
+      } else {
+        unmatched++;
+      }
+    }
+
+    if (matched > 0) await saveDatabase();
+
+    console.log(`[ParseStructure] Extracted ${structures.length} structures, matched ${matched}, unmatched ${unmatched}`);
+
+    res.json({
+      structures,
+      matched,
+      unmatched,
+      updates,
+      sourceFile: sourceNames.join(', '),
+    });
+  } catch (err) {
+    console.error('[ParseStructure] Error:', err.message);
+    res.status(err.status || 500).json({ error: `Structure parsing failed: ${err.message}` });
   }
 });
 
@@ -8036,8 +8321,14 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
         }
       }
 
-      const evName = ev.event_name || 'Unknown Event';
-      const evVenue = ev.venue;
+      let evName = ev.event_name || 'Unknown Event';
+      // Normalize brand casing
+      evName = evName.replace(/\bbetmgm\b/gi, 'BetMGM');
+      // Auto-prepend variant prefix for Seniors/Ladies events that lack it
+      if (/\b(Seniors|Ladies)\b/i.test(evName) && ev.game_variant && !new RegExp(`\\b${ev.game_variant}\\b`, 'i').test(evName)) {
+        evName = `${ev.game_variant} ${evName}`;
+      }
+      const evVenue = ev.venue ? ev.venue.replace(/\bbetmgm\b/gi, 'BetMGM') : ev.venue;
       const evNumber = ev.event_number || '';
       const sid = ev.stable_id || generateStableId(evVenue, evNumber, evName, date, ev.time, ev.buyin);
 
@@ -8049,7 +8340,6 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
       if (ev.guarantee) notes.push(`$${ev.guarantee.toLocaleString()} Guaranteed`);
       if (ev.bounty_amount) notes.push(`$${ev.bounty_amount} Bounty`);
       if (ev.table_size) notes.push(ev.table_size);
-      if (ev.category) notes.push(ev.category);
 
       db.run(
         `INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, game_variant, venue, notes, is_satellite, target_event, is_restart, parent_event, prize_pool, day_length, uploaded_by, source_pdf, is_deepstack, category)
@@ -8104,12 +8394,60 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
       '/'
     ).catch(() => {});
 
+    // Auto-sync to production in background
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (token) syncToRemote(token).catch(err => console.error('[AutoSync] Background error:', err.message));
+
     res.json({ inserted, updated, skipped, total: events.length });
   } catch (err) {
     console.error('[ImportSchedule] Error:', err.message);
     res.status(500).json({ error: 'Failed to import events: ' + err.message });
   }
 });
+
+// ── Cross-environment sync helper ──
+// After local imports, push changed events to production (and vice versa)
+async function syncToRemote(localToken) {
+  const PROD_URL = 'https://futurega.me';
+  const LOCAL_URL = `http://localhost:${PORT}`;
+  const isProduction = process.env.RENDER || process.env.IS_PRODUCTION;
+  if (isProduction) return; // Production doesn't need to sync to itself
+
+  try {
+    // Export from local
+    const exportRes = await fetch(`${LOCAL_URL}/api/tournaments/export`, {
+      headers: { Authorization: `Bearer ${localToken}` }
+    });
+    if (!exportRes.ok) { console.log('[AutoSync] Local export failed:', exportRes.status); return; }
+    const exportData = await exportRes.json();
+
+    // Log in to production
+    const adminUser = process.env.ADMIN_USER || 'ham';
+    const adminPass = process.env.ADMIN_PASS || '';
+    if (!adminPass) { console.log('[AutoSync] No ADMIN_PASS set, skipping remote sync'); return; }
+
+    const loginRes = await fetch(`${PROD_URL}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: adminUser, password: adminPass })
+    });
+    if (!loginRes.ok) { console.log('[AutoSync] Production login failed'); return; }
+    const { token: prodToken } = await loginRes.json();
+
+    // Sync to production
+    const syncRes = await fetch(`${PROD_URL}/api/tournaments/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${prodToken}` },
+      body: JSON.stringify({ tournaments: exportData.tournaments })
+    });
+    if (!syncRes.ok) { console.log('[AutoSync] Production sync failed:', syncRes.status); return; }
+    const result = await syncRes.json();
+    console.log(`[AutoSync] → Production: ${result.inserted} new, ${result.updated} updated, ${result.skipped} skipped`);
+  } catch (err) {
+    console.error('[AutoSync] Error:', err.message);
+  }
+}
 
 // ── Tournament Data Sync ──
 // Export all tournaments as JSON (for syncing between environments)
