@@ -344,6 +344,9 @@ function normalizeEventName(name, gameVariant) {
     if (n.startsWith(p)) { n = n.slice(p.length); break; }
   }
 
+  // Strip "Ring Event" marker — it's a category label, not part of the name
+  n = n.replace(/\s+Ring\s+Event\b/gi, '');
+
   // Normalize "PLO/NLH" → "NLH/PLO"
   n = n.replace(/\bPLO\/NLH\b/g, 'NLH/PLO');
 
@@ -2353,6 +2356,14 @@ async function initDatabase() {
         const deleted = db.getRowsModified();
         db.run(`UPDATE tournaments SET is_deepstack = 1 WHERE venue = 'Horseshoe / Paris Las Vegas' AND event_name LIKE '%Daily Deepstack%'`);
         console.log(`Removed ${deleted} duplicate Daily Deepstack events`);
+      }
+    },
+    {
+      name: 'strip-ring-event-titles-2026-04',
+      fn: () => {
+        db.run(`UPDATE tournaments SET event_name = TRIM(REPLACE(event_name, ' Ring Event', '')) WHERE event_name LIKE '%Ring Event%'`);
+        const updated = db.getRowsModified();
+        console.log(`Stripped "Ring Event" from ${updated} tournament titles`);
       }
     },
   ];
