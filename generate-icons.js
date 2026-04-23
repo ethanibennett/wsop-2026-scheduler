@@ -4,8 +4,8 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 // Use the designer's SVG as the source icon
-const SVG_PATH = path.join(__dirname, 'public/futuregameIcon.svg');
-const publicDir = path.join(__dirname, 'public');
+const SVG_PATH = path.join(__dirname, 'futuregameIcon.svg');
+const publicDir = path.join(__dirname, 'vite-app', 'public');
 const iosDir = path.join(__dirname, 'ios/App/App/Assets.xcassets/AppIcon.appiconset');
 const androidBase = path.join(__dirname, 'android/app/src/main/res');
 

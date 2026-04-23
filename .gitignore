@@ -85,8 +85,16 @@ setup.sh
 schedule-docs/
 
 # Build output
-public/dist/
 public-vite/
+vite-app/public/version.txt
+build/
+
+# Dev scratch
+test-hands.json
+test-hands.md
+test-hands-compact.md
+generate-test-hands.js
+.env.save
 
 # macOS
 .DS_Store

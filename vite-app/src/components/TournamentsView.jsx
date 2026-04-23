@@ -445,13 +445,14 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
             )}
           </div>
 
-          {hasActive && (
-            <div className="filter-group filter-span2">
+          <div className="filter-group filter-span2" style={{display:'flex',flexDirection:'row',gap:'8px',justifyContent:'flex-end'}}>
+            {hasActive && (
               <button className="btn btn-ghost btn-sm" onClick={() =>
                 setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,mysteryBountyOnly:false,headsUpOnly:false,tagTeamOnly:false,employeesOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],ladiesOnly:false,seniorsOnly:false,mixedOnly:false,dateFrom:'',dateTo:'',maxDistance:'',userLocation:null,locationRegion:null})
               }>Clear all filters</button>
-            </div>
-          )}
+            )}
+            <button className="btn btn-primary btn-sm" onClick={() => setOpen(false)}>Save &amp; Close</button>
+          </div>
         </div>,
         document.body
       )}
@@ -1026,9 +1027,35 @@ export default function TournamentsView({
   const toast = useToast();
   const [search, setSearch] = useState('');
   const deferredSearch = React.useDeferredValue ? React.useDeferredValue(search) : search;
-  const [filters, setFilters] = useState({
-    minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [], hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false, tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true, hideSideEvents: false, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false, mixedOnly: false, dateFrom: '', dateTo: '', maxDistance: '', userLocation: null, locationRegion: null
+  const [filters, setFilters] = useState(() => {
+    // Restore previously-chosen location from localStorage so users don't have
+    // to re-enter distance/region on every launch.
+    let savedLoc = {};
+    try {
+      const raw = localStorage.getItem('savedLocation');
+      if (raw) savedLoc = JSON.parse(raw);
+    } catch(e) {}
+    return {
+      minBuyin: '', maxBuyin: '', buyinRanges: [], rakeRanges: [], selectedGames: [],
+      hiddenVenues: [], bountyOnly: false, mysteryBountyOnly: false, headsUpOnly: false,
+      tagTeamOnly: false, employeesOnly: false, hideSatellites: true, hideRestarts: true,
+      hideSideEvents: false, hiddenMonths: [], ladiesOnly: false, seniorsOnly: false,
+      mixedOnly: false, dateFrom: '', dateTo: '',
+      maxDistance: savedLoc.maxDistance || '',
+      userLocation: savedLoc.userLocation || null,
+      locationRegion: savedLoc.locationRegion || null,
+      locationLabel: savedLoc.locationLabel || null,
+    };
   });
+  // Persist location selection across sessions
+  useEffect(() => {
+    const { userLocation, locationRegion, maxDistance, locationLabel } = filters;
+    if (userLocation || locationRegion) {
+      localStorage.setItem('savedLocation', JSON.stringify({ userLocation, locationRegion, maxDistance, locationLabel }));
+    } else {
+      localStorage.removeItem('savedLocation');
+    }
+  }, [filters.userLocation, filters.locationRegion, filters.maxDistance, filters.locationLabel]);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const filterToggleRef = useRef(null);
   const [focusEventId, setFocusEventId] = useState(null);
