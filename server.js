@@ -187,8 +187,10 @@ app.use(express.json({ limit: '50mb' }));
 // Health check for zero-downtime deploys
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Serve frontend — static assets can cache, but HTML must not
-app.use(express.static(path.join(__dirname, 'public'), {
+// Serve frontend — now the Vite build output in public-vite/.
+// Vite fingerprints bundled JS/CSS under /assets/*, so those are safe to cache
+// aggressively; HTML stays uncached so new deploys pick up new asset hashes.
+app.use(express.static(path.join(__dirname, 'public-vite'), {
   index: false, // Don't auto-serve index.html — we handle it explicitly below
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
@@ -196,8 +198,11 @@ app.use(express.static(path.join(__dirname, 'public'), {
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
       res.set('Surrogate-Control', 'no-store');
+    } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      // Hashed filenames — safe to cache forever
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
     } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
-      res.set('Cache-Control', 'no-cache'); // always revalidate
+      res.set('Cache-Control', 'no-cache'); // always revalidate un-hashed scripts
     }
   }
 }));
@@ -206,7 +211,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 const BUILD_VERSION = Date.now().toString();
 function serveIndex(req, res) {
   const fs = require('fs');
-  let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+  let html = fs.readFileSync(path.join(__dirname, 'public-vite', 'index.html'), 'utf8');
   html = html.replace('</head>', `<meta name="build-version" content="${BUILD_VERSION}">\n</head>`);
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
@@ -6617,9 +6622,10 @@ app.delete('/api/hands/:id', authenticateToken, requireRegistered, async (req, r
 
 /// ── Hand Replayer API ──────────────────────────────────
 
-// Serve replayer page
+// /replayer used to serve a standalone replayer.html; the Vite SPA now owns that
+// view, so we just serve the SPA shell and let the client route to it.
 app.get('/replayer', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'replayer.html'));
+  res.sendFile(path.join(__dirname, 'public-vite', 'index.html'));
 });
 
 // Replayer hands — reuse saved_hands table with replayer-specific endpoints

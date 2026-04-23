@@ -1,0 +1,3997 @@
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import ReactDOM from 'react-dom';
+import Icon from './Icon.jsx';
+import { API_URL } from '../utils/api.js';
+import { HAND_CONFIG, HAND_CONFIG_DEFAULT, getGamePills, haptic } from '../utils/utils.js';
+import { parseCardNotation, dualPlaceholder, evaluateHand, evaluateShowdown, assignNeutralSuits, GAME_EVAL,
+         bestHighHand, bestOmahaHigh, bestOmahaLow, bestLowA5Hand, bestLow27Hand, bestBadugiHand } from '../utils/poker-engine.js';
+import { encodeHand, decodeHand, GAME_CODES } from '../utils/hand-shorthand.js';
+import { loadCardImages } from '../utils/export.js';
+import { useToast } from '../contexts/ToastContext.jsx';
+
+// ── Street definitions ──────────────────────────────────────
+const STREET_DEFS = {
+  community: { streets: ['Preflop', 'Flop', 'Turn', 'River'], boardCards: [0, 3, 1, 1] },
+  draw_triple: { streets: ['Pre-Draw', 'First Draw', 'Second Draw', 'Third Draw'], boardCards: [0, 0, 0, 0] },
+  draw_single: { streets: ['Pre-Draw', 'Draw'], boardCards: [0, 0] },
+  stud: { streets: ['3rd Street', '4th Street', '5th Street', '6th Street', '7th Street'], boardCards: [0, 0, 0, 0, 0] },
+  ofc: { streets: ['Initial (5)', 'Card 6', 'Card 7', 'Card 8', 'Card 9', 'Card 10', 'Card 11', 'Card 12', 'Card 13'], boardCards: [0,0,0,0,0,0,0,0,0] },
+};
+
+// ── Draw hand computation ──
+function computeDrawHand(originalCards, draws, upToStreetIdx) {
+  if (!originalCards) return '';
+  let current = originalCards;
+  for (let si = 0; si <= upToStreetIdx; si++) {
+    if (!draws || !draws[si]) continue;
+    const draw = draws[si];
+    if (!draw || draw.discarded === 0) continue;
+    if (draw.discardedCards) {
+      const discarded = parseCardNotation(draw.discardedCards);
+      const currentParsed = parseCardNotation(current);
+      const remaining = [];
+      const discardSet = {};
+      discarded.forEach(c => { discardSet[c.rank + c.suit] = (discardSet[c.rank + c.suit] || 0) + 1; });
+      currentParsed.forEach(c => {
+        const key = c.rank + c.suit;
+        if (discardSet[key] && discardSet[key] > 0) { discardSet[key]--; }
+        else { remaining.push(c); }
+      });
+      current = remaining.map(c => c.rank + c.suit).join('');
+    } else {
+      const parsed = parseCardNotation(current);
+      const keep = Math.max(0, parsed.length - draw.discarded);
+      current = parsed.slice(0, keep).map(c => c.rank + c.suit).join('');
+    }
+    if (draw.newCards) current += draw.newCards;
+  }
+  return current;
+}
+
+function getPlayerDrawsByStreet(hand, playerIdx) {
+  const result = {};
+  hand.streets.forEach((s, si) => {
+    if (!s.draws) return;
+    const d = s.draws.find(d => d.player === playerIdx);
+    if (d) result[si] = d;
+  });
+  return result;
+}
+
+// ── Game category / street helpers ──
+function getGameCategory(gameType) {
+  const cfg = HAND_CONFIG[gameType];
+  if (!cfg) return 'community';
+  if (gameType === 'OFC') return 'ofc';
+  if (cfg.isStud) return 'stud';
+  if (cfg.hasBoard) return 'community';
+  if (['2-7 TD', 'PL 2-7 TD', 'L 2-7 TD', 'A-5 TD', 'Badeucy', 'Badacy'].includes(gameType)) return 'draw_triple';
+  if (['NL 2-7 SD', 'PL 5CD Hi'].includes(gameType)) return 'draw_single';
+  if (gameType === 'Badugi') return 'draw_triple';
+  if (!cfg.hasBoard && !cfg.isStud) {
+    const customDef = STREET_DEFS['custom_' + gameType];
+    if (customDef && customDef.streets.length > 3) return 'draw_triple';
+    if (customDef && customDef.streets.length <= 3) return 'draw_single';
+  }
+  return 'community';
+}
+
+function getStreetDef(gameType) {
+  const customDef = STREET_DEFS['custom_' + gameType];
+  if (customDef) return customDef;
+  return STREET_DEFS[getGameCategory(gameType)] || STREET_DEFS.community;
+}
+
+// ── Position labels ──
+function getPositionLabels(numPlayers) {
+  if (numPlayers <= 2) return ['BTN/SB', 'BB'];
+  if (numPlayers === 3) return ['BTN', 'SB', 'BB'];
+  const middle = ['UTG', 'UTG+1', 'MP1', 'MP2', 'LJ', 'HJ', 'CO'];
+  const need = numPlayers - 3;
+  const picked = middle.slice(Math.max(0, middle.length - need));
+  return picked.concat(['BTN', 'SB', 'BB']);
+}
+
+function getStudPositionLabels(numPlayers) {
+  return Array.from({ length: numPlayers }, (_, i) => 'Seat ' + (i + 1));
+}
+
+// ── Action order ──
+function getActionOrder(players, isPreflop, studInfo) {
+  const n = players.length;
+  if (n <= 0) return [];
+  const indices = [];
+  if (studInfo && studInfo.isStud) {
+    const startIdx = studInfo.is3rdStreet ? studInfo.bringInIdx : studInfo.bestBoardIdx;
+    if (startIdx >= 0) {
+      for (let i = 0; i < n; i++) indices.push((startIdx + i) % n);
+      return indices;
+    }
+    for (let i = 0; i < n; i++) indices.push(i);
+    return indices;
+  }
+  const btnIdx = n <= 3 ? 0 : n - 3;
+  const sbIdx = n <= 3 ? (n <= 2 ? 0 : 1) : n - 2;
+  const bbIdx = n <= 2 ? 1 : n - 1;
+  if (n === 2) {
+    return isPreflop ? [0, 1] : [1, 0];
+  } else if (isPreflop) {
+    for (let i = 0; i < n; i++) indices.push(i);
+  } else {
+    indices.push(sbIdx);
+    indices.push(bbIdx);
+    for (let i = 0; i < btnIdx; i++) indices.push(i);
+    indices.push(btnIdx);
+  }
+  return indices.filter(i => i < n);
+}
+
+// ── Stud helpers ──
+function findStudBringIn(hand, isRazz) {
+  const heroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+  const oppCards = (hand.streets[0] && hand.streets[0].cards.opponents) || [];
+  const heroCards = parseCardNotation((hand.streets[0] && hand.streets[0].cards.hero) || '');
+  const rankBadness = isRazz
+    ? { 'A':0,'2':1,'3':2,'4':3,'5':4,'6':5,'7':6,'8':7,'9':8,'T':9,'J':10,'Q':11,'K':12 }
+    : { 'A':0,'K':1,'Q':2,'J':3,'T':4,'9':5,'8':6,'7':7,'6':8,'5':9,'4':10,'3':11,'2':12 };
+  const suitBadness = isRazz ? { 'c':0,'d':1,'h':2,'s':3 } : { 's':0,'h':1,'d':2,'c':3 };
+  let worstIdx = -1, worstRank = -1, worstSuit = -1;
+  for (let pi = 0; pi < hand.players.length; pi++) {
+    let doorCard;
+    if (pi === heroIdx) {
+      doorCard = heroCards.length >= 3 ? heroCards[2] : null;
+    } else {
+      const oppSlot = pi < heroIdx ? pi : pi - 1;
+      const oCards = parseCardNotation(oppCards[oppSlot] || '');
+      doorCard = oCards.length ? oCards[0] : null;
+    }
+    if (!doorCard || doorCard.suit === 'x') continue;
+    const rv = rankBadness[doorCard.rank] || 0;
+    const sv = suitBadness[doorCard.suit] || 0;
+    if (worstIdx === -1 || rv > worstRank || (rv === worstRank && sv > worstSuit)) {
+      worstIdx = pi; worstRank = rv; worstSuit = sv;
+    }
+  }
+  return worstIdx;
+}
+
+function scoreStudBoard(cards) {
+  const rankValues = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'T':10,'J':11,'Q':12,'K':13,'A':14 };
+  if (!cards.length) return 0;
+  const counts = {};
+  cards.forEach(c => { const r = rankValues[c.rank] || 0; counts[r] = (counts[r] || 0) + 1; });
+  const pairs = [], trips = [], quads = [], kickers = [];
+  Object.keys(counts).forEach(r => {
+    const rv = parseInt(r);
+    if (counts[r] === 4) quads.push(rv);
+    else if (counts[r] === 3) trips.push(rv);
+    else if (counts[r] === 2) pairs.push(rv);
+    else kickers.push(rv);
+  });
+  pairs.sort((a,b) => b-a); trips.sort((a,b) => b-a); kickers.sort((a,b) => b-a);
+  if (quads.length) return 7000000 + quads[0]*100;
+  if (trips.length && pairs.length) return 6000000 + trips[0]*100 + pairs[0];
+  if (trips.length) return 5000000 + trips[0]*100;
+  if (pairs.length >= 2) return 4000000 + pairs[0]*100 + pairs[1];
+  if (pairs.length === 1) return 3000000 + pairs[0]*100 + (kickers[0]||0);
+  const allRanks = Object.keys(counts).map(Number).sort((a,b)=>b-a);
+  let score = 1000000;
+  for (let i = 0; i < allRanks.length; i++) score += allRanks[i] * Math.pow(100, 4-i);
+  return score;
+}
+
+function findStudBestBoard(hand, streetIdx, foldedSet, isLowGame) {
+  const heroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+  const maxVisibleStreet = Math.min(streetIdx, 3);
+  let bestIdx = -1, bestScore = isLowGame ? Infinity : -Infinity;
+  for (let pi = 0; pi < hand.players.length; pi++) {
+    if (foldedSet.has(pi)) continue;
+    const visible = [];
+    for (let si = 0; si <= maxVisibleStreet; si++) {
+      if (pi === heroIdx) {
+        const hCards = parseCardNotation((hand.streets[si] && hand.streets[si].cards.hero) || '');
+        if (si === 0 && hCards.length >= 3) visible.push(hCards[2]);
+        if (si > 0) hCards.forEach(c => { if (c.suit !== 'x') visible.push(c); });
+      } else {
+        const oppSlot = pi < heroIdx ? pi : pi - 1;
+        const oCards = parseCardNotation(((hand.streets[si] && hand.streets[si].cards.opponents) || [])[oppSlot] || '');
+        oCards.forEach(c => { if (c.suit !== 'x') visible.push(c); });
+      }
+    }
+    const score = scoreStudBoard(visible);
+    if (isLowGame ? score < bestScore : score > bestScore) { bestIdx = pi; bestScore = score; }
+  }
+  return bestIdx;
+}
+
+function studHasOpenPairOn4th(hand) {
+  if (!hand.streets || !hand.streets[0] || !hand.streets[1]) return false;
+  const heroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+  for (let pi = 0; pi < hand.players.length; pi++) {
+    let doorCard = null, fourthCard = null;
+    if (pi === heroIdx) {
+      const s0Cards = parseCardNotation((hand.streets[0] && hand.streets[0].cards.hero) || '');
+      const s1Cards = parseCardNotation((hand.streets[1] && hand.streets[1].cards.hero) || '');
+      doorCard = s0Cards.length >= 3 ? s0Cards[2] : null;
+      fourthCard = s1Cards.length >= 1 ? s1Cards[0] : null;
+    } else {
+      const oppSlot = pi < heroIdx ? pi : pi - 1;
+      const s0Opp = parseCardNotation(((hand.streets[0] && hand.streets[0].cards.opponents) || [])[oppSlot] || '');
+      const s1Opp = parseCardNotation(((hand.streets[1] && hand.streets[1].cards.opponents) || [])[oppSlot] || '');
+      doorCard = s0Opp.length >= 1 ? s0Opp[0] : null;
+      fourthCard = s1Opp.length >= 1 ? s1Opp[0] : null;
+    }
+    if (doorCard && fourthCard && doorCard.suit !== 'x' && fourthCard.suit !== 'x' && doorCard.rank === fourthCard.rank) return true;
+  }
+  return false;
+}
+
+// ── Formatting helpers ──
+function formatChipAmount(val) {
+  if (!val && val !== 0) return '';
+  const n = Number(val);
+  if (n >= 1000000) return (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'k';
+  return String(n);
+}
+
+// ── Chip visuals ──
+const CHIP_DENOMS = [
+  { value: 25000, color: '#14b8a6' },
+  { value: 5000,  color: '#f97316' },
+  { value: 1000,  color: '#eab308' },
+  { value: 500,   color: '#7c3aed' },
+  { value: 100,   color: '#1a1a2e' },
+  { value: 25,    color: '#22c55e' },
+];
+function getChipBreakdown(amount) {
+  const chips = [];
+  let remaining = Math.abs(Number(amount) || 0);
+  for (let i = 0; i < CHIP_DENOMS.length && chips.length < 5; i++) {
+    const d = CHIP_DENOMS[i];
+    while (remaining >= d.value && chips.length < 5) { chips.push(d.color); remaining -= d.value; }
+  }
+  if (chips.length === 0) chips.push('#22c55e');
+  return chips;
+}
+
+function ChipStack({ amount }) {
+  const chips = getChipBreakdown(amount);
+  return (
+    <div className="chip-stack-visual" style={{ display:'inline-flex', flexDirection:'column-reverse', alignItems:'center', marginRight:'3px', verticalAlign:'middle' }}>
+      {chips.map((color, i) => (
+        <div key={i} className="chip-disc" style={{
+          width: '12px', height: '4px', borderRadius: '50%', background: color,
+          border: '0.5px solid rgba(255,255,255,0.35)', marginTop: i === 0 ? 0 : '-2px',
+          boxShadow: '0 1px 1px rgba(0,0,0,0.3)', position: 'relative', zIndex: chips.length - i,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// ── Player name helpers ──
+const DEFAULT_OPP_NAMES = ['Jason Blodgett', 'Keith McCormack', 'Alex Charron', 'Kevin DiPasquale', 'Cristian Gutierrez', 'Derek Nold', 'Anthony Hall', 'Aidan Long'];
+
+function getTableScanNames() {
+  try {
+    const raw = localStorage.getItem('tableScanPlayers');
+    if (!raw) return null;
+    const players = JSON.parse(raw);
+    if (!Array.isArray(players) || players.length === 0) return null;
+    return players;
+  } catch { return null; }
+}
+
+function getSeatName(idx, heroIdx, heroName) {
+  const scan = getTableScanNames();
+  if (scan && scan.length > 0) {
+    let heroScanIdx = scan.findIndex(p => p.isHero);
+    if (heroScanIdx < 0) heroScanIdx = 0;
+    const offset = (idx - heroIdx + scan.length) % scan.length;
+    const scanIdx = (heroScanIdx + offset) % scan.length;
+    if (scan[scanIdx] && scan[scanIdx].name) {
+      if (idx === heroIdx) return heroName || scan[scanIdx].name;
+      return scan[scanIdx].name;
+    }
+  }
+  if (idx === 0) return heroName || 'Hero';
+  return DEFAULT_OPP_NAMES[idx - 1] || 'Opp ' + idx;
+}
+
+// ── Create empty hand ──
+function createEmptyHand(gameType, heroName) {
+  const streetDef = getStreetDef(gameType);
+  const gameCfg = HAND_CONFIG[gameType] || HAND_CONFIG_DEFAULT;
+  const scan = getTableScanNames();
+  if (gameType === 'OFC') {
+    const numPlayers = 2;
+    return {
+      gameType,
+      players: Array.from({ length: numPlayers }, (_, i) => ({
+        name: getSeatName(i, 0, heroName), position: i === 0 ? 'BTN' : 'BB', startingStack: 0
+      })),
+      blinds: { sb: 0, bb: 0, ante: 0 },
+      streets: streetDef.streets.map(name => ({
+        name, cards: { hero: '', opponents: [''], board: '' }, actions: [], draws: [],
+      })),
+      ofcRows: { 0: { top: '', middle: '', bottom: '' }, 1: { top: '', middle: '', bottom: '' } },
+      heroIdx: 0, result: null,
+    };
+  }
+  const defaultNum = gameCfg.isStud ? 8 : 6;
+  const numPlayers = scan ? Math.max(2, Math.min(10, scan.length)) : defaultNum;
+  const positions = gameCfg.isStud ? getStudPositionLabels(numPlayers) : getPositionLabels(numPlayers);
+  const defaultAnte = (gameCfg.hasBoard && !gameCfg.isStud) ? 200 : 0;
+  return {
+    gameType,
+    players: Array.from({ length: numPlayers }, (_, i) => ({
+      name: getSeatName(i, 0, heroName), position: positions[i] || '', startingStack: 50000
+    })),
+    blinds: { sb: 100, bb: 200, ante: defaultAnte },
+    streets: streetDef.streets.map(name => ({
+      name, cards: { hero: '', opponents: Array.from({ length: numPlayers - 1 }, () => ''), board: '' }, actions: [], draws: [],
+    })),
+    heroIdx: 0, result: null,
+  };
+}
+
+// ── Pot and stack calculation ──
+function calcPotsAndStacks(hand, upToStreet, upToAction) {
+  const blinds = hand.blinds || { sb: 0, bb: 0, ante: 0 };
+  const stacks = hand.players.map(p => p.startingStack);
+  const category = getGameCategory(hand.gameType);
+  const isBBante = category !== 'stud' && (blinds.ante || 0) > 0;
+  if (!isBBante) stacks.forEach((_, i) => { stacks[i] -= (blinds.ante || 0); });
+  let pot = isBBante ? 0 : hand.players.length * (blinds.ante || 0);
+  if (hand.streets.length > 0 && hand.streets[0].actions) {
+    if (category !== 'stud') {
+      const sbIdx = hand.players.findIndex(p => p.position === 'SB' || p.position === 'BTN/SB');
+      const bbIdx = hand.players.findIndex(p => p.position === 'BB');
+      if (sbIdx >= 0) { stacks[sbIdx] -= (blinds.sb || 0); pot += (blinds.sb || 0); }
+      if (bbIdx >= 0) {
+        stacks[bbIdx] -= (blinds.bb || 0); pot += (blinds.bb || 0);
+        if (isBBante) { stacks[bbIdx] -= (blinds.ante || 0); pot += (blinds.ante || 0); }
+      }
+    }
+  }
+  const folded = new Set();
+  for (let si = 0; si <= upToStreet && si < hand.streets.length; si++) {
+    const street = hand.streets[si];
+    const maxAction = si === upToStreet ? upToAction : (street.actions ? street.actions.length - 1 : -1);
+    for (let ai = 0; ai <= maxAction && street.actions && ai < street.actions.length; ai++) {
+      const act = street.actions[ai];
+      if (act.action === 'fold') { folded.add(act.player); continue; }
+      if (act.amount && act.amount > 0) { stacks[act.player] -= act.amount; pot += act.amount; }
+    }
+  }
+  return { stacks, pot, folded };
+}
+
+// ── Player street contribution ──
+function computePlayerContrib(hand, streetIdx, actions, upToIdx, playerIdx) {
+  let total = 0;
+  const category = getGameCategory(hand.gameType);
+  if (streetIdx === 0 && category !== 'stud') {
+    const pos = hand.players[playerIdx] && hand.players[playerIdx].position;
+    if (pos === 'SB' || pos === 'BTN/SB') total = (hand.blinds || {}).sb || 0;
+    else if (pos === 'BB') total = (hand.blinds || {}).bb || 0;
+  }
+  for (let i = 0; i <= upToIdx && i < actions.length; i++) {
+    if (actions[i].player === playerIdx) {
+      if (actions[i].action === 'bring-in') total = actions[i].amount || 0;
+      else if (actions[i].action !== 'fold') total += actions[i].amount || 0;
+    }
+  }
+  return total;
+}
+
+// ── Commentary generation ──
+function generateCommentary(hand, streetIdx, actionIdx, pot, stacks) {
+  const street = hand.streets[streetIdx];
+  if (!street) return 'The hand begins...';
+  const streetName = street.name || 'Preflop';
+  const category = getGameCategory(hand.gameType);
+  const isDrawStreet = (category === 'draw_triple' || category === 'draw_single') && streetIdx > 0;
+  if (actionIdx < 0) {
+    if (category === 'stud') {
+      const _ante = (hand.blinds || {}).ante || 0;
+      if (streetIdx === 0) {
+        const _isRazz = hand.gameType === 'Razz' || hand.gameType === '2-7 Razz';
+        const _biIdx = findStudBringIn(hand, _isRazz);
+        let doorInfo = '';
+        if (_biIdx >= 0 && hand.players[_biIdx]) {
+          const biPlayer = hand.players[_biIdx];
+          const _hi = hand.heroIdx != null ? hand.heroIdx : 0;
+          let _dc = '';
+          if (_biIdx === _hi) {
+            const _hc = parseCardNotation((hand.streets[0] && hand.streets[0].cards.hero) || '');
+            if (_hc.length >= 3) _dc = _hc[2].rank + _hc[2].suit;
+          } else {
+            const _os = _biIdx < _hi ? _biIdx : _biIdx - 1;
+            const _oc = parseCardNotation(((hand.streets[0] && hand.streets[0].cards.opponents) || [])[_os] || '');
+            if (_oc.length >= 1) _dc = _oc[0].rank + _oc[0].suit;
+          }
+          const _SW = {h:'hearts',d:'diamonds',c:'clubs',s:'spades'};
+          const _RW = {'A':'Ace','K':'King','Q':'Queen','J':'Jack','T':'Ten','9':'Nine','8':'Eight','7':'Seven','6':'Six','5':'Five','4':'Four','3':'Three','2':'Two'};
+          if (_dc && _dc.length >= 2) doorInfo = ' ' + biPlayer.name + ' shows the ' + (_RW[_dc[0]]||_dc[0]) + ' of ' + (_SW[_dc[1]]||_dc[1]) + ' as the door card and has the bring-in.';
+          else doorInfo = ' ' + biPlayer.name + ' has the bring-in.';
+        }
+        return hand.players.length + ' players ante ' + formatChipAmount(_ante) + '. Cards are dealt \u2014 two down, one up.' + doorInfo;
+      }
+      if (streetIdx === 4) return '7th Street: a final card is dealt face down to each remaining player. The pot stands at ' + formatChipAmount(pot) + '.';
+      return streetName + ': a card is dealt face up to each remaining player. The pot stands at ' + formatChipAmount(pot) + '.';
+    }
+    if (streetIdx === 0) return 'Cards are dealt. ' + hand.players.length + ' players at the table. Blinds are ' + formatChipAmount((hand.blinds||{}).sb||0) + '/' + formatChipAmount((hand.blinds||{}).bb||0) + '.';
+    if (isDrawStreet && street.draws && street.draws.length > 0) {
+      const drawParts = street.draws.map(d => {
+        const pName = hand.players[d.player] ? hand.players[d.player].name : '?';
+        return d.discarded === 0 ? pName + ' stands pat' : pName + ' discards ' + d.discarded;
+      });
+      return streetName + '. ' + drawParts.join('. ') + '. The pot is ' + formatChipAmount(pot) + '.';
+    }
+    return streetName + ' is dealt. The pot stands at ' + formatChipAmount(pot) + '.';
+  }
+  const actions = street.actions || [];
+  if (actionIdx >= actions.length) return '';
+  const act = actions[actionIdx];
+  const player = hand.players[act.player];
+  const name = player ? player.name : 'Unknown';
+  const pos = player ? player.position : '';
+  const posStr = pos ? ' from the ' + pos : '';
+  switch (act.action) {
+    case 'fold': return name + posStr + ' releases their hand into the muck.';
+    case 'check': return name + posStr + ' taps the table. Check.';
+    case 'call': return name + posStr + ' makes the call for ' + formatChipAmount(act.amount) + '.';
+    case 'bet': {
+      if (category === 'stud' && streetIdx === 0) {
+        const _hasBringIn = actions.slice(0, actionIdx).some(a => a.action === 'bring-in');
+        const _priorBets = actions.slice(0, actionIdx).filter(a => a.action === 'bet' || a.action === 'raise').length;
+        if (_hasBringIn && _priorBets === 0) return name + posStr + ' completes to ' + formatChipAmount(act.amount) + '.';
+      }
+      return name + posStr + ' leads out with a bet of ' + formatChipAmount(act.amount) + ' into a ' + formatChipAmount(pot - act.amount) + ' pot.';
+    }
+    case 'raise': return name + posStr + ' fires a raise to ' + formatChipAmount(computePlayerContrib(hand, streetIdx, actions, actionIdx, act.player)) + '! The pot swells to ' + formatChipAmount(pot) + '.';
+    case 'all-in': return name + posStr + ' moves ALL IN for ' + formatChipAmount(act.amount) + '! A pivotal moment at the table.';
+    case 'bring-in': return name + posStr + ' posts the bring-in of ' + formatChipAmount(act.amount) + '.';
+    default: return name + ' acts (' + act.action + ').';
+  }
+}
+
+// ── Hand strength helpers ──
+function calcHandStrength(heroCardsStr, boardCardsStr, gameType) {
+  if (!heroCardsStr) return null;
+  const gameEval = GAME_EVAL[gameType];
+  if (!gameEval) return null;
+  const hCards = parseCardNotation(heroCardsStr).filter(c => c.suit !== 'x');
+  const bCards = boardCardsStr ? parseCardNotation(boardCardsStr).filter(c => c.suit !== 'x') : [];
+  if (hCards.length < 2) return null;
+  if (bCards.length === 0) {
+    const r1 = '23456789TJQKA'.indexOf(hCards[0].rank);
+    const r2 = hCards.length > 1 ? '23456789TJQKA'.indexOf(hCards[1].rank) : 0;
+    const suited = hCards.length > 1 && hCards[0].suit === hCards[1].suit;
+    const paired = hCards.length > 1 && hCards[0].rank === hCards[1].rank;
+    let base = (r1 + r2) / 24 * 60;
+    if (paired) base = 50 + (r1 / 12) * 50;
+    if (suited) base += 8;
+    if (Math.abs(r1 - r2) <= 2 && !paired) base += 5;
+    return Math.min(100, Math.max(5, Math.round(base)));
+  }
+  try {
+    const allCards = hCards.concat(bCards);
+    let ev;
+    if (gameEval.method === 'omaha') ev = bestOmahaHigh(hCards, bCards);
+    else ev = bestHighHand(allCards);
+    if (!ev) return 30;
+    const rankMap = { 'High Card':15, 'Pair':30, 'Two Pair':45, 'Three of a Kind':55, 'Straight':65, 'Flush':75, 'Full House':82, 'Four of a Kind':92, 'Straight Flush':97, 'Royal Flush':100 };
+    let baseStr = 30;
+    for (const k in rankMap) { if (ev.name && ev.name.indexOf(k) >= 0) { baseStr = rankMap[k]; break; } }
+    return Math.min(100, Math.max(5, Math.round(baseStr)));
+  } catch { return 30; }
+}
+
+function getStrengthColor(pct) {
+  if (pct >= 75) return '#4ade80';
+  if (pct >= 50) return '#facc15';
+  if (pct >= 25) return '#f59e0b';
+  return '#ef4444';
+}
+
+function getStreetColorClass(streetName) {
+  if (!streetName) return 'street-preflop';
+  const lower = streetName.toLowerCase();
+  if (lower === 'flop' || lower === '3rd street') return 'street-flop';
+  if (lower === 'turn' || lower === '4th street') return 'street-turn';
+  if (lower === 'river' || lower.includes('5th') || lower.includes('6th') || lower.includes('7th')) return 'street-river';
+  return 'street-preflop';
+}
+
+// ── Additional analysis helpers ──
+function calcSPR(hand, streetIdx) {
+  if (streetIdx <= 0) return null;
+  const prevStreet = hand.streets[streetIdx - 1];
+  const prevActionCount = prevStreet && prevStreet.actions ? prevStreet.actions.length - 1 : -1;
+  const result = calcPotsAndStacks(hand, streetIdx - 1, prevActionCount);
+  if (result.pot <= 0) return null;
+  const heroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+  const heroStack = result.stacks[heroIdx];
+  if (heroStack <= 0) return null;
+  return (heroStack / result.pot).toFixed(1);
+}
+
+function getBetSizingLabel(betAmount, potBeforeBet) {
+  if (!betAmount || betAmount <= 0 || potBeforeBet <= 0) return null;
+  const ratio = betAmount / potBeforeBet;
+  if (ratio <= 0.28) return 'min';
+  if (ratio <= 0.38) return '1/3 pot';
+  if (ratio <= 0.55) return '1/2 pot';
+  if (ratio <= 0.7) return '2/3 pot';
+  if (ratio <= 0.85) return '3/4 pot';
+  if (ratio <= 1.15) return 'pot';
+  if (ratio <= 1.6) return '1.5x pot';
+  if (ratio <= 2.2) return '2x pot';
+  if (ratio <= 3.2) return '3x pot';
+  return 'overbet';
+}
+
+function estimateRange(hand, playerIdx, upToStreet, upToAction) {
+  let dominated = false, hasRaise = false, has3bet = false, hasCall = false, hasLimp = false, raiseCount = 0;
+  for (let si = 0; si <= upToStreet && si < hand.streets.length; si++) {
+    const maxAi = si === upToStreet ? upToAction : ((hand.streets[si].actions || []).length - 1);
+    let streetRaiseCount = 0;
+    for (let ai = 0; ai <= maxAi && ai < (hand.streets[si].actions || []).length; ai++) {
+      const act = hand.streets[si].actions[ai];
+      if (act.player !== playerIdx) { if (act.action === 'raise' || act.action === 'bet') streetRaiseCount++; continue; }
+      if (act.action === 'raise' || act.action === 'all-in') { hasRaise = true; raiseCount++; if (streetRaiseCount >= 1) has3bet = true; }
+      if (act.action === 'call') { hasCall = true; if (si === 0 && streetRaiseCount === 0) hasLimp = true; }
+      if (act.action === 'fold') dominated = true;
+    }
+  }
+  if (dominated) return null;
+  if (has3bet || raiseCount >= 2) return { label: 'Strong', cls: 'replayer-range-strong' };
+  if (hasRaise) return { label: 'Medium+', cls: 'replayer-range-medium' };
+  if (hasLimp) return { label: 'Speculative', cls: 'replayer-range-speculative' };
+  if (hasCall) return { label: 'Medium', cls: 'replayer-range-passive' };
+  return null;
+}
+
+function calcShowdownEquity(hand, heroCardsStr, opponentCardsArr, boardCardsStr, gameCfg, gameEval, folded, replayHeroIdx) {
+  if (!gameEval) return null;
+  const bCards = boardCardsStr ? parseCardNotation(boardCardsStr).filter(c => c.suit !== 'x') : [];
+  const getScore = (holeStr) => {
+    try {
+      const hole = parseCardNotation(holeStr).filter(c => c.suit !== 'x');
+      if (hole.length < 2) return 0;
+      const all = hole.concat(bCards);
+      let ev;
+      if (gameEval.type === 'low') {
+        ev = gameEval.lowType === 'a5' ? bestLowA5Hand(all, false) : bestLow27Hand(all);
+        return ev && ev.score < Infinity ? (1e9 - ev.score) : 0;
+      }
+      if (gameEval.type === 'hilo') {
+        const hiEv = gameEval.method === 'omaha' ? bestOmahaHigh(hole, bCards) : bestHighHand(all);
+        const loEv = gameEval.method === 'omaha' ? bestOmahaLow(hole, bCards) : bestLowA5Hand(all, true);
+        const hiScore = hiEv && hiEv.score ? hiEv.score : 0;
+        const loScore = loEv && loEv.qualified ? (1e9 - loEv.score) : 0;
+        return hiScore + loScore;
+      }
+      if (gameEval.method === 'omaha') ev = bestOmahaHigh(hole, bCards);
+      else ev = bestHighHand(all);
+      return ev && ev.score ? ev.score : 0;
+    } catch { return 0; }
+  };
+  const activePlayers = [];
+  hand.players.forEach((p, pi) => { if (!folded.has(pi)) activePlayers.push(pi); });
+  if (activePlayers.length < 2) return null;
+  const scores = {};
+  activePlayers.forEach(pi => {
+    const cards = pi === replayHeroIdx ? heroCardsStr : (opponentCardsArr[pi] || '');
+    if (!cards || cards === 'MUCK') { scores[pi] = 0; return; }
+    scores[pi] = getScore(cards);
+  });
+  let totalScore = 0;
+  activePlayers.forEach(pi => { totalScore += Math.max(scores[pi] || 0, 1); });
+  const equities = {};
+  activePlayers.forEach(pi => { equities[pi] = Math.round((Math.max(scores[pi] || 0, 1) / totalScore) * 100); });
+  return equities;
+}
+
+function calcPotBeforeAction(hand, streetIdx, actionIdx) {
+  if (actionIdx < 0) return calcPotsAndStacks(hand, streetIdx, -1).pot;
+  return calcPotsAndStacks(hand, streetIdx, actionIdx - 1).pot;
+}
+
+// ── Player stats (placeholder) ──
+const PLAYER_STATS_DATA = {};
+function getPlayerStats(name) {
+  if (PLAYER_STATS_DATA[name]) return PLAYER_STATS_DATA[name];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash) + name.charCodeAt(i);
+  hash = Math.abs(hash);
+  const vpip = 15 + (hash % 35);
+  const pfr = Math.max(5, vpip - 5 - (hash % 15));
+  const ag = 1 + ((hash % 30) / 10);
+  PLAYER_STATS_DATA[name] = { vpip, pfr, ag: ag.toFixed(1) };
+  return PLAYER_STATS_DATA[name];
+}
+
+// ── Pot chip visual ──
+function PotChipVisual({ amount }) {
+  const chips = getChipBreakdown(amount);
+  const stacks = [];
+  let current = null;
+  chips.forEach(color => {
+    if (current && current.color === color) current.count++;
+    else { current = { color, count: 1 }; stacks.push(current); }
+  });
+  return (
+    <div className="replayer-pot-chips">
+      {stacks.slice(0, 5).map((stack, i) => (
+        <div key={i} className="replayer-pot-chip-stack">
+          {Array.from({ length: Math.min(stack.count, 6) }, (_, j) => (
+            <div key={j} className="replayer-pot-chip-disc" style={{ background: stack.color }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Card Row component ──
+function CardRow({ text, stud, max, placeholderCount, splay, cardTheme }) {
+  const SUIT_SYMBOLS = {h:'\u2665',d:'\u2666',c:'\u2663',s:'\u2660'};
+  let cards = parseCardNotation(text);
+  if (!cards.length && placeholderCount > 0) {
+    return (
+      <div className="card-row">
+        {Array.from({ length: placeholderCount }, (_, i) => (
+          <div key={'ph' + i} className="card-placeholder" />
+        ))}
+      </div>
+    );
+  }
+  if (!cards.length) return null;
+  if (max && cards.length > max) cards = cards.slice(0, max);
+  const downIdx = stud ? new Set([0, 1, 6]) : null;
+  return (
+    <div className={"card-row" + (splay ? " card-row-splay" : "")}>
+      {cards.map((c, i) => {
+        const k = c.rank + c.suit + '_' + i;
+        const splayStyle = splay ? {
+          marginLeft: i > 0 ? (-splay + 'px') : 0,
+          transform: 'rotate(' + ((i - (cards.length-1)/2) * (splay/2)) + 'deg)',
+          transformOrigin: 'bottom center',
+        } : undefined;
+        if (c.suit === 'x' || (downIdx && downIdx.has(i) && c.suit === 'x')) {
+          return <div key={k} className="card-unknown" style={splayStyle} />;
+        }
+        if (cardTheme === 'classic') {
+          const isRed = c.suit === 'h' || c.suit === 'd';
+          return (
+            <div key={k} className={'card-classic' + (isRed ? ' card-classic-red' : ' card-classic-dark')}
+              style={splayStyle}>
+              <span className="card-classic-rank">{c.rank.toUpperCase()}</span>
+              <span className="card-classic-suit">{SUIT_SYMBOLS[c.suit] || ''}</span>
+            </div>
+          );
+        }
+        return <img key={k} className="card-img"
+          src={'/cards/cards_gui_' + c.rank + c.suit + '.svg'}
+          alt={c.rank+c.suit} loading="eager"
+          style={splayStyle} />;
+      })}
+    </div>
+  );
+}
+
+// ── Replayer settings ──
+const REPLAYER_THEMES = [
+  { id: 'default', label: 'Default' }, { id: 'casino-royale', label: 'Casino Royale' },
+  { id: 'neon-vegas', label: 'Neon Vegas' }, { id: 'vintage', label: 'Vintage' },
+  { id: 'minimalist', label: 'Minimalist' }, { id: 'high-stakes', label: 'High Stakes' },
+];
+const REPLAYER_CARD_BACKS = [
+  { id: 'default', label: 'Default' }, { id: 'classic', label: 'Classic Blue' },
+  { id: 'casino-red', label: 'Casino Red' }, { id: 'black-diamond', label: 'Black Diamond' },
+  { id: 'bicycle', label: 'Bicycle' }, { id: 'custom', label: 'Custom Color' },
+];
+const REPLAYER_TABLE_SHAPES = [
+  { id: 'oval', label: 'Oval' }, { id: 'round', label: 'Round' }, { id: 'octagon', label: 'Octagon' },
+];
+
+function useReplayerSetting(key, defaultVal) {
+  const fullKey = 'replayer' + key;
+  const [val, setVal] = useState(() => {
+    const stored = localStorage.getItem(fullKey);
+    if (stored === null) return defaultVal;
+    if (defaultVal === true || defaultVal === false) return stored === 'true';
+    return stored;
+  });
+  const update = useCallback(v => { setVal(v); localStorage.setItem(fullKey, String(v)); }, [fullKey]);
+  return [val, update];
+}
+
+// ── Settings Panel ──
+function ReplayerSettingsPanel({ onClose, settings, onUpdate }) {
+  return ReactDOM.createPortal(
+    <>
+      <div className="replayer-settings-backdrop" onClick={onClose} />
+      <div className="replayer-settings-panel">
+        <div className="replayer-settings-header">
+          <span>Replayer Settings</span>
+          <button className="replayer-settings-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="replayer-settings-group">
+          <div className="replayer-settings-group-title">Table</div>
+          <div className="replayer-settings-row" style={{ flexDirection:'column', alignItems:'flex-start', gap:'6px' }}>
+            <div className="replayer-settings-label">Theme</div>
+            <div className="replayer-settings-pills">
+              {REPLAYER_THEMES.map(t => (
+                <button key={t.id} className={'replayer-settings-pill' + (settings.theme === t.id ? ' active' : '')}
+                  onClick={() => onUpdate('theme', t.id)}>{t.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="replayer-settings-row" style={{ flexDirection:'column', alignItems:'flex-start', gap:'6px', marginTop:'8px' }}>
+            <div className="replayer-settings-label">Table Shape</div>
+            <div className="replayer-settings-pills">
+              {REPLAYER_TABLE_SHAPES.map(s => (
+                <button key={s.id} className={'replayer-settings-pill' + (settings.tableShape === s.id ? ' active' : '')}
+                  onClick={() => onUpdate('tableShape', s.id)}>{s.label}</button>
+              ))}
+            </div>
+          </div>
+          {settings.theme === 'default' && (
+            <div className="replayer-settings-row" style={{ flexDirection:'column', alignItems:'flex-start', gap:'6px', marginTop:'8px' }}>
+              <div className="replayer-settings-label">Felt Color</div>
+              <div style={{ display:'flex', gap:'4px', alignItems:'center', flexWrap:'wrap' }}>
+                {[
+                  { name:'Lavender', color:'#6b5b8a' }, { name:'Classic Green', color:'#2d5a27' },
+                  { name:'Blue', color:'#1a3a5c' }, { name:'Red', color:'#5a1a1a' },
+                  { name:'Purple', color:'#3d1a5a' }, { name:'Black', color:'#1a1a1a' },
+                ].map(fc => (
+                  <button key={fc.color} className={'felt-color-swatch' + (settings.feltColor === fc.color ? ' active' : '')}
+                    style={{ background: fc.color }} title={fc.name}
+                    onClick={() => onUpdate('feltColor', fc.color)} />
+                ))}
+                <input type="color" value={settings.feltColor} onChange={e => onUpdate('feltColor', e.target.value)}
+                  style={{ width:'24px', height:'24px', border:'none', cursor:'pointer', borderRadius:'4px', marginLeft:'4px' }} title="Custom color" />
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="replayer-settings-group">
+          <div className="replayer-settings-group-title">Cards</div>
+          <div className="replayer-settings-row" style={{ flexDirection:'column', alignItems:'flex-start', gap:'6px' }}>
+            <div className="replayer-settings-label">Card Back Design</div>
+            <div className="replayer-settings-pills">
+              {REPLAYER_CARD_BACKS.map(cb => (
+                <button key={cb.id} className={'replayer-settings-pill' + (settings.cardBack === cb.id ? ' active' : '')}
+                  onClick={() => onUpdate('cardBack', cb.id)}>{cb.label}</button>
+              ))}
+            </div>
+          </div>
+          {settings.cardBack === 'custom' && (
+            <div className="replayer-settings-row" style={{ marginTop:'8px' }}>
+              <div className="replayer-settings-label">Custom Card Back Color</div>
+              <input type="color" value={settings.cardBackColor} onChange={e => onUpdate('cardBackColor', e.target.value)}
+                style={{ width:'32px', height:'24px', border:'none', cursor:'pointer', borderRadius:'4px' }} />
+            </div>
+          )}
+          <div className="replayer-settings-row" style={{ flexDirection:'column', alignItems:'flex-start', gap:'6px', marginTop:'8px' }}>
+            <div className="replayer-settings-label">Card Front Style</div>
+            <div className="replayer-settings-pills">
+              {[{ id: 'default', label: 'Standard' }, { id: 'classic', label: 'Classic' }].map(ct => (
+                <button key={ct.id} className={'replayer-settings-pill' + (settings.cardTheme === ct.id ? ' active' : '')}
+                  onClick={() => onUpdate('cardTheme', ct.id)}>{ct.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="replayer-settings-row" style={{ marginTop:'6px' }}>
+            <div>
+              <div className="replayer-settings-label">4-Color Deck</div>
+              <div className="replayer-settings-sublabel">Diamonds=blue, Clubs=green</div>
+            </div>
+            <button className={'replayer-settings-toggle' + (settings.fourColorDeck ? ' on' : '')}
+              onClick={() => onUpdate('fourColorDeck', !settings.fourColorDeck)} />
+          </div>
+          <div className="replayer-settings-row" style={{ marginTop:'8px' }}>
+            <div className="replayer-settings-label">Splay Hole Cards</div>
+            <button className={'replayer-settings-toggle' + (settings.cardSplay ? ' on' : '')}
+              onClick={() => onUpdate('cardSplay', !settings.cardSplay)} />
+          </div>
+          <div className="replayer-settings-row" style={{ marginTop:'8px' }}>
+            <div className="replayer-settings-label">Rail Light Strip</div>
+            <button className={'replayer-settings-toggle' + (settings.lightStrip ? ' on' : '')}
+              onClick={() => onUpdate('lightStrip', !settings.lightStrip)} />
+          </div>
+        </div>
+        <div className="replayer-settings-group">
+          <div className="replayer-settings-group-title">Display</div>
+          {[
+            { key:'showChipStacks', label:'Pot Chip Stacks', sub:'Visual chip stacks in pot area' },
+            { key:'showHandStrength', label:'Hand Strength Meter', sub:'Gauge showing relative hand strength' },
+            { key:'showPotOdds', label:'Pot Odds', sub:'Show pot odds when facing a bet' },
+            { key:'showCommentary', label:'Commentator Mode', sub:'Auto-generated play-by-play text' },
+            { key:'showTimeline', label:'Action Timeline', sub:'Clickable dots showing all actions' },
+            { key:'showPlayerStats', label:'Player Stats', sub:'VPIP/PFR overlay on seats' },
+            { key:'showNutsHighlight', label:'Highlight the Nuts', sub:'Glow when holding the best hand' },
+          ].map(opt => (
+            <div key={opt.key} className="replayer-settings-row">
+              <div>
+                <div className="replayer-settings-label">{opt.label}</div>
+                <div className="replayer-settings-sublabel">{opt.sub}</div>
+              </div>
+              <button className={'replayer-settings-toggle' + (settings[opt.key] ? ' on' : '')}
+                onClick={() => onUpdate(opt.key, !settings[opt.key])} />
+            </div>
+          ))}
+        </div>
+        <div className="replayer-settings-group">
+          <div className="replayer-settings-group-title">Animation</div>
+          {[
+            { key:'animateDeal', label:'Deal Animation', sub:'Cards slide in when dealt' },
+            { key:'animateChips', label:'Chip Animation', sub:'Chips slide from player to pot' },
+            { key:'animateBoard', label:'Board Flip', sub:'Board cards flip face-up' },
+            { key:'animateWinner', label:'Winner Effects', sub:'Bounce and glow on winning hand' },
+          ].map(opt => (
+            <div key={opt.key} className="replayer-settings-row">
+              <div>
+                <div className="replayer-settings-label">{opt.label}</div>
+                <div className="replayer-settings-sublabel">{opt.sub}</div>
+              </div>
+              <button className={'replayer-settings-toggle' + (settings[opt.key] ? ' on' : '')}
+                onClick={() => onUpdate(opt.key, !settings[opt.key])} />
+            </div>
+          ))}
+        </div>
+        <div className="replayer-settings-group">
+          <div className="replayer-settings-group-title">Sound (Coming Soon)</div>
+          {[
+            { key:'soundDeal', label:'Card Deal Sound' },
+            { key:'soundChips', label:'Chip Sound' },
+            { key:'soundFold', label:'Fold Sound' },
+            { key:'soundAllIn', label:'All-In Sound' },
+          ].map(opt => (
+            <div key={opt.key} className="replayer-settings-row" style={{ opacity: 0.4 }}>
+              <div className="replayer-settings-label">{opt.label}</div>
+              <button className="replayer-settings-toggle" disabled />
+            </div>
+          ))}
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
+// ── Hand Replayer Entry (Classic mode) ──
+function HandReplayerEntry({ hand, setHand, onDone, onCancel }) {
+  const [currentStreetIdx, setCurrentStreetIdx] = useState(0);
+  const [actionAmount, setActionAmount] = useState('');
+  const gameCfg = HAND_CONFIG[hand.gameType] || HAND_CONFIG_DEFAULT;
+  const streetDef = getStreetDef(hand.gameType);
+  const category = getGameCategory(hand.gameType);
+  const currentStreet = hand.streets[currentStreetIdx] || hand.streets[0];
+
+  const updateStreet = (streetIdx, updater) => {
+    setHand(prev => ({
+      ...prev,
+      streets: prev.streets.map((s, i) => i === streetIdx ? updater({ ...s }) : s)
+    }));
+  };
+
+  const bettingContext = useMemo(() => {
+    const street = hand.streets[currentStreetIdx];
+    const actions = street ? (street.actions || []) : [];
+    const betting = gameCfg.betting || 'nl';
+    const blinds = hand.blinds || {};
+    const sb = blinds.sb || 0;
+    const bb = blinds.bb || 0;
+    const ante = blinds.ante || 0;
+    const isSmallBetStreet = (gameCfg.flSmallStreets || []).includes(currentStreetIdx);
+    const stud4thOpenPair = gameCfg.isStud && currentStreetIdx === 1 && studHasOpenPairOn4th(hand);
+    const fixedBet = betting === 'fl' ? ((isSmallBetStreet && !stud4thOpenPair) ? (bb || 100) : (bb || 100) * 2) : 0;
+    const raiseCap = gameCfg.raiseCap || 4;
+    let maxBet = 0, raiseCount = 0;
+    const isBBanteCtx = category !== 'stud' && ante > 0;
+    let totalPot = isBBanteCtx ? 0 : ante * hand.players.length;
+    const playerContrib = {};
+    if (currentStreetIdx === 0 && (gameCfg.hasBoard || !gameCfg.isStud)) {
+      const sbIdx = hand.players.findIndex(p => p.position === 'SB' || p.position === 'BTN/SB');
+      const bbIdx = hand.players.findIndex(p => p.position === 'BB');
+      if (sbIdx >= 0) playerContrib[sbIdx] = sb;
+      if (bbIdx >= 0) playerContrib[bbIdx] = bb;
+      maxBet = bb;
+      totalPot += sb + bb;
+      if (isBBanteCtx) totalPot += ante;
+    }
+    for (let i = 0; i < actions.length; i++) {
+      const act = actions[i];
+      const prevContrib = playerContrib[act.player] || 0;
+      if (act.action === 'fold') continue;
+      if (['bet','raise','call','all-in'].includes(act.action)) {
+        playerContrib[act.player] = prevContrib + (act.amount || 0);
+        totalPot += (act.amount || 0);
+        if (playerContrib[act.player] > maxBet) maxBet = playerContrib[act.player];
+        if (act.action === 'bet') raiseCount = 1;
+        else if (act.action === 'raise') raiseCount++;
+      } else if (act.action === 'bring-in') {
+        playerContrib[act.player] = act.amount || 0;
+        totalPot += (act.amount || 0);
+        if (playerContrib[act.player] > maxBet) maxBet = playerContrib[act.player];
+      }
+    }
+    const foldedPlayers = new Set(actions.filter(a => a.action === 'fold').map(a => a.player));
+    const activePlayers = hand.players.map((_, i) => i).filter(i => !foldedPlayers.has(i));
+    const nextPlayer = activePlayers[actions.length % activePlayers.length] || 0;
+    const nextPlayerInvested = playerContrib[nextPlayer] || 0;
+    const facingBet = maxBet > nextPlayerInvested;
+    const callAmount = Math.max(maxBet - nextPlayerInvested, 0);
+    let raiseToAmount = 0, betAmount = 0, potRaiseAmount = 0, potRaiseIncrement = 0, canRaise = true;
+    if (betting === 'fl') {
+      betAmount = fixedBet; raiseToAmount = maxBet + fixedBet; canRaise = raiseCount < raiseCap;
+    } else if (betting === 'pl') {
+      const potAfterCall = totalPot + callAmount;
+      potRaiseAmount = maxBet + potAfterCall;
+      potRaiseIncrement = potRaiseAmount - nextPlayerInvested;
+      betAmount = totalPot; raiseToAmount = potRaiseAmount;
+    }
+    return { betting, facingBet, currentBet:maxBet, callAmount, raiseCount, raiseCap, fixedBet, betAmount, raiseToAmount, potRaiseAmount, potRaiseIncrement, canRaise, nextPlayer, totalPot, nextPlayerInvested };
+  }, [hand, currentStreetIdx, gameCfg]);
+
+  const addAction = (action) => {
+    const ctx = bettingContext;
+    let amount = 0;
+    if (action === 'bet') {
+      let rawBet = ctx.betting === 'fl' ? ctx.fixedBet : (Number(actionAmount) || 0);
+      if (ctx.betting === 'pl') rawBet = Math.min(rawBet, ctx.betAmount);
+      amount = rawBet;
+    } else if (action === 'raise') {
+      if (ctx.betting === 'fl') { amount = ctx.raiseToAmount - ctx.nextPlayerInvested; }
+      else { let typedTotal = Number(actionAmount) || 0; if (ctx.betting === 'pl') typedTotal = Math.min(typedTotal, ctx.potRaiseAmount); amount = typedTotal - ctx.nextPlayerInvested; }
+    } else if (action === 'call') { amount = ctx.callAmount; }
+    if (amount < 0) amount = 0;
+    updateStreet(currentStreetIdx, s => ({ ...s, actions: [...(s.actions || []), { player: ctx.nextPlayer, action, amount }] }));
+    setActionAmount('');
+  };
+
+  const removeLastAction = () => { updateStreet(currentStreetIdx, s => ({ ...s, actions: (s.actions || []).slice(0, -1) })); };
+
+  const updatePlayerField = (idx, field, value) => {
+    setHand(prev => ({ ...prev, players: prev.players.map((p, i) => i === idx ? { ...p, [field]: field === 'startingStack' ? (Number(value) || 0) : value } : p) }));
+  };
+
+  const setNumPlayers = (n) => {
+    setHand(prev => {
+      const positions = getPositionLabels(n);
+      const players = Array.from({ length: n }, (_, i) => {
+        if (prev.players[i]) return { ...prev.players[i], position: positions[i] || '' };
+        return { name: i === 0 ? 'Hero' : 'Opp ' + i, position: positions[i] || '', startingStack: prev.players[0]?.startingStack || 50000 };
+      });
+      const streets = prev.streets.map(s => ({ ...s, cards: { ...s.cards, opponents: Array.from({ length: n - 1 }, (_, j) => s.cards.opponents[j] || '') } }));
+      return { ...prev, players, streets };
+    });
+  };
+
+  const updateHeroCards = (si, val) => updateStreet(si, s => ({ ...s, cards: { ...s.cards, hero: val } }));
+  const updateBoardCards = (si, val) => updateStreet(si, s => ({ ...s, cards: { ...s.cards, board: val } }));
+  const updateOpponentCards = (si, oi, val) => updateStreet(si, s => {
+    const opponents = [...s.cards.opponents]; opponents[oi] = val;
+    return { ...s, cards: { ...s.cards, opponents } };
+  });
+  const updateDrawDiscard = (si, pi, val) => updateStreet(si, s => {
+    const draws = [...(s.draws || [])];
+    const existing = draws.findIndex(d => d.player === pi);
+    if (existing >= 0) draws[existing] = { ...draws[existing], discarded: Number(val) || 0 };
+    else draws.push({ player: pi, discarded: Number(val) || 0, discardedCards: '', newCards: '' });
+    return { ...s, draws };
+  });
+  const updateDrawField = (si, pi, field, val) => updateStreet(si, s => {
+    const draws = [...(s.draws || [])];
+    const existing = draws.findIndex(d => d.player === pi);
+    if (existing >= 0) draws[existing] = { ...draws[existing], [field]: val };
+    else { const entry = { player: pi, discarded: 0, discardedCards: '', newCards: '' }; entry[field] = val; draws.push(entry); }
+    return { ...s, draws };
+  });
+
+  const { pot: currentPot } = calcPotsAndStacks(hand, currentStreetIdx, (currentStreet.actions || []).length - 1);
+
+  return (
+    <div className="replayer-entry">
+      <div className="replayer-section">
+        <div className="replayer-section-title">Players & Blinds</div>
+        <div className="replayer-row" style={{marginBottom:'8px'}}>
+          <div className="replayer-field" style={{flex:'0 0 70px'}}>
+            <label>Players</label>
+            <select value={hand.players.length} onChange={e => setNumPlayers(Number(e.target.value))}>
+              {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <div className="replayer-field"><label>SB</label><input type="text" inputMode="decimal" value={(hand.blinds||{}).sb || ''} onChange={e => setHand(prev => ({ ...prev, blinds: { ...(prev.blinds||{}), sb: Number(e.target.value)||0 } }))} /></div>
+          <div className="replayer-field"><label>BB</label><input type="text" inputMode="decimal" value={(hand.blinds||{}).bb || ''} onChange={e => setHand(prev => ({ ...prev, blinds: { ...(prev.blinds||{}), bb: Number(e.target.value)||0 } }))} /></div>
+          <div className="replayer-field"><label>{category === 'stud' ? 'Ante' : 'BB Ante'}</label><input type="text" inputMode="decimal" value={(hand.blinds||{}).ante || ''} onChange={e => setHand(prev => ({ ...prev, blinds: { ...(prev.blinds||{}), ante: Number(e.target.value)||0 } }))} /></div>
+        </div>
+        {hand.players.map((p, i) => (
+          <div key={i} className="replayer-player-row">
+            <span className="replayer-player-pos">{p.position}</span>
+            <div className="replayer-field" style={{flex:'0 0 80px'}}><input type="text" value={p.name} onChange={e => updatePlayerField(i, 'name', e.target.value)} placeholder="Name" /></div>
+            <div className="replayer-field" style={{flex:'0 0 80px'}}><input type="text" inputMode="decimal" value={p.startingStack} onChange={e => updatePlayerField(i, 'startingStack', e.target.value)} placeholder="Stack" /></div>
+          </div>
+        ))}
+      </div>
+      <div className="live-update-tabs">
+        {hand.streets.map((s, i) => (<button key={i} className={currentStreetIdx === i ? 'active' : ''} onClick={() => setCurrentStreetIdx(i)}>{s.name}</button>))}
+      </div>
+      <div className="replayer-street">
+        <div className="replayer-street-header">
+          <span className="replayer-street-name">{currentStreet.name}</span>
+          <span className="replayer-street-pot">Pot: {formatChipAmount(currentPot)}</span>
+        </div>
+        <div className="replayer-field" style={{marginBottom:'6px'}}>
+          <label>Hero Cards</label>
+          <input type="text" placeholder={gameCfg.heroPlaceholder ? dualPlaceholder(gameCfg.heroPlaceholder) : 'AhKd'} value={currentStreet.cards.hero} onChange={e => updateHeroCards(currentStreetIdx, e.target.value)} />
+          <CardRow text={currentStreet.cards.hero} stud={gameCfg.isStud} max={gameCfg.heroCards} />
+        </div>
+        {category === 'community' && currentStreetIdx > 0 && (
+          <div className="replayer-field" style={{marginBottom:'6px'}}>
+            <label>Board ({currentStreet.name})</label>
+            <input type="text" placeholder={gameCfg.boardPlaceholder || 'Qh7d2c'} value={currentStreet.cards.board} onChange={e => updateBoardCards(currentStreetIdx, e.target.value)} />
+            <CardRow text={currentStreet.cards.board} max={streetDef.boardCards[currentStreetIdx]} />
+          </div>
+        )}
+        {hand.players.slice(1).map((p, oi) => (
+          <div key={oi} className="replayer-field" style={{marginBottom:'4px'}}>
+            <label>{p.name} Cards</label>
+            <input type="text" placeholder={gameCfg.heroPlaceholder ? dualPlaceholder(gameCfg.heroPlaceholder) : 'XxXx'} value={(currentStreet.cards.opponents || [])[oi] || ''} onChange={e => updateOpponentCards(currentStreetIdx, oi, e.target.value)} />
+            <CardRow text={(currentStreet.cards.opponents || [])[oi] || ''} stud={gameCfg.isStud} max={gameCfg.heroCards} placeholderCount={!(currentStreet.cards.opponents || [])[oi] ? gameCfg.heroCards : 0} />
+          </div>
+        ))}
+        {(category === 'draw_triple' || category === 'draw_single') && currentStreetIdx > 0 && (
+          <div className="replayer-draw-section">
+            <div className="replayer-draw-label">{currentStreet.name || 'Draw'} -- Discards & Draws</div>
+            {hand.players.map((p, pi) => {
+              const draw = (currentStreet.draws || []).find(d => d.player === pi);
+              const discardCount = draw ? draw.discarded : 0;
+              const isPatText = discardCount === 0 && draw ? ' (Stand Pat)' : '';
+              return (
+                <div key={pi} className="replayer-draw-player-block" style={{marginBottom:'6px',padding:'4px 0',borderBottom:'1px solid var(--border)'}}>
+                  <div className="replayer-row" style={{marginBottom:'2px',alignItems:'center'}}>
+                    <span style={{fontSize:'0.65rem',color:'var(--text-muted)',minWidth:'55px',fontWeight:600}}>{p.name}{isPatText}</span>
+                    <div className="replayer-field" style={{flex:'0 0 45px'}}>
+                      <label style={{fontSize:'0.55rem'}}>Discard</label>
+                      <input type="number" min="0" max={gameCfg.heroCards || 5} value={draw ? draw.discarded : ''} onChange={e => updateDrawDiscard(currentStreetIdx, pi, e.target.value)} placeholder="0" />
+                    </div>
+                  </div>
+                  {discardCount > 0 && (
+                    <div className="replayer-row" style={{marginTop:'2px',gap:'4px'}}>
+                      <div className="replayer-field" style={{flex:1}}>
+                        <label style={{fontSize:'0.55rem'}}>Discarded Cards</label>
+                        <input type="text" placeholder={'e.g. 7h3c'} value={(draw && draw.discardedCards) || ''} onChange={e => updateDrawField(currentStreetIdx, pi, 'discardedCards', e.target.value)} />
+                        {draw?.discardedCards && <CardRow text={draw.discardedCards} max={discardCount} />}
+                      </div>
+                      <div className="replayer-field" style={{flex:1}}>
+                        <label style={{fontSize:'0.55rem'}}>New Cards</label>
+                        <input type="text" placeholder={'e.g. Ah5s'} value={(draw && draw.newCards) || ''} onChange={e => updateDrawField(currentStreetIdx, pi, 'newCards', e.target.value)} />
+                        {draw?.newCards && <CardRow text={draw.newCards} max={discardCount} />}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="replayer-action-list">
+          {(currentStreet.actions || []).map((act, ai) => (
+            <div key={ai} className="replayer-action-item">
+              <span className="replayer-action-player">{hand.players[act.player]?.name || '?'}</span>
+              <span className={`replayer-action-type ${act.action}`}>{act.action}</span>
+              {act.amount > 0 && <span className="replayer-action-amount">{formatChipAmount(act.amount)}</span>}
+              <span className="replayer-action-remove" onClick={() => { if (ai === (currentStreet.actions || []).length - 1) removeLastAction(); }}>&times;</span>
+            </div>
+          ))}
+        </div>
+        {bettingContext.betting !== 'fl' && (
+          <div className="replayer-row" style={{marginTop:'6px',gap:'4px'}}>
+            <div className="replayer-field" style={{flex:'0 0 80px'}}>
+              <input type="text" inputMode="decimal" placeholder={bettingContext.betting === 'pl' ? (bettingContext.facingBet ? 'Raise to (max ' + formatChipAmount(bettingContext.potRaiseAmount) + ')' : 'Bet (max ' + formatChipAmount(bettingContext.betAmount) + ')') : 'Amount'} value={actionAmount} onChange={e => setActionAmount(e.target.value)} />
+            </div>
+            {bettingContext.betting === 'pl' && (
+              <button style={{fontSize:'0.6rem',padding:'2px 6px',borderRadius:'4px',border:'1px solid var(--border)',background:'transparent',color:'var(--text-muted)',cursor:'pointer'}} onClick={() => setActionAmount(String(bettingContext.facingBet ? bettingContext.potRaiseAmount : bettingContext.betAmount))}>{bettingContext.facingBet ? 'Pot Raise' : 'Pot Bet'}</button>
+            )}
+          </div>
+        )}
+        <div className="replayer-action-btns">
+          {bettingContext.facingBet ? (
+            <>
+              <button className="action-fold" onClick={() => addAction('fold')}>Fold</button>
+              <button className="action-call" onClick={() => addAction('call')}>Call {formatChipAmount(bettingContext.callAmount)}</button>
+              {bettingContext.canRaise && (<button className="action-raise" onClick={() => addAction('raise')}>{bettingContext.betting === 'fl' ? 'Raise to ' + formatChipAmount(bettingContext.raiseToAmount) : 'Raise'}</button>)}
+            </>
+          ) : (
+            <>
+              <button onClick={() => addAction('check')}>Check</button>
+              <button className="action-bet" onClick={() => addAction('bet')}>{bettingContext.betting === 'fl' ? 'Bet ' + formatChipAmount(bettingContext.fixedBet) : 'Bet'}</button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="replayer-section">
+        <div className="replayer-section-title">Result (optional)</div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
+          {hand.players.map((p, pi) => {
+            const winners = hand.result?.winners || [];
+            const isWinner = winners.some(w => w.playerIdx === pi && !w.split);
+            const isSplit = winners.some(w => w.playerIdx === pi && w.split);
+            return (
+              <button key={pi} style={{
+                padding:'4px 10px',borderRadius:'6px',border:'1px solid',cursor:'pointer',
+                fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.68rem',transition:'all 0.15s',
+                background: isWinner ? 'rgba(74,222,128,0.15)' : isSplit ? 'rgba(250,204,21,0.15)' : 'transparent',
+                borderColor: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--border)',
+                color: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--text-muted)',
+              }} onClick={() => {
+                setHand(prev => {
+                  const prevWinners = prev.result?.winners || [];
+                  const existing = prevWinners.find(w => w.playerIdx === pi);
+                  let newWinners;
+                  if (!existing) newWinners = [...prevWinners, { playerIdx: pi, split: false, label: '' }];
+                  else if (!existing.split) newWinners = prevWinners.map(w => w.playerIdx === pi ? { ...w, split: true } : w);
+                  else newWinners = prevWinners.filter(w => w.playerIdx !== pi);
+                  return { ...prev, result: { ...prev.result, winners: newWinners } };
+                });
+              }}>
+                {p.name} {isWinner ? '(Win)' : isSplit ? '(Split)' : ''}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{fontSize:'0.55rem',color:'var(--text-muted)',marginTop:'4px',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>{'Tap to cycle: none \u2192 win \u2192 split \u2192 none'}</div>
+      </div>
+      <div style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}>
+        <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-primary btn-sm" onClick={() => onDone(hand)}>Save & Replay</button>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// ── GTOEntryView (GTO-style phased hand entry) ──────────
+// ══════════════════════════════════════════════════════════
+function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
+  const [phase, setPhase] = useState('setup');
+  const [currentStreetIdx, setCurrentStreetIdx] = useState(0);
+  const [showRaiseInput, setShowRaiseInput] = useState(false);
+  const [betAmount, setBetAmount] = useState('');
+  const [showHeroCardPicker, setShowHeroCardPicker] = useState(false);
+  const [studDealTarget, setStudDealTarget] = useState(0);
+  const activeSeatRef = useRef(null);
+
+  const gameCfg = HAND_CONFIG[hand.gameType] || HAND_CONFIG_DEFAULT;
+  const streetDef = getStreetDef(hand.gameType);
+  const category = getGameCategory(hand.gameType);
+  const currentStreet = hand.streets[currentStreetIdx];
+  const isPreflop = currentStreetIdx === 0;
+
+  const potAndStacks = calcPotsAndStacks(hand, currentStreetIdx, (currentStreet.actions || []).length - 1);
+  const currentPot = potAndStacks.pot;
+  const currentStacks = potAndStacks.stacks;
+
+  const foldedSet = useMemo(() => {
+    const f = new Set();
+    for (let si = 0; si <= currentStreetIdx; si++) {
+      for (let ai = 0; ai < (hand.streets[si].actions || []).length; ai++) {
+        if (hand.streets[si].actions[ai].action === 'fold') f.add(hand.streets[si].actions[ai].player);
+      }
+    }
+    return f;
+  }, [hand.streets, currentStreetIdx]);
+
+  const allInSet = useMemo(() => {
+    const a = new Set();
+    currentStacks.forEach((s, i) => { if (s <= 0 && !foldedSet.has(i)) a.add(i); });
+    return a;
+  }, [currentStacks, foldedSet]);
+
+  const isRazz = hand.gameType === 'Razz' || hand.gameType === '2-7 Razz';
+  const isStudLow = isRazz;
+
+  const priorStreetFoldedSet = useMemo(() => {
+    const f = new Set();
+    for (let si = 0; si < currentStreetIdx; si++) {
+      for (let ai = 0; ai < (hand.streets[si].actions || []).length; ai++) {
+        if (hand.streets[si].actions[ai].action === 'fold') f.add(hand.streets[si].actions[ai].player);
+      }
+    }
+    return f;
+  }, [hand.streets, currentStreetIdx]);
+
+  const studInfo = useMemo(() => {
+    if (!gameCfg.isStud) return null;
+    const is3rdStreet = currentStreetIdx === 0;
+    const bringInIdx = is3rdStreet ? findStudBringIn(hand, isStudLow) : -1;
+    const bestBoardIdx = !is3rdStreet ? findStudBestBoard(hand, currentStreetIdx, priorStreetFoldedSet, isStudLow) : -1;
+    return { isStud: true, is3rdStreet, bringInIdx, bestBoardIdx };
+  }, [gameCfg.isStud, currentStreetIdx, hand, isStudLow, priorStreetFoldedSet]);
+
+  const seatOrder = useMemo(() => getActionOrder(hand.players, isPreflop, studInfo), [hand.players, isPreflop, studInfo]);
+  const actionOrder = useMemo(() => seatOrder.filter(i => !foldedSet.has(i) && !allInSet.has(i)), [seatOrder, foldedSet, allInSet]);
+
+  const bringInAmount = gameCfg.isStud ? Math.floor(((hand.blinds || {}).sb || (hand.blinds || {}).bb || 100) / 2) : 0;
+
+  const streetBets = useMemo(() => {
+    const contrib = new Array(hand.players.length).fill(0);
+    let maxBet = 0;
+    if (isPreflop && category !== 'stud') {
+      const sbIdx = hand.players.findIndex(p => p.position === 'SB' || p.position === 'BTN/SB');
+      const bbIdx = hand.players.findIndex(p => p.position === 'BB');
+      if (sbIdx >= 0) contrib[sbIdx] = (hand.blinds || {}).sb || 0;
+      if (bbIdx >= 0) contrib[bbIdx] = (hand.blinds || {}).bb || 0;
+      maxBet = (hand.blinds || {}).bb || 0;
+    }
+    (currentStreet.actions || []).forEach(act => {
+      if (act.action === 'fold') return;
+      if (act.action === 'bring-in') { contrib[act.player] = act.amount || bringInAmount; if (contrib[act.player] > maxBet) maxBet = contrib[act.player]; return; }
+      if (act.amount > 0) { contrib[act.player] += act.amount; if (contrib[act.player] > maxBet) maxBet = contrib[act.player]; }
+    });
+    return { contrib, maxBet };
+  }, [currentStreet.actions, isPreflop, hand.players, hand.blinds, category, bringInAmount]);
+
+  const currentActor = useMemo(() => {
+    const actions = currentStreet.actions || [];
+    if (actionOrder.length === 0) return -1;
+    let lastRaiserPlayer = -1, lastRaiseIdx = -1;
+    for (let i = actions.length - 1; i >= 0; i--) {
+      if (actions[i].action === 'raise' || actions[i].action === 'bet') { lastRaiseIdx = i; lastRaiserPlayer = actions[i].player; break; }
+    }
+    let startOi = 0;
+    if (lastRaiserPlayer >= 0) { const raiserPos = actionOrder.indexOf(lastRaiserPlayer); if (raiserPos >= 0) startOi = raiserPos + 1; }
+    for (let count = 0; count < actionOrder.length; count++) {
+      const oi = (startOi + count) % actionOrder.length;
+      const pidx = actionOrder[oi];
+      let lastActIdx = -1;
+      for (let j = actions.length - 1; j >= 0; j--) { if (actions[j].player === pidx) { lastActIdx = j; break; } }
+      if (lastActIdx < lastRaiseIdx) return pidx;
+      if (lastActIdx === -1) return pidx;
+    }
+    return -1;
+  }, [actionOrder, currentStreet.actions]);
+
+  const isBettingComplete = currentActor === -1;
+  const activePlayers = hand.players.filter((_, i) => !foldedSet.has(i));
+  const handOver = activePlayers.length <= 1;
+
+  useEffect(() => {
+    if (phase !== 'action') return;
+    if (handOver) { setPhase('result'); return; }
+    if (!isBettingComplete) return;
+    const nextStreet = currentStreetIdx + 1;
+    if (nextStreet >= hand.streets.length) { setPhase('showdown'); return; }
+    if (category === 'community') setPhase('board_entry');
+    else if (category === 'stud') setPhase('stud_deal');
+    else if (category === 'draw_triple' || category === 'draw_single') setPhase('draw_discard');
+    else setCurrentStreetIdx(nextStreet);
+  }, [isBettingComplete, phase, handOver]);
+
+  useEffect(() => {
+    if (['board_entry','stud_deal','draw_discard','draw_cards_entry','showdown','result'].includes(phase)) {
+      const container = document.querySelector('.content-area');
+      if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [phase]);
+
+  // Scroll to active seat
+  const scrollGenRef = useRef(0);
+  useEffect(() => {
+    if (phase !== 'action' || currentActor < 0) return;
+    const gen = ++scrollGenRef.current;
+    const tid = setTimeout(() => {
+      if (gen !== scrollGenRef.current) return;
+      const el = activeSeatRef.current;
+      if (!el) return;
+      const container = el.closest('.content-area');
+      if (!container) return;
+      const caTop = container.getBoundingClientRect().top;
+      const sticky = container.querySelector('.gto-sticky-header');
+      const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
+      const elAbsTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+      const target = elAbsTop - stickyH - 8;
+      if (Math.abs(container.scrollTop - target) > 2) {
+        container.scrollTo({ top: target, behavior: 'smooth' });
+      }
+    }, 180);
+    return () => clearTimeout(tid);
+  }, [currentActor, phase, currentStreetIdx]);
+
+  const addAction = (action, amount) => {
+    if (currentActor < 0) return;
+    const playerIdx = currentActor;
+    setHand(prev => ({
+      ...prev,
+      streets: prev.streets.map((s, si) => si !== currentStreetIdx ? s : { ...s, actions: [...(s.actions || []), { player: playerIdx, action, amount: amount || 0 }] })
+    }));
+    setShowRaiseInput(false);
+    setBetAmount('');
+  };
+
+  const undoToPlayer = (playerIdx) => {
+    setHand(prev => {
+      for (let si = currentStreetIdx; si >= 0; si--) {
+        const acts = prev.streets[si].actions || [];
+        let targetIdx = -1;
+        for (let ai = 0; ai < acts.length; ai++) {
+          if (acts[ai].player === playerIdx) { targetIdx = ai; break; }
+        }
+        if (targetIdx >= 0) {
+          const streets = prev.streets.map((s, i) => {
+            if (i < si) return s;
+            if (i === si) return { ...s, actions: acts.slice(0, targetIdx) };
+            return { ...s, actions: [] };
+          });
+          if (si < currentStreetIdx) setCurrentStreetIdx(si);
+          if (['result','showdown','board_entry','draw_discard','draw_cards_entry'].includes(phase)) setPhase('action');
+          return { ...prev, streets };
+        }
+      }
+      return prev;
+    });
+    setShowRaiseInput(false);
+    setBetAmount('');
+  };
+
+  const undoLastAction = () => {
+    setHand(prev => {
+      for (let si = currentStreetIdx; si >= 0; si--) {
+        const acts = prev.streets[si].actions || [];
+        if (acts.length > 0) {
+          const streets = prev.streets.map((s, i) => i !== si ? s : { ...s, actions: acts.slice(0, -1) });
+          if (si < currentStreetIdx) setCurrentStreetIdx(si);
+          if (['result','showdown','board_entry','draw_discard','draw_cards_entry'].includes(phase)) setPhase('action');
+          return { ...prev, streets };
+        }
+      }
+      return prev;
+    });
+  };
+
+  const updatePlayerField = (idx, field, value) => {
+    setHand(prev => ({ ...prev, players: prev.players.map((p, i) => i !== idx ? p : { ...p, [field]: field === 'startingStack' ? (Number(value) || 0) : value }) }));
+  };
+
+  const setNumPlayers = (n) => {
+    setHand(prev => {
+      let heroI = prev.players.findIndex(p => p.name === (heroName || 'Hero'));
+      if (heroI < 0) heroI = 0;
+      const positions = getPositionLabels(n);
+      const players = Array.from({ length: n }, (_, i) => {
+        if (prev.players[i]) return { ...prev.players[i], position: positions[i] || '' };
+        return { name: getSeatName(i, heroI, heroName), position: positions[i] || '', startingStack: prev.players[0] ? prev.players[0].startingStack : 50000 };
+      });
+      const streets = prev.streets.map(s => ({ ...s, cards: { ...s.cards, opponents: Array.from({ length: n - 1 }, (_, j) => (s.cards.opponents && s.cards.opponents[j]) || '') } }));
+      return { ...prev, players, streets };
+    });
+  };
+
+  let heroIdx = hand.players.findIndex(p => p.name === (heroName || 'Hero'));
+  if (heroIdx < 0) heroIdx = 0;
+
+  const setHeroSeat = (newIdx) => {
+    if (newIdx === heroIdx) return;
+    setHand(prev => {
+      const n = prev.players.length;
+      const shift = newIdx - heroIdx;
+      const players = prev.players.map((p, i) => {
+        const srcIdx = ((i - shift) % n + n) % n;
+        const src = prev.players[srcIdx];
+        return { ...p, name: src.name, startingStack: src.startingStack };
+      });
+      return { ...prev, players, heroIdx: newIdx };
+    });
+  };
+
+  const playerContrib = currentActor >= 0 ? streetBets.contrib[currentActor] : 0;
+  const callAmount = currentActor >= 0 ? Math.min(streetBets.maxBet - playerContrib, currentStacks[currentActor]) : 0;
+  const canCheck = callAmount === 0;
+  const playerStack = currentActor >= 0 ? currentStacks[currentActor] : 0;
+
+  const bettingType = gameCfg.betting || 'nl';
+  const isLimitGame = bettingType === 'fl';
+  const isPotLimit = bettingType === 'pl';
+  const flSmallStreets = gameCfg.flSmallStreets || [0, 1];
+  const flRaiseCap = gameCfg.raiseCap || 4;
+  let streetBetRaiseCount = 0;
+  (currentStreet.actions || []).forEach(a => { if (a.action === 'raise' || a.action === 'bet') streetBetRaiseCount++; });
+  const activePlayerCount = hand.players.filter((_, i) => !foldedSet.has(i) && !allInSet.has(i)).length;
+  const isHeadsUp = activePlayerCount <= 2;
+  const flIsSmall = flSmallStreets.includes(currentStreetIdx);
+  const stud4thOpenPair = gameCfg.isStud && currentStreetIdx === 1 && studHasOpenPairOn4th(hand);
+  const flBetSize = (flIsSmall && !stud4thOpenPair) ? ((hand.blinds || {}).bb || 100) : ((hand.blinds || {}).bb || 100) * 2;
+  const flRaiseToTotal = streetBets.maxBet + flBetSize;
+  const flRaiseIncrement = flRaiseToTotal - playerContrib;
+  const flCanRaise = isHeadsUp || streetBetRaiseCount < flRaiseCap;
+
+  // Pot-limit: ante does NOT count as part of the pot preflop, but DOES postflop
+  const blinds = hand.blinds || { sb: 0, bb: 0, ante: 0 };
+  const isBBante = getGameCategory(hand.gameType) !== 'stud' && (blinds.ante || 0) > 0;
+  const plAnteAdjust = (isPotLimit && isPreflop && isBBante) ? (blinds.ante || 0) : 0;
+  const plEffectivePot = currentPot - plAnteAdjust;
+  const plPotAfterCall = plEffectivePot + callAmount;
+  const plRaiseToTotal = streetBets.maxBet + plPotAfterCall;
+  const plMaxRaiseIncrement = plRaiseToTotal - playerContrib;
+  const plMaxBet = plEffectivePot;
+
+  // Min raise tracking
+  let _prevMax = 0, _lastRaiseSize = (hand.blinds || {}).bb || 0;
+  const _runContrib = new Array(hand.players.length).fill(0);
+  if (isPreflop && category !== 'stud') {
+    const _sbIdx = hand.players.findIndex(p => p.position === 'SB' || p.position === 'BTN/SB');
+    const _bbIdx = hand.players.findIndex(p => p.position === 'BB');
+    if (_sbIdx >= 0) _runContrib[_sbIdx] = (hand.blinds || {}).sb || 0;
+    if (_bbIdx >= 0) _runContrib[_bbIdx] = (hand.blinds || {}).bb || 0;
+    _prevMax = (hand.blinds || {}).bb || 0;
+  }
+  (currentStreet.actions || []).forEach(a => {
+    if (a.action === 'fold') return;
+    if (a.action === 'bring-in') { _runContrib[a.player] = a.amount || bringInAmount; _prevMax = Math.max(_prevMax, _runContrib[a.player]); return; }
+    if (a.amount > 0) _runContrib[a.player] += a.amount;
+    if (a.action === 'raise' || a.action === 'bet') { const newMax = _runContrib[a.player]; _lastRaiseSize = Math.max(newMax - _prevMax, (hand.blinds || {}).bb || 0); _prevMax = newMax; }
+  });
+  const minRaiseToTotal = streetBets.maxBet + _lastRaiseSize;
+  const minRaiseIncrement = minRaiseToTotal - playerContrib;
+
+  const cumulativeBoard = useMemo(() => {
+    let b = '';
+    for (let si = 0; si <= currentStreetIdx; si++) b += (hand.streets[si].cards.board || '');
+    return b;
+  }, [hand.streets, currentStreetIdx]);
+
+  const playerActions = useMemo(() => {
+    const map = {};
+    (currentStreet.actions || []).forEach(act => { map[act.player] = act; });
+    return map;
+  }, [currentStreet.actions]);
+
+  // ── SETUP PHASE ──
+  if (phase === 'setup') {
+    const isOfc = category === 'ofc';
+    const setNumPlayersOfc = (n) => {
+      setHand(prev => {
+        const players = [];
+        const newOfcRows = { ...(prev.ofcRows || {}) };
+        for (let i = 0; i < n; i++) {
+          if (prev.players[i]) players.push(prev.players[i]);
+          else players.push({ name: getSeatName(i, 0, heroName), position: '', startingStack: 0 });
+          if (!newOfcRows[i]) newOfcRows[i] = { top: '', middle: '', bottom: '' };
+        }
+        return { ...prev, players, ofcRows: newOfcRows };
+      });
+    };
+    return (
+      <div className="gto-entry">
+        <div className="gto-phase-card"><div className="replayer-section">
+          <div className="replayer-section-title">{isOfc ? 'Players' : 'Players & Blinds'}</div>
+          <div className="replayer-row" style={{marginBottom:'8px'}}>
+            <div className="replayer-field" style={{flex:'0 0 70px'}}>
+              <label>Players</label>
+              {isOfc ? (
+                <select value={hand.players.length} onChange={e => setNumPlayersOfc(Number(e.target.value))}>
+                  {[2,3].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              ) : (
+                <select value={hand.players.length} onChange={e => setNumPlayers(Number(e.target.value))}>
+                  {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              )}
+            </div>
+            {!isOfc && <div className="replayer-field"><label>SB</label><input type="text" inputMode="decimal" value={(hand.blinds||{}).sb||''} onChange={e => setHand(prev => ({...prev, blinds:{...(prev.blinds||{}), sb:Number(e.target.value)||0}}))} /></div>}
+            {!isOfc && <div className="replayer-field"><label>BB</label><input type="text" inputMode="decimal" value={(hand.blinds||{}).bb||''} onChange={e => setHand(prev => ({...prev, blinds:{...(prev.blinds||{}), bb:Number(e.target.value)||0}}))} /></div>}
+            {!isOfc && <div className="replayer-field"><label>{category === 'stud' ? 'Ante' : 'BB Ante'}</label><input type="text" inputMode="decimal" value={(hand.blinds||{}).ante||''} onChange={e => setHand(prev => ({...prev, blinds:{...(prev.blinds||{}), ante:Number(e.target.value)||0}}))} /></div>}
+          </div>
+          {!isOfc && <div style={{marginBottom:'4px',display:'flex'}}><span style={{fontSize:'0.65rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em',width:'32px',textAlign:'center'}}>Hero</span></div>}
+          {hand.players.map((p, i) => {
+            const isHero = i === heroIdx;
+            return (
+              <div key={i} className="replayer-player-row">
+                {!isOfc && <span className={'replayer-player-pos' + (isHero ? ' hero' : '')} style={{cursor:'pointer'}} onClick={() => setHeroSeat(i)}>{p.position}</span>}
+                <div className="replayer-field" style={{flex:'1 1 80px'}}><input type="text" style={{textAlign:'left'}} value={p.name} onChange={e => updatePlayerField(i, 'name', e.target.value)} placeholder="Name" /></div>
+                {!isOfc && <div className="replayer-field" style={{flex:'0 0 80px'}}><input type="text" inputMode="decimal" style={{textAlign:'right'}} value={p.startingStack} onChange={e => updatePlayerField(i, 'startingStack', e.target.value)} placeholder="Stack" /></div>}
+              </div>
+            );
+          })}
+        </div></div>
+        <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 0'}}>
+          <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+          <button className="btn btn-primary btn-sm" onClick={() => setPhase(category === 'ofc' ? 'ofc_entry' : gameCfg.isStud ? 'door_cards' : 'action')}>Next</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── OFC ENTRY PHASE ──
+  if (phase === 'ofc_entry') {
+    const ofcRows = hand.ofcRows || {};
+    const updateOfcRow = (playerIdx, row, value) => {
+      setHand(prev => {
+        const newRows = { ...(prev.ofcRows || {}) };
+        newRows[playerIdx] = { ...(newRows[playerIdx] || { top: '', middle: '', bottom: '' }) };
+        newRows[playerIdx][row] = value;
+        return { ...prev, ofcRows: newRows };
+      });
+    };
+    const ofcRowLabels = [
+      { key: 'top', label: 'Top (3 cards)', max: 3 },
+      { key: 'middle', label: 'Middle (5 cards)', max: 5 },
+      { key: 'bottom', label: 'Bottom (5 cards)', max: 5 },
+    ];
+    const allUsedOfc = new Set();
+    hand.players.forEach((_, pi) => {
+      const pr = ofcRows[pi] || {};
+      ['top', 'middle', 'bottom'].forEach(r => {
+        if (pr[r]) parseCardNotation(pr[r]).forEach(c => { if (c.suit !== 'x') allUsedOfc.add(c.rank + c.suit); });
+      });
+    });
+    const ofcAllRanks = 'AKQJT98765432'.split('');
+    const ofcAllSuits = ['h', 'd', 'c', 's'];
+    const [ofcPickerState, setOfcPickerState] = useState(null);
+    const ofcToggleCard = (rank, suit) => {
+      if (!ofcPickerState) return;
+      const card = rank + suit;
+      const pi = ofcPickerState.playerIdx;
+      const row = ofcPickerState.row;
+      const rowDef = ofcRowLabels.find(r => r.key === row);
+      const maxCards = rowDef ? rowDef.max : 5;
+      const current = (ofcRows[pi] || {})[row] || '';
+      const parsed = parseCardNotation(current).filter(c => c.suit !== 'x');
+      const existing = parsed.map(c => c.rank + c.suit);
+      const idx = existing.indexOf(card);
+      if (idx >= 0) existing.splice(idx, 1);
+      else if (existing.length < maxCards) existing.push(card);
+      updateOfcRow(pi, row, existing.join(''));
+    };
+    const ofcPickerSelectedSet = new Set();
+    if (ofcPickerState) {
+      const _cr = (ofcRows[ofcPickerState.playerIdx] || {})[ofcPickerState.row] || '';
+      parseCardNotation(_cr).forEach(c => { if (c.suit !== 'x') ofcPickerSelectedSet.add(c.rank + c.suit); });
+    }
+    let ofcValid = true;
+    let ofcValidMsg = '';
+    hand.players.forEach((p, pi) => {
+      const pr = ofcRows[pi] || {};
+      const topCount = parseCardNotation(pr.top || '').filter(c => c.suit !== 'x').length;
+      const midCount = parseCardNotation(pr.middle || '').filter(c => c.suit !== 'x').length;
+      const botCount = parseCardNotation(pr.bottom || '').filter(c => c.suit !== 'x').length;
+      const total = topCount + midCount + botCount;
+      if (total > 0 && total < 13) { ofcValid = false; ofcValidMsg = p.name + ' needs 13 cards total (' + total + ' placed)'; }
+      if (topCount > 0 && topCount !== 3) { ofcValid = false; ofcValidMsg = p.name + ' top row needs exactly 3 cards'; }
+      if (midCount > 0 && midCount !== 5) { ofcValid = false; ofcValidMsg = p.name + ' middle row needs exactly 5 cards'; }
+      if (botCount > 0 && botCount !== 5) { ofcValid = false; ofcValidMsg = p.name + ' bottom row needs exactly 5 cards'; }
+    });
+    const heroRows = ofcRows[0] || {};
+    const heroTotal = parseCardNotation(heroRows.top || '').filter(c => c.suit !== 'x').length +
+      parseCardNotation(heroRows.middle || '').filter(c => c.suit !== 'x').length +
+      parseCardNotation(heroRows.bottom || '').filter(c => c.suit !== 'x').length;
+    if (heroTotal === 0) { ofcValid = false; ofcValidMsg = 'Place cards for at least Hero'; }
+    const suitSymbols = { h: '\u2665', d: '\u2666', c: '\u2663', s: '\u2660' };
+    const suitColors = { h: '#ef4444', d: '#3b82f6', c: '#22c55e', s: '#a78bfa' };
+    return (
+      <div className="gto-entry">
+        <div className="gto-phase-card"><div className="replayer-section">
+          <div className="replayer-section-title">OFC Card Placement</div>
+          <div style={{fontSize:'0.65rem',color:'var(--text-muted)',marginBottom:'10px'}}>
+            Place 13 cards per player into 3 rows: Top (3), Middle (5), Bottom (5). Tap a row to open the card picker.
+          </div>
+          {hand.players.map((p, pi) => {
+            const pr = ofcRows[pi] || { top: '', middle: '', bottom: '' };
+            return (
+              <div key={pi} className="ofc-player-section">
+                <div className="ofc-player-name">{p.name}</div>
+                <div className="ofc-rows">
+                  {ofcRowLabels.map(rowDef => {
+                    const isActive = ofcPickerState && ofcPickerState.playerIdx === pi && ofcPickerState.row === rowDef.key;
+                    return (
+                      <div key={rowDef.key} className={'ofc-row' + (isActive ? ' ofc-row-active' : '')}
+                        onClick={() => setOfcPickerState(isActive ? null : { playerIdx: pi, row: rowDef.key })}>
+                        <div className="ofc-row-label">{rowDef.label}</div>
+                        <div className="ofc-row-cards">
+                          <CardRow text={pr[rowDef.key] || ''} max={rowDef.max} placeholderCount={rowDef.max} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {ofcPickerState && ofcPickerState.playerIdx === pi && (
+                  <div className="ofc-card-picker">
+                    {ofcAllRanks.map(rank => (
+                      <div key={rank} className="ofc-picker-rank-row">
+                        {ofcAllSuits.map(suit => {
+                          const card = rank + suit;
+                          const isUsed = allUsedOfc.has(card) && !ofcPickerSelectedSet.has(card);
+                          const isSelected = ofcPickerSelectedSet.has(card);
+                          return (
+                            <button key={card}
+                              className={'ofc-picker-card' + (isSelected ? ' selected' : '') + (isUsed ? ' used' : '')}
+                              disabled={isUsed}
+                              onClick={e => { e.stopPropagation(); ofcToggleCard(rank, suit); }}
+                              style={{color: isUsed ? 'var(--text-muted)' : suitColors[suit]}}>
+                              {rank}{suitSymbols[suit]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div></div>
+        {ofcValidMsg && <div style={{fontSize:'0.65rem',color:'#ef4444',padding:'4px 0'}}>{ofcValidMsg}</div>}
+        <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 0'}}>
+          <button className="btn btn-ghost btn-sm" onClick={() => setPhase('setup')}>Back</button>
+          <button className="btn btn-primary btn-sm" disabled={!ofcValid} onClick={() => onDone(hand)}>Done</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── HERO CARDS PHASE ──
+  if (phase === 'hero_cards') {
+    const heroCardsVal = (hand.streets[0] && hand.streets[0].cards.hero) || '';
+    const heroMaxCards = gameCfg.heroCards || 2;
+    const heroCurrentCards = parseCardNotation(heroCardsVal).filter(c => c.suit !== 'x').map(c => c.rank + c.suit);
+    const heroCurrentSet = new Set(heroCurrentCards);
+    const heroAllRanks = 'AKQJT98765432'.split('');
+    const heroAllSuits = [{key:'h',color:'#ef4444'},{key:'d',color:'#3b82f6'},{key:'c',color:'#22c55e'},{key:'s',color:'var(--text)'}];
+    const toggleHeroCard = (card) => {
+      if (heroCurrentSet.has(card)) {
+        const remaining = heroCurrentCards.filter(c => c !== card);
+        setHand(prev => ({ ...prev, streets: prev.streets.map((s, i) => i === 0 ? { ...s, cards: { ...s.cards, hero: remaining.join('') } } : s) }));
+      } else {
+        if (heroCurrentCards.length >= heroMaxCards) return;
+        setHand(prev => ({ ...prev, streets: prev.streets.map((s, i) => i === 0 ? { ...s, cards: { ...s.cards, hero: heroCardsVal + card } } : s) }));
+      }
+    };
+    return (
+      <div className="gto-entry">
+        <div className="gto-phase-card">
+          <div className="replayer-section">
+            <div className="replayer-section-title">Hero Cards</div>
+            <div className="replayer-field">
+              <label>Your Cards</label>
+              <input type="text" placeholder={gameCfg.heroPlaceholder || 'AhKd'}
+                value={heroCardsVal}
+                onChange={e => setHand(prev => ({ ...prev, streets: prev.streets.map((s, i) => i === 0 ? { ...s, cards: { ...s.cards, hero: e.target.value } } : s) }))} />
+              <CardRow text={heroCardsVal} stud={gameCfg.isStud} max={heroMaxCards} />
+            </div>
+            <div className="card-picker-grid">
+              {heroAllSuits.map(suit => (
+                <React.Fragment key={suit.key}>
+                  {heroAllRanks.map(rank => {
+                    const card = rank + suit.key;
+                    const isSelected = heroCurrentSet.has(card);
+                    return <button key={card} className={'card-picker-btn' + (isSelected ? ' selected' : '')} onClick={() => toggleHeroCard(card)}>
+                      <img src={'/cards/cards_gui_' + rank + suit.key + '.svg'} alt={card} loading="eager" />
+                    </button>;
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="gto-street-card">
+          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setPhase('setup')}>Back</button>
+            <button className="btn btn-primary btn-sm" onClick={() => setPhase(gameCfg.isStud ? 'door_cards' : 'action')}>
+              {gameCfg.isStud ? 'Enter Door Cards' : 'Start Action'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── BOARD ENTRY PHASE ──
+  if (phase === 'board_entry') {
+    const nextStreet = currentStreetIdx + 1;
+    const streetName = (hand.streets[nextStreet] && hand.streets[nextStreet].name) || 'Next Street';
+    const boardVal = (hand.streets[nextStreet] && hand.streets[nextStreet].cards.board) || '';
+    const maxCards = streetDef.boardCards ? streetDef.boardCards[nextStreet] : 1;
+    const usedCards = new Set();
+    hand.streets.forEach(s => {
+      parseCardNotation(s.cards.hero || '').forEach(c => { if (c.suit !== 'x') usedCards.add(c.rank + c.suit); });
+      parseCardNotation(s.cards.board || '').forEach(c => { if (c.suit !== 'x') usedCards.add(c.rank + c.suit); });
+      (s.cards.opponents || []).forEach(opp => { parseCardNotation(opp || '').forEach(c => { if (c.suit !== 'x') usedCards.add(c.rank + c.suit); }); });
+    });
+    const currentBoardCards = parseCardNotation(boardVal).filter(c => c.suit !== 'x').map(c => c.rank + c.suit);
+    const currentBoardSet = new Set(currentBoardCards);
+    currentBoardCards.forEach(c => usedCards.delete(c));
+    const allRanks = 'AKQJT98765432'.split('');
+    const allSuits = [{key:'h',color:'#ef4444'},{key:'d',color:'#3b82f6'},{key:'c',color:'#22c55e'},{key:'s',color:'var(--text)'}];
+
+    const toggleCard = (card) => {
+      if (currentBoardSet.has(card)) {
+        const remaining = currentBoardCards.filter(c => c !== card);
+        setHand(prev => ({ ...prev, streets: prev.streets.map((s, i) => i === nextStreet ? { ...s, cards: { ...s.cards, board: remaining.join('') } } : s) }));
+      } else {
+        if (currentBoardCards.length >= maxCards) return;
+        setHand(prev => ({ ...prev, streets: prev.streets.map((s, i) => i === nextStreet ? { ...s, cards: { ...s.cards, board: boardVal + card } } : s) }));
+      }
+    };
+
+    return (
+      <div className="gto-entry">
+        <div className="gto-phase-card">
+          <div className="replayer-section" style={{textAlign:'center'}}>
+            <div className="gto-street-label">Deal the {streetName}</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'12px',margin:'8px 0'}}>
+              {cumulativeBoard && <CardRow text={cumulativeBoard} max={5} />}
+              {boardVal && <CardRow text={boardVal} max={maxCards} />}
+            </div>
+            <div className="replayer-field" style={{marginTop:'8px'}}>
+              <label>{streetName} Cards</label>
+              <input type="text" placeholder={nextStreet === 1 ? 'Qh7d2c' : 'Ts'} value={boardVal} onChange={e => setHand(prev => ({ ...prev, streets: prev.streets.map((s, i) => i === nextStreet ? { ...s, cards: { ...s.cards, board: e.target.value } } : s) }))} />
+            </div>
+            <div className="card-picker-grid">
+              {allSuits.map(suit => (
+                <React.Fragment key={suit.key}>
+                  {allRanks.map(rank => {
+                    const card = rank + suit.key;
+                    const isUsed = usedCards.has(card);
+                    const isSelected = currentBoardSet.has(card);
+                    return <button key={card} className={'card-picker-btn' + (isSelected ? ' selected' : '') + (isUsed ? ' used' : '')} onClick={() => toggleCard(card)}>
+                      <img src={'/cards/cards_gui_' + rank + suit.key + '.svg'} alt={card} loading="eager" />
+                    </button>;
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 0'}}>
+          <button className="gto-undo-btn" onClick={undoLastAction}>Undo</button>
+          <button className="btn btn-primary btn-sm" disabled={parseCardNotation(boardVal).filter(c => c.suit !== 'x').length < maxCards} onClick={() => { setCurrentStreetIdx(nextStreet); setPhase('action'); }}>Continue</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── SHOWDOWN PHASE ──
+  if (phase === 'showdown') {
+    const isStudShowdown = category === 'stud';
+    const isDrawShowdown = category === 'draw_triple' || category === 'draw_single';
+    // Collect used cards
+    const sdUsedCards = new Set();
+    hand.streets.forEach(s => {
+      parseCardNotation(s.cards.hero || '').forEach(c => { if (c.suit !== 'x') sdUsedCards.add(c.rank + c.suit); });
+      parseCardNotation(s.cards.board || '').forEach(c => { if (c.suit !== 'x') sdUsedCards.add(c.rank + c.suit); });
+      (s.cards.opponents || []).forEach(opp => { parseCardNotation(opp || '').forEach(c => { if (c.suit !== 'x') sdUsedCards.add(c.rank + c.suit); }); });
+    });
+    const showdownPlayers = hand.players.map((p, i) => ({ player: p, idx: i })).filter(o => o.idx !== heroIdx && !foldedSet.has(o.idx));
+    const sdMaxCards = gameCfg.heroCards || 2;
+    const sdAllRanks = 'AKQJT98765432'.split('');
+    const sdAllSuits = [{key:'h'},{key:'d'},{key:'c'},{key:'s'}];
+
+    // For stud: accumulate cards from all streets for each player
+    const getStudAllCards = (oppSlot) => {
+      let accumulated = '';
+      hand.streets.forEach(s => { const oppC = (s.cards.opponents || [])[oppSlot] || ''; if (oppC && oppC !== 'MUCK') accumulated += oppC; });
+      return accumulated;
+    };
+    const getStudHeroAllCards = () => {
+      let accumulated = '';
+      hand.streets.forEach(s => { if (s.cards.hero) accumulated += s.cards.hero; });
+      return accumulated;
+    };
+    const getOppCardStr = (oppSlot) => {
+      if (isStudShowdown) return getStudAllCards(oppSlot);
+      return (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppSlot]) || '';
+    };
+
+    return (
+      <div className="gto-entry">
+        <div className="gto-phase-card">
+          <div className="replayer-section" style={{textAlign:'center'}}>
+            <div className="gto-street-label">Showdown</div>
+            {cumulativeBoard && <div style={{margin:'8px 0'}}><CardRow text={cumulativeBoard} max={5} /></div>}
+          </div>
+        </div>
+        {showdownPlayers.map((o, si) => {
+          const oppSlot = o.idx > heroIdx ? o.idx - 1 : o.idx;
+          const oppCardStr = getOppCardStr(oppSlot);
+          const isMucked = oppCardStr === 'MUCK' || (hand.streets[0].cards.opponents && hand.streets[0].cards.opponents[oppSlot]) === 'MUCK';
+          const oppParsed = isMucked ? [] : parseCardNotation(oppCardStr).filter(c => c.suit !== 'x');
+          const oppCardSet = new Set(oppParsed.map(c => c.rank + c.suit));
+          const isComplete = isMucked || oppParsed.length >= sdMaxCards;
+
+          // Stud: count known vs unknown cards
+          let studKnownCount = 0;
+          if (isStudShowdown && !isMucked) {
+            for (let _si = 0; _si < hand.streets.length; _si++) {
+              const _sc = (hand.streets[_si].cards.opponents || [])[oppSlot] || '';
+              parseCardNotation(_sc).filter(c => c.suit !== 'x').forEach(() => studKnownCount++);
+            }
+          }
+          const studMissingCount = isStudShowdown ? Math.max(0, sdMaxCards - oppParsed.length) : 0;
+
+          // Build used set excluding this opponent's own cards
+          const thisUsed = new Set(sdUsedCards);
+          showdownPlayers.forEach(other => {
+            if (other.idx === o.idx) return;
+            const otherSlot = other.idx > heroIdx ? other.idx - 1 : other.idx;
+            const otherStr = getOppCardStr(otherSlot);
+            if (otherStr !== 'MUCK') parseCardNotation(otherStr).forEach(c => { if (c.suit !== 'x') thisUsed.add(c.rank + c.suit); });
+          });
+          oppParsed.forEach(c => thisUsed.delete(c.rank + c.suit));
+
+          const setMuck = () => setHand(prev => {
+            const opps = [...(prev.streets[0].cards.opponents || [])]; opps[oppSlot] = 'MUCK';
+            return { ...prev, streets: prev.streets.map((s, i) => i === 0 ? { ...s, cards: { ...s.cards, opponents: opps } } : s) };
+          });
+          const clearOppCards = () => {
+            if (isStudShowdown) {
+              setHand(prev => ({ ...prev, streets: prev.streets.map(s => {
+                const opps = [...(s.cards.opponents || [])]; opps[oppSlot] = '';
+                return { ...s, cards: { ...s.cards, opponents: opps } };
+              }) }));
+            } else {
+              setHand(prev => {
+                const opps = [...(prev.streets[0].cards.opponents || [])]; opps[oppSlot] = '';
+                return { ...prev, streets: prev.streets.map((s, i) => i === 0 ? { ...s, cards: { ...s.cards, opponents: opps } } : s) };
+              });
+            }
+          };
+          const toggleSdCard = (card) => {
+            if (oppCardSet.has(card)) {
+              if (isStudShowdown) {
+                // Remove from whichever street has it
+                setHand(prev => ({ ...prev, streets: prev.streets.map(s => {
+                  const opps = [...(s.cards.opponents || [])];
+                  const curr = opps[oppSlot] || '';
+                  if (curr.indexOf(card) >= 0) { opps[oppSlot] = curr.replace(card, ''); return { ...s, cards: { ...s.cards, opponents: opps } }; }
+                  return s;
+                }) }));
+              } else {
+                const remaining = oppParsed.map(c => c.rank + c.suit).filter(c => c !== card);
+                setHand(prev => {
+                  const opps = [...(prev.streets[0].cards.opponents || [])]; opps[oppSlot] = remaining.join('');
+                  return { ...prev, streets: prev.streets.map((s, i) => i === 0 ? { ...s, cards: { ...s.cards, opponents: opps } } : s) };
+                });
+              }
+            } else {
+              if (oppParsed.length >= sdMaxCards) return;
+              if (isStudShowdown) {
+                // Prepend hidden cards to street 0
+                setHand(prev => {
+                  const opps = [...(prev.streets[0].cards.opponents || [])]; opps[oppSlot] = card + (opps[oppSlot] || '');
+                  return { ...prev, streets: prev.streets.map((s, i) => i === 0 ? { ...s, cards: { ...s.cards, opponents: opps } } : s) };
+                });
+              } else {
+                setHand(prev => {
+                  const opps = [...(prev.streets[0].cards.opponents || [])]; opps[oppSlot] = oppCardStr + card;
+                  return { ...prev, streets: prev.streets.map((s, i) => i === 0 ? { ...s, cards: { ...s.cards, opponents: opps } } : s) };
+                });
+              }
+            }
+          };
+
+          return (
+            <div key={o.idx} className="gto-phase-card" style={{marginTop:'6px', opacity: isComplete ? 0.6 : 1}}>
+              <div className="replayer-section">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+                  <div><span className="replayer-player-pos" style={{marginRight:'6px'}}>{o.player.position}</span><span style={{fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.8rem',fontWeight:600,color:'var(--text)'}}>{o.player.name}</span></div>
+                  {isMucked ? <button className="gto-undo-btn" onClick={clearOppCards} style={{fontSize:'0.6rem'}}>Undo Muck</button> : isComplete ? <button className="gto-undo-btn" onClick={clearOppCards} style={{fontSize:'0.6rem'}}>Clear</button> : <button className="gto-undo-btn" onClick={setMuck} style={{fontSize:'0.6rem'}}>Muck</button>}
+                </div>
+                {isMucked ? <div style={{textAlign:'center',padding:'8px 0',fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.75rem',color:'var(--text-muted)',fontStyle:'italic'}}>Mucked</div> : (
+                  <>
+                    {oppParsed.length > 0 && <div style={{margin:'4px 0'}}>
+                      <CardRow text={oppCardStr} stud={isStudShowdown} max={sdMaxCards} />
+                      {isStudShowdown && studMissingCount > 0 && <div style={{fontSize:'0.6rem',color:'var(--text-muted)',marginTop:'2px'}}>
+                        {studKnownCount} known card{studKnownCount !== 1 ? 's' : ''}, {studMissingCount} hidden card{studMissingCount !== 1 ? 's' : ''} remaining
+                      </div>}
+                    </div>}
+                    {!isComplete && (
+                      <div className="card-picker-grid">
+                        {sdAllSuits.map(suit => (
+                          <React.Fragment key={suit.key}>
+                            {sdAllRanks.map(rank => {
+                              const card = rank + suit.key;
+                              const isUsedByOther = thisUsed.has(card);
+                              const isSelected = oppCardSet.has(card);
+                              return <button key={card} className={'card-picker-btn' + (isSelected ? ' selected' : '') + (isUsedByOther ? ' used' : '')} onClick={() => toggleSdCard(card)}>
+                                <img src={'/cards/cards_gui_' + rank + suit.key + '.svg'} alt={card} loading="eager" />
+                              </button>;
+                            })}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 0'}}>
+          <button className="gto-undo-btn" onClick={undoLastAction}>Undo</button>
+          <button className="btn btn-primary btn-sm" onClick={() => {
+            // Auto-evaluate showdown winners
+            const playerHands = [];
+            let heroCardStr;
+            if (isStudShowdown) heroCardStr = getStudHeroAllCards();
+            else if (isDrawShowdown) { const heroBase = hand.streets[0].cards.hero || ''; heroCardStr = computeDrawHand(heroBase, getPlayerDrawsByStreet(hand, heroIdx), hand.streets.length - 1); }
+            else heroCardStr = hand.streets[0].cards.hero || '';
+            const heroParsed = parseCardNotation(heroCardStr).filter(c => c.suit !== 'x');
+            if (heroParsed.length > 0) playerHands.push({ idx: heroIdx, cards: heroParsed });
+            showdownPlayers.forEach(o => {
+              const oppSlot = o.idx > heroIdx ? o.idx - 1 : o.idx;
+              const oppStr = getOppCardStr(oppSlot);
+              if (oppStr === 'MUCK' || !oppStr) return;
+              const oppParsed = parseCardNotation(oppStr).filter(c => c.suit !== 'x');
+              if (oppParsed.length > 0) playerHands.push({ idx: o.idx, cards: oppParsed });
+            });
+            let fullBoardStr = '';
+            hand.streets.forEach(s => { if (s.cards.board) fullBoardStr += s.cards.board; });
+            const boardParsed = parseCardNotation(fullBoardStr).filter(c => c.suit !== 'x');
+            if (playerHands.length === 1) {
+              setHand(prev => ({ ...prev, result: { ...prev.result, winners: [{ playerIdx: playerHands[0].idx, split: false }] } }));
+            } else if (playerHands.length > 1) {
+              let winners = evaluateShowdown(hand.gameType, playerHands, boardParsed);
+              // Add hi/lo split labels for hilo games
+              const _ec = GAME_EVAL[hand.gameType];
+              if (_ec && _ec.type === 'hilo' && winners.some(w => w.split)) {
+                const _hs = {}; const _ls = {};
+                playerHands.forEach(ph => {
+                  const al = boardParsed.length ? ph.cards.concat(boardParsed) : ph.cards;
+                  _hs[ph.idx] = _ec.method === 'omaha' ? bestOmahaHigh(ph.cards, boardParsed) : bestHighHand(al);
+                  const lo = _ec.method === 'omaha' ? bestOmahaLow(ph.cards, boardParsed) : bestLowA5Hand(al, true);
+                  _ls[ph.idx] = lo && lo.qualified ? lo : null;
+                });
+                let _bh = -1, _bl = Infinity;
+                Object.keys(_hs).forEach(k => { if (_hs[k] && _hs[k].score > _bh) _bh = _hs[k].score; });
+                Object.keys(_ls).forEach(k => { if (_ls[k] && _ls[k].score < _bl) _bl = _ls[k].score; });
+                winners = winners.map(w => {
+                  const lb = [];
+                  if (_hs[w.playerIdx] && _hs[w.playerIdx].score === _bh) lb.push('Hi: ' + (_hs[w.playerIdx].shortName || _hs[w.playerIdx].name));
+                  if (_ls[w.playerIdx] && _ls[w.playerIdx].score === _bl) lb.push('Lo: ' + _ls[w.playerIdx].name);
+                  if (lb.length) return { ...w, label: hand.players[w.playerIdx].name + ' wins ' + lb.join(', ') };
+                  return w;
+                });
+              }
+              if (winners.length > 0) setHand(prev => ({ ...prev, result: { ...prev.result, winners } }));
+            }
+            setPhase('result');
+          }}>Continue to Result</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── RESULT PHASE ──
+  if (phase === 'result') {
+    const autoWinner = handOver && activePlayers.length === 1 ? hand.players.indexOf(activePlayers[0]) : -1;
+    return (
+      <div className="gto-entry">
+        <div className="gto-phase-card">
+          <div className="replayer-section">
+            <div className="replayer-section-title">Result</div>
+            {autoWinner >= 0 ? (
+              <div style={{textAlign:'center',padding:'12px',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
+                <div style={{fontSize:'0.9rem',color:'#4ade80',fontWeight:700}}>{hand.players[autoWinner].name} wins</div>
+                <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginTop:'4px'}}>All opponents folded</div>
+              </div>
+            ) : (
+              <>
+                <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
+                  {hand.players.filter((_, i) => !foldedSet.has(i)).map(p => {
+                    const pi = hand.players.indexOf(p);
+                    const winners = (hand.result && hand.result.winners) || [];
+                    const isWinner = winners.some(w => w.playerIdx === pi && !w.split);
+                    const isSplit = winners.some(w => w.playerIdx === pi && w.split);
+                    return (
+                      <button key={pi} style={{
+                        flex:'1 1 0',padding:'8px 14px',borderRadius:'6px',border:'1.5px solid',cursor:'pointer',
+                        fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.75rem',fontWeight:600,transition:'all 0.15s',
+                        background: isWinner ? 'rgba(74,222,128,0.15)' : isSplit ? 'rgba(250,204,21,0.15)' : 'transparent',
+                        borderColor: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--border)',
+                        color: isWinner ? '#4ade80' : isSplit ? '#facc15' : 'var(--text-muted)',
+                      }} onClick={() => {
+                        setHand(prev => {
+                          const prevWinners = (prev.result && prev.result.winners) || [];
+                          const existing = prevWinners.find(w => w.playerIdx === pi);
+                          let newWinners;
+                          if (!existing) newWinners = [...prevWinners, { playerIdx: pi, split: false, label: '' }];
+                          else if (!existing.split) newWinners = prevWinners.map(w => w.playerIdx === pi ? { ...w, split: true } : w);
+                          else newWinners = prevWinners.filter(w => w.playerIdx !== pi);
+                          return { ...prev, result: { ...prev.result, winners: newWinners } };
+                        });
+                      }}>
+                        {p.name} {isWinner ? '(Win)' : isSplit ? '(Split)' : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{fontSize:'0.55rem',color:'var(--text-muted)',marginTop:'4px',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
+                  {(hand.result?.winners?.length) ? 'Auto-evaluated. ' : ''}{'Tap to cycle: none \u2192 win \u2192 split \u2192 none'}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="gto-street-card">
+          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+            <button className="gto-undo-btn" onClick={undoLastAction}>Undo</button>
+            <button className="btn btn-primary btn-sm" onClick={() => {
+              const savedHand = { ...hand, heroIdx };
+              if (autoWinner >= 0 && !(hand.result?.winners?.length)) {
+                onDone({ ...savedHand, result: { winners: [{ playerIdx: autoWinner, split: false, label: '' }] } });
+              } else onDone(savedHand);
+            }}>Save & Replay</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── DOOR CARDS PHASE (Stud) ──
+  if (phase === 'door_cards') {
+    const heroIdxDC = hand.heroIdx != null ? hand.heroIdx : 0;
+    const oppCards0 = (hand.streets[0] && hand.streets[0].cards.opponents) || [];
+    const numOpps = hand.players.length - 1;
+    const usedCardsDC = new Set();
+    parseCardNotation((hand.streets[0]?.cards.hero) || '').forEach(c => { if (c.suit !== 'x') usedCardsDC.add(c.rank + c.suit); });
+    oppCards0.forEach(opp => { parseCardNotation(opp || '').forEach(c => { if (c.suit !== 'x') usedCardsDC.add(c.rank + c.suit); }); });
+    const dcRanks = 'AKQJT98765432'.split('');
+    const dcSuits = [{key:'h',color:'#ef4444'},{key:'d',color:'#3b82f6'},{key:'c',color:'#22c55e'},{key:'s',color:'var(--text)'}];
+
+    const setOppDoorCard = (oppIdx, card) => {
+      setHand(prev => {
+        const streets = prev.streets.map((s, si) => {
+          if (si !== 0) return s;
+          const opponents = [...(s.cards.opponents || [])];
+          opponents[oppIdx] = opponents[oppIdx] === card ? '' : card;
+          return { ...s, cards: { ...s.cards, opponents } };
+        });
+        return { ...prev, streets };
+      });
+    };
+
+    return (
+      <div className="gto-entry">
+        <div className="gto-phase-card"><div className="replayer-section">
+          <div className="replayer-section-title">Opponent Door Cards</div>
+          <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'8px'}}>Enter each opponent's face-up 3rd street card.</p>
+          {hand.players.map((p, pi) => {
+            if (pi === heroIdxDC) return null;
+            const oppSlot = pi < heroIdxDC ? pi : pi - 1;
+            const currentCard = oppCards0[oppSlot] || '';
+            const parsedCurrent = parseCardNotation(currentCard).filter(c => c.suit !== 'x');
+            const selectedCard = parsedCurrent.length ? parsedCurrent[0].rank + parsedCurrent[0].suit : '';
+            return (
+              <div key={pi} style={{marginBottom:'12px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
+                  <span style={{fontWeight:700,fontSize:'0.8rem'}}>{p.name}</span>
+                  <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>{p.position}</span>
+                  {selectedCard ? <CardRow text={selectedCard} max={1} /> : <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontStyle:'italic'}}>? unknown</span>}
+                </div>
+              </div>
+            );
+          })}
+          <div className="card-picker-grid">
+            {dcSuits.map(suit => (
+              <React.Fragment key={suit.key}>
+                {dcRanks.map(rank => {
+                  const card = rank + suit.key;
+                  const isUsed = usedCardsDC.has(card);
+                  let selectedForOpp = -1;
+                  oppCards0.forEach((opp, oi) => { if (opp === card) selectedForOpp = oi; });
+                  return <button key={card} className={'card-picker-btn' + (selectedForOpp >= 0 ? ' selected' : '') + (isUsed && selectedForOpp < 0 ? ' used' : '')} disabled={isUsed && selectedForOpp < 0} onClick={() => {
+                    if (selectedForOpp >= 0) setOppDoorCard(selectedForOpp, '');
+                    else { for (let oi = 0; oi < numOpps; oi++) { if (!oppCards0[oi]) { setOppDoorCard(oi, card); return; } } }
+                  }}>
+                    <img src={'/cards/cards_gui_' + rank + suit.key + '.svg'} alt={card} loading="eager" />
+                  </button>;
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        </div></div>
+        <div className="gto-street-card">
+          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setPhase('setup')}>Back</button>
+            <button className="btn btn-primary btn-sm" onClick={() => setPhase('action')}>Start Action</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── DRAW DISCARD PHASE ──
+  if (phase === 'draw_discard' || phase === 'draw_cards_entry') {
+    const nextDrawStreet = currentStreetIdx + 1;
+    const drawActivePlayers = seatOrder.filter(i => !foldedSet.has(i));
+
+    const addDraw = (playerIdx, discardCount) => {
+      setHand(prev => ({ ...prev, streets: prev.streets.map((s, si) => si !== currentStreetIdx ? s : { ...s, draws: [...(s.draws || []), { player: playerIdx, discarded: discardCount, discardedCards: '', newCards: '' }] }) }));
+    };
+    const undoLastDraw = () => {
+      setHand(prev => ({ ...prev, streets: prev.streets.map((s, si) => si !== currentStreetIdx ? s : { ...s, draws: (s.draws || []).slice(0, -1) }) }));
+    };
+    const updateDrawCardsFn = (playerIdx, field, val) => {
+      setHand(prev => ({
+        ...prev,
+        streets: prev.streets.map((s, si) => si !== currentStreetIdx ? s : {
+          ...s, draws: (s.draws || []).map(d => d.player !== playerIdx ? d : { ...d, [field]: val })
+        })
+      }));
+    };
+    const getDrawPlayerHand = (pi) => {
+      const dhi = hand.heroIdx != null ? hand.heroIdx : 0;
+      const oppSlot = pi > dhi ? pi - 1 : pi;
+      const base = pi === dhi ? (hand.streets[0]?.cards.hero || '') : (hand.streets[0]?.cards.opponents?.[oppSlot] || '');
+      return computeDrawHand(base, getPlayerDrawsByStreet(hand, pi), currentStreetIdx - 1);
+    };
+    const drawPlayerQueue = drawActivePlayers.filter(pi => !(currentStreet.draws || []).find(d => d.player === pi));
+    const currentDrawPlayer = drawPlayerQueue.length > 0 ? drawPlayerQueue[0] : -1;
+    const allDrawsDeclared = drawPlayerQueue.length === 0;
+    const isBadugi = ['Badugi','Badeucy','Badacy'].includes(hand.gameType);
+    const maxDiscard = isBadugi ? 4 : 5;
+
+    if (phase === 'draw_cards_entry') {
+      return (
+        <div className="gto-entry">
+          <div className="gto-phase-card"><div className="replayer-section">
+            <div className="replayer-section-title">{'Card Details \u2014 ' + (currentStreet.name || 'Draw')}</div>
+            <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'10px'}}>Optionally specify which cards were discarded and drawn. Skip to continue.</p>
+            {drawActivePlayers.map(pi => {
+              const p = hand.players[pi];
+              const de = (currentStreet.draws || []).find(d => d.player === pi);
+              if (!de) return null;
+              const isPat = de.discarded === 0;
+              const isHeroDraw = pi === (hand.heroIdx != null ? hand.heroIdx : 0);
+              const curHand = isHeroDraw ? getDrawPlayerHand(pi) : null;
+              return (
+                <div key={pi} style={{marginBottom:'10px',padding:'8px 10px',background:'var(--surface2)',borderRadius:'6px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom: isHeroDraw ? '6px' : '0'}}>
+                    <span style={{fontWeight:700,fontSize:'0.78rem'}}>{p.name}</span>
+                    <span style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>{p.position}</span>
+                    {isPat && <span className="replayer-draw-pat-badge">Stand Pat</span>}
+                    {!isPat && <span className="replayer-draw-count-badge">Discards {de.discarded}</span>}
+                  </div>
+                  {isHeroDraw && curHand && (() => {
+                    const handCards = parseCardNotation(curHand);
+                    const discardedSet = new Set(parseCardNotation(de.discardedCards || '').map(c => c.rank + c.suit));
+                    const toggleDiscard = (card) => {
+                      if (isPat) return;
+                      const cardKey = card.rank + card.suit;
+                      const currentDiscarded = parseCardNotation(de.discardedCards || '');
+                      const currentSet = new Set(currentDiscarded.map(c => c.rank + c.suit));
+                      let newDiscarded;
+                      if (currentSet.has(cardKey)) {
+                        newDiscarded = currentDiscarded.filter(c => (c.rank + c.suit) !== cardKey).map(c => c.rank + c.suit).join('');
+                      } else {
+                        if (currentDiscarded.length >= de.discarded) return;
+                        newDiscarded = (de.discardedCards || '') + cardKey;
+                      }
+                      updateDrawCardsFn(pi, 'discardedCards', newDiscarded);
+                    };
+                    return (
+                      <div style={{marginBottom:'4px'}}>
+                        <span style={{fontSize:'0.6rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.03em'}}>
+                          {isPat ? 'Current Hand' : 'Tap to select discards'}
+                        </span>
+                        <div className="card-row" style={{gap:'2px',flexWrap:'nowrap'}}>
+                          {handCards.map((c, ci) => {
+                            const isDiscarded = discardedSet.has(c.rank + c.suit);
+                            return <img key={ci} className={'card-img draw-selectable' + (isDiscarded ? ' draw-discarded' : '')}
+                              src={'/cards/cards_gui_' + c.rank + c.suit + '.svg'} alt={c.rank + c.suit} loading="eager"
+                              onClick={() => toggleDiscard(c)} style={{ cursor: isPat ? 'default' : 'pointer' }} />;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {isHeroDraw && !isPat && (
+                    <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'4px'}}>
+                      <div className="replayer-field" style={{flex:1,minWidth:'80px'}}>
+                        <label style={{fontSize:'0.55rem'}}>Discarded</label>
+                        <input type="text" placeholder="e.g. 7h3c" value={de.discardedCards || ''} onChange={e => updateDrawCardsFn(pi, 'discardedCards', e.target.value)} />
+                      </div>
+                      <div className="replayer-field" style={{flex:1,minWidth:'80px'}}>
+                        <label style={{fontSize:'0.55rem'}}>New Cards</label>
+                        <input type="text" placeholder="e.g. Ah5s" value={de.newCards || ''} onChange={e => updateDrawCardsFn(pi, 'newCards', e.target.value)} />
+                        {de.newCards && <CardRow text={de.newCards} max={de.discarded} />}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div></div>
+          <div className="gto-street-card">
+            <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setPhase('draw_discard')}>Back</button>
+              <button className="btn btn-primary btn-sm" onClick={() => { setCurrentStreetIdx(nextDrawStreet); setPhase('action'); }}>Continue</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="gto-entry">
+        <div className="gto-phase-card"><div className="replayer-section">
+          <div className="replayer-section-title">Draw Round</div>
+          <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'10px'}}>Each player declares how many cards to discard.</p>
+          {drawActivePlayers.map(pi => {
+            const p = hand.players[pi];
+            const existingDraw = (currentStreet.draws || []).find(d => d.player === pi);
+            const isDeclared = !!existingDraw;
+            const isCurrentTarget = pi === currentDrawPlayer;
+            const curHand = getDrawPlayerHand(pi);
+            // Build draw history across prior streets
+            const drawHistory = [];
+            for (let si = 0; si < currentStreetIdx; si++) {
+              const pastStreet = hand.streets[si];
+              if (!pastStreet || !pastStreet.draws || !pastStreet.draws.length) continue;
+              const pastDraw = pastStreet.draws.find(d => d.player === pi);
+              if (pastDraw) drawHistory.push(pastDraw.discarded === 0 ? 'Pat' : 'D' + pastDraw.discarded);
+            }
+            return (
+              <div key={pi} className={'gto-seat' + (isCurrentTarget ? ' active' : '') + (isDeclared ? ' gto-draw-declared' : '')} style={{marginBottom:'6px'}}>
+                <div className="gto-seat-strip">{p.position}</div>
+                <div className="gto-seat-content">
+                  <div className="gto-seat-bar">
+                    <div className="gto-seat-row1"><span className="gto-seat-pos">{p.position}</span><span className="gto-seat-stack">{formatChipAmount(currentStacks[pi])}</span></div>
+                    <div className="gto-seat-row2">
+                      <span className="gto-seat-name">{p.name}</span>
+                      {isDeclared && <span className="gto-seat-result-badge check" style={{marginLeft:'auto'}}>{existingDraw.discarded === 0 ? 'Stand Pat' : 'Drew ' + existingDraw.discarded}</span>}
+                    </div>
+                    {drawHistory.length > 0 && <div className="gto-seat-draw-history">{drawHistory.join(' / ')}</div>}
+                  </div>
+                  {curHand && <div style={{padding:'4px 10px'}}><CardRow text={curHand} max={gameCfg.heroCards || 5} /></div>}
+                  {isCurrentTarget && !isDeclared && (
+                    <div className="gto-draw-buttons">
+                      <button className="gto-draw-btn pat" onClick={() => addDraw(pi, 0)}>Stand Pat</button>
+                      {Array.from({length: maxDiscard}, (_, n) => n + 1).map(count => (
+                        <button key={count} className="gto-draw-btn" onClick={() => addDraw(pi, count)}>{count}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div></div>
+        <div className="gto-street-card">
+          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+            {(currentStreet.draws || []).length > 0 && <button className="gto-undo-btn" onClick={undoLastDraw}>Undo</button>}
+            <button className="btn btn-ghost btn-sm" onClick={() => {
+              // Clear draws on this street and undo the last betting action to return to action phase
+              setHand(prev => {
+                for (let si = currentStreetIdx; si >= 0; si--) {
+                  const acts = prev.streets[si].actions || [];
+                  if (acts.length > 0) {
+                    const streets = prev.streets.map((s, i) => {
+                      if (i < si) return s;
+                      if (i === si) { const updated = { ...s, actions: acts.slice(0, -1) }; if (i === currentStreetIdx) updated.draws = []; return updated; }
+                      return { ...s, actions: [], draws: [] };
+                    });
+                    if (si < currentStreetIdx) setCurrentStreetIdx(si);
+                    return { ...prev, streets };
+                  }
+                }
+                return prev;
+              });
+              setPhase('action');
+            }}>Back</button>
+            <button className="btn btn-primary btn-sm" disabled={!allDrawsDeclared} onClick={() => {
+              const hi = hand.heroIdx != null ? hand.heroIdx : 0;
+              const heroDraw = (currentStreet.draws || []).find(d => d.player === hi);
+              if (heroDraw && heroDraw.discarded === 0) { setCurrentStreetIdx(nextDrawStreet); setPhase('action'); }
+              else setPhase('draw_cards_entry');
+            }}>{(() => { const hi = hand.heroIdx != null ? hand.heroIdx : 0; const hd = (currentStreet.draws||[]).find(d=>d.player===hi); return hd && hd.discarded === 0 ? 'Continue' : 'Enter Cards'; })()}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── STUD DEAL PHASE ──
+  if (phase === 'stud_deal') {
+    const nextStudStreet = currentStreetIdx + 1;
+    const studStreetName = (hand.streets[nextStudStreet]?.name) || 'Next Street';
+    const heroIdxSD = hand.heroIdx != null ? hand.heroIdx : 0;
+    const sdActivePlayers = hand.players.map((_, pi) => pi).filter(pi => !foldedSet.has(pi));
+
+    const setStudCard = (playerIdx, card) => {
+      setHand(prev => {
+        const streets = prev.streets.map((s, si) => {
+          if (si !== nextStudStreet) return s;
+          const newCards = { ...s.cards };
+          if (playerIdx === heroIdxSD) { newCards.hero = newCards.hero === card ? '' : card; }
+          else {
+            const oppSlot = playerIdx < heroIdxSD ? playerIdx : playerIdx - 1;
+            const opponents = [...(newCards.opponents || [])];
+            opponents[oppSlot] = opponents[oppSlot] === card ? '' : card;
+            newCards.opponents = opponents;
+          }
+          return { ...s, cards: newCards };
+        });
+        return { ...prev, streets };
+      });
+    };
+
+    const getStudCardForPlayer = (pi) => {
+      const nextStreetData = hand.streets[nextStudStreet] || { cards: { hero: '', opponents: [] } };
+      if (pi === heroIdxSD) return nextStreetData.cards.hero || '';
+      const oppSlot = pi < heroIdxSD ? pi : pi - 1;
+      return (nextStreetData.cards.opponents || [])[oppSlot] || '';
+    };
+
+    const enteredCount = sdActivePlayers.filter(pi => getStudCardForPlayer(pi)).length;
+    const sdRanks = 'AKQJT98765432'.split('');
+    const sdSuits = [{key:'h'},{key:'d'},{key:'c'},{key:'s'}];
+
+    return (
+      <div className="gto-entry">
+        <div className="gto-phase-card"><div className="replayer-section">
+          <div className="replayer-section-title">Deal {studStreetName}</div>
+          <p style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'8px'}}>Tap a player, then tap a card.</p>
+          {sdActivePlayers.map(pi => {
+            const p = hand.players[pi];
+            const cardStr = getStudCardForPlayer(pi);
+            const isTarget = studDealTarget === pi;
+            return (
+              <div key={pi} style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px',padding:'6px 8px',borderRadius:'6px',cursor:'pointer',background:isTarget?'var(--accent-bg, rgba(34,197,94,0.1))':'transparent',border:isTarget?'1.5px solid var(--accent)':'1.5px solid transparent'}} onClick={() => setStudDealTarget(pi)}>
+                <span style={{fontWeight:700,fontSize:'0.8rem',minWidth:'100px'}}>{p.name}</span>
+                {cardStr ? <CardRow text={cardStr} max={1} /> : <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontStyle:'italic'}}>--</span>}
+              </div>
+            );
+          })}
+          <div className="card-picker-grid">
+            {sdSuits.map(suit => (
+              <React.Fragment key={suit.key}>
+                {sdRanks.map(rank => {
+                  const card = rank + suit.key;
+                  let selectedFor = -1;
+                  sdActivePlayers.forEach(pi => { if (getStudCardForPlayer(pi) === card) selectedFor = pi; });
+                  return <button key={card} className={'card-picker-btn' + (selectedFor >= 0 ? ' selected' : '')} onClick={() => {
+                    if (selectedFor >= 0) setStudCard(selectedFor, '');
+                    else if (studDealTarget >= 0) {
+                      setStudCard(studDealTarget, card);
+                      const nextTarget = sdActivePlayers.find(pi => pi !== studDealTarget && !getStudCardForPlayer(pi));
+                      if (nextTarget !== undefined) setStudDealTarget(nextTarget);
+                    }
+                  }}>
+                    <img src={'/cards/cards_gui_' + rank + suit.key + '.svg'} alt={card} loading="eager" />
+                  </button>;
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        </div></div>
+        <div className="gto-street-card">
+          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end',padding:'10px 12px'}}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setPhase('action')}>Back</button>
+            <button className="btn btn-primary btn-sm" disabled={enteredCount < sdActivePlayers.length} onClick={() => { setCurrentStreetIdx(nextStudStreet); setPhase('action'); }}>Continue</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ACTION PHASE ──
+  const stickySlot = document.getElementById('gto-sticky-slot');
+  const streetCardEl = (
+    <div className="gto-street-card" style={{marginTop:'6px'}}>
+      <div className="gto-street-bar">
+        <span className="gto-street-name">{currentStreet.name}</span>
+        {category === 'community' && cumulativeBoard && <span className="gto-board-inline"><CardRow text={cumulativeBoard} max={5} /></span>}
+        <span className="gto-pot-label">{formatChipAmount(currentPot)}</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="gto-entry">
+      {stickySlot && ReactDOM.createPortal(streetCardEl, stickySlot)}
+      {seatOrder.map(i => {
+        const p = hand.players[i];
+        const isActive = i === currentActor;
+        const act = playerActions[i];
+        const isFolded = foldedSet.has(i);
+        const foldedOnPriorStreet = isFolded && !(currentStreet.actions || []).some(a => a.player === i && a.action === 'fold');
+        if (foldedOnPriorStreet && !isPreflop && category !== 'stud') return null;
+        const seatClass = 'gto-seat' + (isActive ? ' active' : '') + (isFolded ? ' folded' : (act && !isActive) ? ' acted-' + act.action : '');
+        const actionLabel = act ? (act.action.charAt(0).toUpperCase() + act.action.slice(1) + (act.amount > 0 ? ' ' + formatChipAmount(act.amount) : '')) : '';
+        return (
+          <div key={i} ref={isActive ? activeSeatRef : null} className={seatClass}
+            onClick={act && !isActive ? () => undoToPlayer(i) : undefined}
+            style={act && !isActive ? {cursor:'pointer'} : undefined}>
+            <div className="gto-seat-strip">{p.position}</div>
+            <div className="gto-seat-content">
+              <div className="gto-seat-bar">
+                <div className="gto-seat-row1"><span className="gto-seat-pos">{p.position}</span><span className="gto-seat-stack">{formatChipAmount(currentStacks[i])}</span></div>
+                <div className="gto-seat-row2">
+                  <span className="gto-seat-name">{p.name}</span>
+                  {i === heroIdx && !gameCfg.isStud && (() => {
+                    const baseCards = hand.streets[0]?.cards.hero || '';
+                    if (!baseCards) return null;
+                    const isDrawGameLocal = category === 'draw_triple' || category === 'draw_single';
+                    const displayCards = isDrawGameLocal ? computeDrawHand(baseCards, getPlayerDrawsByStreet(hand, i), currentStreetIdx - 1) : baseCards;
+                    return <span className="gto-seat-hero-cards"><CardRow text={displayCards} max={gameCfg.heroCards || 2} /></span>;
+                  })()}
+                  {gameCfg.isStud && (() => {
+                    // Show accumulated board cards for stud players
+                    const isHero = i === heroIdx;
+                    const oppSlot = i < heroIdx ? i : i - 1;
+                    let accumulated = '';
+                    for (let si = 0; si <= currentStreetIdx; si++) {
+                      const st = hand.streets[si];
+                      if (!st) break;
+                      if (isHero) { accumulated += (st.cards.hero || ''); }
+                      else { accumulated += ((st.cards.opponents || [])[oppSlot] || ''); }
+                    }
+                    const dimStyle = isFolded ? {opacity: 0.4, filter: 'grayscale(60%)'} : {};
+                    // For opponents: show 2 face-down hole cards + visible upcards + 7th street face-down
+                    if (!isHero) {
+                      const oppVisible = parseCardNotation(accumulated).filter(c => c.suit !== 'x');
+                      if (isFolded) {
+                        if (oppVisible.length === 0) return null;
+                        return (
+                          <span className="gto-seat-hero-cards" style={dimStyle}>
+                            <div className="card-row" style={{gap:'2px',flexWrap:'nowrap'}}>
+                              {oppVisible.map((c, ci) => <img key={ci} className="card-img" src={'/cards/cards_gui_' + c.rank + c.suit + '.svg'} alt={c.rank+c.suit} loading="eager" />)}
+                            </div>
+                          </span>
+                        );
+                      }
+                      const downAfter = currentStreetIdx >= 4 ? 1 : 0;
+                      return (
+                        <span className="gto-seat-hero-cards">
+                          <div className="card-row" style={{gap:'2px',flexWrap:'nowrap'}}>
+                            <div className="card-unknown" style={{marginTop:8}} />
+                            <div className="card-unknown" style={{marginTop:8}} />
+                            {oppVisible.map((c, ci) => <img key={ci} className="card-img" src={'/cards/cards_gui_' + c.rank + c.suit + '.svg'} alt={c.rank+c.suit} loading="eager" />)}
+                            {downAfter > 0 && <div className="card-unknown" style={{marginTop:8}} />}
+                          </div>
+                        </span>
+                      );
+                    }
+                    // Hero folded: show cards dimmed
+                    if (!accumulated) return null;
+                    return <span className="gto-seat-hero-cards" style={dimStyle}><CardRow text={accumulated} stud={true} max={7} /></span>;
+                  })()}
+                  {(category === 'draw_triple' || category === 'draw_single') && (() => {
+                    const dh = [];
+                    for (let si = 0; si < currentStreetIdx; si++) {
+                      const ps = hand.streets[si];
+                      if (!ps || !ps.draws || !ps.draws.length) continue;
+                      const pd = ps.draws.find(d => d.player === i);
+                      if (pd) dh.push(pd.discarded === 0 ? 'Pat' : 'D' + pd.discarded);
+                    }
+                    if (dh.length === 0) return null;
+                    return <span className="gto-seat-draw-history">{dh.join(' / ')}</span>;
+                  })()}
+                  {act && !isActive && <span className={'gto-seat-result-badge ' + act.action}>{actionLabel}</span>}
+                </div>
+              </div>
+              {isActive && (
+                <div className="gto-seat-detail-wrap"><div className="gto-seat-detail-inner"><div className="gto-seat-detail">
+                  {/* Hero card picker — shows when hero is active */}
+                  {i === heroIdx && isActive && !gameCfg.isStud && (() => {
+                    const hcBase = (hand.streets[0] && hand.streets[0].cards.hero) || '';
+                    const isDrawGameLocal = category === 'draw_triple' || category === 'draw_single';
+                    const hcDisplay = isDrawGameLocal ? computeDrawHand(hcBase, getPlayerDrawsByStreet(hand, i), currentStreetIdx - 1) : hcBase;
+                    const hcParsed = parseCardNotation(hcDisplay);
+                    const hcSet = new Set(hcParsed.map(c => c.rank + c.suit));
+                    const hcMaxCards = gameCfg.heroCards || 2;
+                    const heroHasCards = hcParsed.length >= hcMaxCards;
+                    const pickerOpen = showHeroCardPicker || !heroHasCards;
+                    if (!pickerOpen) return null;
+                    const hcRanks = 'AKQJT98765432'.split('');
+                    const hcSuits = [{key:'h',color:'#ef4444'},{key:'d',color:'#3b82f6'},{key:'c',color:'#22c55e'},{key:'s',color:'var(--text)'}];
+                    const toggleHCard = (card) => {
+                      setHand(prev => {
+                        const base = (prev.streets[0] && prev.streets[0].cards.hero) || '';
+                        const curParsed = parseCardNotation(base);
+                        const curSet = new Set(curParsed.map(c => c.rank + c.suit));
+                        let newCards;
+                        if (curSet.has(card)) newCards = curParsed.filter(c => (c.rank + c.suit) !== card).map(c => c.rank + c.suit).join('');
+                        else { if (curParsed.length >= hcMaxCards) return prev; newCards = base + card; }
+                        return { ...prev, streets: prev.streets.map((s, si) => si === 0 ? { ...s, cards: { ...s.cards, hero: newCards } } : s) };
+                      });
+                    };
+                    return (
+                      <div style={{padding:'6px 8px',borderBottom: heroHasCards ? '1px solid var(--border)' : 'none'}}>
+                        <div style={{fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',marginBottom:'4px',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.04em'}}>
+                          {heroHasCards ? 'Edit Cards' : 'Select Your Cards'}
+                        </div>
+                        <div className="card-picker-grid" style={{gap:'3px'}}>
+                          {hcSuits.map(suit => (
+                            <React.Fragment key={suit.key}>
+                              {hcRanks.map(rank => {
+                                const card = rank + suit.key;
+                                const isSelected = hcSet.has(card);
+                                return <button key={card} className={'card-picker-btn' + (isSelected ? ' selected' : '')} onClick={() => toggleHCard(card)}>
+                                  <img src={'/cards/cards_gui_' + rank + suit.key + '.svg'} alt={card} loading="eager" />
+                                </button>;
+                              })}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {/* Stud bring-in: first action on 3rd street */}
+                  {gameCfg.isStud && currentStreetIdx === 0 && studInfo && studInfo.bringInIdx === currentActor && !(currentStreet.actions || []).length ? (
+                    <div className="gto-action-row">
+                      <button className="gto-action-btn" onClick={() => addAction('bring-in', bringInAmount)}><span className="gto-action-icon call">&#x2B24;</span><span className="gto-action-label">Bring In {formatChipAmount(bringInAmount)}</span></button>
+                      <button className="gto-action-btn" onClick={() => addAction('bet', Math.min(flBetSize, playerStack))}><span className="gto-action-icon raise">&#x25B2;</span><span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack))}</span></button>
+                    </div>
+                  ) : gameCfg.isStud && currentStreetIdx === 0 && (currentStreet.actions || []).length > 0 && streetBets.maxBet <= bringInAmount && streetBetRaiseCount === 0 ? (
+                    <div className="gto-action-row">
+                      <button className="gto-action-btn" onClick={() => addAction('fold')}><span className="gto-action-icon fold">&#x2715;</span><span className="gto-action-label">Fold</span></button>
+                      <button className="gto-action-btn" onClick={() => addAction('call', Math.min(callAmount, playerStack))}><span className="gto-action-icon call">&#x2B24;</span><span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span></button>
+                      <button className="gto-action-btn" onClick={() => { const completeAmt = Math.min(flBetSize - playerContrib, playerStack); addAction('bet', completeAmt); }}><span className="gto-action-icon raise">&#x25B2;</span><span className="gto-action-label">Complete {formatChipAmount(Math.min(flBetSize, playerStack + playerContrib))}</span></button>
+                      {!isLimitGame && playerStack > (flBetSize - playerContrib) && <button className="gto-action-btn" onClick={() => { setShowRaiseInput(true); setBetAmount(String(Math.min(flBetSize - playerContrib, playerStack))); }}><span className="gto-action-icon raise">&#x25B2;</span><span className="gto-action-label">Raise</span></button>}
+                    </div>
+                  ) : isLimitGame ? (
+                    <div className="gto-action-row">
+                      {!canCheck && <button className="gto-action-btn" onClick={() => addAction('fold')}><span className="gto-action-icon fold">&#x2715;</span><span className="gto-action-label">Fold</span></button>}
+                      {canCheck ? <button className="gto-action-btn" onClick={() => addAction('check')}><span className="gto-action-icon check">&#x2713;</span><span className="gto-action-label">Check</span></button>
+                        : <button className="gto-action-btn" onClick={() => addAction('call', Math.min(callAmount, playerStack))}><span className="gto-action-icon call">&#x2B24;</span><span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span></button>}
+                      {flCanRaise && playerStack > callAmount && (canCheck
+                        ? <button className="gto-action-btn" onClick={() => addAction('bet', Math.min(flBetSize, playerStack))}><span className="gto-action-icon raise">&#x25B2;</span><span className="gto-action-label">Bet {formatChipAmount(Math.min(flBetSize, playerStack))}</span></button>
+                        : <button className="gto-action-btn" onClick={() => addAction('raise', Math.min(flRaiseIncrement, playerStack))}><span className="gto-action-icon raise">&#x25B2;</span><span className="gto-action-label">Raise to {formatChipAmount(Math.min(flRaiseToTotal, playerStack + playerContrib))}</span></button>
+                      )}
+                    </div>
+                  ) : isPotLimit ? (
+                    <>
+                      {!showRaiseInput && (
+                        <div className="gto-action-row">
+                          {!canCheck && <button className="gto-action-btn" onClick={() => addAction('fold')}><span className="gto-action-icon fold">&#x2715;</span><span className="gto-action-label">Fold</span></button>}
+                          {canCheck ? <button className="gto-action-btn" onClick={() => addAction('check')}><span className="gto-action-icon check">&#x2713;</span><span className="gto-action-label">Check</span></button>
+                            : <button className="gto-action-btn" onClick={() => addAction('call', Math.min(callAmount, playerStack))}><span className="gto-action-icon call">&#x2B24;</span><span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span></button>}
+                          {playerStack > callAmount && <button className="gto-action-btn" onClick={() => { setShowRaiseInput(true); setBetAmount(String(canCheck ? Math.min((hand.blinds||{}).bb||0, playerStack) : Math.min(minRaiseIncrement, playerStack))); }}><span className="gto-action-icon raise">&#x25B2;</span><span className="gto-action-label">{canCheck ? 'Bet' : 'Raise'}</span></button>}
+                          {playerStack > callAmount && <button className="gto-action-btn" onClick={() => { const potIncrement = canCheck ? Math.min(plMaxBet, playerStack) : Math.min(plMaxRaiseIncrement, playerStack); addAction(canCheck ? 'bet' : 'raise', potIncrement); }}><span className="gto-action-icon raise">&#x25B2;</span><span className="gto-action-label">Pot {formatChipAmount(Math.min(canCheck ? plMaxBet : plRaiseToTotal, playerStack + playerContrib))}</span></button>}
+                        </div>
+                      )}
+                      {showRaiseInput && (
+                        <>
+                          <div className="gto-sizing-row">
+                            {[{label:'Min',mult:0},{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(s => {
+                              let pillAmt;
+                              if (canCheck) pillAmt = s.mult === 0 ? Math.min((hand.blinds||{}).bb||0, playerStack) : Math.min(Math.round(plMaxBet * s.mult), playerStack);
+                              else { if (s.mult === 0) pillAmt = Math.min(minRaiseIncrement, playerStack); else { const raiseSize = Math.round(plPotAfterCall * s.mult); pillAmt = Math.max(Math.min(callAmount + raiseSize, plMaxRaiseIncrement, playerStack), Math.min(minRaiseIncrement, playerStack)); } }
+                              return <button key={s.label} className="gto-sizing-pill" onClick={() => setBetAmount(String(pillAmt))}>{s.label}</button>;
+                            })}
+                          </div>
+                          <div className="gto-raise-slider-row">
+                            <input type="range" className="gto-raise-slider" min={canCheck ? Math.min((hand.blinds||{}).bb||0, playerStack) : Math.min(minRaiseIncrement, playerStack)} max={canCheck ? Math.min(plMaxBet, playerStack) : Math.min(plMaxRaiseIncrement, playerStack)} step={1} value={Number(betAmount)||0} onChange={e => setBetAmount(e.target.value)} />
+                          </div>
+                          <div className="gto-raise-input-row">
+                            <input type="text" inputMode="decimal" value={betAmount} onChange={e => setBetAmount(e.target.value)} autoFocus />
+                            <button className="btn btn-primary btn-sm" onClick={() => { const amt = Math.min(Number(betAmount)||0, canCheck ? Math.min(plMaxBet, playerStack) : Math.min(plMaxRaiseIncrement, playerStack)); if (amt > 0) addAction(canCheck ? 'bet' : 'raise', amt); }}>Confirm</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setShowRaiseInput(false)}>Cancel</button>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    /* No Limit */
+                    <>
+                      {!showRaiseInput && (
+                        <div className="gto-action-row">
+                          {!canCheck && <button className="gto-action-btn" onClick={() => addAction('fold')}><span className="gto-action-icon fold">&#x2715;</span><span className="gto-action-label">Fold</span></button>}
+                          {canCheck ? <button className="gto-action-btn" onClick={() => addAction('check')}><span className="gto-action-icon check">&#x2713;</span><span className="gto-action-label">Check</span></button>
+                            : <button className="gto-action-btn" onClick={() => addAction('call', Math.min(callAmount, playerStack))}><span className="gto-action-icon call">&#x2B24;</span><span className="gto-action-label">Call {formatChipAmount(Math.min(callAmount, playerStack))}</span></button>}
+                          <button className="gto-action-btn" onClick={() => { setShowRaiseInput(true); setBetAmount(String(canCheck ? ((hand.blinds||{}).bb||0) : Math.min(minRaiseIncrement, playerStack))); }}><span className="gto-action-icon raise">&#x25B2;</span><span className="gto-action-label">{canCheck ? 'Bet' : 'Raise'}</span></button>
+                          <button className="gto-action-btn" onClick={() => addAction(canCheck ? 'bet' : 'raise', playerStack)}><span className="gto-action-icon allin">&#x2605;</span><span className="gto-action-label">All-in</span></button>
+                        </div>
+                      )}
+                      {showRaiseInput && (
+                        <>
+                          <div className="gto-sizing-row">
+                            {[{label:'Min',mult:0},{label:'1/3',mult:1/3},{label:'1/2',mult:1/2},{label:'2/3',mult:2/3},{label:'Pot',mult:1}].map(s => {
+                              let pillAmt;
+                              if (canCheck) pillAmt = s.mult === 0 ? Math.min((hand.blinds||{}).bb||0, playerStack) : Math.min(Math.round(currentPot * s.mult), playerStack);
+                              else { if (s.mult === 0) pillAmt = Math.min(minRaiseIncrement, playerStack); else { const potAfterCall = currentPot + callAmount; pillAmt = Math.min(callAmount + Math.round(potAfterCall * s.mult), playerStack); } }
+                              return <button key={s.label} className="gto-sizing-pill" onClick={() => setBetAmount(String(pillAmt))}>{s.label}</button>;
+                            })}
+                            <button className="gto-sizing-pill" onClick={() => setBetAmount(String(playerStack))}>All-In</button>
+                          </div>
+                          <div className="gto-raise-slider-row">
+                            <input type="range" className="gto-raise-slider" min={canCheck ? Math.min((hand.blinds||{}).bb||0, playerStack) : Math.min(minRaiseIncrement, playerStack)} max={playerStack} step={1} value={Number(betAmount)||0} onChange={e => setBetAmount(e.target.value)} />
+                          </div>
+                          <div className="gto-raise-input-row">
+                            <input type="text" inputMode="decimal" value={betAmount} onChange={e => setBetAmount(e.target.value)} autoFocus />
+                            <button className="btn btn-primary btn-sm" onClick={() => { const amt = Math.min(Number(betAmount)||0, playerStack); if (amt > 0) addAction(canCheck ? 'bet' : 'raise', amt); }}>Confirm</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setShowRaiseInput(false)}>Cancel</button>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div></div></div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      {ReactDOM.createPortal(
+        <div className="gto-sticky-footer">
+          <div className="gto-street-card">
+            <div style={{display:'flex',gap:'6px',justifyContent:'space-between',alignItems:'center',padding:'10px 12px'}}>
+              <button className="gto-undo-btn" onClick={undoLastAction}>Undo</button>
+              <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel Hand</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// ── Main Hand Replayer View ──────────────────────────────
+// ══════════════════════════════════════════════════════════
+export default function HandReplayerView({ token, heroName, cardSplay, initialHand, onClearInitialHand }) {
+  const toast = useToast();
+  const [mode, setMode] = useState(initialHand ? 'replay' : 'list');
+  const [entryMode, setEntryMode] = useState('gto');
+  const [hands, setHands] = useState([]);
+  const [games, setGames] = useState([]);
+  const [currentHand, setCurrentHand] = useState(initialHand || null);
+  const [currentHandId, setCurrentHandId] = useState(null);
+  const [selectedGameType, setSelectedGameType] = useState('NLH');
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [bettingStructure, setBettingStructure] = useState('No Limit');
+  const [selectedGame, setSelectedGame] = useState("Hold'em");
+  // Custom game config
+  const [customGameName, setCustomGameName] = useState('');
+  const [customHeroCards, setCustomHeroCards] = useState(2);
+  const [customCategory, setCustomCategory] = useState('community');
+  const [customStreetNames, setCustomStreetNames] = useState('');
+
+  // Game selection config
+  const structureGameMap = {
+    'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'NL Stud Hi', 'Stud 8': 'NL Stud 8', 'Razz': 'NL Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+    'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'PL Stud Hi', 'Stud 8': 'PL Stud 8', 'Razz': 'PL Razz', '2-7 Triple Draw': 'PL 2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+    'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE', 'Omaha': 'O8', 'Omaha 8/b': 'O8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+  };
+  const defaultStructure = {
+    "Hold'em": 'No Limit', 'Pineapple': 'No Limit', 'Short Deck': 'No Limit',
+    'Omaha': 'Pot Limit', 'Omaha 8/b': 'Pot Limit', 'Big O': 'Pot Limit',
+    'Stud Hi': 'Limit', 'Stud 8': 'Limit', 'Razz': 'Limit',
+    '2-7 Triple Draw': 'Limit', '2-7 Single Draw': 'No Limit',
+    'A-5 Triple Draw': 'Limit', 'A-5 Single Draw': 'No Limit',
+    'Badugi': 'Limit', 'Badeucy': 'Limit', 'Badacey': 'Limit',
+    'Archie': 'Limit', 'Ari': 'Limit', '5-Card Draw': 'No Limit',
+    'OFC': 'No Limit',
+  };
+
+  const variantDisplayName = useMemo(() => {
+    const overrides = {
+      "Pot Limit|Omaha 8/b": 'PLO8', "Pot Limit|Omaha": 'Pot Limit Omaha', "Pot Limit|Big O": 'Big O',
+      "No Limit|Omaha": 'No Limit Omaha', "No Limit|Omaha 8/b": 'No Limit Omaha 8/b', "No Limit|Big O": 'No Limit Big O',
+      "Limit|Omaha": 'Limit Omaha Hi', "Limit|Omaha 8/b": 'O8', "Limit|Big O": 'Limit Big O',
+    };
+    const key = bettingStructure + '|' + selectedGame;
+    if (overrides[key]) return overrides[key];
+    const typicallyLimit = ['Stud Hi','Stud 8','Razz','2-7 Triple Draw','A-5 Triple Draw','Badugi','Badeucy','Badacey','Archie','Ari'];
+    if (typicallyLimit.includes(selectedGame) && bettingStructure === 'Limit') return selectedGame;
+    return bettingStructure + ' ' + selectedGame;
+  }, [bettingStructure, selectedGame]);
+
+  const gameGroups = [
+    { label: "Hold'em", games: ["Hold'em", 'Pineapple', 'Short Deck'] },
+    { label: 'Omaha', games: ['Omaha', 'Omaha 8/b', 'Big O'] },
+    { label: 'Stud', games: ['Stud Hi', 'Stud 8', 'Razz'] },
+    { label: 'Draw', games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw', 'Badugi', 'Badeucy', 'Badacey', 'Archie', 'Ari', '5-Card Draw'] },
+    { label: 'Chinese', games: ['OFC'] },
+  ];
+
+  const handleGameSelect = (game) => {
+    setSelectedGame(game);
+    if (defaultStructure[game]) setBettingStructure(defaultStructure[game]);
+    const map = structureGameMap[defaultStructure[game] || 'No Limit'];
+    if (map && map[game]) setSelectedGameType(map[game]);
+  };
+
+  const handleStructureChange = (s) => {
+    setBettingStructure(s);
+    const map = structureGameMap[s];
+    if (map && map[selectedGame]) setSelectedGameType(map[selectedGame]);
+  };
+
+  // Fetch saved hands
+  const fetchHands = useCallback(async () => {
+    if (!token) return;
+    try {
+      const [handsRes, gamesRes] = await Promise.all([
+        fetch(`${API_URL}/replayer/hands`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/replayer/games`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (handsRes.ok) setHands(await handsRes.json());
+      if (gamesRes.ok) setGames(await gamesRes.json());
+    } catch (e) { console.error('Replayer fetch error:', e); }
+    finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { if (token) fetchHands(); }, [token, fetchHands]);
+
+  // Handle initialHand prop changes
+  useEffect(() => {
+    if (initialHand) {
+      setCurrentHand(initialHand);
+      setMode('replay');
+      setTitle('');
+      setNotes('');
+      if (onClearInitialHand) onClearInitialHand();
+    }
+  }, [initialHand]);
+
+  const loadHand = async (handId) => {
+    console.log('[loadHand] called', handId, 'token?', !!token, 'API_URL', API_URL);
+    if (toast?.info) toast.info('Loading hand ' + handId);
+    try {
+      const res = await fetch(`${API_URL}/replayer/hands/${handId}`, {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      console.log('[loadHand] response', res.status);
+      if (!res.ok) {
+        console.error('Failed to load hand:', res.status, res.statusText);
+        if (toast?.info) toast.info(`Failed to load hand (${res.status})`);
+        return;
+      }
+      {
+        const data = await res.json();
+        const handData = typeof data.hand_data === 'string' ? JSON.parse(data.hand_data) : data.hand_data;
+        if (handData.gameType && !HAND_CONFIG[handData.gameType]) {
+          const cc = handData.customConfig;
+          if (cc) {
+            HAND_CONFIG[handData.gameType] = { heroCards: cc.heroCards || 2, hasBoard: !!cc.hasBoard, boardMax: cc.hasBoard ? 5 : 0, isStud: !!cc.isStud, heroPlaceholder: '' };
+            STREET_DEFS['custom_' + handData.gameType] = {
+              streets: cc.streetNames || handData.streets.map(s => s.name),
+              boardCards: (cc.streetNames || handData.streets.map(s => s.name)).map((_, i) => !cc.hasBoard ? 0 : i === 0 ? 0 : i === 1 ? 3 : 1),
+            };
+          } else {
+            // Fallback: infer from hand data
+            const streets = handData.streets || [];
+            const hasBoard = streets.some(s => s.cards?.board);
+            HAND_CONFIG[handData.gameType] = { heroCards: 2, hasBoard, boardMax: hasBoard ? 5 : 0, isStud: false, heroPlaceholder: '' };
+            STREET_DEFS['custom_' + handData.gameType] = {
+              streets: streets.map(s => s.name),
+              boardCards: streets.map((_, i) => !hasBoard ? 0 : i === 0 ? 0 : i === 1 ? 3 : 1),
+            };
+          }
+        }
+        setCurrentHand(handData);
+        setCurrentHandId(data.id);
+        setTitle(data.title || '');
+        setNotes(data.notes || '');
+        setIsPublic(!!data.is_public);
+        setMode('replay');
+      }
+    } catch (e) {
+      console.error('Failed to load hand:', e);
+      if (toast?.info) toast.info('Failed to load hand: ' + (e.message || 'network error'));
+    }
+  };
+
+  const saveHand = async (hand) => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const payload = { handData: hand, gameType: hand.gameType, title: title || (hand.gameType + ' Hand'), notes, isPublic };
+      let res;
+      if (currentHandId) {
+        res = await fetch(`${API_URL}/replayer/hands/${currentHandId}`, {
+          method: 'PUT', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        res = await fetch(`${API_URL}/replayer/hands`, {
+          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) { const data = await res.json(); setCurrentHandId(data.id); }
+      }
+      fetchHands();
+      toast('Hand saved');
+    } catch (e) { console.error('Failed to save hand:', e); }
+    setLoading(false);
+  };
+
+  const deleteHand = async (handId) => {
+    if (!token) return;
+    try {
+      await fetch(`${API_URL}/replayer/hands/${handId}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      fetchHands();
+      toast('Hand deleted');
+    } catch (e) { console.error('Failed to delete hand:', e); }
+  };
+
+  const handleEntryDone = (hand) => {
+    setCurrentHand(hand);
+    saveHand(hand);
+    setMode('replay');
+  };
+
+  const startNewHand = () => {
+    if (selectedGameType === 'Custom') {
+      const gameName = customGameName.trim() || 'Custom';
+      const heroCards = Math.max(1, Math.min(13, customHeroCards));
+      const cat = customCategory;
+      const hasBoard = cat === 'community';
+      const isStud = cat === 'stud';
+      HAND_CONFIG[gameName] = { heroCards, hasBoard, boardMax: hasBoard ? 5 : 0, isStud, heroPlaceholder: '' };
+      let streetNames;
+      if (customStreetNames.trim()) streetNames = customStreetNames.split(',').map(s => s.trim()).filter(Boolean);
+      else streetNames = (STREET_DEFS[cat] || STREET_DEFS.community).streets;
+      if (!STREET_DEFS['custom_' + gameName]) {
+        const boardCards = streetNames.map((_, i) => { if (!hasBoard) return 0; if (i === 0) return 0; if (i === 1) return 3; return 1; });
+        STREET_DEFS['custom_' + gameName] = { streets: streetNames, boardCards };
+      }
+      const customDef = STREET_DEFS['custom_' + gameName];
+      const hand = {
+        gameType: gameName,
+        customConfig: { heroCards, category: cat, streetNames: customDef.streets, hasBoard, isStud },
+        players: [
+          { name: heroName || 'Hero', position: 'BTN', startingStack: 50000 },
+          { name: 'Opp 1', position: 'BB', startingStack: 50000 },
+        ],
+        blinds: { sb: 100, bb: 200, ante: (hasBoard && !isStud) ? 200 : 0 },
+        streets: customDef.streets.map(name => ({ name, cards: { hero: '', opponents: [''], board: '' }, actions: [], draws: [] })),
+        result: null,
+      };
+      setCurrentHand(hand);
+    } else {
+      setCurrentHand(createEmptyHand(selectedGameType, heroName));
+    }
+    setCurrentHandId(null);
+    setTitle('');
+    setNotes('');
+    setIsPublic(false);
+    setMode('entry');
+  };
+
+  // ── Replay mode ──
+  if (mode === 'replay' && currentHand) {
+    return (
+      <div className="replayer-view">
+        <div className="replayer-header">
+          <h2>{title || currentHand.gameType + ' Hand'}</h2>
+          <span className="replayer-hand-card-game">{currentHand.gameType + (currentHand.blinds ? ' ' + formatChipAmount(currentHand.blinds.sb) + '/' + formatChipAmount(currentHand.blinds.bb) + (currentHand.blinds.ante ? '/' + formatChipAmount(currentHand.blinds.ante) : '') : '')}</span>
+        </div>
+        {notes && <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginBottom:'8px'}}>{notes}</div>}
+        <HandReplayerReplayView
+          hand={currentHand}
+          onEdit={() => setMode('entry')}
+          onBack={() => { setMode('list'); fetchHands(); }}
+          cardSplay={cardSplay}
+        />
+      </div>
+    );
+  }
+
+  // ── Entry mode ──
+  if (mode === 'entry' && currentHand) {
+    return (
+      <div className="replayer-view">
+        <div className="gto-sticky-header">
+          <div className="replayer-header"><h2>New Hand</h2></div>
+          {currentHand.gameType !== 'OFC' && <div className="live-update-tabs" style={{marginBottom:'8px'}}>
+            <button className={entryMode === 'gto' ? 'active' : ''} onClick={() => setEntryMode('gto')}>GTO Style</button>
+            <button className={entryMode === 'classic' ? 'active' : ''} onClick={() => setEntryMode('classic')}>Classic</button>
+          </div>}
+          <div className="replayer-row" style={{marginBottom:'8px'}}>
+            <div className="replayer-field">
+              <label>Title</label>
+              <input type="text" placeholder="e.g. Huge pot with AA" value={title} onChange={e => setTitle(e.target.value)} />
+            </div>
+          </div>
+          <div id="gto-sticky-slot"></div>
+        </div>
+        {(entryMode === 'gto' || currentHand.gameType === 'OFC') ? (
+          <GTOEntryView
+            hand={currentHand}
+            setHand={setCurrentHand}
+            onDone={handleEntryDone}
+            onCancel={() => setMode('list')}
+            heroName={heroName}
+          />
+        ) : (
+          <HandReplayerEntry
+            hand={currentHand}
+            setHand={setCurrentHand}
+            onDone={handleEntryDone}
+            onCancel={() => setMode('list')}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Loading ──
+  if (loading) {
+    return <div className="replayer-loading">Loading hand replayer...</div>;
+  }
+
+  // ── List mode ──
+  return (
+    <div className="replayer-view">
+      <div className="replayer-header">
+        <h2>Hand Replayer</h2>
+      </div>
+
+      {/* New hand creation */}
+      <div className="replayer-section" style={{marginBottom:'12px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+          <div className="replayer-section-title">New Hand</div>
+          <span style={{fontSize:'0.7rem',color:'var(--accent2)',fontFamily:"'Univers Condensed','Univers',sans-serif",fontWeight:600}}>{variantDisplayName}</span>
+        </div>
+        {/* Quick pills */}
+        {[
+          [{label:'NLH',struct:'No Limit',game:"Hold'em"},{label:'LHE',struct:'Limit',game:"Hold'em"}],
+          [{label:'PLO',struct:'Pot Limit',game:'Omaha'},{label:'O8',struct:'Limit',game:'Omaha 8/b'},{label:'PLO8',struct:'Pot Limit',game:'Omaha 8/b'},{label:'Big O',struct:'Pot Limit',game:'Big O'}],
+          [{label:'Stud Hi',struct:'Limit',game:'Stud Hi'},{label:'Stud 8',struct:'Limit',game:'Stud 8'},{label:'Razz',struct:'Limit',game:'Razz'}],
+          [{label:'2-7 TD',struct:'Limit',game:'2-7 Triple Draw'},{label:'NL 2-7 SD',struct:'No Limit',game:'2-7 Single Draw'},{label:'Badugi',struct:'Limit',game:'Badugi'}],
+        ].map((row, i) => (
+          <div key={i} className="hand-game-pill-row" style={{marginBottom:'4px'}}>
+            {row.map(q => (
+              <button key={q.label}
+                className={selectedGame === q.game && bettingStructure === q.struct ? 'active' : ''}
+                onClick={() => { setBettingStructure(q.struct); setSelectedGame(q.game); const m = structureGameMap[q.struct]; if (m && m[q.game]) setSelectedGameType(m[q.game]); }}
+              >{q.label}</button>
+            ))}
+          </div>
+        ))}
+        {/* Full game selection */}
+        <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'8px'}}>
+          {gameGroups.map(g => (
+            <div key={g.label}>
+              <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>{g.label}</div>
+              <div className="hand-game-pill-row" style={{flexWrap:'wrap'}}>
+                {g.games.map(game => (
+                  <button key={game} className={selectedGame === game ? 'active' : ''} onClick={() => handleGameSelect(game)}>{game}</button>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div>
+            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>Betting Structure</div>
+            <div className="hand-game-pill-row">
+              {['No Limit', 'Pot Limit', 'Limit'].map(s => (
+                <button key={s} className={bettingStructure === s ? 'active' : ''} onClick={() => handleStructureChange(s)}>{s}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',marginTop:'10px'}}>
+          <button className="btn btn-primary btn-sm" onClick={startNewHand}>Create {variantDisplayName} Hand</button>
+        </div>
+      </div>
+
+      {/* Saved hands list */}
+      <div className="replayer-section-title" style={{marginBottom:'6px'}}>Saved Hands</div>
+      {hands.length === 0 ? (
+        <div className="replayer-empty">No saved hands yet. Create one above.</div>
+      ) : (
+        <div className="replayer-hand-list">
+          {hands.map(h => (
+            <div key={h.id} className="replayer-hand-card" onClick={() => loadHand(h.id)}>
+              <div className="replayer-hand-card-top">
+                <span className="replayer-hand-card-title">{h.title || 'Untitled'}</span>
+                <span className="replayer-hand-card-game">{h.game_type}</span>
+              </div>
+              {h.notes && <div className="replayer-hand-card-meta">{h.notes}</div>}
+              <div className="replayer-hand-card-meta">
+                {new Date(h.created_at).toLocaleDateString()}
+                {h.is_public ? ' \u00b7 Public' : ''}
+              </div>
+              <div className="replayer-hand-card-actions" onClick={e => e.stopPropagation()}>
+                <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.65rem'}} onClick={() => deleteHand(h.id)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// ── Replay View Sub-component ────────────────────────────
+// ══════════════════════════════════════════════════════════
+function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
+  const [streetIdx, setStreetIdx] = useState(0);
+  const [actionIdx, setActionIdx] = useState(-1);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(1000);
+  const [showResult, setShowResult] = useState(false);
+  const [hiloAnimate, setHiloAnimate] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(() => window.matchMedia('(orientation: landscape)').matches);
+  useEffect(() => {
+    const mql = window.matchMedia('(orientation: landscape)');
+    const handler = (e) => { setIsLandscape(e.matches); };
+    mql.addEventListener('change', handler);
+    return () => { mql.removeEventListener('change', handler); };
+  }, []);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showFeltPicker, setShowFeltPicker] = useState(false);
+  const [feltColor, setFeltColor] = useState(() => localStorage.getItem('replayerFeltColor') || '#6b5b8a');
+  const [cardTheme, setCardTheme] = useState(() => localStorage.getItem('replayerCardTheme') || 'default');
+  const playTimerRef = useRef(null);
+  const prevStreetRef = useRef(0);
+  const tableRef = useRef(null);
+  const prevActionIdxRef = useRef(-1);
+  const prevShowResultRef = useRef(false);
+
+  // Animation states
+  const [animFolded, setAnimFolded] = useState(new Set());
+  const [animStreetTransition, setAnimStreetTransition] = useState(false);
+  const [animStreetLabel, setAnimStreetLabel] = useState(false);
+  const [animShowdown, setAnimShowdown] = useState(false);
+  const [flyingChips, setFlyingChips] = useState([]);
+  const [animPotCollect, setAnimPotCollect] = useState(false);
+  const [drawDiscardAnims, setDrawDiscardAnims] = useState([]);
+
+  // Settings
+  const _theme = useReplayerSetting('Theme', 'default');
+  const _tableShape = useReplayerSetting('TableShape', 'oval');
+  const _cardBack = useReplayerSetting('CardBack', 'default');
+  const _cardBackColor = useReplayerSetting('CardBackColor', '#1a3a6e');
+  const _fourColor = useReplayerSetting('FourColorDeck', false);
+  const _showChipStacks = useReplayerSetting('ShowChipStacks', false);
+  const _showHandStrength = useReplayerSetting('ShowHandStrength', false);
+  const _showPotOdds = useReplayerSetting('ShowPotOdds', false);
+  const _showCommentary = useReplayerSetting('ShowCommentary', false);
+  const _showTimeline = useReplayerSetting('ShowTimeline', true);
+  const _showPlayerStats = useReplayerSetting('ShowPlayerStats', false);
+  const _showNuts = useReplayerSetting('ShowNutsHighlight', false);
+  const _showSPR = useReplayerSetting('ShowSPR', false);
+  const _showBetSizing = useReplayerSetting('ShowBetSizing', false);
+  const _showRanges = useReplayerSetting('ShowRanges', false);
+  const _showChipDelta = useReplayerSetting('ShowChipDelta', false);
+  const _showEquity = useReplayerSetting('ShowEquity', false);
+  const _cardSplay = useReplayerSetting('CardSplay', true);
+  const _lightStrip = useReplayerSetting('LightStrip', false);
+  const _animDeal = useReplayerSetting('AnimateDeal', true);
+  const _animChips = useReplayerSetting('AnimateChips', true);
+  const _animBoard = useReplayerSetting('AnimateBoard', true);
+  const _animWinner = useReplayerSetting('AnimateWinner', true);
+
+  const rSettings = {
+    theme: _theme[0], tableShape: _tableShape[0], feltColor, cardBack: _cardBack[0], cardBackColor: _cardBackColor[0],
+    fourColorDeck: _fourColor[0], showChipStacks: _showChipStacks[0], showHandStrength: _showHandStrength[0],
+    showPotOdds: _showPotOdds[0], showCommentary: _showCommentary[0], showTimeline: _showTimeline[0],
+    showPlayerStats: _showPlayerStats[0], showNutsHighlight: _showNuts[0],
+    showSPR: _showSPR[0], showBetSizing: _showBetSizing[0],
+    showRanges: _showRanges[0], showChipDelta: _showChipDelta[0],
+    showEquity: _showEquity[0],
+    animateDeal: _animDeal[0], animateChips: _animChips[0], animateBoard: _animBoard[0], animateWinner: _animWinner[0],
+    cardTheme, cardSplay: _cardSplay[0], lightStrip: _lightStrip[0],
+  };
+  const rSetters = {
+    theme: _theme[1], tableShape: _tableShape[1], feltColor: v => { setFeltColor(v); localStorage.setItem('replayerFeltColor', v); },
+    cardBack: _cardBack[1], cardBackColor: _cardBackColor[1], fourColorDeck: _fourColor[1],
+    showChipStacks: _showChipStacks[1], showHandStrength: _showHandStrength[1], showPotOdds: _showPotOdds[1],
+    showCommentary: _showCommentary[1], showTimeline: _showTimeline[1], showPlayerStats: _showPlayerStats[1],
+    showNutsHighlight: _showNuts[1],
+    showSPR: _showSPR[1], showBetSizing: _showBetSizing[1],
+    showRanges: _showRanges[1], showChipDelta: _showChipDelta[1],
+    showEquity: _showEquity[1],
+    animateDeal: _animDeal[1], animateChips: _animChips[1], animateBoard: _animBoard[1], animateWinner: _animWinner[1],
+    cardTheme: v => { setCardTheme(v); localStorage.setItem('replayerCardTheme', v); },
+    cardSplay: _cardSplay[1], lightStrip: _lightStrip[1],
+  };
+  const handleSettingsUpdate = (key, val) => { if (rSetters[key]) rSetters[key](val); };
+
+  const gameCfg = HAND_CONFIG[hand.gameType] || HAND_CONFIG_DEFAULT;
+  const category = getGameCategory(hand.gameType);
+  const streetDef = getStreetDef(hand.gameType);
+  const gameEval = GAME_EVAL[hand.gameType];
+  const isHiLo = gameEval && (gameEval.type === 'hilo' || gameEval.type === 'split-badugi');
+  const totalStreets = hand.streets.length;
+  const currentStreet = hand.streets[streetIdx];
+  const currentActions = currentStreet?.actions || [];
+  const isDrawGame = category === 'draw_triple' || category === 'draw_single';
+  const replayHeroIdx = hand.heroIdx != null ? hand.heroIdx : 0;
+
+  // Street change animation
+  useEffect(() => {
+    if (prevStreetRef.current !== streetIdx && streetIdx > 0) {
+      setAnimStreetTransition(true);
+      setAnimStreetLabel(true);
+      const t1 = setTimeout(() => setAnimStreetTransition(false), 500);
+      const t2 = setTimeout(() => setAnimStreetLabel(false), 450);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [streetIdx]);
+  useEffect(() => { prevStreetRef.current = streetIdx; }, [streetIdx]);
+
+  // Fold animation
+  useEffect(() => {
+    if (actionIdx < 0) { prevActionIdxRef.current = actionIdx; return; }
+    if (actionIdx >= 0 && actionIdx < currentActions.length) {
+      const act = currentActions[actionIdx];
+      if (act && act.action === 'fold' && rSettings.animateDeal) {
+        setAnimFolded(prev => { const n = new Set(prev); n.add(act.player); return n; });
+        setTimeout(() => { setAnimFolded(prev => { const n = new Set(prev); n.delete(act.player); return n; }); }, 450);
+      }
+    }
+    prevActionIdxRef.current = actionIdx;
+  }, [actionIdx, currentActions, rSettings.animateDeal]);
+  useEffect(() => { setAnimFolded(new Set()); }, [streetIdx]);
+
+  // Showdown animation
+  useEffect(() => {
+    if (showResult && !prevShowResultRef.current && rSettings.animateDeal) {
+      setAnimShowdown(true);
+      setTimeout(() => setAnimShowdown(false), 600);
+    }
+    prevShowResultRef.current = showResult;
+  }, [showResult, rSettings.animateDeal]);
+
+  // Flying chip helper
+  const spawnFlyingChips = useCallback((fromPct, toPct, count, toWinner) => {
+    if (!tableRef.current) return;
+    const rect = tableRef.current.getBoundingClientRect();
+    const chips = [];
+    for (let i = 0; i < Math.min(count, 5); i++) {
+      chips.push({
+        id: Date.now() + '-' + i,
+        x0: (fromPct[0] / 100) * rect.width,
+        y0: (fromPct[1] / 100) * rect.height,
+        x1: (toPct[0] / 100) * rect.width,
+        y1: (toPct[1] / 100) * rect.height,
+        delay: i * 60,
+        toWinner: !!toWinner,
+      });
+    }
+    setFlyingChips(prev => prev.concat(chips));
+    setTimeout(() => { setFlyingChips([]); }, 700);
+  }, []);
+
+  // Determine board animation class based on which street just appeared
+  const getBoardAnimClass = () => {
+    if (!rSettings.animateBoard || prevStreetRef.current === streetIdx) return '';
+    let boardLen = 0;
+    for (let si = 0; si <= streetIdx && si < hand.streets.length; si++) {
+      if (hand.streets[si].cards.board) boardLen += parseCardNotation(hand.streets[si].cards.board).length;
+    }
+    if (boardLen <= 3 && streetIdx > 0) return ' animate-board-flop';
+    if (boardLen === 4) return ' animate-board-turn';
+    if (boardLen === 5) return ' animate-board-river';
+    return '';
+  };
+
+  // Board cards
+  const boardCards = useMemo(() => {
+    if (category !== 'community') return '';
+    let board = '';
+    for (let si = 0; si <= streetIdx && si < hand.streets.length; si++) {
+      if (hand.streets[si].cards.board) board += hand.streets[si].cards.board;
+    }
+    return board;
+  }, [hand, streetIdx, category]);
+
+  // Hero cards
+  const heroCards = useMemo(() => {
+    if (category === 'stud') {
+      let cards = '';
+      for (let si = 0; si <= streetIdx; si++) { if (hand.streets[si]?.cards.hero) cards += hand.streets[si].cards.hero; }
+      return cards;
+    }
+    if (isDrawGame) {
+      const base = hand.streets[0]?.cards.hero || '';
+      const heroDraws = getPlayerDrawsByStreet(hand, replayHeroIdx);
+      return computeDrawHand(base, heroDraws, streetIdx - 1);
+    }
+    return hand.streets[0]?.cards.hero || '';
+  }, [hand, streetIdx, category, isDrawGame, replayHeroIdx]);
+
+  // Opponent cards
+  const opponentCards = useMemo(() => {
+    return hand.players.map((_, pi) => {
+      if (pi === replayHeroIdx) return null;
+      const oppSlot = pi > replayHeroIdx ? pi - 1 : pi;
+      if (category === 'stud') {
+        let cards = '';
+        for (let si = 0; si <= streetIdx; si++) { if (hand.streets[si]?.cards.opponents?.[oppSlot]) cards += hand.streets[si].cards.opponents[oppSlot]; }
+        return cards;
+      }
+      return hand.streets[0]?.cards.opponents?.[oppSlot] || '';
+    });
+  }, [hand, streetIdx, category, replayHeroIdx]);
+
+  // Pot and stacks
+  const { stacks, pot, folded } = useMemo(() => calcPotsAndStacks(hand, streetIdx, actionIdx), [hand, streetIdx, actionIdx]);
+  const displayPot = useMemo(() => calcPotsAndStacks(hand, streetIdx, -1).pot, [hand, streetIdx]);
+
+  // Player last action
+  const playerLastAction = useMemo(() => {
+    const result = {};
+    for (let ai = 0; ai <= actionIdx && ai < currentActions.length; ai++) {
+      result[currentActions[ai].player] = currentActions[ai];
+    }
+    return result;
+  }, [currentActions, actionIdx]);
+
+  // Eval result -- full evaluation from original
+  const evalResult = useMemo(() => {
+    if (showResult && hand.result && hand.result.winners) {
+      return hand.result.winners.map(w => {
+        const pName = w.playerIdx === replayHeroIdx ? 'Hero' : (hand.players[w.playerIdx]?.name || 'Player');
+        let winHandName = '';
+        const pCards = w.playerIdx === replayHeroIdx ? heroCards : (opponentCards[w.playerIdx] || '');
+        if (pCards && pCards !== 'MUCK') {
+          const cfg = GAME_EVAL[hand.gameType];
+          if (cfg) {
+            const parsed = parseCardNotation(pCards).filter(c => c.suit !== 'x');
+            const board = category === 'community' ? parseCardNotation(boardCards).filter(c => c.suit !== 'x') : [];
+            let ev = null;
+            if (cfg.type === 'high' || cfg.type === 'hilo') ev = cfg.method === 'omaha' ? bestOmahaHigh(parsed, board) : bestHighHand(parsed.concat(board));
+            else if (cfg.type === 'low') ev = cfg.lowType === 'a5' ? bestLowA5Hand(parsed.concat(board), false) : bestLow27Hand(parsed.concat(board));
+            else if (cfg.type === 'badugi') ev = bestBadugiHand(parsed);
+            if (ev) winHandName = ev.name;
+          }
+        }
+        const label = w.label || (pName + ' wins' + (winHandName ? ', ' + winHandName : ''));
+        return {
+          index: w.playerIdx,
+          result: {
+            outcome: w.playerIdx === replayHeroIdx ? 'hero' : (w.split ? 'split' : 'opponent'),
+            text: label,
+            color: w.split ? 'yellow' : (w.playerIdx === replayHeroIdx ? 'green' : 'red'),
+          },
+        };
+      });
+    }
+    if (!showResult || !gameEval) return null;
+    // Full auto-evaluation
+    const hCards = parseCardNotation(heroCards);
+    const bCards = gameCfg.hasBoard ? parseCardNotation(boardCards) : [];
+    if (gameCfg.hasBoard && bCards.length < 3) return null;
+    if (hCards.length < (gameCfg.isStud ? 5 : gameCfg.heroCards)) return null;
+    const boardSuits = new Set(bCards.map(c => c.suit));
+    const usedKeys = bCards.map(c => c.rank + c.suit);
+    let hEval = gameCfg.isStud ? hCards.filter(c => c.suit !== 'x') : assignNeutralSuits(hCards, usedKeys, boardSuits);
+    hEval.forEach(c => { if (c.suit !== 'x') usedKeys.push(c.rank + c.suit); });
+    const results = [];
+    for (let pi = 0; pi < opponentCards.length; pi++) {
+      if (pi === replayHeroIdx) continue;
+      if (folded.has(pi)) continue;
+      if (!opponentCards[pi]) continue;
+      const oRaw = parseCardNotation(opponentCards[pi]);
+      if (oRaw.length < (gameCfg.isStud ? 5 : gameCfg.heroCards)) continue;
+      const oEval = gameCfg.isStud ? oRaw.filter(c => c.suit !== 'x') : assignNeutralSuits(oRaw, usedKeys, boardSuits);
+      const ev = evaluateHand(hand.gameType, hEval, oEval, bCards);
+      if (ev && ev.result) results.push({ index: pi, ...ev });
+      oEval.forEach(c => { if (c.suit !== 'x') usedKeys.push(c.rank + c.suit); });
+    }
+    return results.length ? results : null;
+  }, [showResult, hand, heroCards, opponentCards, boardCards, gameCfg, gameEval, folded, replayHeroIdx, category]);
+
+  // Navigation
+  const canGoForward = streetIdx < totalStreets - 1 || actionIdx < currentActions.length - 1 || !showResult;
+  const canGoBack = streetIdx > 0 || actionIdx >= 0 || showResult;
+
+  const stepForward = useCallback(() => {
+    if (actionIdx < currentActions.length - 1) setActionIdx(a => a + 1);
+    else if (streetIdx < totalStreets - 1) { setStreetIdx(s => s + 1); setActionIdx(-1); }
+    else if (!showResult) { setShowResult(true); if (isHiLo) setTimeout(() => setHiloAnimate(true), 100); }
+    else setPlaying(false);
+  }, [actionIdx, currentActions.length, streetIdx, totalStreets, showResult, isHiLo]);
+
+  const stepBack = useCallback(() => {
+    if (showResult) { setShowResult(false); setHiloAnimate(false); }
+    else if (actionIdx >= 0) setActionIdx(a => a - 1);
+    else if (streetIdx > 0) { const prevStreet = hand.streets[streetIdx - 1]; setStreetIdx(s => s - 1); setActionIdx((prevStreet?.actions?.length || 0) - 1); }
+  }, [actionIdx, streetIdx, showResult, hand]);
+
+  const goToStart = () => { setStreetIdx(0); setActionIdx(-1); setShowResult(false); setHiloAnimate(false); };
+  const goToEnd = () => { const lastStreet = hand.streets.length - 1; setStreetIdx(lastStreet); setActionIdx((hand.streets[lastStreet]?.actions?.length || 0) - 1); };
+
+  // Auto-play
+  useEffect(() => {
+    if (playing) {
+      const animExtra = rSettings.animateDeal ? Math.max(200, speed * 0.3) : 0;
+      playTimerRef.current = setInterval(stepForward, speed + animExtra);
+    }
+    return () => { if (playTimerRef.current) clearInterval(playTimerRef.current); };
+  }, [playing, speed, stepForward, rSettings.animateDeal]);
+
+  useEffect(() => { if (showResult && playing) setPlaying(false); }, [showResult, playing]);
+
+  // Trigger draw discard animation when entering a draw street
+  useEffect(() => {
+    if (!isDrawGame || !rSettings.animateDeal) return;
+    const st = hand.streets[streetIdx];
+    if (!st || !st.draws || st.draws.length === 0) return;
+    if (actionIdx !== -1) return;
+    const anims = st.draws.map((d, i) => ({
+      id: streetIdx + '-' + d.player + '-' + i, playerIdx: d.player, count: d.discarded, phase: 'fly'
+    })).filter(a => a.count > 0);
+    if (anims.length === 0) return;
+    setDrawDiscardAnims(anims);
+    const t1 = setTimeout(() => {
+      setDrawDiscardAnims(prev => prev.map(a => ({ ...a, phase: 'fade' })));
+    }, 600);
+    const t2 = setTimeout(() => { setDrawDiscardAnims([]); }, 1000);
+    return () => { clearTimeout(t1); clearTimeout(t2); setDrawDiscardAnims([]); };
+  }, [streetIdx, actionIdx, isDrawGame, hand, rSettings.animateDeal]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); stepForward(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); stepBack(); }
+      else if (e.key === ' ') { e.preventDefault(); setPlaying(p => !p); }
+      else if (e.key === 'Home') { e.preventDefault(); goToStart(); }
+      else if (e.key === 'End') { e.preventDefault(); goToEnd(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [stepForward, stepBack]);
+
+  // Share link
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  const copyShareLink = useCallback(() => {
+    try {
+      const shorthand = encodeHand(hand);
+      if (!shorthand) return;
+      const url = window.location.origin + '/#h/' + encodeURIComponent(shorthand);
+      navigator.clipboard.writeText(url).then(() => { setShareLinkCopied(true); setTimeout(() => setShareLinkCopied(false), 2000); });
+    } catch (e) { console.error('Share link error:', e); }
+  }, [hand]);
+
+  // Seat class
+  const getPlayerSeatClass = (playerIdx) => {
+    if (folded.has(playerIdx)) return 'folded';
+    if (showResult) {
+      const manualWinners = hand.result?.winners;
+      if (manualWinners && manualWinners.length > 0) {
+        const entry = manualWinners.find(w => w.playerIdx === playerIdx);
+        if (entry) return entry.split ? 'split' : 'winner';
+        return manualWinners.length > 0 ? 'loser' : '';
+      }
+      if (evalResult) {
+        if (playerIdx === replayHeroIdx) {
+          const heroWins = evalResult.some(r => r.result.outcome === 'hero');
+          const heroLoses = evalResult.some(r => r.result.outcome === 'opponent');
+          const heroSplits = evalResult.some(r => r.result.outcome === 'split');
+          if (heroWins && !heroLoses) return 'winner';
+          if (heroLoses && !heroWins) return 'loser';
+          if (heroSplits) return 'split';
+        } else {
+          const oppResult = evalResult.find(r => r.index === playerIdx);
+          if (oppResult) {
+            if (oppResult.result.outcome === 'opponent') return 'winner';
+            if (oppResult.result.outcome === 'hero') return 'loser';
+            if (oppResult.result.outcome === 'split') return 'split';
+          }
+        }
+      }
+    }
+    return '';
+  };
+
+  // Hand name at showdown
+  const getPlayerHandName = (playerIdx, useShort) => {
+    if (!showResult || folded.has(playerIdx)) return null;
+    const pCards = playerIdx === replayHeroIdx ? heroCards : (opponentCards[playerIdx] || '');
+    if (!pCards) return null;
+    const cfg = GAME_EVAL[hand.gameType];
+    if (!cfg) return null;
+    const parsed = parseCardNotation(pCards).filter(c => c.suit !== 'x');
+    if (parsed.length < (gameCfg.heroCards || 2)) return null;
+    const board = category === 'community' ? parseCardNotation(boardCards).filter(c => c.suit !== 'x') : [];
+    if (cfg.type === 'hilo') {
+      const hiEv = cfg.method === 'omaha' ? bestOmahaHigh(parsed, board) : bestHighHand(parsed.concat(board));
+      const loEv = cfg.method === 'omaha' ? bestOmahaLow(parsed, board) : bestLowA5Hand(parsed.concat(board), true);
+      const parts = [];
+      if (hiEv) parts.push('Hi: ' + (useShort ? (hiEv.shortName || hiEv.name) : hiEv.name));
+      if (loEv && loEv.qualified !== false && loEv.name) parts.push('Lo: ' + loEv.name);
+      return parts.length ? parts.join('\n') : null;
+    }
+    let ev = null;
+    if (cfg.type === 'high') ev = cfg.method === 'omaha' ? bestOmahaHigh(parsed, board) : bestHighHand(parsed.concat(board));
+    else if (cfg.type === 'low') ev = cfg.lowType === 'a5' ? bestLowA5Hand(parsed.concat(board), false) : bestLow27Hand(parsed.concat(board));
+    else if (cfg.type === 'badugi') ev = bestBadugiHand(parsed);
+    if (!ev) return null;
+    return useShort ? (ev.shortName || ev.name) : ev.name;
+  };
+
+  const themeClass = rSettings.theme !== 'default' ? ' theme-' + rSettings.theme : '';
+  const shapeClass = rSettings.tableShape !== 'oval' ? ' shape-' + rSettings.tableShape : '';
+  const fourColorClass = rSettings.fourColorDeck ? ' four-color-deck' : '';
+  const boardAnimClass = getBoardAnimClass();
+
+  // Share as image
+  const shareReplayImage = async () => {
+    const allCardNotations = [heroCards, boardCards, ...opponentCards].filter(Boolean);
+    const allCards = allCardNotations.flatMap(n => parseCardNotation(n));
+    try {
+      const images = await loadCardImages(allCards);
+      const outW = 1080, outH = 1080;
+      const canvas = document.createElement('canvas');
+      canvas.width = outW; canvas.height = outH;
+      const ctx = canvas.getContext('2d');
+
+      // Dark gradient background
+      const grad = ctx.createLinearGradient(0, 0, 0, outH);
+      grad.addColorStop(0, '#1a1a2e');
+      grad.addColorStop(1, '#0f0f1a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, outW, outH);
+
+      // Felt texture
+      ctx.strokeStyle = 'rgba(34,197,94,0.08)';
+      ctx.lineWidth = 1;
+      for (let y = 0; y < outH; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(outW, y); ctx.stroke();
+      }
+
+      // Title
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 36px Univers Condensed, Univers, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(hand.gameType + ' Hand', outW / 2, 60);
+
+      // Blinds
+      ctx.font = '22px Univers Condensed, Univers, sans-serif';
+      ctx.fillStyle = '#888888';
+      const _bl = hand.blinds || {};
+      ctx.fillText('Blinds ' + formatChipAmount(_bl.sb || 0) + '/' + formatChipAmount(_bl.bb || 0) + (_bl.ante ? ' (' + formatChipAmount(_bl.ante) + ')' : ''), outW / 2, 95);
+
+      // Board cards (community games)
+      let yPos = 140;
+      if (category === 'community' && boardCards) {
+        const bCards = parseCardNotation(boardCards);
+        const cw = 70, ch = 98, gap = 8;
+        const totalW = bCards.length * cw + (bCards.length - 1) * gap;
+        let cx = (outW - totalW) / 2;
+        ctx.font = '16px Univers Condensed, Univers, sans-serif';
+        ctx.fillStyle = '#666666';
+        ctx.fillText('BOARD', outW / 2, yPos);
+        yPos += 14;
+        for (const c of bCards) {
+          const key = c.rank + c.suit;
+          const img = images.get(key);
+          if (img) { ctx.drawImage(img, cx, yPos, cw, ch); }
+          else { ctx.fillStyle = '#333'; ctx.fillRect(cx, yPos, cw, ch); ctx.fillStyle = '#666'; ctx.font = '24px Univers Condensed'; ctx.textAlign = 'center'; ctx.fillText('?', cx + cw/2, yPos + ch/2 + 8); }
+          cx += cw + gap;
+        }
+        yPos += ch + 20;
+      }
+
+      // Pot
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 28px Univers Condensed, Univers, sans-serif';
+      ctx.fillStyle = '#facc15';
+      ctx.fillText('POT: ' + formatChipAmount(pot), outW / 2, yPos + 10);
+      yPos += 50;
+
+      // Players
+      const cw = 50, ch = 70;
+      hand.players.forEach((p, pi) => {
+        const cards = pi === replayHeroIdx ? heroCards : (opponentCards[pi] || '');
+        const parsed = parseCardNotation(cards);
+        const isFolded = folded.has(pi);
+        const seatClass = getPlayerSeatClass(pi);
+        const handName = getPlayerHandName(pi);
+
+        ctx.globalAlpha = isFolded ? 0.3 : 1;
+
+        // Player name + stack
+        ctx.font = 'bold 20px Univers Condensed, Univers, sans-serif';
+        ctx.fillStyle = seatClass === 'winner' ? '#4ade80' : seatClass === 'loser' ? '#f87171' : '#ffffff';
+        ctx.textAlign = 'left';
+        const px = 80;
+        ctx.fillText(p.name + ' (' + p.position + ')', px, yPos);
+        ctx.font = '16px Univers Condensed, Univers, sans-serif';
+        ctx.fillStyle = '#888888';
+        ctx.fillText(formatChipAmount(stacks[pi]), px + 300, yPos);
+
+        // Cards
+        let cardX = px;
+        yPos += 8;
+        for (const c of parsed) {
+          const key = c.rank + c.suit;
+          const img = images.get(key);
+          if (c.suit === 'x') {
+            ctx.fillStyle = '#444';
+            ctx.fillRect(cardX, yPos, cw, ch);
+            ctx.fillStyle = '#888';
+            ctx.font = '20px Univers Condensed';
+            ctx.textAlign = 'center';
+            ctx.fillText('?', cardX + cw/2, yPos + ch/2 + 6);
+            ctx.textAlign = 'left';
+          } else if (img) {
+            ctx.drawImage(img, cardX, yPos, cw, ch);
+          }
+          cardX += cw + 4;
+        }
+
+        // Hand name
+        if (handName) {
+          ctx.font = '16px Univers Condensed, Univers, sans-serif';
+          ctx.fillStyle = seatClass === 'winner' ? '#4ade80' : '#f87171';
+          ctx.textAlign = 'left';
+          ctx.fillText(handName, cardX + 12, yPos + ch / 2 + 4);
+        }
+
+        yPos += ch + 16;
+        ctx.globalAlpha = 1;
+      });
+
+      // Result
+      if (showResult && evalResult) {
+        ctx.font = 'bold 24px Univers Condensed, Univers, sans-serif';
+        ctx.textAlign = 'center';
+        const rText = evalResult.map(r => r.result.text).join(' | ');
+        const rColor = evalResult[0]?.result.color === 'green' ? '#4ade80' : evalResult[0]?.result.color === 'red' ? '#f87171' : '#facc15';
+        ctx.fillStyle = rColor;
+        ctx.fillText(rText, outW / 2, Math.min(yPos + 20, outH - 60));
+      }
+
+      // Watermark
+      ctx.font = '14px Univers Condensed, Univers, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.textAlign = 'right';
+      ctx.fillText('futurega.me', outW - 20, outH - 20);
+
+      const dataUrl = canvas.toDataURL('image/png');
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], 'hand-replay.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        const a = document.createElement('a');
+        a.href = dataUrl; a.download = 'hand-replay.png'; a.click();
+      }
+    } catch (e) { console.error('Share replay error:', e); }
+  };
+
+  // ── OFC Replay View ──
+  if (hand.gameType === 'OFC') {
+    const ofcRows = hand.ofcRows || {};
+    const ofcStreetNames = getStreetDef('OFC').streets;
+    // Determine how many cards to show per row based on current street
+    const ofcCardsShownPerPlayer = (pi) => {
+      const pr = ofcRows[pi] || { top: '', middle: '', bottom: '' };
+      const topCards = parseCardNotation(pr.top || '').filter(c => c.suit !== 'x');
+      const midCards = parseCardNotation(pr.middle || '').filter(c => c.suit !== 'x');
+      const botCards = parseCardNotation(pr.bottom || '').filter(c => c.suit !== 'x');
+      const totalCards = topCards.length + midCards.length + botCards.length;
+      const cardsToShow = streetIdx === 0 ? Math.min(5, totalCards) : Math.min(5 + streetIdx, totalCards);
+      const shown = { top: '', middle: '', bottom: '' };
+      let remaining = cardsToShow;
+      // Show bottom first, then middle, then top (fill from bottom up)
+      const botShow = Math.min(botCards.length, remaining);
+      shown.bottom = botCards.slice(0, botShow).map(c => c.rank + c.suit).join('');
+      remaining -= botShow;
+      const midShow = Math.min(midCards.length, remaining);
+      shown.middle = midCards.slice(0, midShow).map(c => c.rank + c.suit).join('');
+      remaining -= midShow;
+      const topShow = Math.min(topCards.length, remaining);
+      shown.top = topCards.slice(0, topShow).map(c => c.rank + c.suit).join('');
+      return shown;
+    };
+    const ofcTotalStreets = ofcStreetNames.length;
+    return (
+      <div className="replayer-replay ofc-replay">
+        {showSettings && <ReplayerSettingsPanel onClose={() => setShowSettings(false)} settings={rSettings} onUpdate={handleSettingsUpdate} />}
+        <div className="ofc-replay-board">
+          {hand.players.map((p, pi) => {
+            const shownCards = ofcCardsShownPerPlayer(pi);
+            const pr = ofcRows[pi] || { top: '', middle: '', bottom: '' };
+            const isHero = pi === (hand.heroIdx || 0);
+            return (
+              <div key={pi} className={'ofc-replay-player' + (isHero ? ' ofc-hero' : '')}>
+                <div className="ofc-replay-player-name">{p.name}</div>
+                <div className="ofc-replay-rows">
+                  <div className="ofc-replay-row ofc-replay-row-top"><div className="ofc-replay-row-label">Top</div><CardRow text={showResult ? pr.top : shownCards.top} max={3} placeholderCount={3} cardTheme={rSettings.cardTheme} /></div>
+                  <div className="ofc-replay-row ofc-replay-row-middle"><div className="ofc-replay-row-label">Middle</div><CardRow text={showResult ? pr.middle : shownCards.middle} max={5} placeholderCount={5} cardTheme={rSettings.cardTheme} /></div>
+                  <div className="ofc-replay-row ofc-replay-row-bottom"><div className="ofc-replay-row-label">Bottom</div><CardRow text={showResult ? pr.bottom : shownCards.bottom} max={5} placeholderCount={5} cardTheme={rSettings.cardTheme} /></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="ofc-street-indicator">
+          <span className="ofc-street-name">{ofcStreetNames[streetIdx] || 'Final'}</span>
+          <span className="ofc-street-count">{streetIdx + 1} / {ofcTotalStreets}</span>
+        </div>
+        <div className="replayer-controls" style={{marginTop:'8px'}}>
+          <button className="btn btn-ghost btn-sm" disabled={streetIdx === 0 && !showResult} onClick={() => { if (showResult) setShowResult(false); else if (streetIdx > 0) setStreetIdx(streetIdx - 1); }}>Prev</button>
+          <button className="btn btn-ghost btn-sm" disabled={showResult} onClick={() => { if (streetIdx < ofcTotalStreets - 1) setStreetIdx(streetIdx + 1); else setShowResult(true); }}>Next</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowResult(!showResult)}>{showResult ? 'Hide All' : 'Show All'}</button>
+        </div>
+        <div style={{display:'flex',gap:'6px',justifyContent:'space-between',marginTop:'12px'}}>
+          <button className="btn btn-ghost btn-sm" onClick={onBack}>Back to List</button>
+          <div style={{display:'flex',gap:'6px'}}>
+            <button className="btn btn-ghost btn-sm" onClick={copyShareLink}>{shareLinkCopied ? 'Copied!' : 'Share Link'}</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowSettings(!showSettings)}>Settings</button>
+            <button className="btn btn-primary btn-sm" onClick={onEdit}>Edit</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Table layout ──
+  const layouts = {
+    2:[[50,6],[50,94]], 3:[[35,6],[50,94],[65,6]], 4:[[50,6],[82,50],[50,94],[18,50]],
+    5:[[35,6],[82,50],[50,94],[18,50],[65,6]], 6:[[50,6],[82,32],[82,68],[50,94],[18,68],[18,32]],
+    7:[[35,6],[82,32],[82,68],[50,94],[18,68],[18,32],[65,6]], 8:[[50,6],[82,24],[82,50],[82,76],[50,94],[18,76],[18,50],[18,24]],
+    9:[[35,6],[82,24],[82,50],[82,76],[50,94],[18,76],[18,50],[18,24],[65,6]],
+    10:[[30,6],[50,6],[82,24],[82,50],[82,76],[50,94],[18,76],[18,50],[18,24],[70,6]],
+  };
+
+  const n = hand.players.length;
+  const rawSeats = layouts[Math.min(Math.max(n, 2), 10)] || layouts[6];
+  const bottomIdx = Math.floor(n / 2);
+  const rotation = (bottomIdx - replayHeroIdx + n) % n;
+  const seats = rawSeats.map((_, i) => rawSeats[(i + rotation) % n]);
+
+  return (
+    <div className={'replayer-replay' + fourColorClass}>
+      {showSettings && <ReplayerSettingsPanel onClose={() => setShowSettings(false)} settings={rSettings} onUpdate={handleSettingsUpdate} />}
+
+      {/* Table */}
+      <div ref={tableRef} className={'replayer-table' + themeClass}>
+        <div className="replayer-table-rail" style={{'--rail-color': feltColor}} />
+        {rSettings.lightStrip && <div className="replayer-light-strip" style={{'--strip-color': feltColor}} />}
+        <div className={'replayer-table-felt' + shapeClass} style={rSettings.theme === 'default' ? {
+          background: 'radial-gradient(ellipse at 50% 50%, ' + feltColor + ' 0%, ' + feltColor + 'dd 60%, ' + feltColor + 'aa 100%)',
+          borderColor: feltColor + 'cc',
+        } : {}}
+          onTouchStart={e => { const timer = setTimeout(() => setShowFeltPicker(true), 600); e.currentTarget._lpTimer = timer; }}
+          onTouchEnd={e => clearTimeout(e.currentTarget._lpTimer)}
+          onTouchMove={e => clearTimeout(e.currentTarget._lpTimer)}
+          onMouseDown={e => { const timer = setTimeout(() => setShowFeltPicker(true), 600); e.currentTarget._lpTimer = timer; }}
+          onMouseUp={e => clearTimeout(e.currentTarget._lpTimer)}
+          onMouseLeave={e => clearTimeout(e.currentTarget._lpTimer)}
+        />
+        {showFeltPicker && <div className="felt-picker-overlay" onClick={() => setShowFeltPicker(false)}>
+          <div className="felt-picker-popup" onClick={e => e.stopPropagation()}>
+            <div style={{fontSize:'0.7rem',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'8px',color:'var(--text-muted)'}}>Felt Color</div>
+            <div style={{display:'flex',gap:'8px',flexWrap:'wrap',justifyContent:'center'}}>
+              {[{c:'#2d5a27',n:'Green'},{c:'#1a3a5c',n:'Blue'},{c:'#5a1a1a',n:'Red'},{c:'#6b5b8a',n:'Purple'},{c:'#1a1a2e',n:'Navy'},{c:'#3d3d3d',n:'Charcoal'}].map(fc => (
+                <div key={fc.c} title={fc.n} onClick={() => rSetters.feltColor(fc.c)}
+                  style={{width:32,height:32,borderRadius:'50%',background:fc.c,cursor:'pointer',border: feltColor === fc.c ? '2px solid var(--accent)' : '2px solid rgba(255,255,255,0.2)',boxShadow: feltColor === fc.c ? '0 0 0 2px var(--accent)' : 'none'}} />
+              ))}
+            </div>
+            <input type="color" value={feltColor} onChange={e => rSetters.feltColor(e.target.value)} style={{marginTop:'8px',width:'100%',height:'28px',border:'none',background:'transparent',cursor:'pointer'}} />
+          </div>
+        </div>}
+
+        {/* Pot */}
+        {(() => {
+          const isSplitResult = showResult && hand.result?.winners?.some(w => w.split);
+          const splitCount = isSplitResult ? hand.result.winners.filter(w => w.split).length : 0;
+          if (isSplitResult && splitCount >= 2) {
+            const splitAmt = Math.floor(pot / splitCount);
+            const _isHiLo = isHiLo && hand.result.winners.some(w => w.label);
+            return (
+              <div className="replayer-pot-display replayer-split-pot">
+                <div className="replayer-pot-label">{_isHiLo ? 'Hi/Lo Split' : 'Split Pot'}</div>
+                <div className="replayer-split-circles">
+                  {hand.result.winners.filter(w => w.split).slice(0, 3).map((w, i) => {
+                    let shortLabel = '';
+                    if (w.label) {
+                      const hiMatch = w.label.match(/Hi:\s*([^,]+)/);
+                      const loMatch = w.label.match(/Lo:\s*(.+)/);
+                      if (hiMatch) shortLabel = 'Hi';
+                      if (loMatch) shortLabel = shortLabel ? 'Hi+Lo' : 'Lo';
+                    }
+                    return <div key={i} className="replayer-split-circle" style={{ marginLeft: i > 0 ? '-8px' : 0, zIndex: splitCount - i }} title={w.label || ''}>
+                      {shortLabel && <span style={{fontSize:'0.45rem',display:'block',lineHeight:1}}>{shortLabel}</span>}
+                      {formatChipAmount(splitAmt)}
+                    </div>;
+                  })}
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div className="replayer-pot-display">
+              <div className="replayer-pot-label">Pot</div>
+              {rSettings.showChipStacks && displayPot > 0 && <PotChipVisual amount={displayPot} />}
+              {formatChipAmount(displayPot)}
+            </div>
+          );
+        })()}
+
+        {/* Board */}
+        {category === 'community' && (() => {
+          const parsed = parseCardNotation(boardCards);
+          if (parsed.length === 0) return null;
+          return (
+            <div className={'replayer-board-area' + boardAnimClass}>
+              <div className="card-row replayer-board-spaced">
+                {parsed.map((c, i) => {
+                  if (c.suit === 'x') return <div key={c.rank+c.suit+'_'+i} className="card-unknown" />;
+                  if (cardTheme === 'classic') {
+                    const isRed = c.suit === 'h' || c.suit === 'd';
+                    return (
+                      <div key={c.rank+c.suit+'_'+i} className={'card-classic' + (isRed ? ' card-classic-red' : ' card-classic-dark')}>
+                        <span className="card-classic-rank">{c.rank.toUpperCase()}</span>
+                        <span className="card-classic-suit">{{h:'\u2665',d:'\u2666',c:'\u2663',s:'\u2660'}[c.suit] || ''}</span>
+                      </div>
+                    );
+                  }
+                  return <img key={c.rank+c.suit+'_'+i} className="card-img" src={'/cards/cards_gui_' + c.rank + c.suit + '.svg'} alt={c.rank+c.suit} loading="eager" />;
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Watermark */}
+        <div style={{position:'absolute',left:'50%',top:'57%',transform:'translate(-50%,-50%)',zIndex:1,opacity:0.1,pointerEvents:'none',fontFamily:"'Libre Baskerville',Georgia,serif",fontWeight:700,color:'#fff',letterSpacing:'-0.05em',whiteSpace:'nowrap',fontSize:'1.06rem'}}>futurega.me</div>
+
+        {/* Player seats */}
+        {hand.players.map((p, pi) => {
+          const pos = seats[pi] || [50, 50];
+          const rawCards = pi === replayHeroIdx ? heroCards : (opponentCards[pi] || '');
+          const cards = (pi === replayHeroIdx || showResult) ? (rawCards === 'MUCK' ? '' : rawCards) : '';
+          const seatClass = getPlayerSeatClass(pi);
+          const isMucked = showResult && rawCards === 'MUCK';
+          const lastAct = playerLastAction[pi];
+          const handName = getPlayerHandName(pi, true);
+          const foldAnimClass = animFolded.has(pi) ? ' anim-fold' : '';
+
+          const muckStyle = {};
+          if (foldAnimClass) {
+            const mdx = (50 - pos[0]) * 1.5;
+            const mdy = (50 - pos[1]) * 0.8;
+            muckStyle['--muck-dx'] = mdx + 'px';
+            muckStyle['--muck-dy'] = mdy + 'px';
+            muckStyle['--muck-rot'] = (mdx > 0 ? -12 : 12) + 'deg';
+          }
+
+          return (
+            <div key={pi} className={`replayer-seat ${seatClass}${isMucked ? ' mucked' : ''}${foldAnimClass}`}
+              style={{left: pos[0] + '%', top: pos[1] + '%', ...muckStyle}}>
+              <div className={`replayer-seat-cards ${isHiLo && showResult && !folded.has(pi) ? 'replayer-hilo-high' + (hiloAnimate ? ' animate' : '') : ''}`}>
+                <CardRow text={cards} stud={gameCfg.isStud} max={gameCfg.heroCards}
+                  placeholderCount={!cards && !folded.has(pi) ? gameCfg.heroCards : 0}
+                  splay={rSettings.cardSplay ? (gameCfg.heroCards <= 2 ? 12.5 : gameCfg.heroCards <= 4 ? 15 : gameCfg.heroCards <= 5 ? 18 : 22) : 0}
+                  cardTheme={cardTheme} />
+              </div>
+              <div className="replayer-seat-info">
+                {rSettings.showPlayerStats && (
+                  <div className="replayer-player-stats">{(() => { const st = getPlayerStats(p.name); return st.vpip + '/' + st.pfr + '/' + st.ag; })()}</div>
+                )}
+                <div className="replayer-seat-name">{p.name}</div>
+                <div className="replayer-seat-stack">{formatChipAmount(stacks[pi])}</div>
+              </div>
+              {lastAct && (() => {
+                const actText = lastAct.action;
+                if (!actText) return null;
+                let label = actText;
+                if (lastAct.amount) {
+                  if (actText === 'raise') label += ' ' + formatChipAmount(computePlayerContrib(hand, streetIdx, currentActions, actionIdx, pi));
+                  else label += ' ' + formatChipAmount(lastAct.amount);
+                }
+                return <div className={'replayer-action-badge-outer action-' + actText}>{label}</div>;
+              })()}
+              {handName && <div className="replayer-seat-hand-name">{handName}</div>}
+              {isDrawGame && currentStreet.draws?.length > 0 && (() => {
+                const d = currentStreet.draws.find(dr => dr.player === pi);
+                if (!d) return null;
+                return <div className="replayer-seat-draw-badge">{d.discarded === 0 ? 'Pat' : 'D' + d.discarded}</div>;
+              })()}
+            </div>
+          );
+        })}
+
+        {/* Bet chips */}
+        {hand.players.map((p, pi) => {
+          const lastAct = playerLastAction[pi];
+          if (!lastAct || !lastAct.amount) return null;
+          const pos = seats[pi] || [50, 50];
+          const isBottom = pos[1] >= 70, isTop = pos[1] <= 15, isLeft = pos[0] <= 20, isRight = pos[0] >= 80;
+          let chipX, chipY;
+          if (isBottom) { chipX = pos[0]; chipY = pos[1] - 14; }
+          else if (isTop) { chipX = pos[0]; chipY = pos[1] + 10; }
+          else if (isLeft) { chipX = pos[0] + 25; chipY = pos[1] - 7; }
+          else if (isRight) { chipX = pos[0] - 25; chipY = pos[1] - 7; }
+          else { chipX = pos[0] + (50-pos[0])*0.35; chipY = pos[1] + (50-pos[1])*0.35; }
+          const chipStyle = {left: chipX + '%', top: chipY + '%'};
+          if (rSettings.animateChips) {
+            chipStyle['--chip-start-dx'] = ((pos[0] - chipX) * 3) + 'px';
+            chipStyle['--chip-start-dy'] = ((pos[1] - chipY) * 3) + 'px';
+          }
+          return (
+            <div key={'bet-' + pi} className={'replayer-bet-chip' + (rSettings.animateChips ? ' animate-chips' : '')} style={chipStyle}>
+              <ChipStack amount={lastAct.amount} />
+              {formatChipAmount(lastAct.amount)}
+            </div>
+          );
+        }).filter(Boolean)}
+
+        {/* Dealer button */}
+        {(() => {
+          const btnIdx = hand.players.findIndex(p => p.position === 'BTN' || p.position === 'D');
+          if (btnIdx < 0) return null;
+          const btnPos = seats[btnIdx] || [50, 50];
+          const isBottom = btnPos[1] >= 70;
+          let dealerStyle;
+          if (isBottom) {
+            const dx = (50 - btnPos[0]) * 0.12;
+            const dy = (50 - btnPos[1]) * 0.12;
+            dealerStyle = {left: (btnPos[0]+dx) + '%', top: (btnPos[1]+dy) + '%', transform:'translate(-50%,-50%)'};
+          } else {
+            const isTop = btnPos[1] <= 15;
+            const isLeft = btnPos[0] <= 20;
+            const isRight = btnPos[0] >= 80;
+            let ox = 0, oy = 0;
+            if (isTop && btnPos[0] < 50) { ox = 4; oy = 5; }
+            else if (isTop) { ox = -4; oy = 5; }
+            else if (isLeft) { ox = 5; oy = 4; }
+            else if (isRight) { ox = -5; oy = 4; }
+            else { ox = btnPos[0] < 50 ? 4 : -4; oy = 4; }
+            dealerStyle = {left: (btnPos[0]+ox) + '%', top: (btnPos[1]+oy) + '%', transform:'translate(-50%,-50%)'};
+          }
+          return <div className="replayer-dealer-btn" style={dealerStyle}>D</div>;
+        })()}
+
+        {/* Flying chip animations */}
+        {flyingChips.map(fc => (
+          <div key={fc.id} className={'replayer-flying-chip' + (fc.toWinner ? ' to-winner' : '')}
+            style={{
+              '--fly-x0': fc.x0 + 'px', '--fly-y0': fc.y0 + 'px',
+              '--fly-x1': fc.x1 + 'px', '--fly-y1': fc.y1 + 'px',
+              '--fly-duration': '0.4s',
+              animationDelay: fc.delay + 'ms',
+            }} />
+        ))}
+
+        {/* Draw discard animations */}
+        {drawDiscardAnims.length > 0 && drawDiscardAnims.map(anim => {
+          const seatPos = seats[anim.playerIdx] || [50, 50];
+          return Array.from({ length: Math.min(anim.count, 5) }, (_, ci) => {
+            const spread = (ci - (anim.count - 1) / 2) * 8;
+            return (
+              <div key={'dd-' + anim.id + '-' + ci}
+                className={'replayer-draw-discard-card' + (anim.phase === 'fade' ? ' fade-out' : '')}
+                style={{
+                  '--dd-x0': seatPos[0] + '%',
+                  '--dd-y0': seatPos[1] + '%',
+                  '--dd-spread': spread + 'px',
+                  animationDelay: (ci * 60) + 'ms',
+                }} />
+            );
+          });
+        })}
+      </div>
+
+      {/* Draw info bar */}
+      {(category === 'draw_triple' || category === 'draw_single') && currentStreet.draws?.length > 0 && (
+        <div className="replayer-draw-info-bar">
+          <div className="replayer-draw-info-label">{currentStreet.name || 'Draw'}</div>
+          <div className="replayer-draw-info-players">
+            {currentStreet.draws.map(d => {
+              const pName = hand.players[d.player]?.name || '?';
+              const isPat = d.discarded === 0;
+              return (
+                <div key={d.player} className={'replayer-draw-info-item' + (isPat ? ' pat' : '')}>
+                  <span className="replayer-draw-info-name">{pName}</span>
+                  {isPat ? <span className="replayer-draw-pat-badge">Stand Pat</span> : <span className="replayer-draw-count-badge">{d.discarded === 1 ? 'draws 1' : 'draws ' + d.discarded}</span>}
+                  {d.discardedCards && !isPat && <span className="replayer-draw-discarded-cards"><CardRow text={d.discardedCards} max={d.discarded} /></span>}
+                  {d.newCards && !isPat && <span className="replayer-draw-new-cards"><CardRow text={d.newCards} max={d.discarded} /></span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Commentary */}
+      {rSettings.showCommentary && (
+        <div className="replayer-commentary">{generateCommentary(hand, streetIdx, actionIdx, pot, stacks)}</div>
+      )}
+
+      {/* Hand strength */}
+      {rSettings.showHandStrength && category === 'community' && (() => {
+        const strength = calcHandStrength(heroCards, boardCards, hand.gameType);
+        if (strength === null) return null;
+        const col = getStrengthColor(strength);
+        return (
+          <div className="replayer-hand-strength">
+            <div className="replayer-hand-strength-label">Strength</div>
+            <div className="replayer-hand-strength-bar"><div className="replayer-hand-strength-fill" style={{width: strength + '%', background: col}} /></div>
+            <div className="replayer-hand-strength-pct" style={{color: col}}>{strength}%</div>
+          </div>
+        );
+      })()}
+
+      {/* Pot odds */}
+      {rSettings.showPotOdds && actionIdx >= 0 && (() => {
+        const curAct = currentActions[actionIdx];
+        if (!curAct || !curAct.amount || curAct.action === 'fold') return null;
+        const callAmt = curAct.amount;
+        const potBefore = pot - callAmt;
+        if (potBefore <= 0) return null;
+        const odds = (callAmt / (potBefore + callAmt) * 100).toFixed(1);
+        const ratio = (potBefore / callAmt).toFixed(1);
+        return (
+          <div className="replayer-pot-odds">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="12"/></svg>
+            Pot Odds: {ratio}:1 ({odds}% equity needed)
+          </div>
+        );
+      })()}
+
+      {/* Controls */}
+      <div className="replayer-bottom-fixed">
+        <div className="replayer-controls">
+          <button onClick={goToStart} disabled={!canGoBack} title="Start">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="19 20 9 12 19 4"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+          </button>
+          <button onClick={stepBack} disabled={!canGoBack} title="Back">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button onClick={() => setPlaying(p => !p)} title={playing ? 'Pause' : 'Play'}>
+            {playing ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            )}
+          </button>
+          <button onClick={stepForward} disabled={!canGoForward} title="Forward">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button onClick={goToEnd} title="End">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 4 15 12 5 20"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+          </button>
+          <select value={speed} onChange={e => setSpeed(Number(e.target.value))} style={{
+            fontSize:'0.65rem',padding:'3px 6px',background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border)',
+            borderRadius:'4px',fontFamily:"'Univers Condensed','Univers',sans-serif"
+          }}>
+            <option value={2000}>0.5x</option>
+            <option value={1000}>1x</option>
+            <option value={500}>2x</option>
+            <option value={250}>4x</option>
+          </select>
+        </div>
+        <div style={{display:'flex',gap:'6px',justifyContent:'center'}}>
+          <button className="btn btn-ghost btn-sm" onClick={onBack}>Back</button>
+          <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>
+          <button className="btn btn-ghost btn-sm" onClick={copyShareLink} title="Copy share link">
+            {shareLinkCopied ? 'Copied!' : 'Link'}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={shareReplayImage} title="Share as image">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'14px',height:'14px'}}>
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </button>
+          <button className="btn btn-ghost btn-sm" disabled title="Video export (coming soon)" style={{opacity:0.3}}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:'14px',height:'14px'}}>
+              <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
+            </svg>
+          </button>
+          <button className="replayer-gear-btn" onClick={() => setShowSettings(true)} title="Replayer Settings">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

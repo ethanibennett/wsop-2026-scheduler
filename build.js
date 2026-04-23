@@ -1,68 +1,35 @@
-const esbuild = require('esbuild');
+// Root build script — now drives the Vite-based frontend in vite-app/.
+// On Render this runs as part of `npm run build`; locally it's invoked by
+// `node build.js` (directly or through deploy.sh).
+//
+// It installs vite-app dependencies if missing, writes a fresh version.txt
+// into vite-app/public/ (copied verbatim into the build output by Vite), and
+// then runs `npm run build` inside vite-app/ to emit ../public-vite/.
+
+const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const isProduction = process.env.NODE_ENV === 'production';
-const isWatch = process.argv.includes('--watch');
+const viteAppDir = path.join(__dirname, 'vite-app');
 
-const outdir = path.join(__dirname, 'public', 'dist');
-if (!fs.existsSync(outdir)) fs.mkdirSync(outdir, { recursive: true });
-
-const files = ['app', 'export', 'staking', 'social', 'replayer'];
-
-const commonOptions = {
-  bundle: false,
-  minify: isProduction,
-  sourcemap: !isProduction,
-  jsx: 'transform',
-  jsxFactory: 'React.createElement',
-  jsxFragment: 'React.Fragment',
-  target: 'es2017',
-  charset: 'utf8',
-  keepNames: true,
-};
-
-async function build() {
-  const start = Date.now();
-
-  if (isWatch) {
-    // Use esbuild's watch mode for each file
-    const contexts = await Promise.all(files.map(f =>
-      esbuild.context({
-        ...commonOptions,
-        entryPoints: [path.join(__dirname, 'src', f + '.jsx')],
-        outfile: path.join(outdir, f + '.js'),
-      })
-    ));
-
-    await Promise.all(contexts.map(ctx => ctx.watch()));
-    console.log(`[esbuild] Watching ${files.length} files for changes...`);
-  } else {
-    // One-shot build
-    await Promise.all(files.map(f =>
-      esbuild.build({
-        ...commonOptions,
-        entryPoints: [path.join(__dirname, 'src', f + '.jsx')],
-        outfile: path.join(outdir, f + '.js'),
-      })
-    ));
-    // Post-process: fix esbuild variable renaming bug (appends "2" to var declarations but not references)
-    for (const f of files) {
-      const fpath = path.join(outdir, f + '.js');
-      if (fs.existsSync(fpath)) {
-        let code = fs.readFileSync(fpath, 'utf8');
-        // Find all "var someVar2 = useState(" and rename to "var someVar = useState("
-        code = code.replace(/\bvar (\w+?)2 = useState\(/g, 'var $1 = useState(');
-        // Also fix "const [x2, y2] = useState(" pattern
-        code = code.replace(/\bconst \[(\w+?)2, (\w+?)2\] = useState\(/g, 'const [$1, $2] = useState(');
-        fs.writeFileSync(fpath, code);
-      }
-    }
-    console.log(`[esbuild] Built ${files.length} files in ${Date.now() - start}ms`);
-  }
+// 1. Ensure vite-app deps are present (no-op locally, matters on Render).
+if (!fs.existsSync(path.join(viteAppDir, 'node_modules'))) {
+  console.log('[build] Installing vite-app dependencies...');
+  // Prefer `npm ci` when a lockfile is present for reproducibility; otherwise fall back to `npm install`.
+  const hasLock = fs.existsSync(path.join(viteAppDir, 'package-lock.json'));
+  const installCmd = hasLock ? 'ci' : 'install';
+  const install = spawnSync('npm', [installCmd], { cwd: viteAppDir, stdio: 'inherit' });
+  if (install.status !== 0) process.exit(install.status);
 }
 
-build().catch(err => {
-  console.error('[esbuild] Build failed:', err);
-  process.exit(1);
-});
+// 2. Stamp a version.txt so the legacy auto-reload shim (if any lingers) keeps working.
+const buildVersion = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+const vitePublicDir = path.join(viteAppDir, 'public');
+if (!fs.existsSync(vitePublicDir)) fs.mkdirSync(vitePublicDir, { recursive: true });
+fs.writeFileSync(path.join(vitePublicDir, 'version.txt'), buildVersion);
+console.log(`[build] Wrote version.txt = ${buildVersion}`);
+
+// 3. Run vite build.
+console.log('[build] Running vite build...');
+const build = spawnSync('npm', ['run', 'build'], { cwd: viteAppDir, stdio: 'inherit' });
+process.exit(build.status ?? 0);

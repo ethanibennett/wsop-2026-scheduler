@@ -1,7 +1,7 @@
 {
   "appId": "app.futurega.me",
   "appName": "futurega.me",
-  "webDir": "public",
+  "webDir": "public-vite",
   "server": {
     "allowNavigation": ["futurega.me"]
   },

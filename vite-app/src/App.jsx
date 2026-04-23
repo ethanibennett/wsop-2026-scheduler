@@ -1,0 +1,1343 @@
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import ReactDOM from 'react-dom';
+
+import { API_URL } from './utils/api.js';
+import { haptic, THEME_ORDER, THEME_LABEL, THEME_ICON, THEME_META, VENUE_BRAND_VAR, getVenueBrandColor } from './utils/utils.js';
+import { decodeHand } from './utils/hand-shorthand.js';
+import { detectMilestones, measureStickyStack } from './utils/milestones.js';
+import usePullToRefresh from './hooks/usePullToRefresh.js';
+
+import { useToast } from './contexts/ToastContext.jsx';
+import { useDisplayName, DisplayNameProvider } from './contexts/DisplayNameContext.jsx';
+
+import Icon from './components/Icon.jsx';
+import Avatar from './components/Avatar.jsx';
+import AuthScreen from './components/AuthScreen.jsx';
+import ForgotPasswordForm from './components/ForgotPasswordForm.jsx';
+import ResetPasswordForm from './components/ResetPasswordForm.jsx';
+import BottomNav from './components/BottomNav.jsx';
+import DashboardView from './components/DashboardView.jsx';
+import TournamentsView from './components/TournamentsView.jsx';
+import ScheduleView from './components/ScheduleView.jsx';
+import CalendarView from './components/CalendarView.jsx';
+import TrackingView from './components/TrackingView.jsx';
+import HandReplayerView from './components/HandReplayerView.jsx';
+import SettingsView from './components/SettingsView.jsx';
+import SocialView from './components/SocialView.jsx';
+import MoreView from './components/MoreView.jsx';
+import AdminView from './components/AdminView.jsx';
+import LiveUpdatePanel from './components/LiveUpdatePanel.jsx';
+import ScheduleExportModal from './components/ScheduleExportModal.jsx';
+import SharedScheduleView from './components/SharedScheduleView.jsx';
+import SkeletonDashboard from './components/SkeletonDashboard.jsx';
+import SkeletonSchedule from './components/SkeletonSchedule.jsx';
+import RealNamePrompt from './components/RealNamePrompt.jsx';
+import NotificationsPanel from './components/NotificationsPanel.jsx';
+import SwapModal from './components/SwapModal.jsx';
+import MilestoneCelebration from './components/MilestoneCelebration.jsx';
+
+// Detect shared schedule URL: /shared/:token
+const SHARED_MATCH = window.location.pathname.match(/^\/shared\/([a-f0-9]+)$/);
+const SHARED_TOKEN = SHARED_MATCH ? SHARED_MATCH[1] : null;
+
+// Detect password reset URL: /#reset?token=<hex>
+const RESET_MATCH = window.location.hash.match(/^#reset\?token=([a-f0-9]{64})$/);
+const RESET_TOKEN = RESET_MATCH ? RESET_MATCH[1] : null;
+
+// Detect shared hand URL: /#h/ENCODED_STRING
+const HAND_MATCH = window.location.hash.match(/^#h\/(.+)$/);
+const HAND_SHORTHAND = HAND_MATCH ? decodeURIComponent(HAND_MATCH[1]) : null;
+
+export default function App() {
+  const [token, setToken] = useState(localStorage.getItem('token') || sessionStorage.getItem('token'));
+  const [username, setUsername] = useState(localStorage.getItem('username') || sessionStorage.getItem('username'));
+  const [isGuest, setIsGuest] = useState(localStorage.getItem('isGuest') === 'true');
+  const [authView, setAuthView] = useState('login');
+  const [currentView, _setCurrentView] = useState('dashboard');
+  const [viewKey, setViewKey] = useState(0);
+  const [showExportFromMore, setShowExportFromMore] = useState(false);
+  const [visitedTabs, setVisitedTabs] = useState(new Set(['dashboard']));
+  const scrollPositions = useRef({});
+  const toast = useToast();
+
+  const setCurrentView = useCallback((v) => {
+    _setCurrentView(prev => {
+      if (v !== prev) {
+        const container = document.querySelector('.content-area');
+        if (container) scrollPositions.current[prev] = container.scrollTop;
+        setVisitedTabs(s => { const n = new Set(s); n.add(v); return n; });
+        requestAnimationFrame(() => {
+          const c = document.querySelector('.content-area');
+          if (c && scrollPositions.current[v] != null) {
+            c.scrollTop = scrollPositions.current[v];
+          } else if (v === 'tournaments' && c) {
+            const todayEl = c.querySelector('[data-today-scroll]');
+            if (todayEl) {
+              const filters = c.querySelector('.sticky-filters');
+              const filtersH = filters ? filters.getBoundingClientRect().bottom - c.getBoundingClientRect().top : 0;
+              const groupAbsTop = todayEl.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop;
+              c.scrollTop = Math.max(0, groupAbsTop - filtersH);
+            }
+          }
+          const panel = c && c.querySelector('.tab-panel.tab-active');
+          if (panel) {
+            panel.style.animation = 'none';
+            panel.offsetHeight;
+            panel.style.animation = '';
+          }
+        });
+      }
+      return v;
+    });
+  }, []);
+
+  const [tournaments, setTournaments] = useState([]);
+  const [mySchedule, setMySchedule] = useState([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [gameVariants, setGameVariants] = useState([]);
+  const [venues, setVenues] = useState([]);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
+  const [uploadVenue, setUploadVenue] = useState('');
+  const [debugTimeKey, setDebugTimeKey] = useState(0);
+
+  // Avatar
+  const [avatar, setAvatar] = useState(localStorage.getItem('avatar') || null);
+
+  // Hand replayer access
+  const [handReplayerAccess, setHandReplayerAccess] = useState(localStorage.getItem('handReplayerAccess') === 'true');
+
+  // Shared hand from URL hash
+  const [sharedHandData, setSharedHandData] = useState(() => {
+    if (HAND_SHORTHAND) {
+      try {
+        const decoded = decodeHand(HAND_SHORTHAND);
+        if (decoded) {
+          if (window.history.replaceState) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          return decoded;
+        }
+      } catch (e) { console.error('Failed to decode shared hand:', e); }
+    }
+    return null;
+  });
+
+  // Real name / display name
+  const [realName, setRealName] = useState(localStorage.getItem('realName') || null);
+  const [showRealNamePrompt, setShowRealNamePrompt] = useState(false);
+  const [nameMode, setNameMode] = useState(localStorage.getItem('displayNameMode') || 'real');
+  const displayName = useCallback((user) => {
+    if (nameMode === 'username') return user.username;
+    return user.real_name || user.username;
+  }, [nameMode]);
+
+  // Sharing state
+  const [shareToken, setShareToken] = useState(null);
+  const [shareBuddies, setShareBuddies] = useState([]);
+  const [pendingIncoming, setPendingIncoming] = useState([]);
+  const [pendingOutgoing, setPendingOutgoing] = useState([]);
+  const [lastSeenShares, setLastSeenShares] = useState(null);
+  const [buddyEvents, setBuddyEvents] = useState({});
+  const [swapModalData, setSwapModalData] = useState(null);
+  const onBuddySwap = useCallback((buddy, tournament) => setSwapModalData({ buddy, tournament }), []);
+  const [newShareCount, setNewShareCount] = useState(0);
+  const [shareError, setShareError] = useState('');
+  const [shareSuccess, setShareSuccess] = useState('');
+
+  // Tracking
+  const [trackingData, setTrackingData] = useState([]);
+
+  // Live Updates
+  const [myActiveUpdates, setMyActiveUpdates] = useState([]);
+  const [buddyLiveUpdates, setBuddyLiveUpdates] = useState({});
+
+  // Groups
+  const [myGroups, setMyGroups] = useState([]);
+  const [activeGroupId, setActiveGroupId] = useState(null);
+  const [groupFeed, setGroupFeed] = useState([]);
+  const [groupSchedule, setGroupSchedule] = useState([]);
+
+  // Notifications
+  const [notifications, setNotifications] = useState({ groupInvites: [], buddyRequests: [], acceptedBuddies: [] });
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Milestones
+  const [activeMilestone, setActiveMilestone] = useState(null);
+
+  // Theme
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [contrast, setContrast] = useState(localStorage.getItem('contrast') || 'normal');
+  const [cardSplay, setCardSplay] = useState(localStorage.getItem('cardSplay') !== 'off');
+  const [serifFont, setSerifFont] = useState(localStorage.getItem('serifFont') || 'baskerville');
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('theme', theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', THEME_META[theme] || '#111111');
+  }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.contrast = contrast;
+    localStorage.setItem('contrast', contrast);
+  }, [contrast]);
+
+  useEffect(() => {
+    document.documentElement.dataset.serif = serifFont === 'baskerville' ? '' : serifFont;
+    localStorage.setItem('serifFont', serifFont);
+  }, [serifFont]);
+
+  // If a shared hand was decoded, switch to hands tab on mount
+  useEffect(() => {
+    if (sharedHandData) setCurrentView('hands');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for hashchange to handle #h/ hand links without full reload
+  useEffect(() => {
+    const onHashChange = () => {
+      const m = window.location.hash.match(/^#h\/(.+)$/);
+      if (m) {
+        try {
+          const shorthand = decodeURIComponent(m[1]);
+          const decoded = decodeHand(shorthand);
+          if (decoded) {
+            setSharedHandData(decoded);
+            setCurrentView('hands');
+            if (window.history.replaceState) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        } catch (e) { console.error('Failed to decode shared hand from hashchange:', e); }
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [setCurrentView]);
+
+  const toggleTheme = () => setTheme(t => {
+    const i = THEME_ORDER.indexOf(t);
+    return THEME_ORDER[(i + 1) % THEME_ORDER.length];
+  });
+  const nextThemeLabel = THEME_LABEL[THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]];
+  const toggleContrast = () => setContrast(c => c === 'normal' ? 'high' : 'normal');
+
+  // ── Auto-logout on 401/403 ──
+  const guardedFetch = async (url, opts) => {
+    const res = await fetch(url, opts);
+    if (res.status === 401 || res.status === 403) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      setToken(null);
+      setUsername('');
+      return null;
+    }
+    return res;
+  };
+
+  // ── Venue colors ──
+  const applyVenueColors = (colors) => {
+    for (const [abbr, color] of Object.entries(colors)) {
+      let cssVar = VENUE_BRAND_VAR[abbr];
+      if (!cssVar) {
+        cssVar = `--venue-${abbr.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`;
+        VENUE_BRAND_VAR[abbr] = cssVar;
+      }
+      document.documentElement.style.setProperty(cssVar, color);
+    }
+  };
+
+  const fetchVenueColors = async () => {
+    try {
+      const res = await guardedFetch(`${API_URL}/venue-colors`);
+      if (!res) return;
+      const colors = await res.json();
+      applyVenueColors(colors);
+    } catch (e) { /* ignore */ }
+  };
+
+  // ── Data fetching ──
+  const fetchTournaments = async () => {
+    try {
+      const res = await guardedFetch(`${API_URL}/tournaments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res) return;
+      const data = await res.json();
+      setTournaments(Array.isArray(data) ? data : []);
+    } catch (e) { console.error('Fetch tournaments:', e); toast.error('Failed to load tournaments'); }
+  };
+
+  const fetchMySchedule = async () => {
+    try {
+      const res = await guardedFetch(`${API_URL}/my-schedule`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res) return;
+      const data = await res.json();
+      setMySchedule(Array.isArray(data) ? data : []);
+    } catch (e) { console.error('Fetch schedule:', e); setMySchedule([]); }
+  };
+
+  const fetchGameVariants = async () => {
+    try {
+      const res = await guardedFetch(`${API_URL}/game-variants`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res) return;
+      const data = await res.json();
+      setGameVariants(Array.isArray(data) ? data : []);
+    } catch (e) { console.error('Fetch game variants:', e); }
+  };
+
+  const fetchVenues = async () => {
+    try {
+      const res = await guardedFetch(`${API_URL}/venues`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res) return;
+      const data = await res.json();
+      setVenues(Array.isArray(data) ? data : []);
+    } catch (e) { console.error('Fetch venues:', e); }
+  };
+
+  const fetchTracking = async () => {
+    try {
+      const res = await fetch(`${API_URL}/tracking`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setTrackingData(Array.isArray(data) ? data : []);
+    } catch (e) { console.error('Fetch tracking:', e); toast.error('Failed to load tracking data'); }
+  };
+
+  const fetchMyLiveUpdate = async () => {
+    try {
+      const res = await guardedFetch(`${API_URL}/live-updates/active`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res) return;
+      const data = await res.json();
+      setMyActiveUpdates(Array.isArray(data) ? data : []);
+    } catch (e) { console.error('Fetch live updates:', e); }
+  };
+
+  const postLiveUpdate = useCallback(async (data) => {
+    haptic();
+    try {
+      const res = await fetch(`${API_URL}/live-update`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) fetchMyLiveUpdate();
+    } catch (e) { console.error('Post live update:', e); }
+  }, [token]);
+
+  const deleteLiveUpdate = useCallback(async (updateId) => {
+    try {
+      const res = await fetch(`${API_URL}/live-update/${updateId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) fetchMyLiveUpdate();
+    } catch {}
+  }, [token]);
+
+  const saveFieldSize = useCallback(async (tournamentId, totalFieldSize) => {
+    if (!totalFieldSize || !tournamentId) return;
+    try {
+      await fetch(`${API_URL}/tournaments/${tournamentId}/total-entries`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ totalEntries: totalFieldSize })
+      });
+      fetchTournaments();
+    } catch {}
+  }, [token]);
+
+  const addTracking = useCallback(async (data) => {
+    try {
+      const matchedTournament = tournaments.find(tr => tr.id === data.tournamentId);
+      const entryForMilestone = {
+        ...data,
+        buyin: matchedTournament ? matchedTournament.buyin : 0,
+        event_name: matchedTournament ? matchedTournament.event_name : '',
+        game_variant: matchedTournament ? matchedTournament.game_variant : 'NLH'
+      };
+      const milestones = detectMilestones(trackingData, entryForMilestone);
+
+      const { totalFieldSize, ...trackingPayload } = data;
+      const res = await fetch(`${API_URL}/tracking`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(trackingPayload)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.error || 'Failed to add tracking entry');
+        return;
+      }
+      if (totalFieldSize) await saveFieldSize(data.tournamentId, totalFieldSize);
+      fetchTracking();
+
+      if (milestones.length > 0) {
+        setActiveMilestone(milestones[0]);
+      }
+    } catch { setError('Failed to add tracking entry'); }
+  }, [token, tournaments, trackingData]);
+
+  const updateTracking = useCallback(async (entryId, data) => {
+    try {
+      const { totalFieldSize, tournamentId, ...trackingPayload } = data;
+      const res = await fetch(`${API_URL}/tracking/${entryId}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(trackingPayload)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.error || 'Failed to update tracking entry');
+        return;
+      }
+      if (totalFieldSize && tournamentId) await saveFieldSize(tournamentId, totalFieldSize);
+      fetchTracking();
+    } catch { setError('Failed to update tracking entry'); }
+  }, [token]);
+
+  const deleteTracking = useCallback(async (entryId) => {
+    try {
+      await fetch(`${API_URL}/tracking/${entryId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchTracking();
+    } catch { setError('Failed to delete tracking entry'); }
+  }, [token]);
+
+  // ── Sharing functions ──
+  const fetchShareToken = async () => {
+    try {
+      const res = await fetch(`${API_URL}/share-token`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      setShareToken(data.token);
+    } catch {}
+  };
+
+  const fetchShareBuddies = async () => {
+    try {
+      const res = await fetch(`${API_URL}/share-buddies`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      setShareBuddies(data.buddies || []);
+      setPendingIncoming(data.pendingIncoming || []);
+      setPendingOutgoing(data.pendingOutgoing || []);
+      setBuddyEvents(data.buddyEvents || {});
+      setBuddyLiveUpdates(data.buddyLiveUpdates || {});
+      const lss = data.lastSeenShares || null;
+      setLastSeenShares(lss);
+      const newBuddies = (data.buddies || []).filter(b => !lss || b.since > lss).length;
+      setNewShareCount(newBuddies + (data.pendingIncoming || []).length);
+    } catch {}
+  };
+
+  // ── Groups ──
+  const fetchMyGroups = async () => {
+    try {
+      const res = await fetch(`${API_URL}/groups`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setMyGroups(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+  };
+
+  const fetchGroupFeed = async (groupId) => {
+    try {
+      const res = await fetch(`${API_URL}/groups/${groupId}/feed`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setGroupFeed(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+  };
+
+  const fetchGroupSchedule = async (groupId) => {
+    try {
+      const res = await fetch(`${API_URL}/groups/${groupId}/schedule`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setGroupSchedule(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(API_URL + '/notifications', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications({
+          groupInvites: data.groupInvites || [],
+          buddyRequests: data.buddyRequests || [],
+          acceptedBuddies: data.acceptedBuddies || [],
+          swapSuggestions: data.swapSuggestions || []
+        });
+      }
+    } catch {}
+  };
+
+  const markNotificationsSeen = async () => {
+    try {
+      await fetch(API_URL + '/seen-notifications', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch {}
+  };
+
+  const notifCount = notifications.groupInvites.length + notifications.buddyRequests.length + notifications.acceptedBuddies.length;
+
+  const handleGenerateShareToken = async () => {
+    try {
+      const res = await fetch(`${API_URL}/share-token`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      setShareToken(data.token);
+    } catch {}
+  };
+
+  const handleRevokeShareToken = async () => {
+    try {
+      await fetch(`${API_URL}/share-token`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      setShareToken(null);
+    } catch {}
+  };
+
+  const handleSendShareRequest = async (e) => {
+    e.preventDefault();
+    const uname = new FormData(e.target).get('shareUsername');
+    if (!uname) return;
+    try {
+      const res = await fetch(`${API_URL}/share-request`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: uname })
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error); return; }
+      toast.success(data.message);
+      e.target.reset();
+      fetchShareBuddies();
+    } catch { toast.error('Failed to send request'); }
+  };
+
+  const handleAcceptRequest = async (id) => {
+    try {
+      await fetch(`${API_URL}/share-request/${id}/accept`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+      fetchShareBuddies();
+    } catch {}
+  };
+
+  const handleRejectRequest = async (id) => {
+    try {
+      await fetch(`${API_URL}/share-request/${id}/reject`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+      fetchShareBuddies();
+    } catch {}
+  };
+
+  const handleCancelRequest = async (id) => {
+    try {
+      await fetch(`${API_URL}/share-request/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      fetchShareBuddies();
+    } catch {}
+  };
+
+  const handleRemoveBuddy = async (userId) => {
+    try {
+      await fetch(`${API_URL}/share-buddy/${userId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      fetchShareBuddies();
+    } catch {}
+  };
+
+  // ── Auth handlers ──
+  const handleLogin = async (e, isRegister = false, keepSignedIn = true) => {
+    e.preventDefault();
+    setError(''); setSuccess('');
+    const fd = new FormData(e.target);
+    const email = fd.get('email');
+    const password = fd.get('password');
+    const usernameInput = fd.get('username');
+    const realNameInput = fd.get('realName');
+
+    try {
+      const endpoint = isRegister ? '/register' : '/login';
+      const body = isRegister
+        ? { username: usernameInput, email, password, realName: realNameInput }
+        : { email, password };
+
+      const res = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Authentication failed'); return; }
+
+      if (isRegister) {
+        setSuccess('Account created! Please sign in.');
+      } else {
+        const store = keepSignedIn ? localStorage : sessionStorage;
+        store.setItem('token', data.token);
+        store.setItem('username', data.username);
+        if (data.avatar) store.setItem('avatar', data.avatar);
+        else store.removeItem('avatar');
+        if (data.realName) store.setItem('realName', data.realName);
+        else store.removeItem('realName');
+        store.setItem('handReplayerAccess', data.handReplayerAccess ? 'true' : 'false');
+        if (!keepSignedIn) localStorage.setItem('sessionOnly', 'true');
+        setToken(data.token);
+        setUsername(data.username);
+        setAvatar(data.avatar || null);
+        setRealName(data.realName || null);
+        setHandReplayerAccess(!!data.handReplayerAccess);
+        if (!data.realName) setShowRealNamePrompt(true);
+      }
+    } catch { setError('Network error. Please try again.'); }
+  };
+
+  const handleGuestLogin = async () => {
+    setError(''); setSuccess('');
+    try {
+      const res = await fetch(`${API_URL}/guest-login`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Guest login failed'); return; }
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('username', data.username);
+      localStorage.setItem('isGuest', 'true');
+      localStorage.removeItem('avatar');
+      setToken(data.token);
+      setUsername(data.username);
+      setIsGuest(true);
+      setAvatar(null);
+    } catch { setError('Network error. Please try again.'); }
+  };
+
+  const handleLogout = () => {
+    ['token','username','avatar','isGuest','realName','sessionOnly'].forEach(k => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
+    setToken(null);
+    setUsername(null);
+    setIsGuest(false);
+    setAvatar(null);
+    setRealName(null);
+    setShowRealNamePrompt(false);
+    setCurrentView('dashboard');
+    setTournaments([]);
+    setMySchedule([]);
+    setShareToken(null);
+    setShareBuddies([]);
+    setPendingIncoming([]);
+    setPendingOutgoing([]);
+    setLastSeenShares(null);
+    setNewShareCount(0);
+    setNotifications({ groupInvites: [], buddyRequests: [], acceptedBuddies: [] });
+    setShowNotifications(false);
+    setShareError('');
+    setShareSuccess('');
+    setTrackingData([]);
+    setBuddyEvents({});
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('avatar', file);
+    try {
+      const res = await fetch(`${API_URL}/avatar`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAvatar(data.avatar);
+        localStorage.setItem('avatar', data.avatar);
+      }
+    } catch {}
+    e.target.value = '';
+  };
+
+  const handleAvatarRemove = async () => {
+    try {
+      await fetch(`${API_URL}/avatar`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAvatar(null);
+      localStorage.removeItem('avatar');
+    } catch {}
+  };
+
+  const adminEditTournament = useCallback(async (tournamentId, fields) => {
+    const res = await fetch(`${API_URL}/tournaments/${tournamentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(fields),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed to save'); }
+    const updated = await res.json();
+    setTournaments(prev => prev.map(t => t.id === tournamentId ? { ...t, ...updated } : t));
+    setMySchedule(prev => prev.map(t => t.id === tournamentId ? { ...t, ...updated } : t));
+    toast.success('Event updated');
+  }, [token, toast]);
+
+  const toggleTournament = useCallback(async (tournamentId) => {
+    haptic();
+    const existing = mySchedule.find(t => t.id === tournamentId);
+    const isIn = !!existing;
+    try {
+      if (isIn) {
+        if (existing.venue === 'Personal') {
+          await fetch(`${API_URL}/personal-event/${tournamentId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        } else {
+          await fetch(`${API_URL}/schedule/${tournamentId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        }
+      } else {
+        await fetch(`${API_URL}/schedule`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tournamentId })
+        });
+      }
+      fetchMySchedule();
+    } catch { setError('Failed to update schedule'); }
+  }, [token, mySchedule]);
+
+  const addPersonalEvent = useCallback(async (date, type, notes) => {
+    try {
+      const res = await fetch(`${API_URL}/personal-event`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, type, notes: notes || '' })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to create personal event');
+        return;
+      }
+      fetchMySchedule();
+    } catch { setError('Failed to create personal event'); }
+  }, [token]);
+
+  const updatePersonalEvent = useCallback(async (tournamentId, notes) => {
+    try {
+      await fetch(`${API_URL}/personal-event/${tournamentId}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes })
+      });
+      fetchMySchedule();
+    } catch { setError('Failed to update personal event'); }
+  }, [token]);
+
+  const setCondition = useCallback(async (tournamentId, conditions, isPublic) => {
+    try {
+      await fetch(`${API_URL}/schedule/${tournamentId}/condition`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conditions, isPublic })
+      });
+      fetchMySchedule();
+    } catch { setError('Failed to set condition'); }
+  }, [token]);
+
+  const removeCondition = useCallback(async (tournamentId) => {
+    try {
+      await fetch(`${API_URL}/schedule/${tournamentId}/condition`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchMySchedule();
+    } catch { setError('Failed to remove condition'); }
+  }, [token]);
+
+  const toggleAnchor = useCallback(async (tournamentId, isAnchor) => {
+    try {
+      await fetch(`${API_URL}/schedule/${tournamentId}/anchor`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAnchor })
+      });
+      fetchMySchedule();
+    } catch { setError('Failed to update anchor status'); }
+  }, [token]);
+
+  const setPlannedEntries = useCallback(async (tournamentId, plannedEntries) => {
+    try {
+      await fetch(`${API_URL}/schedule/${tournamentId}/entries`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plannedEntries })
+      });
+      fetchMySchedule();
+    } catch { setError('Failed to update planned entries'); }
+  }, [token]);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('pdf', file);
+    if (uploadVenue) fd.append('venue', uploadVenue);
+    try {
+      toast.info('Uploading and parsing PDF...');
+      const res = await fetch(`${API_URL}/upload-schedule`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd
+      });
+      const data = await res.json();
+      toast.success(`Imported ${data.tournamentsCount} tournaments from ${data.format === 'wsop' ? 'WSOP' : 'generic'} format!`);
+      setUploadVenue('');
+      fetchTournaments();
+    } catch { toast.error('Failed to upload schedule'); }
+  };
+
+  // ── Pull-to-refresh ──
+  const contentAreaRef = useRef(null);
+  const refreshAll = useCallback(async () => {
+    if (!token) return;
+    await Promise.all([
+      fetchTournaments(), fetchMySchedule(), fetchTracking(),
+      fetchMyLiveUpdate(), fetchShareBuddies(), fetchNotifications()
+    ]);
+  }, [token]);
+  const { ptrProps, ptrIndicator, refreshing } = usePullToRefresh(contentAreaRef, refreshAll);
+
+  // ── Initial data load ──
+  useEffect(() => {
+    if (token) {
+      Promise.all([
+        fetchTournaments(), fetchMySchedule(), fetchGameVariants(),
+        fetchVenues(), fetchShareToken(), fetchShareBuddies(),
+        fetchMyGroups(), fetchNotifications(), fetchTracking(), fetchMyLiveUpdate(),
+        fetchVenueColors()
+      ]).finally(() => setDataLoaded(true));
+    }
+  }, [token]);
+
+  // ── SSE: real-time buddy updates ──
+  useEffect(() => {
+    if (!token) return;
+    const es = new EventSource(`${API_URL}/events?token=${token}`);
+
+    es.addEventListener('buddy-live-update', (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.cleared) {
+          setBuddyLiveUpdates(prev => {
+            const next = { ...prev };
+            delete next[d.buddyId];
+            return next;
+          });
+        } else {
+          setBuddyLiveUpdates(prev => ({ ...prev, [d.buddyId]: {
+            tournamentId: d.tournamentId, eventName: d.eventName, venue: d.venue,
+            stack: d.stack, sb: d.sb, bb: d.bb, bbAnte: d.bbAnte,
+            isItm: d.isItm, isRegClosed: d.isRegClosed, bubble: d.bubble,
+            lockedAmount: d.lockedAmount, isFinalTable: d.isFinalTable,
+            placesLeft: d.placesLeft, firstPlacePrize: d.firstPlacePrize,
+            isDeal: d.isDeal, dealPlace: d.dealPlace, dealPayout: d.dealPayout,
+            isBusted: d.isBusted, totalEntries: d.totalEntries,
+            isBagged: d.isBagged, bagDay: d.bagDay,
+            playStartedAt: d.playStartedAt, updatedAt: d.updatedAt
+          }}));
+        }
+      } catch (err) { console.error('SSE buddy-live-update error:', err); }
+    });
+
+    es.addEventListener('buddy-schedule-change', () => fetchShareBuddies());
+    es.addEventListener('buddy-request', () => { fetchShareBuddies(); fetchNotifications(); });
+    es.addEventListener('buddy-tracking', () => {});
+
+    es.addEventListener('group-message', (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        setGroupFeed(prev => [...prev, {
+          id: Date.now(), type: 'message',
+          user_id: d.userId, username: d.username, avatar: d.avatar,
+          content: d.message, created_at: d.createdAt
+        }]);
+        fetchMyGroups();
+      } catch (err) { console.error('SSE group-message error:', err); }
+    });
+    es.addEventListener('group-updated', () => fetchMyGroups());
+    es.addEventListener('group-deleted', (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        fetchMyGroups();
+        setActiveGroupId(prev => prev === d.groupId ? null : prev);
+      } catch (err) { console.error('SSE group-removed:', err); }
+    });
+    es.addEventListener('group-live-update', (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (!d.cleared) {
+          setGroupFeed(prev => [...prev, {
+            id: Date.now(), type: 'live-update',
+            user_id: d.userId, username: d.username,
+            content: null, liveData: d, created_at: d.updatedAt
+          }]);
+        }
+      } catch (err) { console.error('SSE group-live-update error:', err); }
+    });
+    es.addEventListener('group-invite', () => fetchNotifications());
+    es.addEventListener('group-invite-response', () => { fetchNotifications(); fetchMyGroups(); });
+
+    es.onerror = () => console.warn('SSE connection error, will auto-reconnect');
+    return () => es.close();
+  }, [token]);
+
+  // ── Push notifications (admin only) ──
+  useEffect(() => {
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) return;
+    if (!token || isGuest || !['ham', 'ham5', 'claude'].includes((username || '').toLowerCase())) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+        const existing = await reg.pushManager.getSubscription();
+        if (existing) {
+          await fetch(`${API_URL}/push-subscribe`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: existing })
+          });
+          return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+        const keyRes = await fetch(`${API_URL}/push/vapid-key`);
+        const { key } = await keyRes.json();
+        if (!key) return;
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: key
+        });
+        await fetch(`${API_URL}/push-subscribe`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: sub })
+        });
+      } catch (err) { /* Push setup failed silently */ }
+    })();
+  }, [token, username, isGuest]);
+
+  const isAdmin = ['ham', 'ham5', 'claude'].includes((username || '').toLowerCase());
+
+  // ── Render: shared schedule page ──
+  if (SHARED_TOKEN) {
+    return <SharedScheduleView shareToken={SHARED_TOKEN} />;
+  }
+
+  // ── Render: password reset page ──
+  if (RESET_TOKEN) {
+    return <ResetPasswordForm resetToken={RESET_TOKEN} theme={theme} toggleTheme={toggleTheme} />;
+  }
+
+  // ── Render: auth screens ──
+  if (!token) {
+    if (authView === 'forgot') {
+      return <ForgotPasswordForm
+        onBack={() => setAuthView('login')}
+        theme={theme}
+        toggleTheme={toggleTheme}
+      />;
+    }
+    return <AuthScreen
+      onSubmit={handleLogin}
+      error={error}
+      success={success}
+      theme={theme}
+      toggleTheme={toggleTheme}
+      onForgotPassword={() => { setError(''); setSuccess(''); setAuthView('forgot'); }}
+      onGuestLogin={handleGuestLogin}
+      initialRegister={authView === 'register'}
+    />;
+  }
+
+  // ── Render: main app ──
+  return (
+    <DisplayNameProvider value={displayName}>
+    <div className="app-shell">
+      <header className="top-bar">
+        <div className="top-bar-title">
+          <h1>futurega.me</h1>
+          <small>spring/summer 2026</small>
+        </div>
+        <div className="top-bar-actions">
+          <button
+            className="notif-btn btn btn-ghost btn-icon"
+            onClick={() => {
+              setShowNotifications(prev => {
+                if (!prev) markNotificationsSeen();
+                return !prev;
+              });
+            }}
+            title="Notifications"
+          >
+            <Icon.bell />
+            {notifCount > 0 && <span className="notif-badge">{notifCount}</span>}
+          </button>
+          <LiveUpdatePanel
+            mySchedule={mySchedule}
+            myActiveUpdates={myActiveUpdates}
+            onPost={postLiveUpdate}
+            onAddTracking={addTracking}
+          />
+          <button className="btn btn-ghost btn-icon" onClick={toggleTheme} title={`Switch to ${nextThemeLabel} mode`}>
+            {React.createElement(Icon[THEME_ICON[theme]] || Icon.moon)}
+          </button>
+          <div style={{position:'relative',minWidth:0,flexShrink:1}}>
+            <button className="username-chip" onClick={() => setShowUserMenu(m => !m)} style={{display:'flex',alignItems:'center',gap:'6px',marginLeft:'2px',background:'none',border:'none',padding:0,cursor:'pointer',maxWidth:'100%',overflow:'hidden'}}>
+              <Avatar src={avatar} username={username} size={22} style={{flexShrink:0}} />
+              <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{nameMode === 'username' ? username : (realName || username)}</span>
+            </button>
+            {showUserMenu && ReactDOM.createPortal(
+              <>
+                <div style={{position:'fixed',inset:0,zIndex:9998}} onClick={() => setShowUserMenu(false)} />
+                <div style={{position:'fixed',top:'52px',right:'12px',zIndex:9999,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px 0',minWidth:'160px',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',fontFamily:'Univers Condensed, Univers, sans-serif'}}>
+                  <button onClick={() => { setShowUserMenu(false); setCurrentView('schedule'); }}
+                    style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'0.85rem'}}>
+                    My Schedule
+                  </button>
+                  <div style={{height:'1px',background:'var(--border)',margin:'2px 0'}} />
+                  <button onClick={() => { setShowUserMenu(false); handleLogout(); }}
+                    style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'0.85rem'}}>
+                    Sign Out
+                  </button>
+                </div>
+              </>,
+              document.body
+            )}
+          </div>
+        </div>
+      </header>
+
+      {isGuest && (
+        <div style={{background:'var(--accent)',color:'#000',padding:'8px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:'0.8rem',fontFamily:'Univers Condensed, Univers, sans-serif'}}>
+          <span>Guest mode -- your schedule won't be saved. Register to keep it!</span>
+          <button onClick={() => { handleLogout(); setAuthView('register'); }}
+            style={{background:'rgba(0,0,0,0.2)',color:'#000',border:'none',borderRadius:'4px',padding:'4px 12px',cursor:'pointer',fontSize:'0.75rem',fontWeight:600,fontFamily:'Univers Condensed, Univers, sans-serif'}}>
+            Register
+          </button>
+        </div>
+      )}
+
+      {showRealNamePrompt && (
+        <RealNamePrompt
+          token={token}
+          onSave={(name) => { setRealName(name); localStorage.setItem('realName', name); setShowRealNamePrompt(false); }}
+          onDismiss={() => setShowRealNamePrompt(false)}
+        />
+      )}
+
+      {showNotifications && (
+        <NotificationsPanel
+          notifications={notifications}
+          token={token}
+          onClose={() => setShowNotifications(false)}
+          fetchNotifications={fetchNotifications}
+          fetchShareBuddies={fetchShareBuddies}
+          fetchMyGroups={fetchMyGroups}
+        />
+      )}
+
+      <main className="content-area ptr-container" ref={contentAreaRef} {...ptrProps}>
+        <div className={'ptr-indicator' + (refreshing ? ' visible' : '')} ref={ptrIndicator}>
+          <div className={'ptr-spinner' + (refreshing ? ' spinning' : '')} />
+        </div>
+
+        {/* Tab panels: visited tabs stay mounted, only active is visible */}
+        <div className={'tab-panel' + (currentView === 'dashboard' ? ' tab-active' : '')} data-tab="dashboard" style={{display: currentView === 'dashboard' ? undefined : 'none', height: currentView === 'dashboard' ? '100%' : undefined}}>
+        {visitedTabs.has('dashboard') && (!dataLoaded ? <SkeletonDashboard /> :
+          <DashboardView
+            key={debugTimeKey}
+            mySchedule={mySchedule}
+            myActiveUpdates={myActiveUpdates}
+            trackingData={trackingData}
+            shareBuddies={shareBuddies}
+            buddyLiveUpdates={buddyLiveUpdates}
+            displayName={displayName}
+            buddyEvents={buddyEvents}
+            onPost={postLiveUpdate}
+            onDeleteUpdate={deleteLiveUpdate}
+            onAddTracking={addTracking}
+            tournaments={tournaments}
+            onToggle={toggleTournament}
+            onNavigate={(v) => {
+              if (v === '_liveUpdate') {
+                const btn = document.querySelector('.live-update-btn');
+                if (btn) btn.click();
+                return;
+              }
+              if (v === '_share') {
+                setCurrentView('settings');
+                return;
+              }
+              setCurrentView(v);
+            }}
+          />
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'tournaments' ? ' tab-active' : '')} data-tab="tournaments" style={{display: currentView === 'tournaments' ? undefined : 'none', height: currentView === 'tournaments' ? '100%' : undefined}}>
+        {visitedTabs.has('tournaments') && (!dataLoaded ? <SkeletonSchedule /> :
+          <TournamentsView
+            key={debugTimeKey}
+            tournaments={tournaments}
+            mySchedule={mySchedule}
+            onToggle={toggleTournament}
+            gameVariants={gameVariants}
+            venues={venues}
+            onSetCondition={setCondition}
+            onRemoveCondition={removeCondition}
+            onToggleAnchor={toggleAnchor}
+            onSetPlannedEntries={setPlannedEntries}
+            buddyEvents={buddyEvents}
+            buddyLiveUpdates={buddyLiveUpdates}
+            onBuddySwap={onBuddySwap}
+            isAdmin={isAdmin}
+            onAdminEdit={adminEditTournament}
+            token={token}
+            onRefreshTournaments={fetchTournaments}
+          />
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'schedule' ? ' tab-active' : '')} data-tab="schedule" style={{display: currentView === 'schedule' ? undefined : 'none', height: currentView === 'schedule' ? '100%' : undefined}}>
+        {visitedTabs.has('schedule') && (!dataLoaded ? <SkeletonSchedule /> :
+          <ScheduleView
+            key={debugTimeKey}
+            mySchedule={mySchedule}
+            onToggle={toggleTournament}
+            shareBuddies={shareBuddies}
+            pendingIncoming={pendingIncoming}
+            lastSeenShares={lastSeenShares}
+            onAcceptRequest={handleAcceptRequest}
+            onRejectRequest={handleRejectRequest}
+            token={token}
+            onSetCondition={setCondition}
+            onRemoveCondition={removeCondition}
+            allTournaments={tournaments}
+            onToggleAnchor={toggleAnchor}
+            onSetPlannedEntries={setPlannedEntries}
+            onAddPersonalEvent={addPersonalEvent}
+            onUpdatePersonalEvent={updatePersonalEvent}
+            buddyEvents={buddyEvents}
+            buddyLiveUpdates={buddyLiveUpdates}
+            onBuddySwap={onBuddySwap}
+            isAdmin={isAdmin}
+            onAdminEdit={adminEditTournament}
+          />
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'calendar' ? ' tab-active' : '')} data-tab="calendar" style={{display: currentView === 'calendar' ? undefined : 'none', height: currentView === 'calendar' ? '100%' : undefined}}>
+        {visitedTabs.has('calendar') && (
+          <CalendarView
+            key={debugTimeKey}
+            allTournaments={tournaments}
+            mySchedule={mySchedule}
+            onToggle={toggleTournament}
+            gameVariants={gameVariants}
+            venues={venues}
+            onSetCondition={setCondition}
+            onRemoveCondition={removeCondition}
+            onToggleAnchor={toggleAnchor}
+            onSetPlannedEntries={setPlannedEntries}
+            buddyEvents={buddyEvents}
+            buddyLiveUpdates={buddyLiveUpdates}
+          />
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'tracking' ? ' tab-active' : '')} data-tab="tracking" style={{display: currentView === 'tracking' ? undefined : 'none', height: currentView === 'tracking' ? '100%' : undefined}}>
+        {visitedTabs.has('tracking') && (
+          <TrackingView
+            trackingData={trackingData}
+            tournaments={tournaments}
+            mySchedule={mySchedule}
+            onAdd={addTracking}
+            onUpdate={updateTracking}
+            onDelete={deleteTracking}
+            myActiveUpdates={myActiveUpdates}
+          />
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'hands' ? ' tab-active' : '')} data-tab="hands" style={{display: currentView === 'hands' ? undefined : 'none', height: currentView === 'hands' ? '100%' : undefined}}>
+        {visitedTabs.has('hands') && (
+          isAdmin || sharedHandData
+            ? <HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} />
+            : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
+                <h2 style={{fontFamily:"'Univers Condensed', 'Univers', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Hand Replayer</h2>
+                <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
+              </div>
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'settings' ? ' tab-active' : '')} data-tab="settings" style={{display: currentView === 'settings' ? undefined : 'none', height: currentView === 'settings' ? '100%' : undefined}}>
+        {visitedTabs.has('settings') && (
+          <SettingsView
+            username={username}
+            avatar={avatar}
+            realName={realName}
+            nameMode={nameMode}
+            onToggleNameMode={(mode) => { setNameMode(mode); localStorage.setItem('displayNameMode', mode); }}
+            onAvatarUpload={handleAvatarUpload}
+            onAvatarRemove={handleAvatarRemove}
+            theme={theme}
+            toggleTheme={toggleTheme}
+            contrast={contrast}
+            toggleContrast={toggleContrast}
+            cardSplay={cardSplay}
+            toggleCardSplay={() => { setCardSplay(s => { const next = !s; localStorage.setItem('cardSplay', next ? 'on' : 'off'); return next; }); }}
+            serifFont={serifFont}
+            toggleSerifFont={() => setSerifFont(f => { const order = ['baskerville','univers','bahnschrift']; return order[(order.indexOf(f) + 1) % order.length]; })}
+            onLogout={handleLogout}
+            onDebugTimeChange={() => setDebugTimeKey(k => k + 1)}
+            onUpload={handleFileUpload}
+            uploadError={uploadError}
+            uploadSuccess={uploadSuccess}
+            uploadVenue={uploadVenue}
+            onUploadVenueChange={setUploadVenue}
+            shareToken={shareToken}
+            onGenerateShareToken={handleGenerateShareToken}
+            onRevokeShareToken={handleRevokeShareToken}
+            onSendShareRequest={handleSendShareRequest}
+            pendingOutgoing={pendingOutgoing}
+            onCancelRequest={handleCancelRequest}
+            shareBuddies={shareBuddies}
+            onRemoveBuddy={handleRemoveBuddy}
+            shareError={shareError}
+            shareSuccess={shareSuccess}
+            token={token}
+            onRefreshTournaments={fetchTournaments}
+            isAdmin={isAdmin}
+          />
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'admin' ? ' tab-active' : '')} data-tab="admin" style={{display: currentView === 'admin' ? undefined : 'none', height: currentView === 'admin' ? '100%' : undefined}}>
+        {visitedTabs.has('admin') && isAdmin && (
+          <AdminView token={token} onNavigate={(v) => setCurrentView(v)} />
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'staking' ? ' tab-active' : '')} data-tab="staking" style={{display: currentView === 'staking' ? undefined : 'none', height: currentView === 'staking' ? '100%' : undefined}}>
+        {visitedTabs.has('staking') && (
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
+            <h2 style={{fontFamily:"'Univers Condensed', 'Univers', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Staking</h2>
+            <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
+          </div>
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'social' ? ' tab-active' : '')} data-tab="social" style={{display: currentView === 'social' ? undefined : 'none', height: currentView === 'social' ? '100%' : undefined}}>
+        {visitedTabs.has('social') && (
+          <SocialView
+            shareBuddies={shareBuddies}
+            buddyLiveUpdates={buddyLiveUpdates}
+            displayName={displayName}
+            myGroups={myGroups}
+            activeGroupId={activeGroupId}
+            setActiveGroupId={setActiveGroupId}
+            groupFeed={groupFeed}
+            groupSchedule={groupSchedule}
+            fetchGroupFeed={fetchGroupFeed}
+            fetchGroupSchedule={fetchGroupSchedule}
+            fetchMyGroups={fetchMyGroups}
+            token={token}
+            onRemoveBuddy={handleRemoveBuddy}
+            fetchShareBuddies={fetchShareBuddies}
+            onNavigate={(v) => setCurrentView(v)}
+          />
+        )}
+        </div>
+
+        <div className={'tab-panel' + (currentView === 'more' ? ' tab-active' : '')} data-tab="more" style={{display: currentView === 'more' ? undefined : 'none', height: currentView === 'more' ? '100%' : undefined}}>
+        {visitedTabs.has('more') && (
+          <MoreView
+            onNavigate={(v) => setCurrentView(v)}
+            onExport={() => setShowExportFromMore(true)}
+            hasSchedule={mySchedule && mySchedule.length > 0}
+            isAdmin={isAdmin}
+            handReplayerAccess={handReplayerAccess}
+          />
+        )}
+        </div>
+
+        {showExportFromMore && (
+          <ScheduleExportModal events={mySchedule} onClose={() => setShowExportFromMore(false)} />
+        )}
+        {swapModalData && (
+          <SwapModal
+            buddy={swapModalData.buddy}
+            tournament={swapModalData.tournament}
+            token={token}
+            onClose={() => setSwapModalData(null)}
+          />
+        )}
+      </main>
+
+      <BottomNav
+        current={['tracking', 'calendar', 'settings', 'schedule'].includes(currentView) ? 'more' : currentView}
+        onChange={v => {
+          if (v === currentView && v === 'tournaments') {
+            const todayEl = document.querySelector('[data-today-scroll]');
+            const container = document.querySelector('.content-area');
+            if (todayEl && container) {
+              const caTop = container.getBoundingClientRect().top;
+              const sticky = container.querySelector('.sticky-filters');
+              const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
+              const elTop = todayEl.getBoundingClientRect().top - caTop + container.scrollTop;
+              container.scrollTo({ top: Math.max(0, elTop - stickyH), behavior: 'smooth' });
+              setTimeout(() => {
+                const firstCard = todayEl.querySelector('.cal-event-row');
+                if (!firstCard) return;
+                const stickyBottom = measureStickyStack(container);
+                const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
+                if (cardVisualTop < stickyBottom + 2) {
+                  container.scrollBy({ top: -(stickyBottom + 2 - cardVisualTop), behavior: 'smooth' });
+                }
+              }, 350);
+            }
+            return;
+          }
+          setCurrentView(v);
+        }}
+        scheduleCount={mySchedule.filter(t => !t.is_restart).length}
+        newShareCount={newShareCount}
+      />
+
+      {activeMilestone && (
+        <MilestoneCelebration
+          milestone={activeMilestone}
+          onShare={() => setActiveMilestone(null)}
+          onDismiss={() => setActiveMilestone(null)}
+        />
+      )}
+    </div>
+    </DisplayNameProvider>
+  );
+}

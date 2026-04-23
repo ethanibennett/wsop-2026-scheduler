@@ -81,5 +81,12 @@ setup.sh
 .claude/hooks/*
 !.claude/hooks/session-start.sh
 
+# Schedule source documents (user uploads, archived per-venue)
+schedule-docs/
+
 # Build output
 public/dist/
+public-vite/
+
+# macOS
+.DS_Store
