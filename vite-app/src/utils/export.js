@@ -83,7 +83,11 @@ function hexRGB(hex) {
 export async function generateSchedulePDF(events, title, opts = {}) {
   const isLight = !!opts.light;
   const { default: jsPDF } = await import('jspdf');
-  await import('jspdf-autotable');
+  // jspdf-autotable v3 is UMD/CJS under the hood and doesn't auto-attach to the
+  // jsPDF prototype when imported as an ESM module (unlike the legacy global
+  // <script> load, which put it on window.jspdf). Import the default export and
+  // call it as `autoTable(doc, options)` instead of `doc.autoTable(options)`.
+  const { default: autoTable } = await import('jspdf-autotable');
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -213,7 +217,7 @@ export async function generateSchedulePDF(events, title, opts = {}) {
   let currentPage = 1;
 
   function drawTableSection(sectionRows, sectionVenueColors, sectionDateIndices, startY) {
-    doc.autoTable({
+    autoTable(doc, {
       startY: startY,
       margin: { top: 24, left: mg, right: mg, bottom: 14 },
       head: [['DATE', 'TIME', 'VENUE', 'EVENT', 'BUY-IN', 'ENTRIES']],
@@ -471,6 +475,29 @@ function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages, title, opt
   ctx.fillStyle = cTEXT_MUT;
   ctx.fillText(rangeStr, pad, 112);
 
+  // Buy-in range label (only present when groupByBuyin is on) — rendered as a
+  // section pill so the user sees exactly which range this page covers.
+  const rangeLabel = opts && typeof opts.rangeLabel === 'string' ? opts.rangeLabel.trim() : '';
+  let extraHeaderOffset = 0;
+  if (rangeLabel) {
+    ctx.font = '700 22px Univers Condensed, Univers, sans-serif';
+    ctx.fillStyle = cTEXT;
+    const txt = rangeLabel.toUpperCase();
+    const tw = ctx.measureText(txt).width;
+    // Pill background
+    const pillPadX = 18, pillPadY = 10;
+    const pillX = pad, pillY = 132;
+    const pillW = tw + pillPadX * 2;
+    const pillH = 22 + pillPadY * 2;
+    ctx.fillStyle = cBG_ALT;
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(pillX, pillY, pillW, pillH, 999); ctx.fill(); }
+    else { ctx.fillRect(pillX, pillY, pillW, pillH); }
+    ctx.fillStyle = cTEXT;
+    ctx.textAlign = 'left';
+    ctx.fillText(txt, pillX + pillPadX, pillY + pillPadY + 20);
+    extraHeaderOffset = pillH + 10;
+  }
+
   const colDate = pad;
   const colTime = pad + 100;
   const colVenue = pad + 210;
@@ -479,7 +506,7 @@ function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages, title, opt
   const colEntries = pad + contentW - 100;
   const tableRight = pad + contentW;
 
-  const headerY = 155;
+  const headerY = 155 + extraHeaderOffset;
   ctx.font = '700 20px Univers Condensed, Univers, sans-serif';
   ctx.fillStyle = cTEXT_MUT;
   ctx.textAlign = 'left';
@@ -592,7 +619,7 @@ function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages, title, opt
 }
 
 // ── Generate array of schedule image canvases ──
-export function generateScheduleImages(events, title, opts) {
+export function generateScheduleImages(events, title, opts = {}) {
   const sorted = [...events].filter(e => !e.is_restart).sort((a, b) => {
     const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
     const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
@@ -600,9 +627,34 @@ export function generateScheduleImages(events, title, opts) {
   });
 
   const perPage = 28;
-  const pages = [];
-  for (let i = 0; i < sorted.length; i += perPage) {
-    pages.push(sorted.slice(i, i + perPage));
+
+  // Page-builder that chunks a flat list of events into 28-per-page slices.
+  // Each resulting page carries an optional range label so drawSchedulePage can
+  // render it as a section header — that's how the image export mirrors the
+  // PDF's "group by buy-in" layout instead of silently discarding the option.
+  const buildPages = (list, rangeLabel) => {
+    const out = [];
+    for (let i = 0; i < list.length; i += perPage) {
+      out.push({ events: list.slice(i, i + perPage), rangeLabel });
+    }
+    return out;
+  };
+
+  let pages;
+  if (opts.groupByBuyin && Array.isArray(opts.buyinRanges) && opts.buyinRanges.length) {
+    // Split into ordered groups, one page sequence per range (so each range
+    // gets its own titled page(s), matching PDF's section layout).
+    pages = [];
+    for (const range of opts.buyinRanges) {
+      const max = range.max === Infinity ? 1e12 : range.max;
+      const group = sorted.filter(e => {
+        const b = Number(e.buyin) || 0;
+        return b >= range.min && b <= max;
+      });
+      if (group.length) pages.push(...buildPages(group, range.label || ''));
+    }
+  } else {
+    pages = buildPages(sorted, null);
   }
 
   const canvases = [];
@@ -610,7 +662,10 @@ export function generateScheduleImages(events, title, opts) {
     const canvas = document.createElement('canvas');
     canvas.width = 1080; canvas.height = 1920;
     const ctx = canvas.getContext('2d');
-    drawSchedulePage(ctx, 1080, 1920, pages[i], i + 1, pages.length, title, opts);
+    drawSchedulePage(ctx, 1080, 1920, pages[i].events, i + 1, pages.length, title, {
+      ...opts,
+      rangeLabel: pages[i].rangeLabel,
+    });
     canvases.push(canvas);
   }
   return canvases;

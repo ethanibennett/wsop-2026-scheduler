@@ -126,16 +126,25 @@ export default function ScheduleView({
 
   useEffect(() => {
     const measure = () => {
-      if (schedHeaderRef.current) {
-        const h = schedHeaderRef.current.offsetHeight;
-        const style = getComputedStyle(schedHeaderRef.current);
-        const mt = parseFloat(style.marginTop) || 0;
-        setSchedDateTop(h + mt);
-      }
+      if (!schedHeaderRef.current) return;
+      // Use the sticky header's actual visible bottom relative to the scroll
+      // container — works no matter what negative `top` offset the CSS uses
+      // (currently -12px/-16px/-20px depending on breakpoint). offsetHeight +
+      // marginTop also works but is more fragile if CSS changes.
+      const container = schedHeaderRef.current.closest('.content-area');
+      const cRect = container ? container.getBoundingClientRect() : { top: 0 };
+      const rect = schedHeaderRef.current.getBoundingClientRect();
+      setSchedDateTop(Math.max(0, rect.bottom - cRect.top));
     };
     measure();
+    // Re-measure once more after the first paint — on some layouts the sticky
+    // header's final dimensions aren't settled on the synchronous first pass.
+    const t = setTimeout(measure, 60);
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', measure);
+    };
   }, []);
 
   const todayISO = getToday();
@@ -147,33 +156,26 @@ export default function ScheduleView({
       return da - db;
     }), [mySchedule]);
 
-  // Auto-scroll to first event of today
+  // Auto-scroll to today's date group. Mirrors TournamentsView's logic
+  // exactly so the two views behave identically:
+  //   groupAbsTop = group.top(relativeToContainer) + container.scrollTop
+  //   container.scrollTop = groupAbsTop - sticky.visibleBottom
+  // The RAF follow-up correction we used to have was double-bookkeeping
+  // against the same sticky and could push the first date-break above the
+  // viewport — removed.
   useLayoutEffect(() => {
-    if (sorted.length === 0) return;
+    if (sorted.length === 0) { setListVisible(true); return; }
     if (hasScrolled.current) return;
-    if (!todayRef.current) {
-      setListVisible(true);
-      return;
-    }
+    if (!todayRef.current) { setListVisible(true); return; }
     hasScrolled.current = true;
-    const el = todayRef.current;
-    const container = el.closest('.content-area') || document.querySelector('.content-area');
+    const container = todayRef.current.closest('.content-area') || document.querySelector('.content-area');
     if (!container) { setListVisible(true); return; }
-    const caTop = container.getBoundingClientRect().top;
+    const cRect = container.getBoundingClientRect();
     const sticky = container.querySelector('.schedule-sticky-header');
-    const stickyH = sticky ? sticky.getBoundingClientRect().bottom - caTop : 0;
-    const elTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-    container.scrollTop = Math.max(0, elTop - stickyH);
+    const stickyBottom = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - cRect.top) : 0;
+    const groupAbsTop = todayRef.current.getBoundingClientRect().top - cRect.top + container.scrollTop;
+    container.scrollTop = Math.max(0, groupAbsTop - stickyBottom);
     setListVisible(true);
-    requestAnimationFrame(() => {
-      const firstCard = el.querySelector('.cal-event-row');
-      if (!firstCard) return;
-      const stickyBottom = measureStickyStack(container);
-      const cardVisualTop = firstCard.getBoundingClientRect().top - container.getBoundingClientRect().top;
-      if (cardVisualTop < stickyBottom + 2) {
-        container.scrollTop -= (stickyBottom + 2 - cardVisualTop);
-      }
-    });
   }, [sorted]);
 
   function findBestFlightSchedule(eventNum, sat) {
