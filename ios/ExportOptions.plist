@@ -9,14 +9,9 @@
     <key>teamID</key>
     <string>27TK6846H8</string>
     <key>signingStyle</key>
-    <string>manual</string>
+    <string>automatic</string>
     <key>signingCertificate</key>
     <string>Apple Distribution</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>app.futurega.me</key>
-        <string>futuregame App Store</string>
-    </dict>
     <key>manageAppVersionAndBuildNumber</key>
     <true/>
     <key>uploadSymbols</key>
