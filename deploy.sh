@@ -70,11 +70,26 @@ info "Building web assets..."
 node build.js
 
 if $DEPLOY_IOS; then
-  # ── Step 2: Bump iOS build number ──
+  # ── Step 2: Bump iOS build number, reconciled with App Store Connect ──
+  # Apple's ExportOptions.plist has manageAppVersionAndBuildNumber=true, which
+  # lets App Store Connect auto-bump past any conflict. That caused the local
+  # pbxproj to silently drift from the actual TestFlight number. Instead, query
+  # ASC for the highest build number on this bundle and set NEW_BUILD =
+  # max(local, apple) + 1 so the pushed pbxproj matches what Apple accepts.
+  BUNDLE_ID=$(node -e "console.log(require('./capacitor.config.json').appId)")
   CURRENT_BUILD=$(grep -m1 'CURRENT_PROJECT_VERSION' "$IOS_PROJECT/project.pbxproj" | sed 's/.*= //;s/;.*//')
-  NEW_BUILD=$((CURRENT_BUILD + 1))
+  APPLE_LATEST=$(node "$PROJECT_ROOT/scripts/asc-latest-build.js" \
+    "$ASC_KEY_PATH" "$ASC_KEY_ID" "$ASC_ISSUER_ID" "$BUNDLE_ID" 2>/dev/null || echo "0")
+  # If ASC lookup failed or returned 0, fall back to local+1; otherwise bump
+  # past whatever Apple has.
+  if [ -z "$APPLE_LATEST" ] || [ "$APPLE_LATEST" = "0" ] || [ "$APPLE_LATEST" -lt "$CURRENT_BUILD" ]; then
+    NEW_BUILD=$((CURRENT_BUILD + 1))
+    info "iOS build number: $CURRENT_BUILD → $NEW_BUILD (local counter; ASC reported $APPLE_LATEST)"
+  else
+    NEW_BUILD=$((APPLE_LATEST + 1))
+    info "iOS build number: $CURRENT_BUILD → $NEW_BUILD (reconciled past ASC latest $APPLE_LATEST for $BUNDLE_ID)"
+  fi
   sed -i '' "s/CURRENT_PROJECT_VERSION = $CURRENT_BUILD;/CURRENT_PROJECT_VERSION = $NEW_BUILD;/g" "$IOS_PROJECT/project.pbxproj"
-  info "iOS build number: $CURRENT_BUILD → $NEW_BUILD"
 
   # ── Step 3: Sync web assets to iOS ──
   info "Syncing to iOS..."
