@@ -8501,8 +8501,8 @@ app.post('/api/tournaments/sync', authenticateToken, express.json({ limit: '50mb
       const existing = db.prepare('SELECT id FROM tournaments WHERE stable_id = ?').get(t.stable_id);
 
       db.run(
-        `INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, late_reg_end, game_variant, venue, notes, category, is_satellite, target_event, is_restart, parent_event, day_length, prize_pool, house_fee, opt_add_on, rake_pct, rake_dollars, is_deepstack, source_pdf)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO tournaments (stable_id, event_number, event_name, date, time, buyin, starting_chips, level_duration, reentry, late_reg, late_reg_end, game_variant, venue, notes, category, is_satellite, target_event, is_restart, parent_event, day_length, prize_pool, house_fee, opt_add_on, rake_pct, rake_dollars, is_deepstack, source_pdf, structure_sheet_path)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(stable_id) DO UPDATE SET
            event_number=excluded.event_number, event_name=excluded.event_name, date=excluded.date,
            time=excluded.time, buyin=excluded.buyin, starting_chips=excluded.starting_chips,
@@ -8512,7 +8512,7 @@ app.post('/api/tournaments/sync', authenticateToken, express.json({ limit: '50mb
            target_event=excluded.target_event, is_restart=excluded.is_restart, parent_event=excluded.parent_event,
            day_length=excluded.day_length, prize_pool=excluded.prize_pool, house_fee=excluded.house_fee,
            opt_add_on=excluded.opt_add_on, rake_pct=excluded.rake_pct, rake_dollars=excluded.rake_dollars,
-           is_deepstack=excluded.is_deepstack`,
+           is_deepstack=excluded.is_deepstack, structure_sheet_path=excluded.structure_sheet_path`,
         [
           t.stable_id, t.event_number || '', t.event_name, t.date, t.time || '12:00 PM',
           t.buyin || 0, t.starting_chips || null, t.level_duration || null,
@@ -8522,7 +8522,7 @@ app.post('/api/tournaments/sync', authenticateToken, express.json({ limit: '50mb
           t.is_restart ? 1 : 0, t.parent_event || null, t.day_length || null,
           t.prize_pool || null, t.house_fee || null, t.opt_add_on || null,
           t.rake_pct || null, t.rake_dollars || null, t.is_deepstack ? 1 : 0,
-          t.source_pdf || null
+          t.source_pdf || null, t.structure_sheet_path || null
         ]
       );
       if (existing) updated++; else inserted++;

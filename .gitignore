@@ -82,7 +82,10 @@ setup.sh
 !.claude/hooks/session-start.sh
 
 # Schedule source documents (user uploads, archived per-venue)
-schedule-docs/
+# NOTE: tracked in git so production has the same archive as local.
+# Individual junk files under it can still be excluded with more specific rules.
+#schedule-docs/
+schedule-docs/**/.DS_Store
 
 # Build output
 public-vite/

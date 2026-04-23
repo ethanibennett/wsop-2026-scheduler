@@ -3596,7 +3596,11 @@
 
     .back-to-today-fab {
       position: fixed;
-      bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 16px);
+      /* Sit above the bottom-nav. Nav height is max(44px, --tab-h + safe-area),
+         so we use the same max() to guarantee real clearance on both web
+         (where safe-area=0 and the 44px min kicks in) and iOS/Android (where
+         safe-area dominates). */
+      bottom: calc(max(44px, var(--tab-h) + env(safe-area-inset-bottom, 0px)) + 16px);
       left: 50%;
       z-index: 101;
       background: var(--accent);
