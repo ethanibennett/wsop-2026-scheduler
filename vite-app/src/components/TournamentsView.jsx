@@ -186,7 +186,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
           <div className="filter-group filter-row" style={{marginBottom:'6px'}}>
             <div className="search-bar" style={{marginBottom:0,height:'32px'}}>
               <Icon.search />
-              <input type="text" placeholder="Search events, games\u2026" value={search} onChange={e => setSearch(e.target.value)} style={{padding:'4px 0'}} />
+              <input type="text" placeholder={"Search events, games\u2026"} value={search} onChange={e => setSearch(e.target.value)} style={{padding:'4px 0'}} />
               {search && (
                 <button onClick={() => setSearch('')} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'1rem',padding:'0 2px'}}>&#10005;</button>
               )}

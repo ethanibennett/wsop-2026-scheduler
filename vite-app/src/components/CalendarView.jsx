@@ -243,7 +243,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
               <Icon.search />
               <input
                 type="text"
-                placeholder="Search events, games\u2026"
+                placeholder={"Search events, games\u2026"}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 style={{padding:'4px 0'}}
