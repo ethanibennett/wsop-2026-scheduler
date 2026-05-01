@@ -1007,29 +1007,29 @@ export default function App() {
           <button className="btn btn-ghost btn-icon" onClick={toggleTheme} title={`Switch to ${nextThemeLabel} mode`}>
             {React.createElement(Icon[THEME_ICON[theme]] || Icon.moon)}
           </button>
-          <div style={{position:'relative',minWidth:0,flexShrink:1}}>
-            <button className="username-chip" onClick={() => setShowUserMenu(m => !m)} style={{display:'flex',alignItems:'center',gap:'6px',marginLeft:'2px',background:'none',border:'none',padding:0,cursor:'pointer',maxWidth:'100%',overflow:'hidden'}}>
-              <Avatar src={avatar} username={username} size={22} style={{flexShrink:0}} />
-              <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{nameMode === 'username' ? username : (realName || username)}</span>
-            </button>
-            {showUserMenu && ReactDOM.createPortal(
-              <>
-                <div style={{position:'fixed',inset:0,zIndex:9998}} onClick={() => setShowUserMenu(false)} />
-                <div style={{position:'fixed',top:'52px',right:'12px',zIndex:9999,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px 0',minWidth:'160px',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',fontFamily:'Univers Condensed, Univers, sans-serif'}}>
-                  <button onClick={() => { setShowUserMenu(false); setCurrentView('schedule'); }}
-                    style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'0.85rem'}}>
-                    My Schedule
-                  </button>
-                  <div style={{height:'1px',background:'var(--border)',margin:'2px 0'}} />
-                  <button onClick={() => { setShowUserMenu(false); handleLogout(); }}
-                    style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'0.85rem'}}>
-                    Sign Out
-                  </button>
-                </div>
-              </>,
-              document.body
-            )}
-          </div>
+        </div>
+        <div className="top-bar-user" style={{position:'relative',minWidth:0,flexShrink:1,display:'flex',alignItems:'center'}}>
+          <button className="username-chip" onClick={() => setShowUserMenu(m => !m)} style={{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',padding:0,cursor:'pointer',maxWidth:'100%',overflow:'hidden'}}>
+            <Avatar src={avatar} username={username} size={22} style={{flexShrink:0}} />
+            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{nameMode === 'username' ? username : (realName || username)}</span>
+          </button>
+          {showUserMenu && ReactDOM.createPortal(
+            <>
+              <div style={{position:'fixed',inset:0,zIndex:9998}} onClick={() => setShowUserMenu(false)} />
+              <div style={{position:'fixed',top:'52px',right:'12px',zIndex:9999,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px 0',minWidth:'160px',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',fontFamily:'Univers Condensed, Univers, sans-serif'}}>
+                <button onClick={() => { setShowUserMenu(false); setCurrentView('schedule'); }}
+                  style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'0.85rem'}}>
+                  My Schedule
+                </button>
+                <div style={{height:'1px',background:'var(--border)',margin:'2px 0'}} />
+                <button onClick={() => { setShowUserMenu(false); handleLogout(); }}
+                  style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'0.85rem'}}>
+                  Sign Out
+                </button>
+              </div>
+            </>,
+            document.body
+          )}
         </div>
       </header>
 

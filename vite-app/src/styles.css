@@ -352,13 +352,21 @@
       color: var(--text-muted);
     }
 
-    .top-bar-actions { display: flex; align-items: center; gap: 6px; overflow: hidden; }
+    /* Three icon buttons (notifications, broadcast, theme). On iOS this group
+       is absolutely centered under the Dynamic Island — see the [data-platform="ios"]
+       override below. On web we just let it sit between the title and the user
+       chip via flex. */
+    .top-bar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
     .top-bar-actions .btn-icon {
       width: 32px; height: 32px; min-width: 32px;
       padding: 0; display: flex; align-items: center; justify-content: center;
       border-radius: 50%;
     }
     .top-bar-actions .btn-icon svg { width: 17px; height: 17px; }
+    /* Avatar + display-name chip — always pinned to the far right of the bar.
+       On iOS this stays in normal flex flow even after the action icons get
+       lifted out to the Dynamic Island. */
+    .top-bar-user { margin-left: 6px; }
 
     .username-chip {
       font-size: 0.8rem;
@@ -2228,7 +2236,9 @@
     html[data-platform="ios"] .nav-tab {
       padding-top: 10px;
     }
-    /* iOS: spread top-bar action icons horizontally across the Dynamic Island's width */
+    /* iOS: spread top-bar action icons horizontally across the Dynamic Island's width.
+       Absolutely-centered means the user chip (a separate sibling) keeps its normal
+       far-right placement undisturbed. */
     html[data-platform="ios"] .top-bar-actions {
       position: absolute;
       left: 50%;
@@ -2236,6 +2246,7 @@
       width: 126px;
       justify-content: space-between;
       gap: 0;
+      margin-left: 0;
     }
 
     .nav-tab {
