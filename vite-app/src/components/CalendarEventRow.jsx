@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Icon from './Icon.jsx';
+import Avatar from './Avatar.jsx';
 import {
   getVenueInfo, getVenueClass, getVenueBrandColor, getVariantColor, isBraceletEvent,
   normaliseDate, parseDateTime, parseDateTimeInTz, parseLateRegEnd, parseTournamentTime,
@@ -207,20 +208,46 @@ function MiniLateRegBar({ lateRegEnd, date, time, venueAbbr, openOnly, venue }) 
 }
 
 // ── Buddy Avatar Row ──
+// Connected accounts who are also playing this event. Renders each as a
+// rounded chip: the proper Avatar component (image if buddy.avatar is set,
+// otherwise an initial-colored circle from Avatar's hue fallback) followed by
+// their display name. Previously rendered raw <span> elements with classes
+// like `.buddy-chip-avatar` that have no matching CSS, which made the chip
+// collapse to the bare username text in the flow.
 function BuddyAvatarRow({ buddies, liveUpdates, onBuddyClick }) {
   if (!buddies || buddies.length === 0) return null;
   return (
-    <div className="buddy-avatar-row" style={{display:'flex',gap:'4px',flexWrap:'wrap',marginBottom:'10px'}}>
-      {buddies.map((b, i) => (
-        <span key={i} className="buddy-chip"
-          style={{cursor: onBuddyClick ? 'pointer' : 'default'}}
-          onClick={() => onBuddyClick && onBuddyClick(b)}
-          title={b.username || b.real_name || ''}
-        >
-          <span className="buddy-chip-avatar">{(b.username || '?')[0].toUpperCase()}</span>
-          <span className="buddy-chip-name">{b.username || b.real_name || '?'}</span>
-        </span>
-      ))}
+    <div
+      className="buddy-avatar-row"
+      style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px', alignItems: 'center' }}
+    >
+      {buddies.map((b, i) => {
+        const name = b.username || b.real_name || '?';
+        return (
+          <span
+            key={b.id ?? i}
+            className="buddy-chip"
+            style={{
+              cursor: onBuddyClick ? 'pointer' : 'default',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '3px 10px 3px 3px',
+              borderRadius: '999px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              fontSize: '0.78rem',
+              color: 'var(--text)',
+              userSelect: 'none',
+            }}
+            onClick={() => onBuddyClick && onBuddyClick(b)}
+            title={name}
+          >
+            <Avatar src={b.avatar} username={name} size={22} />
+            <span>{name}</span>
+          </span>
+        );
+      })}
     </div>
   );
 }
