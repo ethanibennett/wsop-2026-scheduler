@@ -4031,10 +4031,34 @@
         gap: 14px;
       }
 
+      /* Desktop filter panel: switch from CSS grid to a multi-column flow.
+         Grid was forcing every cell in a row to the height of the tallest
+         sibling, so short items (Search, Date Range) inherited Series's full
+         height and left big empty wells. Multi-column packs items densely
+         top-to-bottom within each column instead.
+         column-width auto-fits as many ~240px columns as the panel allows
+         (typically 3 in the portal panel's max-width, sometimes 4). */
       .filter-panel {
-        grid-template-columns: repeat(4, 1fr);
+        display: block;
+        column-count: auto;
+        column-width: 240px;
+        column-gap: 16px;
       }
-
+      .filter-panel > .filter-group {
+        break-inside: avoid;
+        -webkit-column-break-inside: avoid;
+        page-break-inside: avoid;
+        margin-bottom: 14px;
+        /* Override flex display from inline styles for non-action items so
+           column flow can size them correctly. The action row (.filter-actions)
+           re-asserts display: flex below. */
+      }
+      /* Action row spans every column and lives at the bottom of the flow. */
+      .filter-panel > .filter-actions {
+        column-span: all;
+        -webkit-column-span: all;
+        margin-top: 8px;
+      }
       .filter-span2 { grid-column: span 1; }
     }
 
