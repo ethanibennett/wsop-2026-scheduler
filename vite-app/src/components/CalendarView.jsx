@@ -539,7 +539,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
           </div>
 
           {/* Clear all + Save & Close */}
-          <div className="filter-group filter-span2" style={{display:'flex',flexDirection:'row',gap:'8px',justifyContent:'flex-end'}}>
+          <div className="filter-group" style={{gridColumn:'1 / -1',display:'flex',flexDirection:'row',gap:'8px',justifyContent:'flex-end',alignItems:'center',marginTop:'4px'}}>
             {hasActive && (
               <button className="btn btn-ghost btn-sm" onClick={() =>
                 setFilters({minBuyin:'',maxBuyin:'',buyinRanges:[],rakeRanges:[],selectedGames:[],hiddenVenues:[],bountyOnly:false,mysteryBountyOnly:false,headsUpOnly:false,tagTeamOnly:false,employeesOnly:false,hideSatellites:true,hideRestarts:true,hideSideEvents:true,hiddenMonths:[],ladiesOnly:false,seniorsOnly:false,mixedOnly:false,dateFrom:'',dateTo:'',maxDistance:'',userLocation:null,locationRegion:null})
