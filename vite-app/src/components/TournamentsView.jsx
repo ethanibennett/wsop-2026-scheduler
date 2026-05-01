@@ -182,8 +182,8 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
             );
           })()}
 
-          {/* Search */}
-          <div className="filter-group filter-span2" style={{marginBottom:'6px'}}>
+          {/* Search — full-width row above the 4-col section row */}
+          <div className="filter-group filter-row" style={{marginBottom:'6px'}}>
             <div className="search-bar" style={{marginBottom:0,height:'32px'}}>
               <Icon.search />
               <input type="text" placeholder="Search events, games\u2026" value={search} onChange={e => setSearch(e.target.value)} style={{padding:'4px 0'}} />
@@ -203,7 +203,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
             const pctL = (fromIdx / totalDays) * 100;
             const pctR = (toIdx / totalDays) * 100;
             return (
-              <div className="filter-group filter-span2" style={{marginBottom:'6px'}}>
+              <div className="filter-group filter-row" style={{marginBottom:'6px'}}>
                 <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Date Range</label>
                 <div style={{padding:'0 6px'}}>
                   <div className="date-slider-wrap">
