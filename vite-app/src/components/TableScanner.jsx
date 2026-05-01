@@ -549,14 +549,14 @@ export default function TableScanner() {
             const { display, seats, autoPortrait } = getDisplayPlayers(players);
             const isPortrait = autoPortrait || portrait;
             return (
-              <div className="table-scanner-oval" ref={ovalRef} style={isPortrait ? {aspectRatio:'3 / 4', width:'75%', margin:'4px auto'} : undefined}>
+              <div className="table-scanner-oval" ref={ovalRef} style={isPortrait ? {aspectRatio:'4 / 5', width:'92%', maxHeight:'62vh', margin:'4px auto'} : undefined}>
                 <label className="table-scanner-felt" title="Change felt colour"
                   style={{
                     background: `radial-gradient(ellipse at ${isPortrait ? '40% 50%' : '50% 40%'}, ${feltColor}cc 0%, ${feltColor} 100%)`,
                     borderColor: feltColor,
                     cursor: 'pointer',
                     display: 'block',
-                    ...(isPortrait ? {inset:'10% 18%'} : {}),
+                    ...(isPortrait ? {inset:'12% 16%'} : {}),
                   }}>
                   <input type="color" value={feltColor}
                     onChange={e => { setFeltColor(e.target.value); try { localStorage.setItem('scannerFeltColor', e.target.value); } catch {} }}

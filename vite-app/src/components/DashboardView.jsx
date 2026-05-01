@@ -627,6 +627,13 @@ export default function DashboardView({
           }
 
           if (regClosed) return null;
+          // Hide Start Event until the event's scheduled start time has
+          // arrived — pressing it earlier creates a phantom "playing"
+          // status before the cards are even in the air.
+          const eventStartMs = event.venue
+            ? parseDateTimeInTz(event.date, event.time, event.venue)
+            : parseDateTime(event.date, event.time || '12:00 AM');
+          if (Number.isFinite(eventStartMs) && Date.now() < eventStartMs) return null;
           return (
             <button
               className="dash-start-btn"
