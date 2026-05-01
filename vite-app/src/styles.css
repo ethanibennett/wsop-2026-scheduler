@@ -2647,6 +2647,19 @@
       flex-wrap: wrap;
     }
 
+    /* Search + Date Range share a row on desktop (>=768px), stack on narrow.
+       Uses inline-block-like sizing within the .filter-row flex parent. */
+    @media (min-width: 768px) {
+      .filter-search-cell {
+        flex: 1 1 280px;
+        min-width: 0;
+      }
+      .filter-daterange-cell {
+        flex: 2 1 360px;
+        min-width: 0;
+      }
+    }
+
     .filter-chip {
       display: flex;
       align-items: center;
@@ -3085,7 +3098,9 @@
       background: var(--bg);
       padding: 24px 12px 12px;
       margin: -12px -12px -2px;
-      box-shadow: 0 4px 0 0 var(--bg);
+      /* Extend the bg downward so prior-day events don't peek through the
+         brief transition gap between two date-break stickies. */
+      box-shadow: 0 60px 0 0 var(--bg);
     }
 
     /* ── Calendar event rows (collapsible) ── */
@@ -4285,7 +4300,9 @@
     }
 
     .dash-event-card.anchor {
-      border-left: 3px solid var(--text) !important;
+      /* Priority status is already conveyed by the "LOCKED IN" badge; the
+         previous 3px solid var(--text) border-left rendered as a stark white
+         stripe between the venue strip and card body in dark mode. */
     }
 
     .dash-event-card.playing {

@@ -8573,25 +8573,78 @@ Extract every player row. For each return:
 Return ONLY valid JSON array with keys "name", "chips", "seat", "isHero". No markdown.
 Example: [{"name":"John Smith","chips":"30,000","seat":"12-5","isHero":false},{"name":"Ethan Bennett","chips":"32,700","seat":"13-7","isHero":true}]`,
 
-      wsop: `This is a WSOP Live poker tournament table screenshot. It shows players seated around a green felt table, and above the table there is a row showing the table info (e.g. "Day 2 010" means Table 10).
+      wsop: `This is a WSOP Live poker tournament table screenshot. Players are seated around a green felt oval table. Above the table there is a row showing the table info (e.g. "Day 2 010" means Table 10).
 
-The WSOP Live app uses FIXED seat positions on screen. Map each player to their seat number based on where they appear:
-- Seat 1: top-right of the table
-- Seat 2: right side, upper
-- Seat 3: right side, lower
-- Seat 4: bottom-right of the table
-- Seat 5: bottom-center of the table
-- Seat 6: bottom-left of the table
-- Seat 7: left side, lower
-- Seat 8: left side, upper
-- Seat 9: top-left of the table
-Empty seats will have no name label — skip them.
+STEP 1 — Determine table_size from the LAYOUT, not the player count:
+CRITICAL: When players bust, the WSOP Live app does NOT reflow the table. A 7-max table stays a 7-max table even if only 4 players are left — the busted seats are simply BLANK at their original positions. Counting visible names will give you the wrong size. Instead, judge by the geometry of where seats are drawn:
 
-Also extract the table number from the header row above the table. The format is like "Day 2 010" where "010" means Table 10 (strip leading zeros).
+- 6-max layout: 3 rows down each side, NO bottom-center slot. Vertical row spacing is the WIDEST.
+- 7-max layout: 3 rows down each side + a lone slot at bottom-center. Same row spacing as 6-max, just with the extra bottom-center.
+- 8-max layout: 4 rows down each side, NO bottom-center slot. Vertical row spacing is TIGHTER than 6/7-max.
+- 9-max layout: 4 rows down each side + a lone slot at bottom-center. Same row spacing as 8-max, plus bottom-center.
 
-Return ONLY valid JSON object with keys "table" (number or null) and "players" (array). Each player has "name", "chips" (e.g. "405.0K" or "1.1M", or null), "seat" (1-9).
-No markdown, no explanation.
-Example: {"table":10,"players":[{"name":"John Smith","chips":"405.0K","seat":1},{"name":"Jane Doe","chips":"1.1M","seat":5}]}`,
+How to tell:
+1. Look at how many ROW POSITIONS are drawn down each side (count the vertical positions occupied by either a name OR a noticeable empty slot). 3 rows per side → 6 or 7 max. 4 rows per side → 8 or 9 max.
+2. Then check if there is a lone slot at bottom-center (player or empty space between bottom-left and bottom-right). If yes → odd (7 or 9). If no → even (6 or 8).
+3. The vertical distance between adjacent row positions is wider on 6/7-max than on 8/9-max because there are fewer rows packed into the same felt height.
+
+Empty seats: do NOT include them in the players array, but DO use them as evidence of the layout, and DO leave their seat numbers unused (the remaining players keep their original seats).
+
+STEP 2 — Use the seat map for that size:
+The WSOP Live app draws players at FIXED relative positions for each table size. Match each player to a seat by their visual position on the felt.
+
+9-max layout (4 down each side + 1 bottom-center):
+  Seat 1: top-right corner
+  Seat 2: right side, upper
+  Seat 3: right side, lower
+  Seat 4: bottom-right corner
+  Seat 5: bottom-center
+  Seat 6: bottom-left corner
+  Seat 7: left side, lower
+  Seat 8: left side, upper
+  Seat 9: top-left corner
+
+8-max layout (4 down each side, no bottom-center seat — common for PLO/short events):
+  Seat 1: top-right corner
+  Seat 2: right side, upper
+  Seat 3: right side, lower
+  Seat 4: bottom-right corner
+  Seat 5: bottom-left corner
+  Seat 6: left side, lower
+  Seat 7: left side, upper
+  Seat 8: top-left corner
+
+7-max layout (3 rows down each side + 1 lone seat at bottom-center):
+  Seat 1: top-right
+  Seat 2: right side, upper-middle
+  Seat 3: right side, lower-middle (NOT a corner — there's no bottom-corner seat in 7-max)
+  Seat 4: bottom-center
+  Seat 5: left side, lower-middle
+  Seat 6: left side, upper-middle
+  Seat 7: top-left
+
+6-max layout (3 rows down each side, NO bottom-center):
+  Seat 1: top-right
+  Seat 2: right side, middle
+  Seat 3: bottom-right
+  Seat 4: bottom-left
+  Seat 5: left side, middle
+  Seat 6: top-left
+
+KEY DISAMBIGUATION:
+- 6-max vs 7-max: both have 3 rows down each side. The difference is whether there's a 7th player alone at bottom-center. If yes → 7-max. If no → 6-max.
+- 8-max vs 9-max: both have 4 rows down each side. The difference is whether there's a 9th player alone at bottom-center.
+- 6-max and 7-max have noticeably WIDER vertical row spacing than 8-max and 9-max because they have fewer rows to fit in the same vertical space.
+
+Numbering ALWAYS starts at top-right and goes CLOCKWISE around the oval.
+
+STEP 3 — Extract the table number from the header above the table. Format is like "Day 2 010" → table 10 (strip leading zeros).
+
+Return ONLY valid JSON. Schema:
+{"table": <int|null>, "table_size": <6|7|8|9>, "players": [{"name": "...", "chips": "405.0K"|"1.1M"|null, "seat": <int>}]}
+
+No markdown, no explanation. Example for an 8-max PLO table:
+{"table":57,"table_size":8,"players":[{"name":"Christopher Power","chips":"215.5K","seat":8},{"name":"Jiayi Yao","chips":"236.5K","seat":1},{"name":"Nitin Gupta","chips":"200.0K","seat":2},{"name":"Shanna Gathright","chips":"401.0K","seat":3},{"name":"David Valden","chips":"532.0K","seat":4},{"name":"Lawrence Wayne","chips":"184.0K","seat":5},{"name":"Ryan Haas","chips":"161.0K","seat":6},{"name":"Thomas Gawlik","chips":"701.0K","seat":7}]}`,
     };
 
     const prompt = promptByFormat[format] || promptByFormat.pokerstars;

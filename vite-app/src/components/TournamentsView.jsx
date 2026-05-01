@@ -182,8 +182,8 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
             );
           })()}
 
-          {/* Search — full-width row above the 4-col section row */}
-          <div className="filter-group filter-row" style={{marginBottom:'6px'}}>
+          {/* Search — desktop pairs with Date Range via .filter-row layout */}
+          <div className="filter-group filter-row filter-search-cell" style={{marginBottom:'6px'}}>
             <div className="search-bar" style={{marginBottom:0,height:'32px'}}>
               <Icon.search />
               <input type="text" placeholder={"Search events, games\u2026"} value={search} onChange={e => setSearch(e.target.value)} style={{padding:'4px 0'}} />
@@ -203,7 +203,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
             const pctL = (fromIdx / totalDays) * 100;
             const pctR = (toIdx / totalDays) * 100;
             return (
-              <div className="filter-group filter-row" style={{marginBottom:'6px'}}>
+              <div className="filter-group filter-row filter-daterange-cell" style={{marginBottom:'6px'}}>
                 <label style={{fontSize:'0.75rem',color:'var(--text-muted)',marginBottom:'6px',display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Date Range</label>
                 <div style={{padding:'0 6px'}}>
                   <div className="date-slider-wrap">
@@ -1071,6 +1071,20 @@ export default function TournamentsView({
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
   const fabContainerRef = useRef(null);
+  const [collapsedDates, setCollapsedDates] = useState(() => {
+    try {
+      const raw = localStorage.getItem('tournamentsCollapsedDates');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+  const toggleDateCollapsed = (date) => {
+    setCollapsedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date); else next.add(date);
+      try { localStorage.setItem('tournamentsCollapsedDates', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   // Scroll to today's date group or the next upcoming one
   const scrollToTodayOrNext = useCallback(() => {
@@ -1473,16 +1487,18 @@ export default function TournamentsView({
               const needsRef = !scrollRefAssigned && group.date >= todayISO;
               if (needsRef) scrollRefAssigned = true;
               const dayEventCount = group.events.filter(t => !t.is_restart).length;
+              const isCollapsed = collapsedDates.has(group.date);
               return (
                 <div key={group.date} ref={needsRef ? todayScrollRef : undefined} data-today-scroll={needsRef ? 'true' : undefined} data-date-group={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
-                  <div className="schedule-date-break" style={{
+                  <div className="schedule-date-break" onClick={() => toggleDateCollapsed(group.date)} style={{
                     position: 'sticky', top: dateBreakTop + 'px', zIndex: 5,
                     padding: '12px 12px 8px 2px',
                     background: 'var(--bg)',
                     color: 'var(--text)',
                     fontWeight: 700,
                     borderBottom: 'none',
-                    display: 'flex', alignItems: 'baseline', gap: '4px'
+                    display: 'flex', alignItems: 'baseline', gap: '4px',
+                    cursor: 'pointer', userSelect: 'none'
                   }}>
                     {isToday ? (
                       <>
@@ -1490,6 +1506,7 @@ export default function TournamentsView({
                           background: 'var(--accent)', display: 'inline-flex', alignItems: 'baseline', gap: '4px',
                           padding: '4px 12px', borderRadius: '999px', cursor: 'pointer'
                         }} onClick={(e) => {
+                          e.stopPropagation();
                           const grp = e.currentTarget.closest('[data-date-group]');
                           const container = grp?.closest('.content-area');
                           if (grp && container) {
@@ -1502,18 +1519,32 @@ export default function TournamentsView({
                           <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>
                         </span>
                         <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount} event{dayEventCount !== 1 ? 's' : ''}</span>
-                        <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayOfWeek}</span>
+                        <span style={{marginLeft: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: '8px'}}>
+                          <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayOfWeek}</span>
+                          <span aria-label={isCollapsed ? 'Expand' : 'Collapse'} style={{
+                            display: 'inline-block', fontSize: '1.1rem', lineHeight: 1, color: 'var(--accent)',
+                            transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                            transition: 'transform 0.15s ease'
+                          }}>{'▶'}</span>
+                        </span>
                       </>
                     ) : (
                       <>
                         <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayNum}</span>
                         <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)", textTransform: 'capitalize'}}>{monthAbbr}</span>
                         <span style={{fontSize:'0.7rem',color:'var(--text-muted)',fontWeight:600,marginLeft:'4px'}}>{dayEventCount} event{dayEventCount !== 1 ? 's' : ''}</span>
-                        <span style={{marginLeft: 'auto', fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayOfWeek}</span>
+                        <span style={{marginLeft: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: '8px'}}>
+                          <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)"}}>{dayOfWeek}</span>
+                          <span aria-label={isCollapsed ? 'Expand' : 'Collapse'} style={{
+                            display: 'inline-block', fontSize: '1.1rem', lineHeight: 1, color: 'var(--accent)',
+                            transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                            transition: 'transform 0.15s ease'
+                          }}>{'▶'}</span>
+                        </span>
                       </>
                     )}
                   </div>
-                  {group.events.map(t => (
+                  {!isCollapsed && group.events.map(t => (
                     <div key={t.id}>
                       <CalendarEventRow
                         tournament={t}

@@ -30,8 +30,8 @@ export default function ScheduleExportModal({ events, onClose }) {
 
   const [selectedVenues, setSelectedVenues] = useState(() => new Set(venueList.map(([a]) => a)));
   const [excludeSatellites, setExcludeSatellites] = useState(false);
-  const [lightMode, setLightMode] = useState(false);
-  const [groupByBuyin, setGroupByBuyin] = useState(false);
+  const [lightMode, setLightMode] = useState(true);
+  const [groupByBuyin, setGroupByBuyin] = useState(true);
   const [buyinRanges, setBuyinRanges] = useState(DEFAULT_BUYIN_RANGES);
 
   const allSelected = selectedVenues.size === venueList.length;

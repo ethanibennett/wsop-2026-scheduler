@@ -32,21 +32,38 @@ function drawWatermark(ctx, w, h, pos) {
   }
 }
 
+// Share via Web Share API (mobile native sheet) or fall back to a download
+// anchor (desktop). Works for any blob: PNG, PDF, etc.
+export async function shareOrDownloadBlob(blob, filename, mimeType) {
+  try {
+    if (navigator.canShare) {
+      const file = new File([blob], filename, { type: mimeType });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+          return;
+        } catch (e) {
+          if (e.name === 'AbortError') return;
+        }
+      }
+    }
+  } catch {}
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // Share or download a canvas
 export async function shareOrDownloadCanvas(canvas, filename) {
-  const dataUrl = canvas.toDataURL('image/png');
-  try {
-    const blob = await (await fetch(dataUrl)).blob();
-    const file = new File([blob], filename, { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file] });
-      return;
-    }
-  } catch (e) {
-    if (e.name === 'AbortError') return;
-  }
-  const a = document.createElement('a');
-  a.href = dataUrl; a.download = filename; a.click();
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return;
+  await shareOrDownloadBlob(blob, filename, 'image/png');
 }
 
 // ── PDF Font Loader ──
@@ -79,15 +96,35 @@ function hexRGB(hex) {
   return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
 }
 
+// Wrap a dynamic import so that a stale-chunk failure (left over from a prior
+// deploy when the user's tab still references the old hashed filename)
+// triggers a one-shot reload instead of bubbling a useless error to the user.
+async function dynamicImport(loader) {
+  try {
+    const mod = await loader();
+    sessionStorage.removeItem('pdfChunkReloadAttempted');
+    return mod;
+  } catch (e) {
+    const msg = String((e && e.message) || e);
+    if (/dynamically imported module|Failed to fetch dynamically/i.test(msg)
+        && !sessionStorage.getItem('pdfChunkReloadAttempted')) {
+      sessionStorage.setItem('pdfChunkReloadAttempted', '1');
+      location.reload();
+      return new Promise(() => {});
+    }
+    throw e;
+  }
+}
+
 // ── Generate Schedule PDF ──
 export async function generateSchedulePDF(events, title, opts = {}) {
   const isLight = !!opts.light;
-  const { default: jsPDF } = await import('jspdf');
+  const { default: jsPDF } = await dynamicImport(() => import('jspdf'));
   // jspdf-autotable v3 is UMD/CJS under the hood and doesn't auto-attach to the
   // jsPDF prototype when imported as an ESM module (unlike the legacy global
   // <script> load, which put it on window.jspdf). Import the default export and
   // call it as `autoTable(doc, options)` instead of `doc.autoTable(options)`.
-  const { default: autoTable } = await import('jspdf-autotable');
+  const { default: autoTable } = await dynamicImport(() => import('jspdf-autotable'));
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -188,7 +225,7 @@ export async function generateSchedulePDF(events, title, opts = {}) {
       rows.push([
         dateStr,
         ev.time || 'TBD',
-        venue.longName || venue.abbr,
+        venue.abbr,
         ev.event_name || '',
         ev.buyin ? formatBuyin(ev.buyin, ev.venue) : '\u2014',
         entriesStr
@@ -424,7 +461,8 @@ export async function generateSchedulePDF(events, title, opts = {}) {
     drawSectionTotal(sorted, doc.lastAutoTable.finalY || 24);
   }
 
-  doc.save('my-schedule.pdf');
+  const blob = doc.output('blob');
+  await shareOrDownloadBlob(blob, 'my-schedule.pdf', 'application/pdf');
 }
 
 // ── Draw a single schedule page on canvas (1080x1920 story format) ──
@@ -571,7 +609,7 @@ function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages, title, opt
     ctx.font = '400 20px Univers Condensed, Univers, sans-serif';
     ctx.fillStyle = venueColor;
     ctx.textAlign = 'center';
-    const venueName = venue.longName || venue.abbr;
+    const venueName = venue.abbr;
     let venueDisplay = venueName;
     const maxVenueW = 160;
     while (ctx.measureText(venueDisplay).width > maxVenueW && venueDisplay.length > 3) {

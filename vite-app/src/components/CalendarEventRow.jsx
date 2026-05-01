@@ -8,7 +8,7 @@ import {
   normaliseDate, parseDateTime, parseDateTimeInTz, parseLateRegEnd, parseTournamentTime,
   getMaxEntries, getVenueTimezone, getVenueTzAbbr, getNow,
   extractConditions, formatConditionLabel, formatConditionBadge,
-  getIfIBustEvents, getGamePills, calculateCountdown, haptic,
+  getIfIBustEvents, getIfIBagEvents, getGamePills, calculateCountdown, haptic,
   currencySymbol, nativeCurrency, CURRENCY_CONFIG, formatCurrencyAmount,
   VENUE_TO_SERIES, VENUE_BRAND_VAR, isPOYEligible, calculatePOYPoints, isSixMax,
   HAND_CONFIG, HAND_CONFIG_DEFAULT,
@@ -258,6 +258,7 @@ function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemo
   const existingSat = conditions.find(c => c.type === 'IF_WIN_SEAT' || c.type === 'IF_NO_SEAT');
   const existingProfit = conditions.find(c => c.type === 'PROFIT_THRESHOLD');
   const existingBust = conditions.find(c => c.type === 'IF_BUST');
+  const existingBag = conditions.find(c => c.type === 'IF_BAG');
 
   const [satEnabled, setSatEnabled] = useState(!!existingSat);
   const [satType, setSatType] = useState(existingSat ? existingSat.type : 'IF_WIN_SEAT');
@@ -267,9 +268,14 @@ function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemo
   const [profitAmount, setProfitAmount] = useState(existingProfit ? existingProfit.profitThreshold : '');
   const [bustEnabled, setBustEnabled] = useState(!!existingBust);
   const [selectedBustId, setSelectedBustId] = useState(existingBust ? existingBust.dependsOnId : null);
+  const [bagEnabled, setBagEnabled] = useState(!!existingBag);
+  const [selectedBagId, setSelectedBagId] = useState(existingBag ? existingBag.dependsOnId : null);
 
   const bustEvents = useMemo(() => {
     return getIfIBustEvents(tournament, allTournaments, scheduleIds);
+  }, [tournament, allTournaments, scheduleIds]);
+  const bagEvents = useMemo(() => {
+    return getIfIBagEvents(tournament, allTournaments, scheduleIds);
   }, [tournament, allTournaments, scheduleIds]);
   const [isPublic, setIsPublic] = useState(
     tournament.condition_is_public !== undefined && tournament.condition_is_public !== null
@@ -291,7 +297,7 @@ function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemo
     ).slice(0, 8);
   }, [allTournaments, satSearch, tournament.id]);
 
-  const canSubmit = (satEnabled && selectedSatId) || (profitEnabled && profitAmount && parseInt(profitAmount) !== 0) || (bustEnabled && selectedBustId);
+  const canSubmit = (satEnabled && selectedSatId) || (profitEnabled && profitAmount && parseInt(profitAmount) !== 0) || (bustEnabled && selectedBustId) || (bagEnabled && selectedBagId);
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -304,6 +310,9 @@ function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemo
     }
     if (bustEnabled && selectedBustId) {
       result.push({ type: 'IF_BUST', dependsOnId: selectedBustId });
+    }
+    if (bagEnabled && selectedBagId) {
+      result.push({ type: 'IF_BAG', dependsOnId: selectedBagId });
     }
     onSet(result, isPublic);
   };
@@ -431,6 +440,37 @@ function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemo
         </>
       )}
 
+      {/* If I Bag checkbox */}
+      {bagEvents.length > 0 && (
+        <>
+        <label style={{...sectionLabelStyle, marginBottom: bagEnabled ? '8px' : '12px'}}>
+          <input type="checkbox" checked={bagEnabled} onChange={e => setBagEnabled(e.target.checked)} style={checkboxStyle} />
+          If I Bag
+        </label>
+
+        {bagEnabled && (
+          <div style={{paddingLeft:'24px',marginBottom:'12px'}}>
+            <div style={{fontSize:'0.68rem',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'4px'}}>
+              I'll play this if I bag from:
+            </div>
+            <div className="condition-sat-list">
+              {bagEvents.map(t => (
+                <div
+                  key={t.id}
+                  className={`condition-sat-item ${selectedBagId === t.id ? 'selected' : ''}`}
+                  onClick={() => setSelectedBagId(t.id === selectedBagId ? null : t.id)}
+                >
+                  <span style={{fontWeight:600,flexShrink:0,fontSize:'0.72rem',color:'var(--text-muted)'}}>#{t.event_number}</span>
+                  <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.event_name}</span>
+                  <span style={{flexShrink:0,color:'var(--text-muted)',fontSize:'0.72rem'}}>{currencySymbol(t.venue)}{Number(t.buyin).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        </>
+      )}
+
       {/* Public toggle */}
       <div
         style={{display:'flex',alignItems:'center',gap:'8px',marginTop:'4px',fontSize:'0.75rem',fontFamily:"'Univers Condensed','Univers',sans-serif",color:'var(--text-muted)',cursor:'pointer',userSelect:'none'}}
@@ -489,23 +529,18 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
   const displayName = useDisplayName();
   const rowRef = useRef(null);
 
-  // Auto-expand and scroll when this event is the focus target
+  // Auto-expand AND scroll only when programmatically focused (e.g.
+  // navigating to a related satellite). User-initiated taps just expand
+  // in place without scroll-jumping the page.
   useEffect(() => {
     if (focusEventId && tournament.id === focusEventId) {
       setOpen(true);
-    }
-  }, [focusEventId]);
-
-  // Scroll expanded event to just below sticky header
-  useEffect(() => {
-    if (open && rowRef.current) {
-      const el = rowRef.current;
       const raf = requestAnimationFrame(() => {
-        scrollBelowSticky(el);
+        if (rowRef.current) scrollBelowSticky(rowRef.current);
       });
       return () => cancelAnimationFrame(raf);
     }
-  }, [open]);
+  }, [focusEventId]);
 
   const tzAbbr = getVenueTzAbbr(tournament.venue);
   const timeLabel = (tournament.time || '\u2014') + (tzAbbr ? ' ' + tzAbbr : '');

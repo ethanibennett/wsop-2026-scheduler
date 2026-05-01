@@ -123,22 +123,21 @@ export default function ScheduleView({
   const [showExportModal, setShowExportModal] = useState(false);
   const [schedDateTop, setSchedDateTop] = useState(0);
   const [listVisible, setListVisible] = useState(false);
+  const fabContainerRef = useRef(null);
 
   useEffect(() => {
     const measure = () => {
       if (!schedHeaderRef.current) return;
-      // Use the sticky header's actual visible bottom relative to the scroll
-      // container — works no matter what negative `top` offset the CSS uses
-      // (currently -12px/-16px/-20px depending on breakpoint). offsetHeight +
-      // marginTop also works but is more fragile if CSS changes.
-      const container = schedHeaderRef.current.closest('.content-area');
-      const cRect = container ? container.getBoundingClientRect() : { top: 0 };
-      const rect = schedHeaderRef.current.getBoundingClientRect();
-      setSchedDateTop(Math.max(0, rect.bottom - cRect.top));
+      // Match TournamentsView: measure the sticky element's intrinsic height
+      // plus its (negative) margin-top. getBoundingClientRect drifts because
+      // the header is sticky and reports a different bottom once it pins,
+      // which leaves a gap between the page header and the date break.
+      const el = schedHeaderRef.current;
+      const h = el.offsetHeight;
+      const mt = parseFloat(getComputedStyle(el).marginTop) || 0;
+      setSchedDateTop(Math.max(0, h + mt));
     };
     measure();
-    // Re-measure once more after the first paint — on some layouts the sticky
-    // header's final dimensions aren't settled on the synchronous first pass.
     const t = setTimeout(measure, 60);
     window.addEventListener('resize', measure);
     return () => {
@@ -155,6 +154,60 @@ export default function ScheduleView({
       const db = parseTournamentTime(b);
       return da - db;
     }), [mySchedule]);
+
+  // Today/Next FAB — mirrors TournamentsView. Renders a button into
+  // fabContainerRef, then toggles its `.visible` class based on whether
+  // the target group is on screen.
+  useEffect(() => {
+    const container = document.querySelector('.content-area');
+    if (!container) return;
+    const hasTodayEvents = sorted.some(t => normaliseDate(t.date) === todayISO);
+    const findTarget = () => {
+      if (hasTodayEvents) return container.querySelector('[data-today-scroll]');
+      const groups = container.querySelectorAll('[data-date-group]');
+      for (const g of groups) {
+        if (g.getAttribute('data-date-group') >= todayISO) return g;
+      }
+      return groups.length ? groups[groups.length - 1] : null;
+    };
+    const fabLabel = hasTodayEvents ? 'Today' : 'Next';
+    const fab = document.createElement('button');
+    fab.className = 'back-to-today-fab';
+    fab.dataset.dir = 'up';
+    fab.innerHTML = '<svg class="fab-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="18 15 12 9 6 15"/></svg><svg class="fab-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="6 9 12 15 18 9"/></svg>' + fabLabel;
+    fab.addEventListener('click', () => {
+      const target = findTarget();
+      if (!target) return;
+      const stickyEl = container.querySelector('.schedule-sticky-header');
+      const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+      const groupAbsTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+      container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
+    });
+    if (fabContainerRef.current) fabContainerRef.current.appendChild(fab);
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const target = findTarget();
+        if (!target) { fab.classList.remove('visible'); return; }
+        const rect = target.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const pastTarget = rect.bottom < containerRect.top + 120;
+        const beforeTarget = rect.top > containerRect.bottom - 60;
+        fab.dataset.dir = pastTarget ? 'up' : 'down';
+        if (pastTarget || beforeTarget) fab.classList.add('visible');
+        else fab.classList.remove('visible');
+      });
+    };
+    container.addEventListener('scroll', onScroll, { passive: true });
+    requestAnimationFrame(() => onScroll());
+    return () => {
+      container.removeEventListener('scroll', onScroll);
+      fab.remove();
+    };
+  }, [sorted, todayISO]);
 
   // Auto-scroll to today's date group. Mirrors TournamentsView's logic
   // exactly so the two views behave identically:
@@ -291,7 +344,7 @@ export default function ScheduleView({
             const needsRef = !scrollRefAssigned && group.date >= todayISO;
             if (needsRef) scrollRefAssigned = true;
             return (
-              <div key={group.date} ref={needsRef ? todayRef : null} style={{marginTop: gi === 0 ? 0 : '8px'}}>
+              <div key={group.date} ref={needsRef ? todayRef : null} data-date-group={group.date} data-today-scroll={needsRef ? 'true' : undefined} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                 <div className="schedule-date-break" style={{
                   position: 'sticky', top: schedDateTop + 'px', zIndex: 5,
                   padding: '12px 12px 8px 2px',
@@ -360,6 +413,7 @@ export default function ScheduleView({
       )}
 
       {showExportModal && <ScheduleExportModal events={sorted} onClose={() => setShowExportModal(false)} />}
+      <div ref={fabContainerRef} />
     </div>
   );
 }

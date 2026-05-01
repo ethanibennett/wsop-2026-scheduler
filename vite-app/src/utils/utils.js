@@ -446,6 +446,32 @@ export function getIfIBustEvents(event, allTournaments, scheduleIds) {
   });
 }
 
+// Candidates for an "If I Bag" condition: scheduled events ending on or
+// before this event's date that have a corresponding restart (Day 2). The
+// idea is that you'd commit to playing this event only if you bagged from a
+// prior multi-day event and now have time/energy to play.
+export function getIfIBagEvents(event, allTournaments, scheduleIds) {
+  if (!event || !allTournaments || !scheduleIds) return [];
+  var thisDate = normaliseDate(event.date);
+  // Identify event_numbers that are known multi-day (have a restart row)
+  var restartNumbers = new Set();
+  for (var i = 0; i < allTournaments.length; i++) {
+    var t = allTournaments[i];
+    if (t.is_restart && t.event_number) restartNumbers.add(String(t.event_number));
+  }
+  return allTournaments.filter(function(t) {
+    if (t.id === event.id) return false;
+    if (!scheduleIds.has(t.id)) return false;
+    if (t.is_restart) return false; // candidate is the Day 1, not the restart
+    if (!t.event_number || !restartNumbers.has(String(t.event_number))) return false;
+    var tDate = normaliseDate(t.date);
+    if (!tDate || tDate > thisDate) return false;
+    return true;
+  }).sort(function(a, b) {
+    return parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time);
+  });
+}
+
 export function formatBuyin(val, venue) {
   if (!val && val !== 0) return '\u2014';
   return currencySymbol(venue || '') + Number(val).toLocaleString();
@@ -526,14 +552,22 @@ export function formatConditionLabel(c, allTournaments) {
   if (c.type === 'PROFIT_THRESHOLD') return `If up $${Number(c.profitThreshold).toLocaleString()}`;
   const dep = allTournaments && allTournaments.find(t => t.id === c.dependsOnId);
   const num = dep ? dep.event_number : '?';
-  return c.type === 'IF_WIN_SEAT' ? `If seat #${num}` : `If no seat #${num}`;
+  if (c.type === 'IF_WIN_SEAT') return `If seat #${num}`;
+  if (c.type === 'IF_NO_SEAT') return `If no seat #${num}`;
+  if (c.type === 'IF_BUST') return `If bust #${num}`;
+  if (c.type === 'IF_BAG') return `If bag #${num}`;
+  return '';
 }
 
 export function formatConditionBadge(c, allTournaments) {
   if (c.type === 'PROFIT_THRESHOLD') return `\u{1F4B0} If up $${Number(c.profitThreshold).toLocaleString()}`;
   const dep = allTournaments && allTournaments.find(t => t.id === c.dependsOnId);
   const num = dep ? dep.event_number : '?';
-  return c.type === 'IF_WIN_SEAT' ? `\u{1F3AF} If seat from #${num}` : `\u{1F504} If no seat from #${num}`;
+  if (c.type === 'IF_WIN_SEAT') return `\u{1F3AF} If seat from #${num}`;
+  if (c.type === 'IF_NO_SEAT') return `\u{1F504} If no seat from #${num}`;
+  if (c.type === 'IF_BUST') return `\u{1F4A5} If bust from #${num}`;
+  if (c.type === 'IF_BAG') return `\u{1F392} If bag from #${num}`;
+  return '';
 }
 
 export function detectConflicts(schedule) {
