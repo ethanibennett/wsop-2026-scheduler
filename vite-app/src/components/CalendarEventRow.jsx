@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
+import { wsopStructureUrlFor } from '../utils/wsop-structure-pages.js';
 import {
   getVenueInfo, getVenueClass, getVenueBrandColor, getVariantColor, isBraceletEvent,
   normaliseDate, parseDateTime, parseDateTimeInTz, parseLateRegEnd, parseTournamentTime,
@@ -714,7 +715,7 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
 
                   {venue.abbr === 'WSOP' && (
                     <a
-                      href="https://wsop.gg-global-cdn.com/wsop/9597cb0c-1322-4d57-831c-8160a0e6abd4.pdf"
+                      href={wsopStructureUrlFor(tournament.event_number)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="cal-structure-link"
