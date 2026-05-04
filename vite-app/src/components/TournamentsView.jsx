@@ -1078,12 +1078,33 @@ export default function TournamentsView({
     } catch { return new Set(); }
   });
   const toggleDateCollapsed = (date) => {
+    const wasCollapsed = collapsedDates.has(date);
     setCollapsedDates(prev => {
       const next = new Set(prev);
       if (next.has(date)) next.delete(date); else next.add(date);
       try { localStorage.setItem('tournamentsCollapsedDates', JSON.stringify([...next])); } catch {}
       return next;
     });
+    // When collapsing, follow up by scrolling the NEXT date group to the
+    // sticky-filter line so the user lands on the next day's events
+    // instead of staring at a stack of collapsed headers.
+    if (!wasCollapsed) {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const container = document.querySelector('.content-area');
+        if (!container) return;
+        const groups = [...container.querySelectorAll('[data-date-group]')];
+        const idx = groups.findIndex(g => g.getAttribute('data-date-group') === date);
+        const nextGroup = groups[idx + 1];
+        if (!nextGroup) return;
+        const stickyEl = container.querySelector('.sticky-filters');
+        const stickyH = stickyEl
+          ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top
+          : 0;
+        const groupAbsTop = nextGroup.getBoundingClientRect().top
+          - container.getBoundingClientRect().top + container.scrollTop;
+        container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
+      }));
+    }
   };
 
   // Scroll to today's date group or the next upcoming one
@@ -1108,23 +1129,21 @@ export default function TournamentsView({
     });
   }, []);
 
-  // Progressive rendering — load more date groups as user scrolls near bottom
+  // Progressive rendering — load more date groups as user scrolls near
+  // bottom. Bump aggressively (+30) so a single IO fire actually grows the
+  // visible slice past initialCount (previously +10 was a no-op for the
+  // first few fires when initialCount was already 30+).
   useEffect(() => {
     const el = loadMoreRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
-        setRenderedGroupCount(prev => prev + 10);
+        setRenderedGroupCount(prev => prev + 30);
       }
-    }, { rootMargin: '600px' });
+    }, { rootMargin: '1200px' });
     observer.observe(el);
     return () => observer.disconnect();
   }, [renderedGroupCount]);
-
-  // Reset rendered count when filters/search change
-  useEffect(() => {
-    setRenderedGroupCount(8);
-  }, [deferredSearch, filters]);
 
   // When search changes, scroll to today/next
   const prevSearchRef = useRef(deferredSearch);
@@ -1463,9 +1482,20 @@ export default function TournamentsView({
         <div style={{minHeight:'100vh', paddingBottom:'60vh'}}>
           {(() => {
             const todayISO = getToday();
+            // Some tournament rows have legacy non-ISO date strings
+            // ("May 4, 2026"). Sort by the NORMALISED ISO form so date
+            // groups land in true chronological order — otherwise events
+            // past the last ISO-formatted date appear out of sequence and
+            // look like the schedule was cut off.
+            const sorted = [...filtered].sort((a, b) => {
+              const an = normaliseDate(a.date);
+              const bn = normaliseDate(b.date);
+              if (an !== bn) return an < bn ? -1 : 1;
+              return 0;
+            });
             const groups = [];
             let cur = null;
-            for (const t of filtered) {
+            for (const t of sorted) {
               const d = normaliseDate(t.date);
               if (!cur || cur.date !== d) {
                 cur = { date: d, events: [] };
@@ -1477,7 +1507,7 @@ export default function TournamentsView({
             const todayGroupIdx = groups.findIndex(g => g.date >= todayISO);
             const initialCount = Math.max(8, todayGroupIdx + 4);
             let scrollRefAssigned = false;
-            return groups.slice(0, Math.min(groups.length, renderedGroupCount < initialCount ? initialCount : renderedGroupCount)).map((group, gi) => {
+            return groups.slice(0, Math.min(groups.length, Math.max(renderedGroupCount, initialCount))).map((group, gi) => {
               const isToday = group.date === todayISO;
               const past = group.date < todayISO;
               const dateObj = new Date(group.date + 'T12:00:00');
