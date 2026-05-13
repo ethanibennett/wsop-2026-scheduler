@@ -569,6 +569,21 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
     if (allDates.includes(t)) setSelectedDate(t);
   }, []);
 
+  // Track direction of last month change so the month row slides in
+  // from the appropriate side (next → from right, prev → from left).
+  const monthDirRef = useRef('next');
+  const lastMonthKeyRef = useRef(null);
+  {
+    const selObj = new Date(selectedDate + 'T12:00:00');
+    const curKey = `${selObj.getFullYear()}-${selObj.getMonth()}`;
+    if (lastMonthKeyRef.current && lastMonthKeyRef.current !== curKey) {
+      const [py, pm] = lastMonthKeyRef.current.split('-').map(Number);
+      const [cy, cm] = curKey.split('-').map(Number);
+      monthDirRef.current = (cy * 12 + cm) >= (py * 12 + pm) ? 'next' : 'prev';
+    }
+    lastMonthKeyRef.current = curKey;
+  }
+
   // Scroll the active date button into view in the carousel
   useEffect(() => {
     if (activeDateRef.current) {
@@ -867,6 +882,7 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
             <div
               key={`${curY}-${curM}`}
               className="cal-month-row"
+              data-direction={monthDirRef.current}
             >
               <button
                 className={`cal-month-btn cal-month-btn-side ${monthPast ? 'muted' : ''}`}
@@ -948,7 +964,7 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           <p>No tournaments scheduled for this date</p>
         </div>
       ) : showMySection ? (
-        <div style={{minHeight:'100vh'}}>
+        <div style={{minHeight:'100vh', paddingTop:'8px'}}>
           <div className="section-header" style={{marginTop:'8px'}}>
             <h2>My Events</h2>
             <span style={{fontSize:'0.82rem',color:'var(--text-muted)'}}>{myEvents.length} event{myEvents.length !== 1 ? 's' : ''}</span>
@@ -966,7 +982,7 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           )}
         </div>
       ) : (
-        <div style={{minHeight:'100vh'}}>
+        <div style={{minHeight:'100vh', paddingTop:'8px'}}>
           {sortedEvents.map(renderEvent)}
         </div>
       )}

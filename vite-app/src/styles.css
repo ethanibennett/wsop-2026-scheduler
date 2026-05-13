@@ -3058,8 +3058,14 @@
       align-items: stretch;
       gap: 6px;
       margin: 4px 0 6px;
-      animation: cal-month-row-slide 350ms ease-out;
+      overflow: hidden;
+      animation: cal-month-row-slide 280ms ease-out;
     }
+    /* When the row is keyed by direction (data-direction="next"/"prev"),
+       the entire row slides in from the opposite side so it looks like
+       the months are being scrolled horizontally with the carousel. */
+    .cal-month-row[data-direction="next"] { animation-name: cal-month-row-slide-from-right; }
+    .cal-month-row[data-direction="prev"] { animation-name: cal-month-row-slide-from-left; }
     .cal-month-btn {
       display: inline-flex;
       align-items: center;
@@ -3102,6 +3108,14 @@
     @keyframes cal-month-row-slide {
       0%   { transform: translateY(-4px); opacity: 0; }
       100% { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes cal-month-row-slide-from-right {
+      0%   { transform: translateX(40%); opacity: 0; }
+      100% { transform: translateX(0);  opacity: 1; }
+    }
+    @keyframes cal-month-row-slide-from-left {
+      0%   { transform: translateX(-40%); opacity: 0; }
+      100% { transform: translateX(0);   opacity: 1; }
     }
 
     .cal-date-strip {

@@ -529,18 +529,42 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
   const displayName = useDisplayName();
   const rowRef = useRef(null);
 
-  // Auto-expand AND scroll only when programmatically focused (e.g.
-  // navigating to a related satellite). User-initiated taps just expand
-  // in place without scroll-jumping the page.
+  // Auto-expand when programmatically focused (e.g. navigating to a
+  // related satellite).
   useEffect(() => {
     if (focusEventId && tournament.id === focusEventId) {
       setOpen(true);
-      const raf = requestAnimationFrame(() => {
-        if (rowRef.current) scrollBelowSticky(rowRef.current);
-      });
-      return () => cancelAnimationFrame(raf);
     }
   }, [focusEventId]);
+
+  // When an event expands, scroll it into view just below the sticky
+  // header so the user can see its details. Skip when the row is
+  // already comfortably visible (avoid pointless jumps).
+  useEffect(() => {
+    if (!open || !rowRef.current) return;
+    const raf = requestAnimationFrame(() => {
+      const el = rowRef.current;
+      if (!el) return;
+      const container = el.closest('.content-area');
+      if (!container) return;
+      // Find the sticky chrome (filter row on Schedule/Calendar OR the
+      // schedule-sticky-header on My Schedule) to figure out where
+      // "just below the sticky" actually is.
+      const sticky = container.querySelector('.sticky-filters')
+                  || container.querySelector('.schedule-sticky-header');
+      const stickyBottom = sticky
+        ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top
+        : 0;
+      const rowRect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const rowTop = rowRect.top - containerRect.top;
+      // Only scroll if the row's top is above the sticky bottom or
+      // far enough below that the expanded content would overflow.
+      if (rowTop >= stickyBottom && rowRect.bottom <= containerRect.bottom) return;
+      scrollBelowSticky(el);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [open]);
 
   const tzAbbr = getVenueTzAbbr(tournament.venue);
   const timeLabel = (tournament.time || '\u2014') + (tzAbbr ? ' ' + tzAbbr : '');
