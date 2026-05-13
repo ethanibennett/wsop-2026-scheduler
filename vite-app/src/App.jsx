@@ -943,6 +943,17 @@ export default function App() {
     };
   }, [token]);
 
+  // ── Self-heal: if we have a token but the tournaments list is empty
+  //    (a fetch failed during a server restart / network blip), retry
+  //    silently on a short backoff. Stops once we have data.
+  useEffect(() => {
+    if (!token) return;
+    if (tournaments.length > 0) return;
+    if (!dataLoaded) return; // initial load hasn't finished yet
+    const id = setTimeout(() => { fetchTournaments(); fetchMySchedule(); }, 1500);
+    return () => clearTimeout(id);
+  }, [token, tournaments.length, dataLoaded]);
+
   // ── Push notifications (admin only) ──
   useEffect(() => {
     if (window.Capacitor && window.Capacitor.isNativePlatform()) return;
