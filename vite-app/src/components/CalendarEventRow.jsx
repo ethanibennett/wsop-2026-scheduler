@@ -758,6 +758,24 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
                       View Structure Sheet {'\u2197'}
                     </a>
                   )}
+                  {venue.abbr !== 'WSOP' && tournament.structure_sheet_path && (() => {
+                    // structure_sheet_path is like 'schedule-docs/Aria/structures/$X NLH \u2026pdf'
+                    // Map to the served API route, URL-encoding each segment so
+                    // spaces, $, (, ), commas in filenames survive routing.
+                    const parts = String(tournament.structure_sheet_path).split('/');
+                    if (parts.length < 4 || parts[0] !== 'schedule-docs') return null;
+                    const url = `${API_URL}/schedule-docs/${encodeURIComponent(parts[1])}/${encodeURIComponent(parts[2])}/${encodeURIComponent(parts.slice(3).join('/'))}`;
+                    return (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cal-structure-link"
+                      >
+                        View Structure Sheet {'\u2197'}
+                      </a>
+                    );
+                  })()}
 
                   {/* Admin edit panel */}
                   {isAdmin && editing && (() => {

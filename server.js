@@ -7957,7 +7957,11 @@ app.get('/api/schedule-docs', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/schedule-docs/:venue/:type/:filename', authenticateToken, async (req, res) => {
+// Public — structure sheets and event-listing PDFs are non-sensitive
+// reference docs that need to be reachable from a plain <a target="_blank">
+// (no auth header), so we don't require a JWT here. Path traversal is still
+// blocked by the regex + dot-dot strip below.
+app.get('/api/schedule-docs/:venue/:type/:filename', async (req, res) => {
   const safeVenue = req.params.venue.replace(/[^a-zA-Z0-9 _\-]/g, '');
   const safeType = req.params.type === 'structures' ? 'structures' : 'schedules';
   const safeFile = req.params.filename.replace(/\.\./g, '');
