@@ -2647,20 +2647,9 @@
       flex-wrap: wrap;
     }
 
-    /* Search + Date Range share a row only on real desktop windows
-       (>=1200px). Phones, phones-in-landscape, iPads in any orientation,
-       and narrow desktop windows all stack — the date-range slider needs
-       more horizontal breathing room than a narrow viewport can give. */
-    @media (min-width: 1200px) {
-      .filter-search-cell {
-        flex: 1 1 280px;
-        min-width: 0;
-      }
-      .filter-daterange-cell {
-        flex: 2 1 360px;
-        min-width: 0;
-      }
-    }
+    /* Search + Date Range always stack — every breakpoint we tried for
+       pairing them ended up feeling cramped for the slider, so they
+       just stay one per row regardless of viewport. */
 
     .filter-chip {
       display: flex;
@@ -3012,21 +3001,50 @@
     .cal-date-label-button:hover { background: var(--hover-overlay); }
     .cal-date-label-button:active { background: rgba(160,160,160,0.15); }
 
-    /* Calendar view top row — events count on the left, filter
-       toggle (and any active filter chips) on the right. Sits above
-       the month row + date carousel. */
-    .cal-top-row {
-      display: flex;
+    /* Calendar view bottom row (below the date carousel):
+         [events count]  [ Today ]  [filter button]
+       Grid keeps the Today button visually centred (it sits in the
+       middle auto-sized column) regardless of the left/right cell
+       widths. */
+    .cal-bottom-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      justify-content: space-between;
       gap: 8px;
-      margin-bottom: 4px;
+      margin-top: 8px;
     }
     .cal-event-count-inline {
       font-size: 0.82rem;
       color: var(--text-muted);
       white-space: nowrap;
       margin: 0;
+      justify-self: start;
+    }
+    .cal-bottom-row > .cal-today-btn { justify-self: center; }
+    /* The third grid cell (the <Filters /> wrapper) is whatever
+       width its content needs; right-justify it. */
+    .cal-bottom-row > :last-child { justify-self: end; }
+    .cal-today-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .cal-today-btn:not(:disabled):hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .cal-today-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
     }
 
     /* Three-button month row in the calendar carousel:
