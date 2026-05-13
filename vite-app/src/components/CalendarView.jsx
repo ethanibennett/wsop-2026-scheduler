@@ -790,7 +790,17 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           {/* Tap the date label to open a native date picker. We overlay
               a hidden <input type="date"> so the OS picker takes over
               when the user taps anywhere on the label. */}
-          <label className="cal-date-label cal-date-label-button" title="Pick a date">
+          <label
+            className="cal-date-label cal-date-label-button"
+            title="Pick a date"
+            onClick={(e) => {
+              if (e.target.tagName === 'INPUT') return;
+              const input = e.currentTarget.querySelector('input[type="date"]');
+              if (!input) return;
+              try { if (input.showPicker) input.showPicker(); else input.focus(); }
+              catch { input.focus(); }
+            }}
+          >
             <div className="day-name">{DOW[selDateObj.getDay()]}</div>
             <div className="day-full">
               {MONTHS[selDateObj.getMonth()]} {selDateObj.getDate()}, {selDateObj.getFullYear()}

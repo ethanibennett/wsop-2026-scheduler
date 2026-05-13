@@ -1417,6 +1417,16 @@ export default function TournamentsView({
             className="filter-chip filter-chip-square"
             style={{flexShrink:0, position: 'relative', cursor: 'pointer'}}
             title="Jump to date"
+            onClick={(e) => {
+              // Desktop browsers won't auto-open a date picker on an
+              // opacity:0 input — explicitly call showPicker() (when
+              // supported) from the user gesture.
+              if (e.target.tagName === 'INPUT') return;
+              const input = e.currentTarget.querySelector('input[type="date"]');
+              if (!input) return;
+              try { if (input.showPicker) input.showPicker(); else input.focus(); }
+              catch { input.focus(); }
+            }}
           >
             <Icon.calendar />
             <input
