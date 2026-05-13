@@ -901,8 +901,46 @@ export default function App() {
     es.addEventListener('group-invite', () => fetchNotifications());
     es.addEventListener('group-invite-response', () => { fetchNotifications(); fetchMyGroups(); });
 
+    // Tournament data live-sync: optimistically merge single-row edits
+    es.addEventListener('tournament-changed', (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (!d || !d.id || !d.fields) return;
+        setTournaments(prev => prev.map(t => t.id === d.id ? { ...t, ...d.fields } : t));
+        setMySchedule(prev => prev.map(t => t.id === d.id ? { ...t, ...d.fields } : t));
+      } catch (err) { console.error('SSE tournament-changed error:', err); }
+    });
+
+    // Bulk imports / structure parses / sync — full refetch
+    es.addEventListener('schedule-refetch', () => {
+      fetchTournaments();
+    });
+
+    // Venue color updates — apply directly to CSS vars (no React state)
+    es.addEventListener('venue-colors-changed', (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d && typeof d === 'object') applyVenueColors(d);
+      } catch (err) { console.error('SSE venue-colors-changed error:', err); }
+    });
+
     es.onerror = () => console.warn('SSE connection error, will auto-reconnect');
     return () => es.close();
+  }, [token]);
+
+  // ── Refetch tournaments when tab regains focus / network comes back online ──
+  useEffect(() => {
+    if (!token) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchTournaments();
+    };
+    const onOnline = () => fetchTournaments();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+    };
   }, [token]);
 
   // ── Push notifications (admin only) ──

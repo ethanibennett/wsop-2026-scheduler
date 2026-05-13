@@ -250,28 +250,60 @@ export function getMaxEntries(reentry) {
 
 // ── Venue Timezone Mapping ─────────────────────────────
 export const VENUE_TIMEZONES = {
+  // Vegas (Pacific)
   'Horseshoe / Paris Las Vegas': 'America/Los_Angeles',
   'Caesars Palace': 'America/Los_Angeles',
-  'Irish Poker Open': 'Europe/Dublin',
-  'WSOP Europe': 'Europe/Prague',
-  'Seminole Hard Rock': 'America/New_York',
-  'Texas Card House': 'America/Chicago',
-  'Turning Stone Casino': 'America/New_York',
-  'Foxwoods': 'America/New_York',
+  'Aria': 'America/Los_Angeles',
+  'Aria Resort & Casino': 'America/Los_Angeles',
+  'Wynn Las Vegas': 'America/Los_Angeles',
+  'Wynn': 'America/Los_Angeles',
+  'Venetian': 'America/Los_Angeles',
+  'Venetian DeepStack Extravaganza': 'America/Los_Angeles',
+  'Orleans': 'America/Los_Angeles',
+  'South Point': 'America/Los_Angeles',
+  'Golden Nugget': 'America/Los_Angeles',
+  'Resorts World': 'America/Los_Angeles',
+  'MGM Grand': 'America/Los_Angeles',
+  'WSOPC Horseshoe Las Vegas': 'America/Los_Angeles',
   'Thunder Valley': 'America/Los_Angeles',
   'Bellagio': 'America/Los_Angeles',
-  'Lodge Poker Club': 'America/Chicago',
-  'bestbet Jacksonville': 'America/New_York',
   "Bally's Lake Tahoe": 'America/Los_Angeles',
+  // Eastern
+  'Seminole Hard Rock': 'America/New_York',
+  'Turning Stone Casino': 'America/New_York',
+  'Foxwoods': 'America/New_York',
+  'bestbet Jacksonville': 'America/New_York',
   "Harrah's Cherokee": 'America/New_York',
   'WSOPC Cherokee': 'America/New_York',
-  'Choctaw Casino': 'America/Chicago',
-  'Horseshoe Tunica': 'America/Chicago',
   'Borgata': 'America/New_York',
   'MGM National Harbor': 'America/New_York',
+  // Central
+  'Texas Card House': 'America/Chicago',
+  'Lodge Poker Club': 'America/Chicago',
+  'Choctaw Casino': 'America/Chicago',
+  'Horseshoe Tunica': 'America/Chicago',
+  // International
+  'Irish Poker Open': 'Europe/Dublin',
+  'WSOP Europe': 'Europe/Prague',
+  // Online (advertised in Pacific)
+  'WSOP Online': 'America/Los_Angeles',
 };
 
+// Cache the browser's local TZ once — avoids the Intl lookup every call
+let _browserTz = null;
+function getBrowserTimezone() {
+  if (_browserTz) return _browserTz;
+  try { _browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles'; }
+  catch { _browserTz = 'America/Los_Angeles'; }
+  return _browserTz;
+}
+
 export function getVenueTimezone(venue) {
+  // "Personal" events (travel days, days off, user-created entries) live in
+  // the user's own time zone — they aren't tied to any physical venue.
+  // WSOP Online events advertise PT start times, so default for both
+  // "WSOP Online" and any unknown venue is PT.
+  if (venue === 'Personal') return getBrowserTimezone();
   return VENUE_TIMEZONES[venue] || 'America/Los_Angeles';
 }
 

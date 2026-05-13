@@ -2645,6 +2645,23 @@ function broadcastToGroup(groupId, eventType, payload, excludeUserId) {
   }
 }
 
+// Broadcast an event to every connected SSE client (all users).
+// Used for tournament data changes that affect the global schedule view.
+function broadcastToAll(eventType, payload) {
+  const message = `event: ${eventType}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const [userId, clients] of sseClients) {
+    for (const res of clients) {
+      try {
+        res.write(message);
+      } catch (err) {
+        // Connection is dead — drop it from the set
+        try { clients.delete(res); } catch {}
+      }
+    }
+    if (clients.size === 0) sseClients.delete(userId);
+  }
+}
+
 app.get('/api/events', (req, res) => {
   const token = req.query.token;
   if (!token) return res.status(401).json({ error: 'Token required' });
@@ -2945,6 +2962,10 @@ app.post('/api/upload-schedule', authenticateToken, requireRegistered, upload.si
     }
 
     await saveDatabase();
+
+    if (tournaments.length > 0) {
+      broadcastToAll('schedule-refetch', { source: 'upload-schedule', count: tournaments.length });
+    }
 
     // Archive the uploaded file instead of deleting
     const detectedVenue = tournaments.length > 0 ? (tournaments[0].venue || 'unknown') : 'unknown';
@@ -4506,8 +4527,10 @@ app.put('/api/tournaments/:id/total-entries', authenticateToken, requireRegister
     checkStmt.free();
     if (!exists) return res.status(404).json({ error: 'Tournament not found' });
 
-    db.run('UPDATE tournaments SET total_entries = ? WHERE id = ?', [parseInt(totalEntries), id]);
+    const parsedEntries = parseInt(totalEntries);
+    db.run('UPDATE tournaments SET total_entries = ? WHERE id = ?', [parsedEntries, id]);
     await saveDatabase();
+    broadcastToAll('tournament-changed', { id: parseInt(id), fields: { total_entries: parsedEntries } });
     res.json({ message: 'Total entries updated' });
   } catch (error) {
     console.error(error);
@@ -6844,10 +6867,13 @@ app.put('/api/tournaments/:id', authenticateToken, requireRegistered, async (req
     ];
     const updates = [];
     const values = [];
+    const changedFields = {};
     for (const [key, val] of Object.entries(req.body)) {
       if (allowedFields.includes(key)) {
+        const normalized = val === '' ? null : val;
         updates.push(`${key} = ?`);
-        values.push(val === '' ? null : val);
+        values.push(normalized);
+        changedFields[key] = normalized;
       }
     }
     if (updates.length === 0) return res.status(400).json({ error: 'No valid fields to update' });
@@ -6861,6 +6887,7 @@ app.put('/api/tournaments/:id', authenticateToken, requireRegistered, async (req
     let updated = null;
     if (stmt.step()) updated = stmt.getAsObject();
     stmt.free();
+    broadcastToAll('tournament-changed', { id, fields: changedFields });
     res.json(updated);
   } catch (error) {
     console.error('Admin update tournament error:', error);
@@ -6896,6 +6923,7 @@ app.put('/api/venue-colors/:abbr', authenticateToken, requireRegistered, async (
   try {
     db.run('INSERT INTO venue_colors (venue_abbr, color) VALUES (?, ?) ON CONFLICT(venue_abbr) DO UPDATE SET color = ?', [abbr, color, color]);
     await saveDatabase();
+    broadcastToAll('venue-colors-changed', { [abbr]: color });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -8061,7 +8089,10 @@ Return ONLY the JSON array, no markdown or explanation.`;
       }
     }
 
-    if (matched > 0) await saveDatabase();
+    if (matched > 0) {
+      await saveDatabase();
+      broadcastToAll('schedule-refetch', { source: 'parse-structure', matched });
+    }
 
     console.log(`[ParseStructure] Extracted ${structures.length} structures, matched ${matched}, unmatched ${unmatched}`);
 
@@ -8402,6 +8433,10 @@ app.post('/api/import-parsed-schedule', authenticateToken, requireRegistered, ex
 
     console.log(`[ImportSchedule] ${inserted} new, ${updated} updated, ${skipped} skipped from "${sourceFile}"`);
 
+    if (inserted > 0 || updated > 0) {
+      broadcastToAll('schedule-refetch', { source: 'import-parsed-schedule', inserted, updated });
+    }
+
     // Notify admin of new schedule upload
     const uploaderName = req.user.username || 'Unknown';
     const venue = events[0]?.venue || 'Unknown venue';
@@ -8530,6 +8565,9 @@ app.post('/api/tournaments/sync', authenticateToken, express.json({ limit: '50mb
 
     await saveDatabase();
     console.log(`[Sync] ${inserted} new, ${updated} updated, ${skipped} skipped`);
+    if (inserted > 0 || updated > 0) {
+      broadcastToAll('schedule-refetch', { source: 'tournaments-sync', inserted, updated });
+    }
     if (inserted > 0) {
       sendPushToAdmin('Events Synced', `${inserted} new events added via sync`).catch(() => {});
     }
