@@ -1158,6 +1158,7 @@ export default function App() {
             onAdminEdit={adminEditTournament}
             token={token}
             onRefreshTournaments={fetchTournaments}
+            onOpenCalendarView={() => setCurrentView('calendar')}
           />
         )}
         </div>

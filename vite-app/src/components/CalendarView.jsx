@@ -787,12 +787,39 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           <button className="cal-nav-btn" onClick={() => move(-1)}>
             <Icon.chevLeft />
           </button>
-          <div className="cal-date-label">
+          {/* Tap the date label to open a native date picker. We overlay
+              a hidden <input type="date"> so the OS picker takes over
+              when the user taps anywhere on the label. */}
+          <label className="cal-date-label cal-date-label-button" title="Pick a date">
             <div className="day-name">{DOW[selDateObj.getDay()]}</div>
             <div className="day-full">
               {MONTHS[selDateObj.getMonth()]} {selDateObj.getDate()}, {selDateObj.getFullYear()}
             </div>
-          </div>
+            <input
+              type="date"
+              value={selectedDate}
+              min={allDates[0]}
+              max={allDates[allDates.length - 1]}
+              onChange={e => {
+                const v = e.target.value;
+                if (!v) return;
+                // Snap to nearest available date that actually has events
+                if (allDates.includes(v)) {
+                  setSelectedDate(v);
+                } else {
+                  // pick the closest later date, or the closest earlier
+                  const later = allDates.find(d => d >= v);
+                  const earlier = [...allDates].reverse().find(d => d <= v);
+                  setSelectedDate(later || earlier || allDates[0]);
+                }
+              }}
+              style={{
+                position: 'absolute', inset: 0, opacity: 0,
+                width: '100%', height: '100%', border: 'none',
+                background: 'transparent', cursor: 'pointer'
+              }}
+            />
+          </label>
           <button className="cal-nav-btn" onClick={() => move(1)}>
             <Icon.chevRight />
           </button>

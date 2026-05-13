@@ -1022,7 +1022,7 @@ export default function TournamentsView({
   tournaments, mySchedule, onToggle, gameVariants, venues,
   onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries,
   buddyEvents, buddyLiveUpdates, onBuddySwap, isAdmin, onAdminEdit,
-  token, onRefreshTournaments
+  token, onRefreshTournaments, onOpenCalendarView
 }) {
   const toast = useToast();
   const [search, setSearch] = useState('');
@@ -1397,9 +1397,9 @@ export default function TournamentsView({
         <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
           <button
             ref={locationBtnRef}
-            className={`filter-chip ${filters.locationRegion || filters.userLocation ? 'active' : ''}`}
+            className={`filter-chip filter-chip-square ${filters.locationRegion || filters.userLocation ? 'active' : ''}`}
             onClick={() => setLocationDropdownOpen(o => !o)}
-            style={{flexShrink:0,height:'28px'}}
+            style={{flexShrink:0}}
             title={filters.locationRegion && LOCATION_REGIONS[filters.locationRegion]
               ? LOCATION_REGIONS[filters.locationRegion].label
               : filters.userLocation && filters.maxDistance
@@ -1409,18 +1409,26 @@ export default function TournamentsView({
             <Icon.mapPin />
           </button>
           <button
+            className="filter-chip filter-chip-square"
+            onClick={() => onOpenCalendarView && onOpenCalendarView()}
+            style={{flexShrink:0}}
+            title="Calendar view"
+          >
+            <Icon.calendar />
+          </button>
+          <button
             ref={filterToggleRef}
-            className={`filter-chip ${filterPanelOpen ? 'active' : ''}`}
+            className={`filter-chip filter-chip-square ${filterPanelOpen ? 'active' : ''}`}
             onClick={() => setFilterPanelOpen(o => !o)}
-            style={{flexShrink:0,height:'28px'}}
+            style={{flexShrink:0}}
           >
             <Icon.filter />
           </button>
           <button
             ref={importBtnRef}
-            className={`filter-chip ${importDropdownOpen ? 'active' : ''}`}
+            className={`filter-chip filter-chip-square ${importDropdownOpen ? 'active' : ''}`}
             onClick={() => setImportDropdownOpen(o => !o)}
-            style={{flexShrink:0,height:'28px'}}
+            style={{flexShrink:0}}
             title="Import schedule"
           >
             <Icon.upload />

@@ -2682,6 +2682,17 @@
 
     .filter-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(160,160,160,0.1); }
 
+    /* Square icon-only chip variant: 32x32 rounded square (instead of
+       the pill shape). Used for the location/calendar/filter/import
+       toolbar buttons on the Schedule tab. */
+    .filter-chip-square {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 8px;
+    }
+    .filter-chip-square svg { width: 16px; height: 16px; }
+
     .filter-panel {
       position: fixed; z-index: 100;
       background: var(--surface);
@@ -2985,6 +2996,21 @@
 
     .cal-date-label .day-name { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
     .cal-date-label .day-full { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+
+    /* Tappable date-label variant — used at the top of the Calendar
+       view to open a native date picker. Looks the same as the static
+       label but gives feedback on tap and shows a pointer cursor. */
+    .cal-date-label-button {
+      position: relative;
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .cal-date-label-button:hover { background: var(--hover-overlay); }
+    .cal-date-label-button:active { background: rgba(160,160,160,0.15); }
 
     .cal-date-strip {
       display: flex;
