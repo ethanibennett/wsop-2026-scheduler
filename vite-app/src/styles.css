@@ -2647,9 +2647,11 @@
       flex-wrap: wrap;
     }
 
-    /* Search + Date Range share a row on desktop (>=768px), stack on narrow.
-       Uses inline-block-like sizing within the .filter-row flex parent. */
-    @media (min-width: 768px) {
+    /* Search + Date Range share a row only on real desktop windows
+       (>=1200px). Phones, phones-in-landscape, iPads in any orientation,
+       and narrow desktop windows all stack — the date-range slider needs
+       more horizontal breathing room than a narrow viewport can give. */
+    @media (min-width: 1200px) {
       .filter-search-cell {
         flex: 1 1 280px;
         min-width: 0;

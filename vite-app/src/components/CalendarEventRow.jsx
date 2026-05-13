@@ -759,20 +759,27 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
                     </a>
                   )}
                   {venue.abbr !== 'WSOP' && tournament.structure_sheet_path && (() => {
-                    // structure_sheet_path is like
-                    //   'schedule-docs/Aria/structures/$X NLH \u2026pdf'                          (per-event PDF)
-                    //   'schedule-docs/Wynn Las Vegas/structures/Wynn_Summer_Classic.pdf#page=12'  (bundled PDF + page)
-                    // Map to the served API route, URL-encoding each path
-                    // segment so spaces, $, (, ), commas survive routing.
-                    // The #page=N fragment passes through unencoded so the
-                    // browser jumps to the right page in the PDF viewer.
+                    // structure_sheet_path may be:
+                    //   'schedule-docs/Aria/structures/$X NLH \u2026pdf'                              (per-event PDF on our server)
+                    //   'schedule-docs/Wynn Las Vegas/structures/Wynn_Summer_Classic.pdf#page=12' (bundled PDF + page)
+                    //   'https://www.venetianlasvegas.com/.../structures/dscps_2026-structure_3.pdf'  (off-site CDN PDF)
+                    // For off-site URLs (http/https), use as-is. For our
+                    // schedule-docs paths, map to the served API route and
+                    // URL-encode each segment so spaces / $ / ( ) / commas
+                    // survive routing. The #page=N fragment passes through
+                    // unencoded so the browser jumps to the right page.
                     const raw = String(tournament.structure_sheet_path);
-                    const hashIdx = raw.indexOf('#');
-                    const pathPart = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
-                    const fragPart = hashIdx >= 0 ? raw.slice(hashIdx) : '';
-                    const parts = pathPart.split('/');
-                    if (parts.length < 4 || parts[0] !== 'schedule-docs') return null;
-                    const url = `${API_URL}/schedule-docs/${encodeURIComponent(parts[1])}/${encodeURIComponent(parts[2])}/${encodeURIComponent(parts.slice(3).join('/'))}${fragPart}`;
+                    let url;
+                    if (/^https?:\/\//i.test(raw)) {
+                      url = raw;
+                    } else {
+                      const hashIdx = raw.indexOf('#');
+                      const pathPart = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
+                      const fragPart = hashIdx >= 0 ? raw.slice(hashIdx) : '';
+                      const parts = pathPart.split('/');
+                      if (parts.length < 4 || parts[0] !== 'schedule-docs') return null;
+                      url = `${API_URL}/schedule-docs/${encodeURIComponent(parts[1])}/${encodeURIComponent(parts[2])}/${encodeURIComponent(parts.slice(3).join('/'))}${fragPart}`;
+                    }
                     return (
                       <a
                         href={url}
