@@ -3012,6 +3012,23 @@
     .cal-date-label-button:hover { background: var(--hover-overlay); }
     .cal-date-label-button:active { background: rgba(160,160,160,0.15); }
 
+    /* Calendar view top row — events count on the left, filter
+       toggle (and any active filter chips) on the right. Sits above
+       the month row + date carousel. */
+    .cal-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .cal-event-count-inline {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      margin: 0;
+    }
+
     /* Three-button month row in the calendar carousel:
          [ prev ] [ current month + year ] [ next ]
        The center button is wider (it carries the full label) while

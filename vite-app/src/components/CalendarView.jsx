@@ -836,6 +836,17 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           </button>
         </div>
 
+        {/* Top row: events-on-this-day count on the left, filter
+            toggle (with any active filter pills) on the right. Sits
+            above the date carousel so it's always visible. */}
+        <div className="cal-top-row">
+          <span className="cal-event-count cal-event-count-inline">
+            {sortedEvents.length} event{sortedEvents.length !== 1 ? 's' : ''}
+            {myTodayCount > 0 && ` · ${myTodayCount} in my schedule`}
+          </span>
+          <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} buyinOptions={buyinOptions} tournaments={allTournaments} />
+        </div>
+
         {/* Month row: three buttons — previous (left, muted), current
             (center), next (right). Clicking prev/next jumps to the
             first available date in that month. Past months are still
@@ -912,13 +923,6 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           })}
         </div>
 
-        <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} buyinOptions={buyinOptions} tournaments={allTournaments} />
-
-        {/* Summary row */}
-        <p className="cal-event-count">
-          {sortedEvents.length} event{sortedEvents.length !== 1 ? 's' : ''}
-          {myTodayCount > 0 && ` \u00b7 ${myTodayCount} in my schedule`}
-        </p>
       </div>
 
       {sortedEvents.length === 0 ? (
