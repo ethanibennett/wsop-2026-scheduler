@@ -1408,58 +1408,14 @@ export default function TournamentsView({
           >
             <Icon.mapPin />
           </button>
-          {/* Calendar button: opens a native date picker, then scrolls the
-              schedule to the chosen date's group. Uses a hidden
-              <input type="date"> overlay so it works on both desktop (where
-              .showPicker() is required) and mobile (tap on the chip
-              activates the native picker via the overlay). */}
-          <label
+          <button
             className="filter-chip filter-chip-square"
-            style={{flexShrink:0, position: 'relative', cursor: 'pointer'}}
-            title="Jump to date"
-            onClick={(e) => {
-              // Desktop browsers won't auto-open a date picker on an
-              // opacity:0 input — explicitly call showPicker() (when
-              // supported) from the user gesture.
-              if (e.target.tagName === 'INPUT') return;
-              const input = e.currentTarget.querySelector('input[type="date"]');
-              if (!input) return;
-              try { if (input.showPicker) input.showPicker(); else input.focus(); }
-              catch { input.focus(); }
-            }}
+            onClick={() => onOpenCalendarView && onOpenCalendarView()}
+            style={{flexShrink:0}}
+            title="Calendar view"
           >
             <Icon.calendar />
-            <input
-              type="date"
-              onChange={e => {
-                const v = e.target.value;
-                if (!v) return;
-                const container = document.querySelector('.content-area');
-                if (!container) return;
-                const groups = [...container.querySelectorAll('[data-date-group]')];
-                let target = groups.find(g => g.getAttribute('data-date-group') === v);
-                if (!target) {
-                  // Snap to the next available date if the picked one has no events
-                  target = groups.find(g => g.getAttribute('data-date-group') >= v)
-                        || groups[groups.length - 1];
-                }
-                if (!target) return;
-                const stickyEl = container.querySelector('.sticky-filters');
-                const stickyH = stickyEl
-                  ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top
-                  : 0;
-                const groupAbsTop = target.getBoundingClientRect().top
-                  - container.getBoundingClientRect().top + container.scrollTop;
-                container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
-                e.target.value = ''; // allow re-picking the same date next time
-              }}
-              style={{
-                position: 'absolute', inset: 0, opacity: 0,
-                width: '100%', height: '100%', border: 'none',
-                background: 'transparent', cursor: 'pointer'
-              }}
-            />
-          </label>
+          </button>
           <button
             ref={filterToggleRef}
             className={`filter-chip filter-chip-square ${filterPanelOpen ? 'active' : ''}`}
