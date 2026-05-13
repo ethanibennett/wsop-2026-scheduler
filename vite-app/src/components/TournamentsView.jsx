@@ -1071,6 +1071,9 @@ export default function TournamentsView({
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
   const fabContainerRef = useRef(null);
+  const calendarChipRef = useRef(null);
+  const calendarLongPressTimer = useRef(null);
+  const calendarLongPressTriggered = useRef(false);
   const [collapsedDates, setCollapsedDates] = useState(() => {
     try {
       const raw = localStorage.getItem('tournamentsCollapsedDates');
@@ -1408,14 +1411,81 @@ export default function TournamentsView({
           >
             <Icon.mapPin />
           </button>
-          <button
+          {/* Calendar chip: tap → switch to Calendar view. Long-press
+              (≥500ms) → open a native date picker scoped to today and
+              future dates only. Picking a date scrolls the schedule
+              list to that date's group. */}
+          <label
+            ref={calendarChipRef}
             className="filter-chip filter-chip-square"
-            onClick={() => onOpenCalendarView && onOpenCalendarView()}
-            style={{flexShrink:0}}
-            title="Calendar view"
+            style={{flexShrink:0, position: 'relative', cursor: 'pointer'}}
+            title="Calendar view (long-press for date picker)"
+            onPointerDown={() => {
+              calendarLongPressTriggered.current = false;
+              if (calendarLongPressTimer.current) clearTimeout(calendarLongPressTimer.current);
+              calendarLongPressTimer.current = setTimeout(() => {
+                calendarLongPressTriggered.current = true;
+                const input = calendarChipRef.current?.querySelector('input[type="date"]');
+                if (!input) return;
+                try { if (input.showPicker) input.showPicker(); else input.focus(); }
+                catch { input.focus(); }
+              }, 500);
+            }}
+            onPointerUp={() => {
+              if (calendarLongPressTimer.current) {
+                clearTimeout(calendarLongPressTimer.current);
+                calendarLongPressTimer.current = null;
+              }
+            }}
+            onPointerLeave={() => {
+              if (calendarLongPressTimer.current) {
+                clearTimeout(calendarLongPressTimer.current);
+                calendarLongPressTimer.current = null;
+              }
+            }}
+            onClick={(e) => {
+              if (e.target.tagName === 'INPUT') return;
+              if (calendarLongPressTriggered.current) {
+                e.preventDefault();
+                calendarLongPressTriggered.current = false;
+                return;
+              }
+              onOpenCalendarView && onOpenCalendarView();
+            }}
           >
             <Icon.calendar />
-          </button>
+            <input
+              type="date"
+              min={getToday()}
+              onChange={e => {
+                const v = e.target.value;
+                if (!v) return;
+                const container = document.querySelector('.content-area');
+                if (!container) return;
+                const groups = [...container.querySelectorAll('[data-date-group]')];
+                let target = groups.find(g => g.getAttribute('data-date-group') === v);
+                if (!target) {
+                  target = groups.find(g => g.getAttribute('data-date-group') >= v)
+                        || groups[groups.length - 1];
+                }
+                if (!target) return;
+                const stickyEl = container.querySelector('.sticky-filters');
+                const stickyH = stickyEl
+                  ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top
+                  : 0;
+                const groupAbsTop = target.getBoundingClientRect().top
+                  - container.getBoundingClientRect().top + container.scrollTop;
+                container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
+                e.target.value = '';
+              }}
+              style={{
+                position: 'absolute', inset: 0, opacity: 0,
+                width: '100%', height: '100%', border: 'none',
+                background: 'transparent', cursor: 'pointer',
+                pointerEvents: 'none'
+              }}
+            />
+          </label>
           <button
             ref={filterToggleRef}
             className={`filter-chip filter-chip-square ${filterPanelOpen ? 'active' : ''}`}

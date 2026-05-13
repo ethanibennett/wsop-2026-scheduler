@@ -3012,6 +3012,63 @@
     .cal-date-label-button:hover { background: var(--hover-overlay); }
     .cal-date-label-button:active { background: rgba(160,160,160,0.15); }
 
+    /* Three-button month row in the calendar carousel:
+         [ prev ] [ current month + year ] [ next ]
+       The center button is wider (it carries the full label) while
+       the side buttons are slim, slightly muted, and indicate the
+       previous / next adjacent month. */
+    .cal-month-row {
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      gap: 6px;
+      margin: 4px 0 6px;
+      animation: cal-month-row-slide 350ms ease-out;
+    }
+    .cal-month-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 12px;
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      color: var(--text);
+    }
+    .cal-month-btn-side {
+      color: var(--text-muted);
+      flex: 0 0 auto;
+    }
+    .cal-month-btn-side.muted {
+      opacity: 0.55;
+    }
+    .cal-month-btn-side:disabled {
+      cursor: not-allowed;
+      opacity: 0.35;
+    }
+    .cal-month-btn-side:not(:disabled):hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+    .cal-month-btn-current {
+      flex: 1 1 auto;
+      max-width: 200px;
+      border-color: var(--accent);
+      color: var(--text);
+      cursor: default;
+    }
+    @keyframes cal-month-row-slide {
+      0%   { transform: translateY(-4px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+
     .cal-date-strip {
       display: flex;
       gap: 6px;

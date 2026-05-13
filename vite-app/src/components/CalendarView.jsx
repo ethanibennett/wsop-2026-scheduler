@@ -826,7 +826,8 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
               style={{
                 position: 'absolute', inset: 0, opacity: 0,
                 width: '100%', height: '100%', border: 'none',
-                background: 'transparent', cursor: 'pointer'
+                background: 'transparent', cursor: 'pointer',
+                pointerEvents: 'none'
               }}
             />
           </label>
@@ -834,6 +835,61 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
             <Icon.chevRight />
           </button>
         </div>
+
+        {/* Month row: three buttons — previous (left, muted), current
+            (center), next (right). Clicking prev/next jumps to the
+            first available date in that month. Past months are still
+            clickable (so the user can scroll backwards through the
+            schedule), but rendered muted. */}
+        {(() => {
+          const curY = selDateObj.getFullYear();
+          const curM = selDateObj.getMonth();
+          const prev = new Date(curY, curM - 1, 1);
+          const next = new Date(curY, curM + 1, 1);
+          const todayISO = getToday();
+          const findInMonth = (y, m) => {
+            const ym = `${y}-${String(m + 1).padStart(2, '0')}`;
+            // Prefer today's date in the month, else first date in month
+            const inMonth = allDates.filter(d => d.startsWith(ym));
+            if (inMonth.length === 0) return null;
+            const future = inMonth.find(d => d >= todayISO);
+            return future || inMonth[0];
+          };
+          const jumpTo = (y, m) => {
+            const target = findInMonth(y, m);
+            if (target) setSelectedDate(target);
+          };
+          const prevTarget = findInMonth(prev.getFullYear(), prev.getMonth());
+          const nextTarget = findInMonth(next.getFullYear(), next.getMonth());
+          const monthPast = new Date(prev.getFullYear(), prev.getMonth() + 1, 0)
+            .toISOString().slice(0, 10) < todayISO;
+          return (
+            <div
+              key={`${curY}-${curM}`}
+              className="cal-month-row"
+            >
+              <button
+                className={`cal-month-btn cal-month-btn-side ${monthPast ? 'muted' : ''}`}
+                onClick={() => prevTarget && jumpTo(prev.getFullYear(), prev.getMonth())}
+                disabled={!prevTarget}
+                title={`Jump to ${MONTHS[prev.getMonth()]} ${prev.getFullYear()}`}
+              >
+                {MONTHS[prev.getMonth()]}
+              </button>
+              <span className="cal-month-btn cal-month-btn-current">
+                {MONTHS[curM]} {curY}
+              </span>
+              <button
+                className="cal-month-btn cal-month-btn-side"
+                onClick={() => nextTarget && jumpTo(next.getFullYear(), next.getMonth())}
+                disabled={!nextTarget}
+                title={`Jump to ${MONTHS[next.getMonth()]} ${next.getFullYear()}`}
+              >
+                {MONTHS[next.getMonth()]}
+              </button>
+            </div>
+          );
+        })()}
 
         {/* Scrollable date strip */}
         <div className="cal-date-strip">
