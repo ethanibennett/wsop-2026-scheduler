@@ -3110,6 +3110,21 @@
       overflow: hidden;
       transition: border-color 0.2s;
       display: flex;
+      position: relative;
+    }
+    /* Priority/anchor outline — drawn via a pseudo-element so it sits on
+       top of the venue strip + content (which would otherwise cover the
+       parent's inset box-shadow, especially on iOS Safari where flex
+       children fully clip ancestor inset shadows). Colour is set inline
+       via the `--anchor-color` custom property on the row. */
+    .cal-event-row.anchor::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1.5px solid var(--anchor-color, var(--border));
+      pointer-events: none;
+      z-index: 3;
     }
 
     .cal-event-row-content {

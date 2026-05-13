@@ -566,7 +566,7 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
   const stripTextColor = venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)';
 
   return (
-    <div ref={rowRef} className={rowClasses} style={isInSchedule && isAnchor ? {boxShadow: `inset 0 0 0 1.5px ${stripColor}`} : undefined}>
+    <div ref={rowRef} className={rowClasses} style={isInSchedule && isAnchor ? {'--anchor-color': stripColor} : undefined}>
       <div
         className={`cal-venue-strip venue-strip-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}
         style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
