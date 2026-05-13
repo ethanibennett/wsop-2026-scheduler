@@ -825,6 +825,8 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
               value={selectedDate}
               min={allDates[0]}
               max={allDates[allDates.length - 1]}
+              tabIndex={-1}
+              aria-hidden="true"
               onChange={e => {
                 const v = e.target.value;
                 if (!v) return;

@@ -529,19 +529,37 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
   const displayName = useDisplayName();
   const rowRef = useRef(null);
 
-  // Auto-expand AND scroll only when programmatically focused (e.g.
-  // navigating to a related satellite). User-initiated taps just
-  // expand in place — the smooth-scroll during render kept causing
-  // click-target jitter elsewhere on the page.
+  // Auto-expand when programmatically focused (e.g. navigating to a
+  // related satellite).
   useEffect(() => {
     if (focusEventId && tournament.id === focusEventId) {
       setOpen(true);
-      const raf = requestAnimationFrame(() => {
-        if (rowRef.current) scrollBelowSticky(rowRef.current);
-      });
-      return () => cancelAnimationFrame(raf);
     }
   }, [focusEventId]);
+
+  // When an event expands, scroll it just below the sticky header so
+  // the user lands on the details. Skips the scroll when the row is
+  // already comfortably in view to avoid pointless jumps.
+  useEffect(() => {
+    if (!open || !rowRef.current) return;
+    const raf = requestAnimationFrame(() => {
+      const el = rowRef.current;
+      if (!el) return;
+      const container = el.closest('.content-area');
+      if (!container) return;
+      const sticky = container.querySelector('.sticky-filters')
+                  || container.querySelector('.schedule-sticky-header');
+      const stickyBottom = sticky
+        ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top
+        : 0;
+      const rowRect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const rowTop = rowRect.top - containerRect.top;
+      if (rowTop >= stickyBottom && rowRect.bottom <= containerRect.bottom) return;
+      scrollBelowSticky(el);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [open]);
 
   const tzAbbr = getVenueTzAbbr(tournament.venue);
   const timeLabel = (tournament.time || '\u2014') + (tzAbbr ? ' ' + tzAbbr : '');
