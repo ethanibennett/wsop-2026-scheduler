@@ -759,12 +759,20 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
                     </a>
                   )}
                   {venue.abbr !== 'WSOP' && tournament.structure_sheet_path && (() => {
-                    // structure_sheet_path is like 'schedule-docs/Aria/structures/$X NLH \u2026pdf'
-                    // Map to the served API route, URL-encoding each segment so
-                    // spaces, $, (, ), commas in filenames survive routing.
-                    const parts = String(tournament.structure_sheet_path).split('/');
+                    // structure_sheet_path is like
+                    //   'schedule-docs/Aria/structures/$X NLH \u2026pdf'                          (per-event PDF)
+                    //   'schedule-docs/Wynn Las Vegas/structures/Wynn_Summer_Classic.pdf#page=12'  (bundled PDF + page)
+                    // Map to the served API route, URL-encoding each path
+                    // segment so spaces, $, (, ), commas survive routing.
+                    // The #page=N fragment passes through unencoded so the
+                    // browser jumps to the right page in the PDF viewer.
+                    const raw = String(tournament.structure_sheet_path);
+                    const hashIdx = raw.indexOf('#');
+                    const pathPart = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
+                    const fragPart = hashIdx >= 0 ? raw.slice(hashIdx) : '';
+                    const parts = pathPart.split('/');
                     if (parts.length < 4 || parts[0] !== 'schedule-docs') return null;
-                    const url = `${API_URL}/schedule-docs/${encodeURIComponent(parts[1])}/${encodeURIComponent(parts[2])}/${encodeURIComponent(parts.slice(3).join('/'))}`;
+                    const url = `${API_URL}/schedule-docs/${encodeURIComponent(parts[1])}/${encodeURIComponent(parts[2])}/${encodeURIComponent(parts.slice(3).join('/'))}${fragPart}`;
                     return (
                       <a
                         href={url}
