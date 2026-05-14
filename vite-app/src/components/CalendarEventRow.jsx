@@ -32,50 +32,30 @@ function formatEventName(name) {
   return name;
 }
 
-// Scroll the card so its top sits flush against the visual bottom of
-// every sticky element above it. Always fires on expand — every
-// expand pulls the card to the top of the visible area.
-//
-// Sticky bottoms are computed deterministically from CSS top +
-// offsetHeight (not bounding.bottom) so the math gives the same answer
-// whether the sticky is currently pinned or floating at its natural
-// position.
+// Build-29 behavior: sum the bounding heights of every sticky element
+// above the card and subtract from the card's absolute top. The natural
+// 12-20px gap that falls out of using offsetHeight (which includes the
+// sticky's negative margin-top extension) is the "looks right" buffer
+// the user signed off on for the Schedule tab. Same code path is used
+// by every view; gap scales with that view's sticky stack.
 function scrollBelowSticky(el) {
   const container = el.closest('.content-area');
   if (!container) return;
-  const cTop = container.getBoundingClientRect().top;
-
-  let stickyBottom = 0;
-  const pageSticky = container.querySelector('.sticky-filters')
-                  || container.querySelector('.schedule-sticky-header');
-  if (pageSticky) {
-    const cssTop = parseFloat(getComputedStyle(pageSticky).top) || 0;
-    stickyBottom = Math.max(stickyBottom, cssTop + pageSticky.offsetHeight);
-  }
+  const caTop = container.getBoundingClientRect().top;
+  let filtersH = 0;
+  const sticky = container.querySelector('.sticky-filters')
+              || container.querySelector('.schedule-sticky-header');
+  if (sticky) filtersH = sticky.getBoundingClientRect().height;
+  let dateBreakH = 0;
   const dateGroup = el.closest('[data-date-group]');
   if (dateGroup) {
     const db = dateGroup.querySelector('.schedule-date-break');
-    if (db) {
-      const cssTop = parseFloat(getComputedStyle(db).top) || 0;
-      stickyBottom = Math.max(stickyBottom, cssTop + db.offsetHeight);
-    }
+    if (db) dateBreakH = db.getBoundingClientRect().height;
   }
-
-  const elAbsTop = el.getBoundingClientRect().top - cTop + container.scrollTop;
-  // Position the card so its FULL BORDER is visible — both rounded
-  // corners on top AND bottom. Prefer bottom-aligned (card bottom 8px
-  // above the viewport bottom) so the whole card fits, but never let
-  // the top slide above the sticky's bottom + 8px gap. If the card is
-  // taller than the available space it falls back to top alignment.
-  const PAD = 8;
-  const cardH = el.offsetHeight;
-  const containerH = container.clientHeight;
-  const desiredFromSticky = stickyBottom + PAD;
-  const desiredFromBottom = containerH - PAD - cardH;
-  const desiredTop = Math.max(desiredFromSticky, desiredFromBottom);
-  const target = Math.max(0, elAbsTop - desiredTop);
+  const elAbsTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
+  const target = elAbsTop - filtersH - dateBreakH - 2;
   if (Math.abs(container.scrollTop - target) <= 2) return;
-  container.scrollTo({ top: target, behavior: 'smooth' });
+  container.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
 }
 
 // ── Late Reg Bar (expanded view) ──
@@ -563,14 +543,27 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
     }
   }, [focusEventId]);
 
-  // When an event expands, scroll the card so its top sits just below
-  // the sticky header — fires on every expand on Schedule, My Schedule,
-  // Calendar, Shared. No conditional skipping; the user wants the card
-  // pulled into place every time, fully visible, on all three lists.
+  // Build-29 visibility-guarded scroll: only fires when the row isn't
+  // already comfortably in view (top hidden behind sticky OR bottom
+  // below viewport). Same single rule across all three views — gap
+  // below the sticky scales with that view's sticky stack.
   useEffect(() => {
     if (!open || !rowRef.current) return;
     const raf = requestAnimationFrame(() => {
-      if (rowRef.current) scrollBelowSticky(rowRef.current);
+      const el = rowRef.current;
+      if (!el) return;
+      const container = el.closest('.content-area');
+      if (!container) return;
+      const sticky = container.querySelector('.sticky-filters')
+                  || container.querySelector('.schedule-sticky-header');
+      const stickyBottom = sticky
+        ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top
+        : 0;
+      const rowRect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const rowTop = rowRect.top - containerRect.top;
+      if (rowTop >= stickyBottom && rowRect.bottom <= containerRect.bottom) return;
+      scrollBelowSticky(el);
     });
     return () => cancelAnimationFrame(raf);
   }, [open]);
