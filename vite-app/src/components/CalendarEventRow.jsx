@@ -62,11 +62,18 @@ function scrollBelowSticky(el) {
   }
 
   const elAbsTop = el.getBoundingClientRect().top - cTop + container.scrollTop;
-  // Land the card 8px BELOW the sticky's box bottom — that gap of clear
-  // page background lets the card's rounded top edge read as a distinct
-  // border. Pulling tighter clips the corner; pushing further wastes
-  // viewport space.
-  const target = Math.max(0, elAbsTop - stickyBottom - 8);
+  // Position the card so its FULL BORDER is visible — both rounded
+  // corners on top AND bottom. Prefer bottom-aligned (card bottom 8px
+  // above the viewport bottom) so the whole card fits, but never let
+  // the top slide above the sticky's bottom + 8px gap. If the card is
+  // taller than the available space it falls back to top alignment.
+  const PAD = 8;
+  const cardH = el.offsetHeight;
+  const containerH = container.clientHeight;
+  const desiredFromSticky = stickyBottom + PAD;
+  const desiredFromBottom = containerH - PAD - cardH;
+  const desiredTop = Math.max(desiredFromSticky, desiredFromBottom);
+  const target = Math.max(0, elAbsTop - desiredTop);
   if (Math.abs(container.scrollTop - target) <= 2) return;
   container.scrollTo({ top: target, behavior: 'smooth' });
 }
