@@ -543,27 +543,14 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
     }
   }, [focusEventId]);
 
-  // Build-29 visibility-guarded scroll: only fires when the row isn't
-  // already comfortably in view (top hidden behind sticky OR bottom
-  // below viewport). Same single rule across all three views — gap
-  // below the sticky scales with that view's sticky stack.
+  // Always scroll on expand — every view uses the same rule with the
+  // build-29 sticky-stack math; the natural gap below the sticky stack
+  // scales per view (Schedule = filters + date-break, My Schedule =
+  // schedule-header + date-break, Calendar = filters only).
   useEffect(() => {
     if (!open || !rowRef.current) return;
     const raf = requestAnimationFrame(() => {
-      const el = rowRef.current;
-      if (!el) return;
-      const container = el.closest('.content-area');
-      if (!container) return;
-      const sticky = container.querySelector('.sticky-filters')
-                  || container.querySelector('.schedule-sticky-header');
-      const stickyBottom = sticky
-        ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top
-        : 0;
-      const rowRect = el.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const rowTop = rowRect.top - containerRect.top;
-      if (rowTop >= stickyBottom && rowRect.bottom <= containerRect.bottom) return;
-      scrollBelowSticky(el);
+      if (rowRef.current) scrollBelowSticky(rowRef.current);
     });
     return () => cancelAnimationFrame(raf);
   }, [open]);
