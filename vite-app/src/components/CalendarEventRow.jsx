@@ -35,21 +35,35 @@ function formatEventName(name) {
 function scrollBelowSticky(el) {
   const container = el.closest('.content-area');
   if (!container) return;
-  const caTop = container.getBoundingClientRect().top;
-  let filtersH = 0;
-  const sticky = container.querySelector('.sticky-filters') || container.querySelector('.schedule-sticky-header');
-  if (sticky) filtersH = sticky.getBoundingClientRect().height;
-  let dateBreakH = 0;
+  const cTop = container.getBoundingClientRect().top;
+  // Visual bottom of the page-level sticky header in container coords.
+  // We use bounding.bottom (not offsetHeight) because the page sticky
+  // has a negative margin-top to extend behind the container's padding —
+  // offsetHeight over-counts that hidden portion and would scroll the
+  // row up by ~12-20px too far. This mirrors the Schedule-tab "Today"
+  // FAB and ScheduleView's scroll-to-today, both of which work right.
+  let stickyBottom = 0;
+  const pageSticky = container.querySelector('.sticky-filters')
+                  || container.querySelector('.schedule-sticky-header');
+  if (pageSticky) {
+    stickyBottom = Math.max(0, pageSticky.getBoundingClientRect().bottom - cTop);
+  }
+  // Date-break (sticky inside its date-group) stacks below the page
+  // header. Use its CSS top + offsetHeight to get the pinned visual
+  // bottom — the live bounding rect won't reflect the pinned position
+  // when the group is currently below the viewport.
   const dateGroup = el.closest('[data-date-group]');
   if (dateGroup) {
     const db = dateGroup.querySelector('.schedule-date-break');
-    if (db) dateBreakH = db.getBoundingClientRect().height;
+    if (db) {
+      const cssTop = parseFloat(getComputedStyle(db).top) || 0;
+      stickyBottom = Math.max(stickyBottom, cssTop + db.offsetHeight);
+    }
   }
-  const elAbsTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-  const totalStickyH = filtersH + dateBreakH;
-  const target = elAbsTop - totalStickyH - 2;
+  const elAbsTop = el.getBoundingClientRect().top - cTop + container.scrollTop;
+  const target = elAbsTop - stickyBottom - 2;
   if (Math.abs(container.scrollTop - target) <= 2) return;
-  container.scrollTo({ top: target, behavior: 'smooth' });
+  container.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
 }
 
 // ── Late Reg Bar (expanded view) ──
@@ -538,25 +552,12 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
   }, [focusEventId]);
 
   // When an event expands, scroll it just below the sticky header so
-  // the user lands on the details. Skips the scroll when the row is
-  // already comfortably in view to avoid pointless jumps.
+  // the user lands on the details — fires on every expand across all
+  // views (Schedule, My Schedule, Calendar, Shared).
   useEffect(() => {
     if (!open || !rowRef.current) return;
     const raf = requestAnimationFrame(() => {
-      const el = rowRef.current;
-      if (!el) return;
-      const container = el.closest('.content-area');
-      if (!container) return;
-      const sticky = container.querySelector('.sticky-filters')
-                  || container.querySelector('.schedule-sticky-header');
-      const stickyBottom = sticky
-        ? sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top
-        : 0;
-      const rowRect = el.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const rowTop = rowRect.top - containerRect.top;
-      if (rowTop >= stickyBottom && rowRect.bottom <= containerRect.bottom) return;
-      scrollBelowSticky(el);
+      if (rowRef.current) scrollBelowSticky(rowRef.current);
     });
     return () => cancelAnimationFrame(raf);
   }, [open]);
