@@ -62,10 +62,10 @@ function scrollBelowSticky(el) {
   }
 
   const elAbsTop = el.getBoundingClientRect().top - cTop + container.scrollTop;
-  // Pull the card 8px up into the sticky's bottom padding so its top
-  // lines up with the date-break's content baseline, not the padding
-  // box. Without this the card sits ~8px below the visible date.
-  const target = Math.max(0, elAbsTop - stickyBottom + 8);
+  // Card top sits exactly at the sticky's box bottom — pulling further
+  // up slides the card under the date-break's z-indexed background and
+  // clips the time/price line.
+  const target = Math.max(0, elAbsTop - stickyBottom);
   if (Math.abs(container.scrollTop - target) <= 2) return;
   container.scrollTo({ top: target, behavior: 'smooth' });
 }
