@@ -32,25 +32,19 @@ function formatEventName(name) {
   return name;
 }
 
-// Scrolls the .content-area by the MINIMUM amount needed to fit the
-// expanded card's full border in the visible viewport (sticky-aware).
+// Scroll the card so its top sits flush against the visual bottom of
+// every sticky element above it. Always fires on expand — every
+// expand pulls the card to the top of the visible area.
 //
-// Behavior matches `scrollIntoView({block: 'nearest'})` semantics:
-//  • If the card is already fully visible between the sticky bottom and
-//    the viewport bottom, do nothing — no jitter.
-//  • If the card's bottom extends past the viewport, scroll DOWN just
-//    enough to bring the bottom into view (without pushing the top
-//    behind the sticky).
-//  • If the card's top is hidden behind the sticky, scroll UP just
-//    enough to bring the top below the sticky.
+// Sticky bottoms are computed deterministically from CSS top +
+// offsetHeight (not bounding.bottom) so the math gives the same answer
+// whether the sticky is currently pinned or floating at its natural
+// position.
 function scrollBelowSticky(el) {
   const container = el.closest('.content-area');
   if (!container) return;
   const cTop = container.getBoundingClientRect().top;
 
-  // Pinned visual bottom of every sticky element above the card,
-  // computed deterministically from CSS top + offsetHeight (so the
-  // result is the same whether the sticky is currently pinned or not).
   let stickyBottom = 0;
   const pageSticky = container.querySelector('.sticky-filters')
                   || container.querySelector('.schedule-sticky-header');
@@ -67,29 +61,10 @@ function scrollBelowSticky(el) {
     }
   }
 
-  const rect = el.getBoundingClientRect();
-  const cardTop = rect.top - cTop;
-  const cardBottom = rect.bottom - cTop;
-  const containerH = container.clientHeight;
-
-  const PAD = 8;
-  const visibleTop = stickyBottom + PAD;
-  const visibleBottom = containerH - PAD;
-
-  let delta = 0;
-  if (cardBottom > visibleBottom) {
-    // Card extends below — scroll down by what's needed, but never past
-    // what would push the top behind the sticky.
-    const need = cardBottom - visibleBottom;
-    const room = Math.max(0, cardTop - visibleTop);
-    delta = Math.min(need, room);
-  } else if (cardTop < visibleTop) {
-    // Card top hidden behind sticky — scroll up to expose it.
-    delta = cardTop - visibleTop;  // negative
-  }
-  if (Math.abs(delta) <= 2) return;
-  const newTop = Math.max(0, container.scrollTop + delta);
-  container.scrollTo({ top: newTop, behavior: 'smooth' });
+  const elAbsTop = el.getBoundingClientRect().top - cTop + container.scrollTop;
+  const target = Math.max(0, elAbsTop - stickyBottom);
+  if (Math.abs(container.scrollTop - target) <= 2) return;
+  container.scrollTo({ top: target, behavior: 'smooth' });
 }
 
 // ── Late Reg Bar (expanded view) ──
