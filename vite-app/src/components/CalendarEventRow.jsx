@@ -36,22 +36,19 @@ function scrollBelowSticky(el) {
   const container = el.closest('.content-area');
   if (!container) return;
   const cTop = container.getBoundingClientRect().top;
-  // Visual bottom of the page-level sticky header in container coords.
-  // We use bounding.bottom (not offsetHeight) because the page sticky
-  // has a negative margin-top to extend behind the container's padding —
-  // offsetHeight over-counts that hidden portion and would scroll the
-  // row up by ~12-20px too far. This mirrors the Schedule-tab "Today"
-  // FAB and ScheduleView's scroll-to-today, both of which work right.
+  // Compute each sticky's PINNED visual bottom in container coords using
+  // its CSS `top` + offsetHeight. This is deterministic: it doesn't
+  // depend on whether the sticky is currently scrolled into its pinned
+  // state. (bounding.bottom would give the natural position when the
+  // page is scrolled to top, then a different value once pinned —
+  // inconsistent and the cause of earlier under/over-scroll bugs.)
   let stickyBottom = 0;
   const pageSticky = container.querySelector('.sticky-filters')
                   || container.querySelector('.schedule-sticky-header');
   if (pageSticky) {
-    stickyBottom = Math.max(0, pageSticky.getBoundingClientRect().bottom - cTop);
+    const cssTop = parseFloat(getComputedStyle(pageSticky).top) || 0;
+    stickyBottom = Math.max(stickyBottom, cssTop + pageSticky.offsetHeight);
   }
-  // Date-break (sticky inside its date-group) stacks below the page
-  // header. Use its CSS top + offsetHeight to get the pinned visual
-  // bottom — the live bounding rect won't reflect the pinned position
-  // when the group is currently below the viewport.
   const dateGroup = el.closest('[data-date-group]');
   if (dateGroup) {
     const db = dateGroup.querySelector('.schedule-date-break');
@@ -61,7 +58,9 @@ function scrollBelowSticky(el) {
     }
   }
   const elAbsTop = el.getBoundingClientRect().top - cTop + container.scrollTop;
-  const target = elAbsTop - stickyBottom - 2;
+  // 8px breathing room so the card doesn't kiss the sticky bottom and
+  // the user has visual confirmation the scroll landed cleanly.
+  const target = elAbsTop - stickyBottom - 8;
   if (Math.abs(container.scrollTop - target) <= 2) return;
   container.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
 }
@@ -551,37 +550,14 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
     }
   }, [focusEventId]);
 
-  // When an event expands, scroll it just below the sticky header — but
-  // ONLY if the row top is currently hidden behind the sticky. If the
-  // row top is already visible, leave the page alone. This matches the
-  // "Schedule tab feels right" behavior the user expects on every view:
-  // taps don't shove the page around, but if you've collapsed a row
-  // that was sticky-pinned at top, the next row gets pulled into view.
+  // When an event expands, scroll the card so its top sits just below
+  // the sticky header — fires on every expand on Schedule, My Schedule,
+  // Calendar, Shared. No conditional skipping; the user wants the card
+  // pulled into place every time, fully visible, on all three lists.
   useEffect(() => {
     if (!open || !rowRef.current) return;
     const raf = requestAnimationFrame(() => {
-      const el = rowRef.current;
-      if (!el) return;
-      const container = el.closest('.content-area');
-      if (!container) return;
-      const cTop = container.getBoundingClientRect().top;
-      let stickyBottom = 0;
-      const pageSticky = container.querySelector('.sticky-filters')
-                      || container.querySelector('.schedule-sticky-header');
-      if (pageSticky) {
-        stickyBottom = Math.max(0, pageSticky.getBoundingClientRect().bottom - cTop);
-      }
-      const dateGroup = el.closest('[data-date-group]');
-      if (dateGroup) {
-        const db = dateGroup.querySelector('.schedule-date-break');
-        if (db) {
-          const cssTop = parseFloat(getComputedStyle(db).top) || 0;
-          stickyBottom = Math.max(stickyBottom, cssTop + db.offsetHeight);
-        }
-      }
-      const rowTop = el.getBoundingClientRect().top - cTop;
-      if (rowTop >= stickyBottom - 2) return; // row top already visible — leave it
-      scrollBelowSticky(el);
+      if (rowRef.current) scrollBelowSticky(rowRef.current);
     });
     return () => cancelAnimationFrame(raf);
   }, [open]);
