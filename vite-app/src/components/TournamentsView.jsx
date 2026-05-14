@@ -1064,6 +1064,23 @@ export default function TournamentsView({
   const todayScrollRef = useRef(null);
   const hasScrolled = useRef(false);
   const stickyFiltersRef = useRef(null);
+
+  // Single source of truth for "scroll a date group to the top of the
+  // events area" — same landing y as scrollBelowSticky uses for an
+  // expanded card, so an intentional day change drops the first event
+  // exactly where it would be if the user had just expanded it.
+  // Formula: scrollTo(groupAbsTop - filtersH - 2). The date-break
+  // (first child of the group) sits at filtersH + 2; first event sits
+  // at filtersH + dateBreakH + 2.
+  const scrollDateGroupToTop = useCallback((dateGroupEl, behavior = 'smooth') => {
+    const container = document.querySelector('.content-area');
+    if (!container || !dateGroupEl) return;
+    const stickyEl = container.querySelector('.sticky-filters');
+    const filtersH = stickyEl ? stickyEl.getBoundingClientRect().height : 0;
+    const cTop = container.getBoundingClientRect().top;
+    const groupAbsTop = dateGroupEl.getBoundingClientRect().top - cTop + container.scrollTop;
+    container.scrollTo({ top: Math.max(0, groupAbsTop - filtersH - 2), behavior });
+  }, []);
   const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
   const locationBtnRef = useRef(null);
   const [importDropdownOpen, setImportDropdownOpen] = useState(false);
@@ -1098,26 +1115,18 @@ export default function TournamentsView({
         const groups = [...container.querySelectorAll('[data-date-group]')];
         const idx = groups.findIndex(g => g.getAttribute('data-date-group') === date);
         const nextGroup = groups[idx + 1];
-        if (!nextGroup) return;
-        const stickyEl = container.querySelector('.sticky-filters');
-        const stickyH = stickyEl
-          ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top
-          : 0;
-        const groupAbsTop = nextGroup.getBoundingClientRect().top
-          - container.getBoundingClientRect().top + container.scrollTop;
-        container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
+        if (nextGroup) scrollDateGroupToTop(nextGroup);
       }));
     }
   };
 
-  // Scroll to today's date group or the next upcoming one
+  // Scroll to today's date group or the next upcoming one — uses the
+  // shared helper so the landing y matches scrollBelowSticky.
   const scrollToTodayOrNext = useCallback(() => {
     const container = document.querySelector('.content-area');
     if (!container) return;
     requestAnimationFrame(() => {
       const todayISO = getToday();
-      const stickyEl = container.querySelector('.sticky-filters');
-      const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
       const groups = container.querySelectorAll('[data-date-group]');
       let target = null;
       for (const g of groups) {
@@ -1125,12 +1134,12 @@ export default function TournamentsView({
       }
       if (!target && groups.length) target = groups[0];
       if (target) {
-        container.scrollTo({ top: target.offsetTop - stickyH });
+        scrollDateGroupToTop(target, 'auto');
       } else {
         container.scrollTop = 0;
       }
     });
-  }, []);
+  }, [scrollDateGroupToTop]);
 
   // Progressive rendering — load more date groups as user scrolls near
   // bottom. Bump aggressively (+30) so a single IO fire actually grows the
@@ -1338,12 +1347,7 @@ export default function TournamentsView({
     fab.innerHTML = '<svg class="fab-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="18 15 12 9 6 15"/></svg><svg class="fab-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="6 9 12 15 18 9"/></svg>' + fabLabel;
     fab.addEventListener('click', () => {
       const target = findTarget();
-      if (target) {
-        const stickyEl = container.querySelector('.sticky-filters');
-        const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
-        const groupAbsTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-        container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
-      }
+      if (target) scrollDateGroupToTop(target);
     });
     if (fabContainerRef.current) fabContainerRef.current.appendChild(fab);
 
@@ -1385,14 +1389,9 @@ export default function TournamentsView({
   useLayoutEffect(() => {
     if (!hasScrolled.current && todayScrollRef.current) {
       hasScrolled.current = true;
-      const container = todayScrollRef.current.closest('.content-area');
-      if (!container) return;
-      const filtersEl = container.querySelector('.sticky-filters');
-      const filtersH = filtersEl ? filtersEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
-      const groupAbsTop = todayScrollRef.current.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-      container.scrollTop = Math.max(0, groupAbsTop - filtersH);
+      scrollDateGroupToTop(todayScrollRef.current, 'auto');
     }
-  }, [filtered]);
+  }, [filtered, scrollDateGroupToTop]);
 
   return (
     <div>
@@ -1415,7 +1414,12 @@ export default function TournamentsView({
               (≥500ms) → open a native date picker scoped to today and
               future dates only. Picking a date scrolls the schedule
               list to that date's group. */}
-          <label
+          {/* Was a <label> — that auto-focused the wrapped <input> on
+              every tap (HTML label-input association), causing the
+              "double click required everywhere" bug. <div> has no
+              such behavior; the long-press still triggers the picker
+              programmatically. */}
+          <div
             ref={calendarChipRef}
             className="filter-chip filter-chip-square"
             style={{flexShrink:0, position: 'relative', cursor: 'pointer'}}
@@ -1429,6 +1433,19 @@ export default function TournamentsView({
                 if (!input) return;
                 try { if (input.showPicker) input.showPicker(); else input.focus(); }
                 catch { input.focus(); }
+                // After the picker is dismissed (with or without picking
+                // a date), the hidden input often retains focus on iOS
+                // Safari — that's the "double click required everywhere"
+                // bug. Arm a one-shot pointerdown listener that blurs
+                // the input on the next tap anywhere, then removes
+                // itself.
+                const dropFocus = () => {
+                  input.blur();
+                  document.removeEventListener('pointerdown', dropFocus, true);
+                };
+                setTimeout(() => {
+                  document.addEventListener('pointerdown', dropFocus, true);
+                }, 100);
               }, 500);
             }}
             onPointerUp={() => {
@@ -1457,6 +1474,8 @@ export default function TournamentsView({
             <input
               type="date"
               min={getToday()}
+              tabIndex={-1}
+              aria-hidden="true"
               onChange={e => {
                 const v = e.target.value;
                 if (!v) return;
@@ -1468,16 +1487,14 @@ export default function TournamentsView({
                   target = groups.find(g => g.getAttribute('data-date-group') >= v)
                         || groups[groups.length - 1];
                 }
-                if (!target) return;
-                const stickyEl = container.querySelector('.sticky-filters');
-                const stickyH = stickyEl
-                  ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top
-                  : 0;
-                const groupAbsTop = target.getBoundingClientRect().top
-                  - container.getBoundingClientRect().top + container.scrollTop;
-                container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
+                if (target) scrollDateGroupToTop(target);
                 e.target.value = '';
+                // Drop focus so the next tap anywhere else lands as a
+                // single click instead of stealing focus from this hidden
+                // input (which causes the "double click required" bug).
+                e.target.blur();
               }}
+              onBlur={e => { e.target.value = ''; }}
               style={{
                 position: 'absolute', inset: 0, opacity: 0,
                 width: '100%', height: '100%', border: 'none',
@@ -1485,7 +1502,7 @@ export default function TournamentsView({
                 pointerEvents: 'none'
               }}
             />
-          </label>
+          </div>
           <button
             ref={filterToggleRef}
             className={`filter-chip filter-chip-square ${filterPanelOpen ? 'active' : ''}`}
@@ -1616,12 +1633,7 @@ export default function TournamentsView({
                         }} onClick={(e) => {
                           e.stopPropagation();
                           const grp = e.currentTarget.closest('[data-date-group]');
-                          const container = grp?.closest('.content-area');
-                          if (grp && container) {
-                            const stickyEl = container.querySelector('.sticky-filters');
-                            const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
-                            container.scrollTo({ top: grp.offsetTop - stickyH, behavior: 'smooth' });
-                          }
+                          if (grp) scrollDateGroupToTop(grp);
                         }}>
                           <span style={{fontSize: '1.7rem', lineHeight: 1, fontFamily: "var(--serif)", color: 'var(--bg)'}}>{dayNum}</span>
                           <span style={{fontSize: '0.85rem', lineHeight: 1, fontFamily: "var(--serif)", textTransform: 'capitalize', color: 'var(--bg)'}}>{monthAbbr}</span>

@@ -2646,6 +2646,13 @@
       margin-bottom: 10px;
       flex-wrap: wrap;
     }
+    /* Inside the .filter-panel grid (1fr 1fr base / 4 cols ≥640px),
+       filter-row cells must always span every column so Search and
+       Date Range stack one-per-row instead of pairing up at smaller
+       viewports. Scoped to .filter-panel so the Filters component
+       (which uses .filter-row internally) doesn't accidentally span
+       parent grids elsewhere — e.g. the Calendar tab month row. */
+    .filter-panel > .filter-row { grid-column: 1 / -1; }
 
     /* Search + Date Range always stack — every breakpoint we tried for
        pairing them ended up feeling cramped for the slider, so they
@@ -3007,8 +3014,8 @@
        middle auto-sized column) regardless of the left/right cell
        widths. */
     .cal-bottom-row {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
+      display: flex;
+      justify-content: center;
       align-items: center;
       gap: 8px;
       margin-top: 8px;
@@ -3018,12 +3025,9 @@
       color: var(--text-muted);
       white-space: nowrap;
       margin: 0;
-      justify-self: start;
+      text-align: center;
     }
     .cal-bottom-row > .cal-today-btn { justify-self: center; }
-    /* The third grid cell (the <Filters /> wrapper) is whatever
-       width its content needs; right-justify it. */
-    .cal-bottom-row > :last-child { justify-self: end; }
     .cal-today-btn {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -3052,15 +3056,57 @@
        The center button is wider (it carries the full label) while
        the side buttons are slim, slightly muted, and indicate the
        previous / next adjacent month. */
+    /* Calendar tab: trim the sticky-filters top padding so the month
+       row sits closer to the page header. Schedule tab keeps its
+       larger padding (its first sticky child is the search bar which
+       wants more headroom). */
+    [data-tab="calendar"] .sticky-filters { padding-top: 12px; }
+    @media (min-width: 640px) {
+      [data-tab="calendar"] .sticky-filters { padding-top: 16px; }
+    }
+    @media (min-width: 1024px) {
+      [data-tab="calendar"] .sticky-filters { padding-top: 20px; }
+    }
+
     .cal-month-row {
-      display: flex;
-      justify-content: center;
-      align-items: stretch;
+      /* 3-column grid: [icon] [centered prev/current/next] [filter btn].
+         Symmetric end caps (icon ↔ filter) keep the three month buttons
+         visually centered. */
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
       gap: 6px;
-      margin: 4px 0 6px;
+      margin: 0 0 6px;
       overflow: hidden;
       animation: cal-month-row-slide 280ms ease-out;
     }
+
+    .cal-month-row-buttons {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Calendar-icon date picker — pinned to the far left of the month
+       row. Square, hosts the hidden <input type="date"> that drives
+       the native picker. */
+    .cal-month-icon-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .cal-month-icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .cal-month-icon-btn svg { width: 18px; height: 18px; }
     /* When the row is keyed by direction (data-direction="next"/"prev"),
        the entire row slides in from the opposite side so it looks like
        the months are being scrolled horizontally with the carousel. */
@@ -3099,8 +3145,7 @@
       border-color: var(--accent);
     }
     .cal-month-btn-current {
-      flex: 1 1 auto;
-      max-width: 200px;
+      flex: 0 0 auto;
       border-color: var(--accent);
       color: var(--text);
       cursor: default;
@@ -3151,8 +3196,6 @@
       60%  { transform: scale(1.12); }
       100% { transform: scale(1); }
     }
-    .cal-date-btn.has-events { border-color: rgba(160,160,160,0.5); }
-
     .cal-date-btn .dow {
       font-family: 'Univers Condensed', 'Univers', sans-serif;
       font-size: 0.65rem;
@@ -3173,15 +3216,6 @@
     }
 
     .cal-date-btn.active .dom { color: var(--bg-contrast); }
-
-    .cal-date-btn .ev-dot {
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: var(--accent);
-      margin-top: 2px;
-    }
-
-    .cal-date-btn.active .ev-dot { background: var(--bg-contrast); }
 
     .cal-event-count {
       font-size: 0.75rem;
@@ -3230,7 +3264,7 @@
       top: -12px;
       z-index: 6;
       background: var(--bg);
-      padding: 24px 12px 12px;
+      padding: 14px 12px 0;
       margin: -12px -12px -2px;
       box-shadow: 0 4px 0 0 var(--bg);
     }
@@ -3256,7 +3290,9 @@
       position: absolute;
       inset: 0;
       border-radius: inherit;
-      border: 1.5px solid var(--anchor-color, var(--border));
+      /* 3px makes priority unmistakable next to saved events (which
+         already carry a 1.5px venue-color border on cal-event-row-content). */
+      border: 3px solid var(--anchor-color, var(--border));
       pointer-events: none;
       z-index: 3;
     }
@@ -4196,7 +4232,7 @@
     @media (min-width: 640px) {
       .content-area { padding: 16px 20px 80px; }
       .sticky-filters { margin: -16px -20px 0; padding: 32px 20px 6px; top: -16px; }
-      .schedule-sticky-header { margin: -16px -20px 0; padding: 28px 20px 10px; top: -16px; }
+      .schedule-sticky-header { margin: -16px -20px 0; padding: 18px 20px 0; top: -16px; }
 
       .tournament-list {
         display: grid;
@@ -4215,13 +4251,15 @@
         align-items: start;
       }
       .filter-span2 { grid-column: span 1; }
-      .filter-row    { grid-column: 1 / -1; }
+      /* .filter-row span-all rule lives outside this block and is
+         scoped to .filter-panel > .filter-row so it doesn't leak into
+         other grids. */
     }
 
     @media (min-width: 1024px) {
       .content-area { padding: 20px 32px 80px; }
       .sticky-filters { margin: -20px -32px 0; padding: 40px 32px 6px; top: -20px; }
-      .schedule-sticky-header { margin: -20px -32px 0; padding: 32px 32px 10px; top: -20px; }
+      .schedule-sticky-header { margin: -20px -32px 0; padding: 22px 32px 0; top: -20px; }
 
       .tournament-list {
         grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));

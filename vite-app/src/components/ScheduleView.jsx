@@ -272,7 +272,7 @@ export default function ScheduleView({
       ) : (
       <div style={{opacity: listVisible ? 1 : 0}}>
       <div className="schedule-sticky-header" ref={schedHeaderRef}>
-        <div className="section-header" style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:0}}>
+        <div className="section-header" style={{display:'flex',alignItems:'baseline',gap:'8px',marginBottom:0}}>
           <h2>My Schedule</h2>
           <span style={{fontSize:'0.82rem',color:'var(--text-muted)',flex:1}}>{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
           <button className="btn btn-ghost btn-sm"
@@ -319,7 +319,7 @@ export default function ScheduleView({
           <Icon.warn /> {conflicts.size} event{conflicts.size !== 1 ? 's have' : ' has'} a time conflict
         </div>
       )}
-      <div style={{minHeight:'100vh', paddingBottom:'60vh'}}>
+      <div style={{minHeight:'100vh', paddingBottom:'100vh'}}>
         {(() => {
           const groups = [];
           let currentGroup = null;

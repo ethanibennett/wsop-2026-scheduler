@@ -179,6 +179,7 @@ export default function App() {
     if (meta) meta.setAttribute('content', THEME_META[theme] || '#111111');
   }, [theme]);
 
+
   useEffect(() => {
     document.documentElement.dataset.contrast = contrast;
     localStorage.setItem('contrast', contrast);

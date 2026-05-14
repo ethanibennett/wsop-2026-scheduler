@@ -13,6 +13,7 @@ import { API_URL } from '../utils/api.js';
 
 const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 const GAME_GROUPS = [
   { label: 'NLH', variants: ['NLH'] },
@@ -591,6 +592,15 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
     }
   }, [selectedDate]);
 
+  // Reset the page scroll when the selected date changes so the new
+  // day's events always start at the top of the viewport (just below
+  // the sticky filters). Without this, the previous day's scroll
+  // position carries over and the new events can render below the fold.
+  useEffect(() => {
+    const container = document.querySelector('.content-area');
+    if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [selectedDate]);
+
   const [filters, setFilters] = useState(() => {
     // Restore previously-chosen location from localStorage so users don't have
     // to re-enter distance/region on every launch.
@@ -650,6 +660,27 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
       if (c.length > 0) m[t.id] = c;
     }
     return m;
+  }, [mySchedule]);
+
+  // Per-date "representative" scheduled event: the priority/anchor
+  // event takes precedence; otherwise the first chronological one.
+  // Used to colour the date carousel buttons by venue brand.
+  const myScheduleByDate = useMemo(() => {
+    const buckets = {};
+    for (const t of mySchedule) {
+      const d = normaliseDate(t.date);
+      if (!d) continue;
+      (buckets[d] = buckets[d] || []).push(t);
+    }
+    const out = {};
+    for (const d of Object.keys(buckets)) {
+      const sorted = buckets[d].slice().sort((a, b) => {
+        if (!!a.is_anchor !== !!b.is_anchor) return a.is_anchor ? -1 : 1;
+        return parseTournamentTime(a) - parseTournamentTime(b);
+      });
+      out[d] = sorted[0];
+    }
+    return out;
   }, [mySchedule]);
 
   // Hide series that have ended (2 days after their last Day 1 / flight)
@@ -797,67 +828,11 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
   return (
     <div>
       <div className="sticky-filters">
-        {/* Date navigation header */}
-        <div className="calendar-nav">
-          <button className="cal-nav-btn" onClick={() => move(-1)}>
-            <Icon.chevLeft />
-          </button>
-          {/* Tap the date label to open a native date picker. We overlay
-              a hidden <input type="date"> so the OS picker takes over
-              when the user taps anywhere on the label. */}
-          <label
-            className="cal-date-label cal-date-label-button"
-            title="Pick a date"
-            onClick={(e) => {
-              if (e.target.tagName === 'INPUT') return;
-              const input = e.currentTarget.querySelector('input[type="date"]');
-              if (!input) return;
-              try { if (input.showPicker) input.showPicker(); else input.focus(); }
-              catch { input.focus(); }
-            }}
-          >
-            <div className="day-name">{DOW[selDateObj.getDay()]}</div>
-            <div className="day-full">
-              {MONTHS[selDateObj.getMonth()]} {selDateObj.getDate()}, {selDateObj.getFullYear()}
-            </div>
-            <input
-              type="date"
-              value={selectedDate}
-              min={allDates[0]}
-              max={allDates[allDates.length - 1]}
-              tabIndex={-1}
-              aria-hidden="true"
-              onChange={e => {
-                const v = e.target.value;
-                if (!v) return;
-                // Snap to nearest available date that actually has events
-                if (allDates.includes(v)) {
-                  setSelectedDate(v);
-                } else {
-                  // pick the closest later date, or the closest earlier
-                  const later = allDates.find(d => d >= v);
-                  const earlier = [...allDates].reverse().find(d => d <= v);
-                  setSelectedDate(later || earlier || allDates[0]);
-                }
-              }}
-              style={{
-                position: 'absolute', inset: 0, opacity: 0,
-                width: '100%', height: '100%', border: 'none',
-                background: 'transparent', cursor: 'pointer',
-                pointerEvents: 'none'
-              }}
-            />
-          </label>
-          <button className="cal-nav-btn" onClick={() => move(1)}>
-            <Icon.chevRight />
-          </button>
-        </div>
-
-        {/* Month row: three buttons — previous (left, muted), current
-            (center), next (right). Clicking prev/next jumps to the
-            first available date in that month. Past months are still
-            clickable (so the user can scroll backwards through the
-            schedule), but rendered muted. */}
+        {/* Month row: calendar-icon date picker on the left, then three
+            month buttons — previous (muted), current (full name),
+            next. Clicking prev/next jumps to the first available date
+            in that month. Past months are still clickable (so the user
+            can scroll backwards), but rendered muted. */}
         {(() => {
           const curY = selDateObj.getFullYear();
           const curM = selDateObj.getMonth();
@@ -886,75 +861,118 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
               className="cal-month-row"
               data-direction={monthDirRef.current}
             >
-              <button
-                className={`cal-month-btn cal-month-btn-side ${monthPast ? 'muted' : ''}`}
-                onClick={() => prevTarget && jumpTo(prev.getFullYear(), prev.getMonth())}
-                disabled={!prevTarget}
-                title={`Jump to ${MONTHS[prev.getMonth()]} ${prev.getFullYear()}`}
+              {/* Calendar-icon date picker on the far left. <div> not
+                  <label> — the label-input HTML association auto-focuses
+                  the wrapped <input>, which on iOS Safari causes the
+                  "double click required everywhere" bug after picker
+                  dismissal. With <div>, only our explicit onClick fires,
+                  which calls showPicker programmatically. */}
+              <div
+                className="cal-month-icon-btn"
+                title="Pick a date"
+                onClick={(e) => {
+                  if (e.target.tagName === 'INPUT') return;
+                  const input = e.currentTarget.querySelector('input[type="date"]');
+                  if (!input) return;
+                  try { if (input.showPicker) input.showPicker(); else input.focus(); }
+                  catch { input.focus(); }
+                }}
               >
-                {MONTHS[prev.getMonth()]}
-              </button>
-              <span className="cal-month-btn cal-month-btn-current">
-                {MONTHS[curM]} {curY}
-              </span>
-              <button
-                className="cal-month-btn cal-month-btn-side"
-                onClick={() => nextTarget && jumpTo(next.getFullYear(), next.getMonth())}
-                disabled={!nextTarget}
-                title={`Jump to ${MONTHS[next.getMonth()]} ${next.getFullYear()}`}
-              >
-                {MONTHS[next.getMonth()]}
-              </button>
+                <Icon.calendar />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  min={allDates[0]}
+                  max={allDates[allDates.length - 1]}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    if (allDates.includes(v)) {
+                      setSelectedDate(v);
+                    } else {
+                      const later = allDates.find(d => d >= v);
+                      const earlier = [...allDates].reverse().find(d => d <= v);
+                      setSelectedDate(later || earlier || allDates[0]);
+                    }
+                  }}
+                  style={{
+                    position: 'absolute', inset: 0, opacity: 0,
+                    width: '100%', height: '100%', border: 'none',
+                    background: 'transparent', cursor: 'pointer',
+                    pointerEvents: 'none'
+                  }}
+                />
+              </div>
+              <div className="cal-month-row-buttons">
+                <button
+                  className={`cal-month-btn cal-month-btn-side ${monthPast ? 'muted' : ''}`}
+                  onClick={() => prevTarget && jumpTo(prev.getFullYear(), prev.getMonth())}
+                  disabled={!prevTarget}
+                  title={`Jump to ${MONTHS[prev.getMonth()]} ${prev.getFullYear()}`}
+                >
+                  {MONTHS[prev.getMonth()]}
+                </button>
+                <span className="cal-month-btn cal-month-btn-current">
+                  {MONTHS_FULL[curM]} {curY}
+                </span>
+                <button
+                  className="cal-month-btn cal-month-btn-side"
+                  onClick={() => nextTarget && jumpTo(next.getFullYear(), next.getMonth())}
+                  disabled={!nextTarget}
+                  title={`Jump to ${MONTHS[next.getMonth()]} ${next.getFullYear()}`}
+                >
+                  {MONTHS[next.getMonth()]}
+                </button>
+              </div>
+              {/* Filter button on the far right, mirroring the calendar
+                  icon on the left. The Filters component renders its own
+                  button + portal panel. */}
+              <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} buyinOptions={buyinOptions} tournaments={allTournaments} />
             </div>
           );
         })()}
 
-        {/* Scrollable date strip */}
+        {/* Scrollable date strip — date buttons. If the user has an
+            event in their schedule on this date, the button border
+            takes the venue brand color of the priority event (or, if
+            no priority is set, the first chronological event). */}
         <div className="cal-date-strip">
           {allDates.map(d => {
             const dObj = new Date(d + 'T12:00:00');
-            const hasEv = (byDate[d] || []).length > 0;
             const isSel = d === selectedDate;
+            const myEvent = myScheduleByDate[d];
+            const venueColor = myEvent
+              ? getVenueBrandColor(getVenueInfo(myEvent.venue).abbr)
+              : null;
+            const style = venueColor
+              ? { borderColor: venueColor, borderWidth: '2px' }
+              : undefined;
             return (
               <button
                 key={d}
                 ref={isSel ? activeDateRef : null}
-                className={`cal-date-btn ${isSel ? 'active' : ''} ${hasEv && !isSel ? 'has-events' : ''}`}
+                className={`cal-date-btn ${isSel ? 'active' : ''} ${myEvent ? 'has-mine' : ''}`}
                 onClick={() => setSelectedDate(d)}
+                style={style}
               >
                 <span className="dow">{DOW[dObj.getDay()]}</span>
                 <span className="dom">{dObj.getDate()}</span>
-                {hasEv && <span className="ev-dot" />}
               </button>
             );
           })}
         </div>
 
-        {/* Bottom row below the carousel: events count on left,
-            Today button in the middle (jumps the selection to today,
-            or the next available date if today has no events), and
-            the filter toggle on the right. */}
+        {/* Bottom row below the carousel: just the events count now.
+            Today FAB lives at the bottom of the page, matching the
+            Schedule tab's back-to-today FAB. Filter toggle is on the
+            month row, opposite the calendar icon. */}
         <div className="cal-bottom-row">
           <span className="cal-event-count cal-event-count-inline">
             {sortedEvents.length} event{sortedEvents.length !== 1 ? 's' : ''}
             {myTodayCount > 0 && ` · ${myTodayCount} in my schedule`}
           </span>
-          <button
-            className="cal-today-btn"
-            disabled={selectedDate === today}
-            onClick={() => {
-              if (allDates.includes(today)) {
-                setSelectedDate(today);
-              } else {
-                const future = allDates.find(d => d >= today);
-                if (future) setSelectedDate(future);
-              }
-            }}
-            title="Jump to today"
-          >
-            Today
-          </button>
-          <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} buyinOptions={buyinOptions} tournaments={allTournaments} />
         </div>
 
       </div>
@@ -966,7 +984,7 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           <p>No tournaments scheduled for this date</p>
         </div>
       ) : showMySection ? (
-        <div style={{minHeight:'100vh', paddingTop:'8px'}}>
+        <div style={{minHeight:'100vh', paddingTop:'6px', paddingBottom:'100vh'}}>
           <div className="section-header" style={{marginTop:'8px'}}>
             <h2>My Events</h2>
             <span style={{fontSize:'0.82rem',color:'var(--text-muted)'}}>{myEvents.length} event{myEvents.length !== 1 ? 's' : ''}</span>
@@ -984,10 +1002,40 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           )}
         </div>
       ) : (
-        <div style={{minHeight:'100vh', paddingTop:'8px'}}>
+        <div style={{minHeight:'100vh', paddingTop:'6px', paddingBottom:'100vh'}}>
           {sortedEvents.map(renderEvent)}
         </div>
       )}
+
+      {/* Today / Next FAB — same look + behavior as Schedule and My
+          Schedule. Hidden when the user is already on today's date.
+          Down arrow = today is later in time than the selected date,
+          up arrow = today is earlier. */}
+      {(() => {
+        const todayISO = getToday();
+        const hasTodayDate = allDates.includes(todayISO);
+        const targetDate = hasTodayDate
+          ? todayISO
+          : (allDates.find(d => d >= todayISO) || allDates[allDates.length - 1]);
+        if (!targetDate || selectedDate === targetDate) return null;
+        const dir = selectedDate < targetDate ? 'down' : 'up';
+        const label = hasTodayDate ? 'Today' : 'Next';
+        return (
+          <button
+            className="back-to-today-fab visible"
+            data-dir={dir}
+            onClick={() => setSelectedDate(targetDate)}
+          >
+            <svg className="fab-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:14, height:14}}>
+              <polyline points="18 15 12 9 6 15" />
+            </svg>
+            <svg className="fab-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:14, height:14}}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+            {label}
+          </button>
+        );
+      })()}
     </div>
   );
 }
