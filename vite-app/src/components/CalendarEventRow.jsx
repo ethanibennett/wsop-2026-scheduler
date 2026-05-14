@@ -551,13 +551,37 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
     }
   }, [focusEventId]);
 
-  // When an event expands, scroll it just below the sticky header so
-  // the user lands on the details — fires on every expand across all
-  // views (Schedule, My Schedule, Calendar, Shared).
+  // When an event expands, scroll it just below the sticky header — but
+  // ONLY if the row top is currently hidden behind the sticky. If the
+  // row top is already visible, leave the page alone. This matches the
+  // "Schedule tab feels right" behavior the user expects on every view:
+  // taps don't shove the page around, but if you've collapsed a row
+  // that was sticky-pinned at top, the next row gets pulled into view.
   useEffect(() => {
     if (!open || !rowRef.current) return;
     const raf = requestAnimationFrame(() => {
-      if (rowRef.current) scrollBelowSticky(rowRef.current);
+      const el = rowRef.current;
+      if (!el) return;
+      const container = el.closest('.content-area');
+      if (!container) return;
+      const cTop = container.getBoundingClientRect().top;
+      let stickyBottom = 0;
+      const pageSticky = container.querySelector('.sticky-filters')
+                      || container.querySelector('.schedule-sticky-header');
+      if (pageSticky) {
+        stickyBottom = Math.max(0, pageSticky.getBoundingClientRect().bottom - cTop);
+      }
+      const dateGroup = el.closest('[data-date-group]');
+      if (dateGroup) {
+        const db = dateGroup.querySelector('.schedule-date-break');
+        if (db) {
+          const cssTop = parseFloat(getComputedStyle(db).top) || 0;
+          stickyBottom = Math.max(stickyBottom, cssTop + db.offsetHeight);
+        }
+      }
+      const rowTop = el.getBoundingClientRect().top - cTop;
+      if (rowTop >= stickyBottom - 2) return; // row top already visible — leave it
+      scrollBelowSticky(el);
     });
     return () => cancelAnimationFrame(raf);
   }, [open]);
