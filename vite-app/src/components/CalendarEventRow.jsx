@@ -62,10 +62,11 @@ function scrollBelowSticky(el) {
   }
 
   const elAbsTop = el.getBoundingClientRect().top - cTop + container.scrollTop;
-  // Card top sits exactly at the sticky's box bottom — pulling further
-  // up slides the card under the date-break's z-indexed background and
-  // clips the time/price line.
-  const target = Math.max(0, elAbsTop - stickyBottom);
+  // Land the card 8px BELOW the sticky's box bottom — that gap of clear
+  // page background lets the card's rounded top edge read as a distinct
+  // border. Pulling tighter clips the corner; pushing further wastes
+  // viewport space.
+  const target = Math.max(0, elAbsTop - stickyBottom - 8);
   if (Math.abs(container.scrollTop - target) <= 2) return;
   container.scrollTo({ top: target, behavior: 'smooth' });
 }
