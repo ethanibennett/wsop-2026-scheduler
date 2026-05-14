@@ -3014,8 +3014,11 @@
        middle auto-sized column) regardless of the left/right cell
        widths. */
     .cal-bottom-row {
-      display: flex;
-      justify-content: center;
+      /* Grid: [today icon] [centered events count] [filter btn].
+         1fr center column keeps the count text centered between the
+         end icons. */
+      display: grid;
+      grid-template-columns: auto 1fr auto;
       align-items: center;
       gap: 8px;
       margin-top: 8px;
@@ -3025,7 +3028,7 @@
       color: var(--text-muted);
       white-space: nowrap;
       margin: 0;
-      text-align: center;
+      justify-self: center;
     }
     .cal-bottom-row > .cal-today-btn { justify-self: center; }
     .cal-today-btn {
@@ -3069,9 +3072,9 @@
     }
 
     .cal-month-row {
-      /* 3-column grid: [icon] [centered prev/current/next] [filter btn].
-         Symmetric end caps (icon ↔ filter) keep the three month buttons
-         visually centered. */
+      /* 3-column grid: [list-view icon] [centered prev/current/next]
+         [date-picker grid icon]. Symmetric end caps keep the three
+         month buttons visually centered. */
       display: grid;
       grid-template-columns: auto 1fr auto;
       align-items: center;
@@ -3106,7 +3109,19 @@
       flex-shrink: 0;
     }
     .cal-month-icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .cal-month-icon-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .cal-month-icon-btn:disabled:hover {
+      border-color: var(--border);
+      color: var(--text);
+    }
     .cal-month-icon-btn svg { width: 18px; height: 18px; }
+    /* Today icon (crosshairs) needs a tighter glyph — its native viewBox
+       fills nearly the entire box. Trim a hair so it visually matches
+       the calendar icon's optical weight. */
+    .cal-month-today-btn svg { width: 16px; height: 16px; }
     /* When the row is keyed by direction (data-direction="next"/"prev"),
        the entire row slides in from the opposite side so it looks like
        the months are being scrolled horizontally with the carousel. */
@@ -3175,8 +3190,16 @@
 
     .cal-date-strip::-webkit-scrollbar { display: none; }
 
+    /* Each date button: exactly 1/7th of the visible strip width so
+       seven full date boxes always fit between the list button (left)
+       and date-picker grid (right). Width is computed from the
+       viewport minus .content-area + .sticky-filters horizontal
+       padding so it stays accurate at every breakpoint.
+         small  (<640px):  pad 12 each side = 24, plus 6 gaps × 6 = 36 → -60
+         medium (≥640px):  pad 20 each side = 40                       → -76
+         large  (≥1024px): pad 32 each side = 64                       → -100 */
     .cal-date-btn {
-      flex-shrink: 0;
+      flex: 0 0 calc((100vw - 60px) / 7);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -3185,8 +3208,15 @@
       background: var(--surface);
       border: 1.5px solid var(--border);
       cursor: pointer;
-      min-width: 52px;
+      box-sizing: border-box;
+      min-width: 0;
       transition: all 0.15s;
+    }
+    @media (min-width: 640px) {
+      .cal-date-btn { flex-basis: calc((100vw - 76px) / 7); }
+    }
+    @media (min-width: 1024px) {
+      .cal-date-btn { flex-basis: calc((100vw - 100px) / 7); }
     }
 
     .cal-date-btn.active { background: var(--accent); border-color: var(--accent); animation: date-bounce 0.45s cubic-bezier(0.18, 1.8, 0.35, 1) both; }

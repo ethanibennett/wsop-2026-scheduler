@@ -1218,6 +1218,7 @@ export default function App() {
             onSetPlannedEntries={setPlannedEntries}
             buddyEvents={buddyEvents}
             buddyLiveUpdates={buddyLiveUpdates}
+            onOpenScheduleView={() => setCurrentView('tournaments')}
           />
         )}
         </div>

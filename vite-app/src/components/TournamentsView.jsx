@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffe
 import ReactDOM from 'react-dom';
 import Icon from './Icon.jsx';
 import CalendarEventRow from './CalendarEventRow.jsx';
+import LocationDropdown from './LocationDropdown.jsx';
 import {
   getVenueInfo, normaliseDate, getToday, haptic, fmtShortDate, daysBetween, addDays,
   parseTournamentTime, parseDateTimeInTz, parseDateTime, findClosestFlight,
@@ -875,149 +876,7 @@ function ImportSchedulePanel({ isOpen, onClose, token, onRefreshTournaments }) {
   );
 }
 
-// ── Location Dropdown ────────────────────────────────────────
-function LocationDropdown({ rect, filters, setFiltersWithScroll, setLocationDropdownOpen, toast, token }) {
-  const [geoQuery, setGeoQuery] = useState('');
-  const [geoResults, setGeoResults] = useState([]);
-  const [geoLoading, setGeoLoading] = useState(false);
-  const [radius, setRadius] = useState(filters.maxDistance || '100');
-  const searchTimerRef = useRef(null);
-
-  const doGeoSearch = useCallback((q) => {
-    if (!q || q.length < 2) { setGeoResults([]); return; }
-    setGeoLoading(true);
-    fetch(`${API_URL}/geocode?q=${encodeURIComponent(q)}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-      .then(r => r.json())
-      .then(data => { setGeoResults(data.results || []); setGeoLoading(false); })
-      .catch(() => { setGeoLoading(false); });
-  }, [token]);
-
-  const onQueryChange = (val) => {
-    setGeoQuery(val);
-    clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => doGeoSearch(val), 400);
-  };
-
-  const selectGeoResult = (r) => {
-    setFiltersWithScroll(f => ({
-      ...f,
-      userLocation: { lat: r.lat, lng: r.lng },
-      maxDistance: radius || '100',
-      locationRegion: null,
-      locationLabel: r.short || r.display,
-    }));
-    setLocationDropdownOpen(false);
-  };
-
-  const activeRadius = filters.maxDistance || radius;
-
-  return (
-    <div className="location-dropdown" style={{
-      position:'fixed', top: rect.bottom + 4, left: rect.left,
-      zIndex:999, background:'var(--surface)', border:'1px solid var(--border)',
-      borderRadius:'var(--radius)', padding:'6px 0', minWidth:'240px', maxWidth:'320px',
-      boxShadow:'0 8px 24px rgba(0,0,0,0.3)',
-    }}>
-      <div style={{padding:'6px 10px 8px'}}>
-        <div style={{display:'flex',gap:'6px',alignItems:'center',marginBottom:'6px'}}>
-          <input type="text" value={geoQuery} onChange={e => onQueryChange(e.target.value)}
-            placeholder="City or postal code..." autoFocus
-            style={{flex:1,padding:'6px 8px',fontSize:'0.82rem',background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border)',borderRadius:'var(--radius)',outline:'none',minWidth:0}} />
-          <input type="number" value={radius}
-            onChange={e => {
-              setRadius(e.target.value);
-              if (filters.userLocation) {
-                setFiltersWithScroll(f => ({...f, maxDistance: e.target.value}));
-              }
-            }}
-            style={{width:'50px',padding:'6px 4px',fontSize:'0.82rem',textAlign:'center',background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border)',borderRadius:'var(--radius)'}}
-            min="1" placeholder="100" />
-          <span style={{fontSize:'0.75rem',color:'var(--text-muted)',flexShrink:0}}>mi</span>
-        </div>
-        {geoLoading && <div style={{fontSize:'0.75rem',color:'var(--text-muted)',padding:'2px 0'}}>Searching...</div>}
-        {geoResults.length > 0 && (
-          <div style={{maxHeight:'150px',overflowY:'auto'}}>
-            {geoResults.map((r, i) => (
-              <button key={i} onClick={() => selectGeoResult(r)} style={{
-                display:'block',width:'100%',padding:'6px 4px',background:'none',border:'none',
-                color:'var(--text)',fontSize:'0.78rem',cursor:'pointer',textAlign:'left',borderRadius:'4px',
-              }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                {r.short || r.display}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      <div style={{height:1,background:'var(--border)',margin:'2px 0'}} />
-      <button onClick={() => {
-        if (filters.userLocation && !filters.locationRegion) {
-          setFiltersWithScroll(f => ({...f, userLocation: null, maxDistance: '', locationRegion: null, locationLabel: null}));
-          setLocationDropdownOpen(false);
-        } else {
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                setFiltersWithScroll(f => ({...f, userLocation: { lat: pos.coords.latitude, lng: pos.coords.longitude }, maxDistance: radius || '100', locationRegion: null, locationLabel: 'Current Location'}));
-                setLocationDropdownOpen(false);
-              },
-              () => { toast.error('Could not get your location'); },
-              { enableHighAccuracy: false, timeout: 10000 }
-            );
-          } else {
-            toast.error('Geolocation not supported');
-          }
-        }
-      }} style={{
-        display:'flex',alignItems:'center',gap:'8px',width:'100%',
-        padding:'8px 14px',background:'none',border:'none',
-        color: (filters.userLocation && !filters.locationRegion) ? 'var(--accent)' : 'var(--text)',
-        fontWeight: (filters.userLocation && !filters.locationRegion) ? 700 : 400,
-        fontSize:'0.85rem',cursor:'pointer',textAlign:'left',
-      }}>
-        <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.mapPin /></span>
-        Current Location
-        {(filters.userLocation && !filters.locationRegion) && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>{'\u2713'}</span>}
-      </button>
-      <div style={{height:1,background:'var(--border)',margin:'2px 0'}} />
-      {Object.entries(LOCATION_REGIONS).map(([key, { label }]) => (
-        <button key={key} onClick={() => {
-          setFiltersWithScroll(f => ({...f, locationRegion: f.locationRegion === key ? null : key, userLocation: null, maxDistance: '', locationLabel: null}));
-          setLocationDropdownOpen(false);
-        }} style={{
-          display:'flex',alignItems:'center',gap:'8px',width:'100%',
-          padding:'8px 14px',background:'none',border:'none',
-          color: filters.locationRegion === key ? 'var(--accent)' : 'var(--text)',
-          fontWeight: filters.locationRegion === key ? 700 : 400,
-          fontSize:'0.85rem',cursor:'pointer',textAlign:'left',
-        }}>
-          <span style={{width:'16px',height:'16px',flexShrink:0}}><Icon.mapPin /></span>
-          {label}
-          {filters.locationRegion === key && <span style={{marginLeft:'auto',fontSize:'0.75rem'}}>{'\u2713'}</span>}
-        </button>
-      ))}
-      {(filters.locationRegion || filters.userLocation) && (
-        <>
-          <div style={{height:1,background:'var(--border)',margin:'2px 0'}} />
-          <button onClick={() => {
-            setFiltersWithScroll(f => ({...f, locationRegion: null, userLocation: null, maxDistance: '', locationLabel: null}));
-            setLocationDropdownOpen(false);
-          }} style={{
-            display:'block',width:'100%',padding:'8px 14px',
-            background:'none',border:'none',color:'var(--text-muted)',
-            fontSize:'0.8rem',cursor:'pointer',textAlign:'left',
-          }}>
-            Clear location filter
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
-
+// LocationDropdown lives in its own file now (shared with CalendarView).
 export default function TournamentsView({
   tournaments, mySchedule, onToggle, gameVariants, venues,
   onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries,
@@ -1088,9 +947,6 @@ export default function TournamentsView({
   const [dateBreakTop, setDateBreakTop] = useState(0);
   const scrollAnchorRef = useRef(null);
   const fabContainerRef = useRef(null);
-  const calendarChipRef = useRef(null);
-  const calendarLongPressTimer = useRef(null);
-  const calendarLongPressTriggered = useRef(false);
   const [collapsedDates, setCollapsedDates] = useState(() => {
     try {
       const raw = localStorage.getItem('tournamentsCollapsedDates');
@@ -1414,95 +1270,22 @@ export default function TournamentsView({
               (≥500ms) → open a native date picker scoped to today and
               future dates only. Picking a date scrolls the schedule
               list to that date's group. */}
-          {/* Was a <label> — that auto-focused the wrapped <input> on
-              every tap (HTML label-input association), causing the
-              "double click required everywhere" bug. <div> has no
-              such behavior; the long-press still triggers the picker
-              programmatically. */}
-          <div
-            ref={calendarChipRef}
+          {/* Calendar chip: tap → switch to Calendar view. Long-press
+              date-picker shortcut was removed — the native <input
+              type="date"> picker repeatedly broke scrolling on Firefox
+              after dismissal (and earlier on iOS Safari). Users pick
+              specific dates from Calendar view's calendar icon, which
+              opens the same native picker but from a deliberate single
+              tap that doesn't run into the same gesture-capture state. */}
+          <button
+            type="button"
             className="filter-chip filter-chip-square"
-            style={{flexShrink:0, position: 'relative', cursor: 'pointer'}}
-            title="Calendar view (long-press for date picker)"
-            onPointerDown={() => {
-              calendarLongPressTriggered.current = false;
-              if (calendarLongPressTimer.current) clearTimeout(calendarLongPressTimer.current);
-              calendarLongPressTimer.current = setTimeout(() => {
-                calendarLongPressTriggered.current = true;
-                const input = calendarChipRef.current?.querySelector('input[type="date"]');
-                if (!input) return;
-                try { if (input.showPicker) input.showPicker(); else input.focus(); }
-                catch { input.focus(); }
-                // After the picker is dismissed (with or without picking
-                // a date), the hidden input often retains focus on iOS
-                // Safari — that's the "double click required everywhere"
-                // bug. Arm a one-shot pointerdown listener that blurs
-                // the input on the next tap anywhere, then removes
-                // itself.
-                const dropFocus = () => {
-                  input.blur();
-                  document.removeEventListener('pointerdown', dropFocus, true);
-                };
-                setTimeout(() => {
-                  document.addEventListener('pointerdown', dropFocus, true);
-                }, 100);
-              }, 500);
-            }}
-            onPointerUp={() => {
-              if (calendarLongPressTimer.current) {
-                clearTimeout(calendarLongPressTimer.current);
-                calendarLongPressTimer.current = null;
-              }
-            }}
-            onPointerLeave={() => {
-              if (calendarLongPressTimer.current) {
-                clearTimeout(calendarLongPressTimer.current);
-                calendarLongPressTimer.current = null;
-              }
-            }}
-            onClick={(e) => {
-              if (e.target.tagName === 'INPUT') return;
-              if (calendarLongPressTriggered.current) {
-                e.preventDefault();
-                calendarLongPressTriggered.current = false;
-                return;
-              }
-              onOpenCalendarView && onOpenCalendarView();
-            }}
+            style={{flexShrink:0}}
+            title="Calendar view"
+            onClick={() => onOpenCalendarView && onOpenCalendarView()}
           >
             <Icon.calendar />
-            <input
-              type="date"
-              min={getToday()}
-              tabIndex={-1}
-              aria-hidden="true"
-              onChange={e => {
-                const v = e.target.value;
-                if (!v) return;
-                const container = document.querySelector('.content-area');
-                if (!container) return;
-                const groups = [...container.querySelectorAll('[data-date-group]')];
-                let target = groups.find(g => g.getAttribute('data-date-group') === v);
-                if (!target) {
-                  target = groups.find(g => g.getAttribute('data-date-group') >= v)
-                        || groups[groups.length - 1];
-                }
-                if (target) scrollDateGroupToTop(target);
-                e.target.value = '';
-                // Drop focus so the next tap anywhere else lands as a
-                // single click instead of stealing focus from this hidden
-                // input (which causes the "double click required" bug).
-                e.target.blur();
-              }}
-              onBlur={e => { e.target.value = ''; }}
-              style={{
-                position: 'absolute', inset: 0, opacity: 0,
-                width: '100%', height: '100%', border: 'none',
-                background: 'transparent', cursor: 'pointer',
-                pointerEvents: 'none'
-              }}
-            />
-          </div>
+          </button>
           <button
             ref={filterToggleRef}
             className={`filter-chip filter-chip-square ${filterPanelOpen ? 'active' : ''}`}
@@ -1557,8 +1340,8 @@ export default function TournamentsView({
             <LocationDropdown
               rect={rect}
               filters={filters}
-              setFiltersWithScroll={setFiltersWithScroll}
-              setLocationDropdownOpen={setLocationDropdownOpen}
+              setFilters={setFiltersWithScroll}
+              onClose={() => setLocationDropdownOpen(false)}
               toast={toast}
               token={token}
             />,

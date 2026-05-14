@@ -556,7 +556,7 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
   );
 }
 
-export default function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates }) {
+export default function CalendarView({ allTournaments, mySchedule, onToggle, gameVariants, venues, onSetCondition, onRemoveCondition, onToggleAnchor, onSetPlannedEntries, buddyEvents, buddyLiveUpdates, onOpenScheduleView }) {
   const allDates = useMemo(() => buildAllDates(allTournaments), [allTournaments]);
   const today = getToday();
   const defaultDate = allDates.includes(today) ? today : allDates[0] || today;
@@ -861,12 +861,43 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
               className="cal-month-row"
               data-direction={monthDirRef.current}
             >
-              {/* Calendar-icon date picker on the far left. <div> not
-                  <label> — the label-input HTML association auto-focuses
-                  the wrapped <input>, which on iOS Safari causes the
-                  "double click required everywhere" bug after picker
-                  dismissal. With <div>, only our explicit onClick fires,
-                  which calls showPicker programmatically. */}
+              {/* Far left of the month row: jump back to the Schedule
+                  tab's list view. Pairs with the date-picker grid on
+                  the right to keep the month buttons visually centered. */}
+              <button
+                type="button"
+                className="cal-month-icon-btn"
+                title="Switch to schedule list"
+                onClick={() => onOpenScheduleView && onOpenScheduleView()}
+              >
+                <Icon.list />
+              </button>
+              <div className="cal-month-row-buttons">
+                <button
+                  className={`cal-month-btn cal-month-btn-side ${monthPast ? 'muted' : ''}`}
+                  onClick={() => prevTarget && jumpTo(prev.getFullYear(), prev.getMonth())}
+                  disabled={!prevTarget}
+                  title={`Jump to ${MONTHS[prev.getMonth()]} ${prev.getFullYear()}`}
+                >
+                  {MONTHS[prev.getMonth()]}
+                </button>
+                <span className="cal-month-btn cal-month-btn-current">
+                  {MONTHS_FULL[curM]} {curY}
+                </span>
+                <button
+                  className="cal-month-btn cal-month-btn-side"
+                  onClick={() => nextTarget && jumpTo(next.getFullYear(), next.getMonth())}
+                  disabled={!nextTarget}
+                  title={`Jump to ${MONTHS[next.getMonth()]} ${next.getFullYear()}`}
+                >
+                  {MONTHS[next.getMonth()]}
+                </button>
+              </div>
+              {/* Far right of the month row: date-picker grid. <div>
+                  not <label> — the label-input HTML association
+                  auto-focuses the wrapped <input>, which on iOS Safari
+                  causes the "double click required everywhere" bug
+                  after picker dismissal. */}
               <div
                 className="cal-month-icon-btn"
                 title="Pick a date"
@@ -878,7 +909,7 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
                   catch { input.focus(); }
                 }}
               >
-                <Icon.calendar />
+                <Icon.pointer />
                 <input
                   type="date"
                   value={selectedDate}
@@ -905,31 +936,6 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
                   }}
                 />
               </div>
-              <div className="cal-month-row-buttons">
-                <button
-                  className={`cal-month-btn cal-month-btn-side ${monthPast ? 'muted' : ''}`}
-                  onClick={() => prevTarget && jumpTo(prev.getFullYear(), prev.getMonth())}
-                  disabled={!prevTarget}
-                  title={`Jump to ${MONTHS[prev.getMonth()]} ${prev.getFullYear()}`}
-                >
-                  {MONTHS[prev.getMonth()]}
-                </button>
-                <span className="cal-month-btn cal-month-btn-current">
-                  {MONTHS_FULL[curM]} {curY}
-                </span>
-                <button
-                  className="cal-month-btn cal-month-btn-side"
-                  onClick={() => nextTarget && jumpTo(next.getFullYear(), next.getMonth())}
-                  disabled={!nextTarget}
-                  title={`Jump to ${MONTHS[next.getMonth()]} ${next.getFullYear()}`}
-                >
-                  {MONTHS[next.getMonth()]}
-                </button>
-              </div>
-              {/* Filter button on the far right, mirroring the calendar
-                  icon on the left. The Filters component renders its own
-                  button + portal panel. */}
-              <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} buyinOptions={buyinOptions} tournaments={allTournaments} />
             </div>
           );
         })()}
@@ -964,15 +970,36 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           })}
         </div>
 
-        {/* Bottom row below the carousel: just the events count now.
-            Today FAB lives at the bottom of the page, matching the
-            Schedule tab's back-to-today FAB. Filter toggle is on the
-            month row, opposite the calendar icon. */}
+        {/* Bottom row below the carousel:
+              [Today icon-btn]   [centered events count]   [Filter btn]
+            Today jumps the selection to today (or the next available
+            date if today has no events). Disabled when already on
+            target. Filter is the same Filters component that lived in
+            the month row earlier. */}
         <div className="cal-bottom-row">
+          {(() => {
+            const todayISO = getToday();
+            const target = allDates.includes(todayISO)
+              ? todayISO
+              : (allDates.find(d => d >= todayISO) || allDates[allDates.length - 1]);
+            const onTarget = !target || selectedDate === target;
+            return (
+              <button
+                type="button"
+                className="cal-month-icon-btn cal-month-today-btn"
+                title={allDates.includes(todayISO) ? 'Jump to today' : 'Jump to next event'}
+                disabled={onTarget}
+                onClick={() => target && setSelectedDate(target)}
+              >
+                <Icon.calendarCheck />
+              </button>
+            );
+          })()}
           <span className="cal-event-count cal-event-count-inline">
             {sortedEvents.length} event{sortedEvents.length !== 1 ? 's' : ''}
             {myTodayCount > 0 && ` · ${myTodayCount} in my schedule`}
           </span>
+          <Filters filters={filters} setFilters={setFilters} gameVariants={gameVariants || []} venues={venues || []} buyinOptions={buyinOptions} tournaments={allTournaments} />
         </div>
 
       </div>
@@ -1007,35 +1034,6 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
         </div>
       )}
 
-      {/* Today / Next FAB — same look + behavior as Schedule and My
-          Schedule. Hidden when the user is already on today's date.
-          Down arrow = today is later in time than the selected date,
-          up arrow = today is earlier. */}
-      {(() => {
-        const todayISO = getToday();
-        const hasTodayDate = allDates.includes(todayISO);
-        const targetDate = hasTodayDate
-          ? todayISO
-          : (allDates.find(d => d >= todayISO) || allDates[allDates.length - 1]);
-        if (!targetDate || selectedDate === targetDate) return null;
-        const dir = selectedDate < targetDate ? 'down' : 'up';
-        const label = hasTodayDate ? 'Today' : 'Next';
-        return (
-          <button
-            className="back-to-today-fab visible"
-            data-dir={dir}
-            onClick={() => setSelectedDate(targetDate)}
-          >
-            <svg className="fab-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:14, height:14}}>
-              <polyline points="18 15 12 9 6 15" />
-            </svg>
-            <svg className="fab-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:14, height:14}}>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-            {label}
-          </button>
-        );
-      })()}
     </div>
   );
 }

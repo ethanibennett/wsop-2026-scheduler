@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { getVenueInfo, currencySymbol } from '../utils/utils.js';
+import { getVenueInfo, currencySymbol, normaliseDate, getToday, parseTournamentTime, VENUE_COORDS, LOCATION_REGIONS } from '../utils/utils.js';
 import { generateSchedulePDF, generateScheduleImages, shareOrDownloadCanvas } from '../utils/export.js';
 
 const DEFAULT_BUYIN_RANGES = [
@@ -19,16 +19,49 @@ export default function ScheduleExportModal({ events, onClose }) {
 
   const [docTitle, setDocTitle] = useState('MY SCHEDULE');
 
+  // The export functions themselves drop past dates and non-restart
+  // restarts, then sort chronologically. We mirror that filter here so
+  // the venue picker, totals, and previews never reference series that
+  // already finished.
+  const upcomingEvents = useMemo(() => {
+    const todayISO = getToday();
+    return events
+      .filter(e => !e.is_restart && normaliseDate(e.date) >= todayISO)
+      .sort((a, b) => parseTournamentTime(a) - parseTournamentTime(b));
+  }, [events]);
+
   const venueList = useMemo(() => {
     const seen = new Map();
-    events.forEach(e => {
+    upcomingEvents.forEach(e => {
       const v = getVenueInfo(e.venue);
       if (!seen.has(v.abbr)) seen.set(v.abbr, { longName: v.longName || v.abbr, color: v.color || '#808080' });
     });
     return [...seen.entries()];
-  }, [events]);
+  }, [upcomingEvents]);
 
-  const [selectedVenues, setSelectedVenues] = useState(() => new Set(venueList.map(([a]) => a)));
+  // Default venue selection: only Vegas venues. Computed from each
+  // upcoming event's raw venue name + VENUE_COORDS, tested against the
+  // shared LOCATION_REGIONS.lasvegas predicate (~30mi from the strip).
+  // Out-of-state series start unchecked but the user can toggle them on.
+  const vegasVenueAbbrs = useMemo(() => {
+    const isVegas = LOCATION_REGIONS.lasvegas?.test;
+    const out = new Set();
+    if (!isVegas) return out;
+    upcomingEvents.forEach(e => {
+      const c = VENUE_COORDS[e.venue];
+      if (c && isVegas(c)) out.add(getVenueInfo(e.venue).abbr);
+    });
+    return out;
+  }, [upcomingEvents]);
+
+  const [selectedVenues, setSelectedVenues] = useState(() => new Set(vegasVenueAbbrs));
+  // If the venue list re-computes (e.g., events fetched after mount),
+  // and the user hasn't touched the selection yet, sync to Vegas-only.
+  const userTouchedSelectionRef = useRef(false);
+  useEffect(() => {
+    if (userTouchedSelectionRef.current) return;
+    setSelectedVenues(new Set(vegasVenueAbbrs));
+  }, [vegasVenueAbbrs]);
   const [excludeSatellites, setExcludeSatellites] = useState(false);
   const [lightMode, setLightMode] = useState(true);
   const [groupByBuyin, setGroupByBuyin] = useState(true);
@@ -36,10 +69,12 @@ export default function ScheduleExportModal({ events, onClose }) {
 
   const allSelected = selectedVenues.size === venueList.length;
   const toggleAll = () => {
+    userTouchedSelectionRef.current = true;
     if (allSelected) setSelectedVenues(new Set());
     else setSelectedVenues(new Set(venueList.map(([a]) => a)));
   };
   const toggleVenue = (abbr) => {
+    userTouchedSelectionRef.current = true;
     setSelectedVenues(prev => {
       const next = new Set(prev);
       if (next.has(abbr)) next.delete(abbr); else next.add(abbr);
@@ -48,7 +83,7 @@ export default function ScheduleExportModal({ events, onClose }) {
   };
 
   const filteredEvents = useMemo(() =>
-    events.filter(e => {
+    upcomingEvents.filter(e => {
       if (!selectedVenues.has(getVenueInfo(e.venue).abbr)) return false;
       if (excludeSatellites && e.is_satellite) return false;
       if (groupByBuyin && buyinRanges.length > 0) {
@@ -57,7 +92,7 @@ export default function ScheduleExportModal({ events, onClose }) {
       }
       return true;
     }),
-    [events, selectedVenues, excludeSatellites, groupByBuyin, buyinRanges]
+    [upcomingEvents, selectedVenues, excludeSatellites, groupByBuyin, buyinRanges]
   );
 
   const handlePDF = async () => {

@@ -1,7 +1,7 @@
 // ── Schedule Export Utilities ──
 // Ported from original export.jsx for Vite ESM
 
-import { getVenueInfo, formatBuyin, currencySymbol, formatChips, ordinalSuffix } from './utils.js';
+import { getVenueInfo, formatBuyin, currencySymbol, formatChips, ordinalSuffix, parseTournamentTime, normaliseDate, getToday } from './utils.js';
 import { parseCardNotation } from './poker-engine.js';
 
 // Venue color lookup for canvas (not CSS vars -- returns hex)
@@ -180,11 +180,13 @@ export async function generateSchedulePDF(events, title, opts = {}) {
   const PDF_VENUE_COLORS = isLight ? PDF_VENUE_COLORS_LIGHT : PDF_VENUE_COLORS_DARK;
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  const sorted = [...events].filter(e => !e.is_restart).sort((a, b) => {
-    const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
-    const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
-    return da - db;
-  });
+  // Filter past events (don't carry over completed series) and sort
+  // chronologically using parseTournamentTime so mixed ISO/human-readable
+  // date strings + timezones all land in the right order.
+  const todayISO = getToday();
+  const sorted = [...events]
+    .filter(e => !e.is_restart && normaliseDate(e.date) >= todayISO)
+    .sort((a, b) => parseTournamentTime(a) - parseTournamentTime(b));
   if (!sorted.length) return;
 
   const fmtRange = (d) => {
@@ -658,11 +660,12 @@ function drawSchedulePage(ctx, w, h, pageEvents, pageNum, totalPages, title, opt
 
 // ── Generate array of schedule image canvases ──
 export function generateScheduleImages(events, title, opts = {}) {
-  const sorted = [...events].filter(e => !e.is_restart).sort((a, b) => {
-    const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
-    const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
-    return da - db;
-  });
+  // Same filter + sort as the PDF: skip past dates and order by full
+  // start timestamp via parseTournamentTime.
+  const todayISO = getToday();
+  const sorted = [...events]
+    .filter(e => !e.is_restart && normaliseDate(e.date) >= todayISO)
+    .sort((a, b) => parseTournamentTime(a) - parseTournamentTime(b));
 
   const perPage = 28;
 

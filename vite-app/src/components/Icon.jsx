@@ -245,6 +245,31 @@ const Icon = {
       <circle cx="12" cy="10" r="3"/>
     </svg>
   ),
+  /* Calendar with a check mark — "jump to today" affordance. */
+  calendarCheck: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="17" rx="2" ry="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8"  y1="2" x2="8"  y2="6"/>
+      <line x1="3"  y1="9" x2="21" y2="9"/>
+      <polyline points="8.5 15 11 17.5 15.5 13"/>
+    </svg>
+  ),
+  /* Grid of dots — date-picker affordance (a dot per date in a
+     calendar grid). 4 rows x 4 cols. */
+  pointer: () => (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="5"  cy="5"  r="1.4"/>
+      <circle cx="11" cy="5"  r="1.4"/>
+      <circle cx="17" cy="5"  r="1.4"/>
+      <circle cx="5"  cy="11" r="1.4"/>
+      <circle cx="11" cy="11" r="1.4"/>
+      <circle cx="17" cy="11" r="1.4"/>
+      <circle cx="5"  cy="17" r="1.4"/>
+      <circle cx="11" cy="17" r="1.4"/>
+      <circle cx="17" cy="17" r="1.4"/>
+    </svg>
+  ),
 };
 
 export default Icon;
