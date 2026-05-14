@@ -60,7 +60,11 @@ function scrollBelowSticky(el) {
     if (db) dateBreakH = db.getBoundingClientRect().height;
   }
   const elAbsTop = el.getBoundingClientRect().top - caTop + container.scrollTop;
-  const target = elAbsTop - filtersH - dateBreakH - 2;
+  // Calendar has NO date-break and the page sticky carries a 4px
+  // box-shadow that extends below the bounding rect, eating the
+  // natural gap. Add 4px back so the gap matches Schedule/My Schedule.
+  const stickyShadowComp = (dateBreakH === 0) ? 4 : 0;
+  const target = elAbsTop - filtersH - dateBreakH - 2 - stickyShadowComp;
   if (Math.abs(container.scrollTop - target) <= 2) return;
   container.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
 }
