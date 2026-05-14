@@ -42,9 +42,16 @@ function scrollBelowSticky(el) {
   const container = el.closest('.content-area');
   if (!container) return;
   const caTop = container.getBoundingClientRect().top;
+  // CRITICAL: every tab-panel lives inside .content-area, just hidden
+  // via display:none. Searching from .content-area returns the FIRST
+  // matching sticky in document order — which is the HIDDEN Schedule
+  // tab's .sticky-filters whenever the user is on My Schedule or
+  // Calendar, with offsetHeight = 0. Scope the lookup to the row's
+  // own tab-panel so we measure the visible sticky on every view.
+  const scope = el.closest('.tab-panel') || container;
   let filtersH = 0;
-  const sticky = container.querySelector('.sticky-filters')
-              || container.querySelector('.schedule-sticky-header');
+  const sticky = scope.querySelector('.sticky-filters')
+              || scope.querySelector('.schedule-sticky-header');
   if (sticky) filtersH = sticky.getBoundingClientRect().height;
   let dateBreakH = 0;
   const dateGroup = el.closest('[data-date-group]');
