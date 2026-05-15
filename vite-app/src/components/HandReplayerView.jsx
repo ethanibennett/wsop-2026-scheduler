@@ -60,7 +60,9 @@ function getPlayerDrawsByStreet(hand, playerIdx) {
 
 // ── Game category / street helpers ──
 function getGameCategory(gameType) {
-  const cfg = HAND_CONFIG[gameType];
+  // Strip "Super " prefix for engine lookups — Super variants share base game config
+  const baseType = gameType.replace(/^Super /, '');
+  const cfg = HAND_CONFIG[gameType] || HAND_CONFIG[baseType];
   if (!cfg) return 'community';
   if (gameType === 'OFC') return 'ofc';
   if (cfg.isStud) return 'stud';
@@ -302,7 +304,7 @@ function getSeatName(idx, heroIdx, heroName) {
 // ── Create empty hand ──
 function createEmptyHand(gameType, heroName) {
   const streetDef = getStreetDef(gameType);
-  const gameCfg = HAND_CONFIG[gameType] || HAND_CONFIG_DEFAULT;
+  const gameCfg = HAND_CONFIG[gameType] || HAND_CONFIG[gameType.replace(/^Super /, '')] || HAND_CONFIG_DEFAULT;
   const scan = getTableScanNames();
   if (gameType === 'OFC') {
     const numPlayers = 2;
@@ -2655,6 +2657,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   const [bettingStructure, setBettingStructure] = useState('No Limit');
   const [selectedGame, setSelectedGame] = useState("Hold'em");
   const [selectedCategory, setSelectedCategory] = useState("Hold'em");
+  const [studSuper, setStudSuper] = useState(false);
+  const [showMoreFor, setShowMoreFor] = useState(null); // 'Omaha' | 'Draw' | null
   // Custom game config
   const [customGameName, setCustomGameName] = useState('');
   const [customHeroCards, setCustomHeroCards] = useState(2);
@@ -2663,39 +2667,82 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
 
   // Game selection config
   const structureGameMap = {
-    'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'NL Stud Hi', 'Stud 8': 'NL Stud 8', 'Razz': 'NL Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
-    'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH', 'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Stud Hi': 'PL Stud Hi', 'Stud 8': 'PL Stud 8', 'Razz': 'PL Razz', '2-7 Triple Draw': 'PL 2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
-    'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE', 'Omaha': 'O8', 'Omaha 8/b': 'O8', 'Big O': 'Big O', 'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz', '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD', 'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD', 'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy', 'Archie': 'Badugi', 'Ari': 'Badugi', '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+    'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH',
+      'Omaha': 'PLO', 'O8': 'PLO8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
+      'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
+      'Stud Hi': 'NL Stud Hi', 'Stud 8': 'NL Stud 8', 'Razz': 'NL Razz',
+      'Stud Hi/Lo': 'Stud 8', 'Action Razz': 'Razz', '2-7 Razz': 'Razz',
+      'Razzdugi': 'Badugi', 'Razzdeucy': 'Badeucy',
+      '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD',
+      'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD',
+      'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy',
+      'Archie 66': 'Badugi', 'Archie 99': 'Badugi', 'Ari': 'Badugi',
+      '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+    'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH',
+      'Omaha': 'PLO', 'O8': 'PLO8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
+      'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
+      'Stud Hi': 'PL Stud Hi', 'Stud 8': 'PL Stud 8', 'Razz': 'PL Razz',
+      'Stud Hi/Lo': 'Stud 8', 'Action Razz': 'Razz', '2-7 Razz': 'Razz',
+      'Razzdugi': 'Badugi', 'Razzdeucy': 'Badeucy',
+      '2-7 Triple Draw': 'PL 2-7 TD', '2-7 Single Draw': 'NL 2-7 SD',
+      'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD',
+      'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy',
+      'Archie 66': 'Badugi', 'Archie 99': 'Badugi', 'Ari': 'Badugi',
+      '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+    'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE',
+      'Omaha': 'O8', 'O8': 'O8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
+      'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
+      'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz',
+      'Stud Hi/Lo': 'Stud 8', 'Action Razz': 'Razz', '2-7 Razz': 'Razz',
+      'Razzdugi': 'Badugi', 'Razzdeucy': 'Badeucy',
+      '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD',
+      'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD',
+      'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy',
+      'Archie 66': 'Badugi', 'Archie 99': 'Badugi', 'Ari': 'Badugi',
+      '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
   };
   const defaultStructure = {
     "Hold'em": 'No Limit', 'Pineapple': 'No Limit', 'Short Deck': 'No Limit',
-    'Omaha': 'Pot Limit', 'Omaha 8/b': 'Pot Limit', 'Big O': 'Pot Limit',
+    'Omaha': 'Pot Limit', 'O8': 'Pot Limit', 'Big O': 'Pot Limit',
+    'PLO5': 'Pot Limit', 'PLO6': 'Pot Limit',
+    'Double Board Bomb Pot': 'No Limit', 'Courchevel': 'Pot Limit',
     'Stud Hi': 'Limit', 'Stud 8': 'Limit', 'Razz': 'Limit',
+    'Stud Hi/Lo': 'Limit', 'Action Razz': 'Limit', '2-7 Razz': 'Limit',
+    'Razzdugi': 'Limit', 'Razzdeucy': 'Limit',
     '2-7 Triple Draw': 'Limit', '2-7 Single Draw': 'No Limit',
     'A-5 Triple Draw': 'Limit', 'A-5 Single Draw': 'No Limit',
     'Badugi': 'Limit', 'Badeucy': 'Limit', 'Badacey': 'Limit',
-    'Archie': 'Limit', 'Ari': 'Limit', '5-Card Draw': 'No Limit',
-    'OFC': 'No Limit',
+    'Archie 66': 'Limit', 'Archie 99': 'Limit', 'Ari': 'Limit',
+    '5-Card Draw': 'No Limit', 'OFC': 'No Limit',
   };
 
   const variantDisplayName = useMemo(() => {
+    const superPrefix = studSuper && selectedCategory === 'Stud' ? 'Super ' : '';
     const overrides = {
-      "Pot Limit|Omaha 8/b": 'PLO8', "Pot Limit|Omaha": 'Pot Limit Omaha', "Pot Limit|Big O": 'Big O',
-      "No Limit|Omaha": 'No Limit Omaha', "No Limit|Omaha 8/b": 'No Limit Omaha 8/b', "No Limit|Big O": 'No Limit Big O',
-      "Limit|Omaha": 'Limit Omaha Hi', "Limit|Omaha 8/b": 'O8', "Limit|Big O": 'Limit Big O',
+      "Pot Limit|Omaha": 'Pot Limit Omaha', "Pot Limit|O8": 'PLO8', "Pot Limit|Big O": 'Big O',
+      "No Limit|Omaha": 'No Limit Omaha', "No Limit|O8": 'NLO8', "No Limit|Big O": 'No Limit Big O',
+      "Limit|Omaha": 'Limit Omaha Hi', "Limit|O8": 'O8', "Limit|Big O": 'Limit Big O',
+      "Pot Limit|PLO5": 'PLO5', "Pot Limit|PLO6": 'PLO6',
+      "No Limit|Double Board Bomb Pot": 'Bomb Pot',
+      "Pot Limit|Courchevel": 'Courchevel',
     };
     const key = bettingStructure + '|' + selectedGame;
-    if (overrides[key]) return overrides[key];
-    const typicallyLimit = ['Stud Hi','Stud 8','Razz','2-7 Triple Draw','A-5 Triple Draw','Badugi','Badeucy','Badacey','Archie','Ari'];
-    if (typicallyLimit.includes(selectedGame) && bettingStructure === 'Limit') return selectedGame;
-    return bettingStructure + ' ' + selectedGame;
-  }, [bettingStructure, selectedGame]);
+    const base = overrides[key] || (
+      ['Stud Hi','Stud 8','Razz','Stud Hi/Lo','Action Razz','2-7 Razz','Razzdugi','Razzdeucy',
+       '2-7 Triple Draw','A-5 Triple Draw','Badugi','Badeucy','Badacey','Archie 66','Archie 99','Ari'].includes(selectedGame) && bettingStructure === 'Limit'
+        ? selectedGame
+        : bettingStructure + ' ' + selectedGame
+    );
+    return superPrefix + base;
+  }, [bettingStructure, selectedGame, studSuper, selectedCategory]);
 
   const categoryGroups = useMemo(() => [
     { label: "Hold'em", games: ["Hold'em", 'Pineapple', 'Short Deck'] },
-    { label: 'Omaha',   games: ['Omaha', 'Omaha 8/b', 'Big O'] },
-    { label: 'Stud',    games: ['Stud Hi', 'Stud 8', 'Razz'] },
-    { label: 'Draw',    games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw', 'Badugi', 'Badeucy', 'Badacey', 'Archie', 'Ari', '5-Card Draw'] },
+    { label: 'Omaha',   games: ['Omaha', 'O8', 'Big O', 'PLO5', 'PLO6'],
+                        more:  ['Double Board Bomb Pot', 'Courchevel'] },
+    { label: 'Stud',    games: ['Stud Hi', 'Stud 8', 'Razz', 'Stud Hi/Lo', 'Action Razz', '2-7 Razz', 'Razzdugi', 'Razzdeucy'] },
+    { label: 'Draw',    games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'Badugi', '5-Card Draw'],
+                        more:  ['A-5 Single Draw', 'Badeucy', 'Badacey', 'Archie 66', 'Archie 99', 'Ari'] },
     { label: 'Other',   games: ['OFC', ...games.map(g => g.name || g.game_name).filter(Boolean)] },
   ], [games]);
 
@@ -2707,11 +2754,13 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     // Sync category tab
     const cat =
       ["Hold'em", 'Pineapple', 'Short Deck'].includes(game) ? "Hold'em" :
-      ['Omaha', 'Omaha 8/b', 'Big O'].includes(game) ? 'Omaha' :
-      ['Stud Hi', 'Stud 8', 'Razz'].includes(game) ? 'Stud' :
-      ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw', 'Badugi', 'Badeucy', 'Badacey', 'Archie', 'Ari', '5-Card Draw'].includes(game) ? 'Draw' :
+      ['Omaha', 'O8', 'Big O', 'PLO5', 'PLO6', 'Double Board Bomb Pot', 'Courchevel'].includes(game) ? 'Omaha' :
+      ['Stud Hi', 'Stud 8', 'Razz', 'Stud Hi/Lo', 'Action Razz', '2-7 Razz', 'Razzdugi', 'Razzdeucy'].includes(game) ? 'Stud' :
+      ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw',
+       'Badugi', 'Badeucy', 'Badacey', 'Archie 66', 'Archie 99', 'Ari', '5-Card Draw'].includes(game) ? 'Draw' :
       'Other';
     setSelectedCategory(cat);
+    if (cat !== 'Stud') setStudSuper(false);
   };
 
   const handleStructureChange = (s) => {
@@ -2863,7 +2912,9 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       };
       setCurrentHand(hand);
     } else {
-      setCurrentHand(createEmptyHand(selectedGameType, heroName));
+      const hand = createEmptyHand(selectedGameType, heroName);
+      if (studSuper && selectedCategory === 'Stud') hand.gameType = 'Super ' + hand.gameType;
+      setCurrentHand(hand);
     }
     setCurrentHandId(null);
     setTitle('');
@@ -2955,24 +3006,78 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
               <button key={cat.label}
                 className={`game-tab-btn${selectedCategory === cat.label ? ' active' : ''}`}
                 onClick={() => {
+                  const allGames = [...cat.games, ...(cat.more || [])];
+                  if (!allGames.includes(selectedGame)) handleGameSelect(cat.games[0]);
                   setSelectedCategory(cat.label);
-                  if (!cat.games.includes(selectedGame)) handleGameSelect(cat.games[0]);
+                  setStudSuper(false);
+                  if (showMoreFor !== cat.label) setShowMoreFor(null);
                 }}
               >{cat.label}</button>
             ))}
           </div>
           {/* Games in selected category — radio checklist */}
-          {(categoryGroups.find(c => c.label === selectedCategory)?.games || []).map(game => (
-            <div key={game}
-              className={`game-check-row${selectedGame === game ? ' selected' : ''}`}
-              onClick={() => handleGameSelect(game)}
-            >
-              <div className={`game-check-radio${selectedGame === game ? ' selected' : ''}`}>
-                {selectedGame === game && <div className="game-check-radio-dot"/>}
-              </div>
-              <span className={`game-check-row-label${selectedGame === game ? ' selected' : ''}`}>{game}</span>
-            </div>
-          ))}
+          {(() => {
+            const cat = categoryGroups.find(c => c.label === selectedCategory);
+            if (!cat) return null;
+            const moreGames = cat.more || [];
+            const moreSelected = moreGames.includes(selectedGame);
+            const moreOpen = showMoreFor === selectedCategory || moreSelected;
+            return (<>
+              {cat.games.map(game => (
+                <div key={game}
+                  className={`game-check-row${selectedGame === game ? ' selected' : ''}`}
+                  onClick={() => handleGameSelect(game)}
+                >
+                  <div className={`game-check-radio${selectedGame === game ? ' selected' : ''}`}>
+                    {selectedGame === game && <div className="game-check-radio-dot"/>}
+                  </div>
+                  <span className={`game-check-row-label${selectedGame === game ? ' selected' : ''}`}>{game}</span>
+                </div>
+              ))}
+              {/* Super modifier — Stud only */}
+              {selectedCategory === 'Stud' && (
+                <div className={`game-check-row${studSuper ? ' selected' : ''}`}
+                  style={{borderTop:'1px solid var(--border)'}}
+                  onClick={() => setStudSuper(p => !p)}
+                >
+                  <div style={{
+                    width:'13px', height:'13px', borderRadius:'3px', flexShrink:0,
+                    border:`1.5px solid ${studSuper ? 'var(--accent2)' : 'var(--border)'}`,
+                    background: studSuper ? 'var(--accent2)' : 'transparent',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    transition:'background 0.15s,border-color 0.15s',
+                  }}>
+                    {studSuper && <span style={{color:'#fff',fontSize:'9px',lineHeight:1,fontWeight:700}}>✓</span>}
+                  </div>
+                  <span className={`game-check-row-label${studSuper ? ' selected' : ''}`}
+                    style={{fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',fontSize:'0.68rem',letterSpacing:'0.5px'}}
+                  >Super</span>
+                </div>
+              )}
+              {/* More dropdown */}
+              {moreGames.length > 0 && (<>
+                {moreOpen && moreGames.map(game => (
+                  <div key={game}
+                    className={`game-check-row${selectedGame === game ? ' selected' : ''}`}
+                    onClick={() => handleGameSelect(game)}
+                  >
+                    <div className={`game-check-radio${selectedGame === game ? ' selected' : ''}`}>
+                      {selectedGame === game && <div className="game-check-radio-dot"/>}
+                    </div>
+                    <span className={`game-check-row-label${selectedGame === game ? ' selected' : ''}`}>{game}</span>
+                  </div>
+                ))}
+                <div className="game-check-row"
+                  style={{justifyContent:'center', borderTop:'1px solid var(--border)', padding:'5px 10px'}}
+                  onClick={() => setShowMoreFor(prev => prev === selectedCategory && !moreSelected ? null : selectedCategory)}
+                >
+                  <span style={{fontSize:'0.6rem', color:'var(--accent2)', fontFamily:"'Univers Condensed','Univers',sans-serif", textTransform:'uppercase', letterSpacing:'0.5px'}}>
+                    {moreOpen && !moreSelected ? '▲ Less' : '▼ More'}
+                  </span>
+                </div>
+              </>)}
+            </>);
+          })()}
           {/* Betting structure — hidden for OFC */}
           {selectedGame !== 'OFC' && (
             <>
