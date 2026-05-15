@@ -2658,6 +2658,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   const [selectedGame, setSelectedGame] = useState("Hold'em");
   const [selectedCategory, setSelectedCategory] = useState("Hold'em");
   const [studSuper, setStudSuper] = useState(false);
+  const [studAction, setStudAction] = useState(false);
   const [showMoreFor, setShowMoreFor] = useState(null); // 'Omaha' | 'Draw' | null
   // Custom game config
   const [customGameName, setCustomGameName] = useState('');
@@ -2671,7 +2672,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       'Omaha': 'PLO', 'O8': 'PLO8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
       'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
       'Stud Hi': 'NL Stud Hi', 'Stud 8': 'NL Stud 8', 'Razz': 'NL Razz',
-      'Stud Hi/Lo Regular': 'Stud 8', 'Action Razz': 'Razz', '2-7 Razz': 'Razz',
+      'Stud Hi/Lo Regular': 'Stud 8', '2-7 Razz': 'Razz',
       'Razzdugi': 'Badugi', 'Razzdeucy': 'Badeucy',
       '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD',
       'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD',
@@ -2683,7 +2684,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       'Omaha': 'PLO', 'O8': 'PLO8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
       'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
       'Stud Hi': 'PL Stud Hi', 'Stud 8': 'PL Stud 8', 'Razz': 'PL Razz',
-      'Stud Hi/Lo Regular': 'Stud 8', 'Action Razz': 'Razz', '2-7 Razz': 'Razz',
+      'Stud Hi/Lo Regular': 'Stud 8', '2-7 Razz': 'Razz',
       'Razzdugi': 'Badugi', 'Razzdeucy': 'Badeucy',
       '2-7 Triple Draw': 'PL 2-7 TD', '2-7 Single Draw': 'NL 2-7 SD',
       'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD',
@@ -2695,7 +2696,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       'Omaha': 'O8', 'O8': 'O8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
       'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
       'Stud Hi': 'Stud Hi', 'Stud 8': 'Stud 8', 'Razz': 'Razz',
-      'Stud Hi/Lo Regular': 'Stud 8', 'Action Razz': 'Razz', '2-7 Razz': 'Razz',
+      'Stud Hi/Lo Regular': 'Stud 8', '2-7 Razz': 'Razz',
       'Razzdugi': 'Badugi', 'Razzdeucy': 'Badeucy',
       '2-7 Triple Draw': '2-7 TD', '2-7 Single Draw': 'NL 2-7 SD',
       'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD',
@@ -2710,7 +2711,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     'PLO5': 'Pot Limit', 'PLO6': 'Pot Limit',
     'Double Board Bomb Pot': 'No Limit', 'Courchevel': 'Pot Limit',
     'Stud Hi': 'Limit', 'Stud 8': 'Limit', 'Razz': 'Limit',
-    'Stud Hi/Lo Regular': 'Limit', 'Action Razz': 'Limit', '2-7 Razz': 'Limit',
+    'Stud Hi/Lo Regular': 'Limit', '2-7 Razz': 'Limit',
     'Razzdugi': 'Limit', 'Razzdeucy': 'Limit',
     '2-7 Triple Draw': 'Limit', '2-7 Single Draw': 'No Limit',
     'A-5 Triple Draw': 'Limit', 'A-5 Single Draw': 'No Limit',
@@ -2721,8 +2722,12 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     'Dramaha 0': 'Pot Limit', 'Dramadugi': 'Pot Limit', 'Omajack': 'Pot Limit',
   };
 
+  const RAZZ_VARIANTS = ['Razz', '2-7 Razz', 'Razzdugi', 'Razzdeucy'];
+
   const variantDisplayName = useMemo(() => {
+    const isRazz = RAZZ_VARIANTS.includes(selectedGame);
     const superPrefix = studSuper && selectedCategory === 'Stud' ? 'Super ' : '';
+    const actionPrefix = studAction && isRazz ? 'Action ' : '';
     const overrides = {
       "Pot Limit|Omaha": 'Pot Limit Omaha', "Pot Limit|O8": 'PLO8', "Pot Limit|Big O": 'Big O',
       "No Limit|Omaha": 'No Limit Omaha', "No Limit|O8": 'NLO8', "No Limit|Big O": 'No Limit Big O',
@@ -2735,19 +2740,19 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     if (selectedGame === 'OFC') return 'OFC';
     const key = bettingStructure + '|' + selectedGame;
     const base = overrides[key] || (
-      ['Stud Hi','Stud 8','Razz','Stud Hi/Lo Regular','Action Razz','2-7 Razz','Razzdugi','Razzdeucy',
+      ['Stud Hi','Stud 8','Razz','Stud Hi/Lo Regular','2-7 Razz','Razzdugi','Razzdeucy',
        '2-7 Triple Draw','A-5 Triple Draw','Badugi','Badeucy','Badacey','Archie 66','Archie 99','Ari'].includes(selectedGame) && bettingStructure === 'Limit'
         ? selectedGame
         : bettingStructure + ' ' + selectedGame
     );
-    return superPrefix + base;
-  }, [bettingStructure, selectedGame, studSuper, selectedCategory]);
+    return superPrefix + actionPrefix + base;
+  }, [bettingStructure, selectedGame, studSuper, studAction, selectedCategory]);
 
   const categoryGroups = useMemo(() => [
     { label: "Hold'em", games: ["Hold'em", 'Pineapple', 'Short Deck'] },
     { label: 'Omaha',   games: ['Omaha', 'O8', 'Big O', 'PLO5', 'PLO6'],
                         more:  ['Double Board Bomb Pot', 'Courchevel'] },
-    { label: 'Stud',    games: ['Stud Hi', 'Stud 8', 'Razz', 'Stud Hi/Lo Regular', 'Action Razz', '2-7 Razz', 'Razzdugi', 'Razzdeucy'] },
+    { label: 'Stud',    games: ['Stud Hi', 'Stud 8', 'Razz', 'Stud Hi/Lo Regular', '2-7 Razz', 'Razzdugi', 'Razzdeucy'] },
     { label: 'Draw',    games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'Badugi', '5-Card Draw'],
                         more:  ['A-5 Single Draw', 'Badeucy', 'Badacey', 'Archie 66', 'Archie 99', 'Ari'] },
     { label: 'Other',   games: ['OFC', 'Dramaha Hi', 'Dramaha 2-7', 'Dramaha 49', 'Dramaha 0', 'Dramadugi', 'Omajack', ...games.map(g => g.name || g.game_name).filter(Boolean)] },
@@ -2762,12 +2767,13 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     const cat =
       ["Hold'em", 'Pineapple', 'Short Deck'].includes(game) ? "Hold'em" :
       ['Omaha', 'O8', 'Big O', 'PLO5', 'PLO6', 'Double Board Bomb Pot', 'Courchevel'].includes(game) ? 'Omaha' :
-      ['Stud Hi', 'Stud 8', 'Razz', 'Stud Hi/Lo Regular', 'Action Razz', '2-7 Razz', 'Razzdugi', 'Razzdeucy'].includes(game) ? 'Stud' :
+      ['Stud Hi', 'Stud 8', 'Razz', 'Stud Hi/Lo Regular', '2-7 Razz', 'Razzdugi', 'Razzdeucy'].includes(game) ? 'Stud' :
       ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw',
        'Badugi', 'Badeucy', 'Badacey', 'Archie 66', 'Archie 99', 'Ari', '5-Card Draw'].includes(game) ? 'Draw' :
       'Other';
     setSelectedCategory(cat);
-    if (cat !== 'Stud') setStudSuper(false);
+    if (cat !== 'Stud') { setStudSuper(false); setStudAction(false); }
+    else if (!RAZZ_VARIANTS.includes(game)) setStudAction(false);
   };
 
   const handleStructureChange = (s) => {
@@ -2920,6 +2926,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       setCurrentHand(hand);
     } else {
       const hand = createEmptyHand(selectedGameType, heroName);
+      const isRazzGame = RAZZ_VARIANTS.includes(selectedGame);
+      if (studAction && isRazzGame) hand.gameType = 'Action ' + hand.gameType;
       if (studSuper && selectedCategory === 'Stud') hand.gameType = 'Super ' + hand.gameType;
       setCurrentHand(hand);
     }
@@ -3041,26 +3049,35 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
                   <span className={`game-check-row-label${selectedGame === game ? ' selected' : ''}`}>{game}</span>
                 </div>
               ))}
-              {/* Super modifier — Stud only */}
-              {selectedCategory === 'Stud' && (
-                <div className={`game-check-row${studSuper ? ' selected' : ''}`}
-                  style={{borderTop:'1px solid var(--border)'}}
-                  onClick={() => setStudSuper(p => !p)}
-                >
-                  <div style={{
-                    width:'13px', height:'13px', borderRadius:'3px', flexShrink:0,
-                    border:`1.5px solid ${studSuper ? 'var(--accent2)' : 'var(--border)'}`,
-                    background: studSuper ? 'var(--accent2)' : 'transparent',
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                    transition:'background 0.15s,border-color 0.15s',
-                  }}>
-                    {studSuper && <span style={{color:'#fff',fontSize:'9px',lineHeight:1,fontWeight:700}}>✓</span>}
+              {/* Super + Action modifiers — Stud only */}
+              {selectedCategory === 'Stud' && (() => {
+                const isRazz = RAZZ_VARIANTS.includes(selectedGame);
+                const checkboxRow = (label, checked, onToggle, disabled) => (
+                  <div className={`game-check-row${checked ? ' selected' : ''}`}
+                    style={{opacity: disabled ? 0.35 : 1, cursor: disabled ? 'default' : 'pointer'}}
+                    onClick={disabled ? undefined : onToggle}
+                  >
+                    <div style={{
+                      width:'13px', height:'13px', borderRadius:'3px', flexShrink:0,
+                      border:`1.5px solid ${checked ? 'var(--accent2)' : 'var(--border)'}`,
+                      background: checked ? 'var(--accent2)' : 'transparent',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      transition:'background 0.15s,border-color 0.15s',
+                    }}>
+                      {checked && <span style={{color:'#fff',fontSize:'9px',lineHeight:1,fontWeight:700}}>✓</span>}
+                    </div>
+                    <span className={`game-check-row-label${checked ? ' selected' : ''}`}
+                      style={{fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',fontSize:'0.68rem',letterSpacing:'0.5px'}}
+                    >{label}</span>
                   </div>
-                  <span className={`game-check-row-label${studSuper ? ' selected' : ''}`}
-                    style={{fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',fontSize:'0.68rem',letterSpacing:'0.5px'}}
-                  >Super</span>
-                </div>
-              )}
+                );
+                return (
+                  <div style={{borderTop:'1px solid var(--border)'}}>
+                    {checkboxRow('Super', studSuper, () => setStudSuper(p => !p), false)}
+                    {checkboxRow('Action', studAction, () => setStudAction(p => !p), !isRazz)}
+                  </div>
+                );
+              })()}
               {/* More dropdown */}
               {moreGames.length > 0 && (<>
                 {moreOpen && moreGames.map(game => (
