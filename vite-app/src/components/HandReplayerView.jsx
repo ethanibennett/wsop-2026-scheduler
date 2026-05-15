@@ -2731,6 +2731,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       "No Limit|Double Board Bomb Pot": 'Bomb Pot',
       "Pot Limit|Courchevel": 'Courchevel',
     };
+    // Points-based games — no structure prefix
+    if (selectedGame === 'OFC') return 'OFC';
     const key = bettingStructure + '|' + selectedGame;
     const base = overrides[key] || (
       ['Stud Hi','Stud 8','Razz','Stud Hi/Lo','Action Razz','2-7 Razz','Razzdugi','Razzdeucy',
