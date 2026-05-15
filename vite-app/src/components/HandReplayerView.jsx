@@ -3134,18 +3134,14 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       ) : (
         <div className="replayer-hand-list">
           {hands.map(h => (
-            <div key={h.id} className="replayer-hand-card" onClick={() => loadHand(h.id)}>
-              <div className="replayer-hand-card-top">
-                <span className="replayer-hand-card-title">{h.title || 'Untitled'}</span>
-                <span className="replayer-hand-card-game">{h.game_type}</span>
-              </div>
-              {h.notes && <div className="replayer-hand-card-meta">{h.notes}</div>}
-              <div className="replayer-hand-card-meta">
-                {new Date(h.created_at).toLocaleDateString()}
-                {h.is_public ? ' \u00b7 Public' : ''}
-              </div>
-              <div className="replayer-hand-card-actions" onClick={e => e.stopPropagation()}>
-                <button className="btn btn-ghost btn-sm" style={{padding:'3px 8px',fontSize:'0.65rem'}} onClick={() => deleteHand(h.id)}>Delete</button>
+            <div key={h.id} className="replayer-hand-card"
+              style={{display:'flex',alignItems:'center',gap:'8px',padding:'7px 10px'}}
+              onClick={() => loadHand(h.id)}
+            >
+              <span className="replayer-hand-card-title" style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.title || 'Untitled'}</span>
+              <span className="replayer-hand-card-game" style={{flexShrink:0}}>{h.game_type}</span>
+              <div onClick={e => e.stopPropagation()} style={{flexShrink:0}}>
+                <button className="btn btn-ghost btn-sm" style={{padding:'2px 7px',fontSize:'0.62rem'}} onClick={() => deleteHand(h.id)}>Delete</button>
               </div>
             </div>
           ))}
