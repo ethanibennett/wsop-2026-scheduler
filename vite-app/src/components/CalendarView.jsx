@@ -35,8 +35,13 @@ function buildAllDates(tournaments) {
   }
   if (!min || !max) return [];
   const dates = [];
+  // Format using LOCAL date components (UTC via toISOString rolls over
+  // for users east of UTC and produces a duplicate or skipped date).
   for (let d = new Date(min + 'T12:00:00'); d <= new Date(max + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
-    dates.push(d.toISOString().slice(0, 10));
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    dates.push(`${y}-${m}-${day}`);
   }
   return dates;
 }
@@ -695,9 +700,13 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
     }
     const ended = new Set();
     for (const [venue, lastDate] of Object.entries(lastDay1ByVenue)) {
-      const cutoff = new Date(lastDate + 'T00:00:00');
+      const cutoff = new Date(lastDate + 'T12:00:00');
       cutoff.setDate(cutoff.getDate() + 2);
-      if (todayISO > cutoff.toISOString().slice(0, 10)) ended.add(venue);
+      // Local date format — toISOString uses UTC and would roll over.
+      const cy = cutoff.getFullYear();
+      const cm = String(cutoff.getMonth() + 1).padStart(2, '0');
+      const cd = String(cutoff.getDate()).padStart(2, '0');
+      if (todayISO > `${cy}-${cm}-${cd}`) ended.add(venue);
     }
     return ended;
   }, [allTournaments]);
@@ -853,8 +862,12 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
           };
           const prevTarget = findInMonth(prev.getFullYear(), prev.getMonth());
           const nextTarget = findInMonth(next.getFullYear(), next.getMonth());
-          const monthPast = new Date(prev.getFullYear(), prev.getMonth() + 1, 0)
-            .toISOString().slice(0, 10) < todayISO;
+          // Last day of the previous month, formatted in LOCAL date.
+          const lastDayPrev = new Date(prev.getFullYear(), prev.getMonth() + 1, 0);
+          const lpY = lastDayPrev.getFullYear();
+          const lpM = String(lastDayPrev.getMonth() + 1).padStart(2, '0');
+          const lpD = String(lastDayPrev.getDate()).padStart(2, '0');
+          const monthPast = `${lpY}-${lpM}-${lpD}` < todayISO;
           return (
             <div
               key={`${curY}-${curM}`}
@@ -893,21 +906,17 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
                   {MONTHS[next.getMonth()]}
                 </button>
               </div>
-              {/* Far right of the month row: date-picker grid. <div>
-                  not <label> — the label-input HTML association
-                  auto-focuses the wrapped <input>, which on iOS Safari
-                  causes the "double click required everywhere" bug
-                  after picker dismissal. */}
+              {/* Far right of the month row: date-picker. The icon is
+                  decorative; the actual <input type="date"> is overlaid
+                  invisibly with pointer-events: auto so the user's tap
+                  hits the input directly. iOS Safari opens its native
+                  picker on tap of a date input — no showPicker /
+                  programmatic call needed (and showPicker on a
+                  pointer-events:none input is unreliable on iOS). */}
               <div
                 className="cal-month-icon-btn"
                 title="Pick a date"
-                onClick={(e) => {
-                  if (e.target.tagName === 'INPUT') return;
-                  const input = e.currentTarget.querySelector('input[type="date"]');
-                  if (!input) return;
-                  try { if (input.showPicker) input.showPicker(); else input.focus(); }
-                  catch { input.focus(); }
-                }}
+                style={{position: 'relative'}}
               >
                 <Icon.pointer />
                 <input
@@ -927,12 +936,18 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
                       const earlier = [...allDates].reverse().find(d => d <= v);
                       setSelectedDate(later || earlier || allDates[0]);
                     }
+                    // Drop focus immediately so the input doesn't hold
+                    // keyboard focus after the picker dismisses.
+                    e.target.blur();
                   }}
                   style={{
-                    position: 'absolute', inset: 0, opacity: 0,
-                    width: '100%', height: '100%', border: 'none',
+                    position: 'absolute', inset: 0,
+                    width: '100%', height: '100%',
+                    opacity: 0, border: 'none',
                     background: 'transparent', cursor: 'pointer',
-                    pointerEvents: 'none'
+                    // pointer-events: auto so iOS can tap the input
+                    // directly and open its native picker.
+                    pointerEvents: 'auto',
                   }}
                 />
               </div>

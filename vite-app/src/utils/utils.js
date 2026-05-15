@@ -9,7 +9,18 @@ export function haptic(ms = 15) {
 let _debugNow = localStorage.getItem('debugNow') || '';
 export function getDebugNow() { return _debugNow; }
 export function setDebugNow(v) { _debugNow = v || ''; localStorage.setItem('debugNow', _debugNow); }
-export function getToday() { return _debugNow ? _debugNow.slice(0, 10) : new Date().toISOString().slice(0, 10); }
+export function getToday() {
+  if (_debugNow) return _debugNow.slice(0, 10);
+  // Use LOCAL date, not UTC. toISOString() returns the UTC date, which
+  // returns tomorrow once it's late evening in any timezone west of UTC
+  // (PDT users hit this any time after ~5pm). All "is this date in the
+  // past" checks need local-date semantics.
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 export function getNow() { return _debugNow ? new Date(_debugNow).getTime() : Date.now(); }
 
 // ── Variant Color Map ─────────────────────────────────────
@@ -416,11 +427,30 @@ export function normaliseDate(d) {
 }
 
 export function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
-export function addDays(dateStr, n) { const d = new Date(dateStr); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+// addDays returns YYYY-MM-DD using LOCAL date components, not toISOString
+// (which would force UTC and roll the date over for users east of UTC).
+export function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 export function fmtShortDate(d) { const dt = new Date(d + 'T12:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
 
+// parseTournamentTime — venue-timezone aware. An event labelled "6:10
+// PM" at a Vegas venue happens at 6:10 PM PDT regardless of where the
+// user is sitting, so we resolve the timestamp through the venue's
+// timezone instead of the user's local clock. Without this, "is this
+// event in the future?" / time-remaining math was wrong by exactly
+// (user_tz_offset - venue_tz_offset) hours.
 export function parseTournamentTime(t) {
   const time = (t.time && t.time !== 'TBD') ? t.time : '12:00 AM';
+  if (t.venue) {
+    const ms = parseDateTimeInTz(t.date, time, t.venue);
+    if (!isNaN(ms)) return ms;
+  }
   return parseDateTime(t.date, time);
 }
 

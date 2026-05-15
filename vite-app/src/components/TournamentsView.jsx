@@ -1081,9 +1081,13 @@ export default function TournamentsView({
     }
     const ended = new Set();
     for (const [venue, lastDate] of Object.entries(lastDay1ByVenue)) {
-      const cutoff = new Date(lastDate + 'T00:00:00');
+      const cutoff = new Date(lastDate + 'T12:00:00');
       cutoff.setDate(cutoff.getDate() + 2);
-      const cutoffISO = cutoff.toISOString().slice(0, 10);
+      // Local date format — toISOString uses UTC and would roll over.
+      const cy = cutoff.getFullYear();
+      const cm = String(cutoff.getMonth() + 1).padStart(2, '0');
+      const cd = String(cutoff.getDate()).padStart(2, '0');
+      const cutoffISO = `${cy}-${cm}-${cd}`;
       if (todayISO > cutoffISO) ended.add(venue);
     }
     return ended;

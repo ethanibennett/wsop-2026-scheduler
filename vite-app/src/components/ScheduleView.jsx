@@ -4,7 +4,7 @@ import Avatar from './Avatar.jsx';
 import CalendarEventRow from './CalendarEventRow.jsx';
 import ScheduleExportModal from './ScheduleExportModal.jsx';
 import {
-  getVenueInfo, normaliseDate, getToday, fmtShortDate, formatBuyin, currencySymbol,
+  getVenueInfo, normaliseDate, getToday, getNow, fmtShortDate, formatBuyin, currencySymbol,
   parseTournamentTime, findClosestFlight, extractConditions, detectConflicts,
   measureStickyStack,
 } from '../utils/utils.js';
@@ -221,13 +221,20 @@ export default function ScheduleView({
     if (hasScrolled.current) return;
     if (!todayRef.current) { setListVisible(true); return; }
     hasScrolled.current = true;
-    const container = todayRef.current.closest('.content-area') || document.querySelector('.content-area');
+    const el = todayRef.current;
+    const container = el.closest('.content-area') || document.querySelector('.content-area');
     if (!container) { setListVisible(true); return; }
     const cRect = container.getBoundingClientRect();
     const sticky = container.querySelector('.schedule-sticky-header');
     const stickyBottom = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - cRect.top) : 0;
-    const groupAbsTop = todayRef.current.getBoundingClientRect().top - cRect.top + container.scrollTop;
-    container.scrollTop = Math.max(0, groupAbsTop - stickyBottom);
+    // Account for the sticky date-break that pins below the page
+    // header — if the upcoming event isn't the first in its group, the
+    // date-break would otherwise overlay the event when scrolled to.
+    const dateGroup = el.closest('[data-date-group]');
+    const db = dateGroup ? dateGroup.querySelector('.schedule-date-break') : null;
+    const dbHeight = db ? db.getBoundingClientRect().height : 0;
+    const elAbsTop = el.getBoundingClientRect().top - cRect.top + container.scrollTop;
+    container.scrollTop = Math.max(0, elAbsTop - stickyBottom - dbHeight);
     setListVisible(true);
   }, [sorted]);
 
@@ -333,6 +340,29 @@ export default function ScheduleView({
             currentGroup.events.push({ t, globalIdx });
             globalIdx++;
           }
+          // Pick the FIRST event whose start time is still in the
+          // future (using getNow() so a debug-time override is honoured).
+          // Skips past dates AND skips events earlier today that have
+          // already started, landing the user on the truly-next event.
+          // Falls back to the first today-or-later event if everything
+          // remaining is already in progress.
+          const nowMs = getNow();
+          let upcomingEventId = null;
+          let upcomingDate = null;
+          for (const t of sorted) {
+            if (parseTournamentTime(t) >= nowMs) {
+              upcomingEventId = t.id;
+              upcomingDate = normaliseDate(t.date);
+              break;
+            }
+          }
+          if (!upcomingEventId) {
+            const fallback = sorted.find(t => normaliseDate(t.date) >= todayISO);
+            if (fallback) {
+              upcomingEventId = fallback.id;
+              upcomingDate = normaliseDate(fallback.date);
+            }
+          }
           let scrollRefAssigned = false;
           return groups.map((group, gi) => {
             const isGroupToday = group.date === todayISO;
@@ -341,7 +371,7 @@ export default function ScheduleView({
             const dayOfWeek = ['Su','M','Tu','W','Th','F','Sa'][dateObj.getDay()];
             const dayNum = String(dateObj.getDate()).padStart(2, '0');
             const past = group.date < todayISO;
-            const needsRef = !scrollRefAssigned && group.date >= todayISO;
+            const needsRef = !scrollRefAssigned && group.date === upcomingDate;
             if (needsRef) scrollRefAssigned = true;
             return (
               <div key={group.date} ref={needsRef ? todayRef : null} data-date-group={group.date} data-today-scroll={needsRef ? 'true' : undefined} style={{marginTop: gi === 0 ? 0 : '8px'}}>
@@ -373,8 +403,10 @@ export default function ScheduleView({
                     </>
                   )}
                 </div>
-                {group.events.map(({ t, globalIdx: gIdx }) => (
-                  <div key={t.id} style={{contentVisibility:'auto', containIntrinsicSize:'auto 72px'}}>
+                {group.events.map(({ t, globalIdx: gIdx }) => {
+                  const isUpcomingTarget = t.id === upcomingEventId;
+                  return (
+                  <div key={t.id} ref={isUpcomingTarget ? todayRef : null} data-upcoming-target={isUpcomingTarget ? 'true' : undefined} style={{contentVisibility:'auto', containIntrinsicSize:'auto 72px'}}>
                     <CalendarEventRow
                       tournament={t}
                       isInSchedule={true}
@@ -403,7 +435,8 @@ export default function ScheduleView({
                       onAdminEdit={onAdminEdit}
                     />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             );
           });
