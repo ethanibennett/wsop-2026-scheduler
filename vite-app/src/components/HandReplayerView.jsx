@@ -2947,40 +2947,52 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
           <div className="replayer-section-title">New Hand</div>
           <span style={{fontSize:'0.7rem',color:'var(--accent2)',fontFamily:"'Univers Condensed','Univers',sans-serif",fontWeight:600}}>{variantDisplayName}</span>
         </div>
-        {/* Category tabs */}
-        <div className="hand-game-pill-row" style={{marginBottom:'6px',gap:'3px'}}>
-          {categoryGroups.map(cat => (
-            <button key={cat.label}
-              style={{flex:1,borderRadius:'6px',fontSize:'0.6rem',padding:'5px 2px'}}
-              className={selectedCategory === cat.label ? 'active' : ''}
-              onClick={() => {
-                setSelectedCategory(cat.label);
-                if (!cat.games.includes(selectedGame)) handleGameSelect(cat.games[0]);
-              }}
-            >{cat.label}</button>
-          ))}
-        </div>
-        {/* Games in selected category */}
-        <div className="hand-game-pill-row" style={{flexWrap:'wrap',gap:'4px',marginBottom:'8px'}}>
-          {(categoryGroups.find(c => c.label === selectedCategory)?.games || []).map(game => (
-            <button key={game}
-              style={{flex:'0 1 auto'}}
-              className={selectedGame === game ? 'active' : ''}
-              onClick={() => handleGameSelect(game)}
-            >{game}</button>
-          ))}
-        </div>
-        {/* Betting structure — hidden for OFC */}
-        {selectedGame !== 'OFC' && (
-          <div style={{marginTop:'2px'}}>
-            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>Structure</div>
-            <div className="hand-game-pill-row">
-              {['No Limit', 'Pot Limit', 'Limit'].map(s => (
-                <button key={s} className={bettingStructure === s ? 'active' : ''} onClick={() => handleStructureChange(s)}>{s}</button>
-              ))}
-            </div>
+        {/* Game picker: tab bar + checklist */}
+        <div className="game-picker">
+          {/* Category tabs */}
+          <div className="game-tab-bar">
+            {categoryGroups.map(cat => (
+              <button key={cat.label}
+                className={`game-tab-btn${selectedCategory === cat.label ? ' active' : ''}`}
+                onClick={() => {
+                  setSelectedCategory(cat.label);
+                  if (!cat.games.includes(selectedGame)) handleGameSelect(cat.games[0]);
+                }}
+              >{cat.label}</button>
+            ))}
           </div>
-        )}
+          {/* Games in selected category — radio checklist */}
+          {(categoryGroups.find(c => c.label === selectedCategory)?.games || []).map(game => (
+            <div key={game}
+              className={`game-check-row${selectedGame === game ? ' selected' : ''}`}
+              onClick={() => handleGameSelect(game)}
+            >
+              <div className={`game-check-radio${selectedGame === game ? ' selected' : ''}`}>
+                {selectedGame === game && <div className="game-check-radio-dot"/>}
+              </div>
+              <span className={`game-check-row-label${selectedGame === game ? ' selected' : ''}`}>{game}</span>
+            </div>
+          ))}
+          {/* Betting structure — hidden for OFC */}
+          {selectedGame !== 'OFC' && (
+            <>
+              <div className="game-check-section-label" style={{borderTop:'1px solid var(--border)'}}>Structure</div>
+              {['No Limit', 'Pot Limit', 'Limit'].map(s => (
+                <div key={s}
+                  className={`game-check-row${bettingStructure === s ? ' selected' : ''}`}
+                  onClick={() => handleStructureChange(s)}
+                >
+                  <div className={`game-check-radio${bettingStructure === s ? ' selected' : ''}`}>
+                    {bettingStructure === s && <div className="game-check-radio-dot"/>}
+                  </div>
+                  <span className={`game-check-row-label${bettingStructure === s ? ' selected' : ''}`}
+                    style={{fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',fontSize:'0.7rem',letterSpacing:'0.4px'}}
+                  >{s}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:'10px'}}>
           <button className="btn btn-primary btn-sm" onClick={startNewHand}>Create {variantDisplayName} Hand</button>
         </div>

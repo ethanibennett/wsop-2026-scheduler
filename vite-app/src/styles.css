@@ -568,12 +568,27 @@
     .live-update-registered-section { display:flex; flex-direction:column; gap:6px; }
     .live-update-divider { height:1px; background:var(--border); margin:4px -4px; }
 
-    /* ── Hand game pills ── */
+    /* ── Hand game pills (legacy — kept for hand editor) ── */
     .hand-game-pills { display:flex; flex-direction:column; gap:4px; }
     .hand-game-pill-row { display:flex; gap:4px; }
     .hand-game-pill-row button { flex:1; padding:3px 6px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; font-size:0.62rem; line-height:1; cursor:pointer; white-space:nowrap; transition:background 0.15s,color 0.15s; text-align:center; display:inline-flex; align-items:center; justify-content:center; }
     .hand-game-pill-row button.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
     .hand-game-label { font-size:0.62rem; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+
+    /* ── Game picker: tabbed checklist ── */
+    .game-picker { border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:8px; }
+    .game-tab-bar { display:flex; border-bottom:1px solid var(--border); background:var(--surface2); }
+    .game-tab-btn { flex:1; padding:6px 3px; font-size:0.58rem; font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; letter-spacing:0.6px; border:none; border-bottom:2px solid transparent; background:transparent; color:var(--text-muted); cursor:pointer; margin-bottom:-1px; transition:color 0.15s,border-color 0.15s; line-height:1; }
+    .game-tab-btn.active { color:var(--accent2); border-bottom-color:var(--accent2); font-weight:700; }
+    .game-check-row { display:flex; align-items:center; gap:9px; padding:6px 10px; cursor:pointer; transition:background 0.1s; border-bottom:1px solid transparent; }
+    .game-check-row:hover { background:var(--surface2); }
+    .game-check-row.selected { background:color-mix(in srgb, var(--accent2) 8%, transparent); }
+    .game-check-radio { width:13px; height:13px; border-radius:50%; border:1.5px solid var(--border); background:transparent; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:border-color 0.15s; }
+    .game-check-radio.selected { border-color:var(--accent2); }
+    .game-check-radio-dot { width:6px; height:6px; border-radius:50%; background:var(--accent2); }
+    .game-check-row-label { font-size:0.76rem; color:var(--text-muted); flex:1; transition:color 0.15s; }
+    .game-check-row-label.selected { color:var(--text); font-weight:500; }
+    .game-check-section-label { font-size:0.55rem; color:var(--text-muted); font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; letter-spacing:0.8px; padding:5px 10px 1px; }
 
     /* ── Card row ── */
     .card-row { display:flex; gap:2px; align-items:center; min-height:32px; flex-wrap:wrap; }
