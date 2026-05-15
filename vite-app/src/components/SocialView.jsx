@@ -708,16 +708,33 @@ export default function SocialView({
     </div>
   );
 
+  const shareSection = (
+    <>
+      <div className="dashboard-section-header" style={{marginBottom:'8px',marginTop:20}}>
+        <div className="dashboard-section-title">Share</div>
+      </div>
+      <div style={{
+        background:'var(--surface)',border:'1px solid var(--border)',
+        borderRadius:'var(--radius-sm)',padding:'16px 14px',
+        textAlign:'center',color:'var(--text-muted)',fontSize:'0.78rem',
+        lineHeight:1.5,
+      }}>
+        Social media integrations coming soon
+      </div>
+    </>
+  );
+
   if (!hasBuddies && !hasGroups) {
     return (
       <div style={{maxWidth:'600px',margin:'0 auto'}}>
         <div className="dashboard-section-header" style={{marginBottom:'12px'}}>
-          <div className="dashboard-section-title">Social</div>
+          <div className="dashboard-section-title">Connections</div>
         </div>
         {searchBar}
         <div style={{textAlign:'center',color:'var(--text-muted)',fontSize:'0.82rem',padding:'24px 0'}}>
           No connections yet. Search for friends above to get started.
         </div>
+        {shareSection}
       </div>
     );
   }
@@ -981,6 +998,9 @@ export default function SocialView({
           })}
         </React.Fragment>
       )}
+
+      {/* Share section — social media integration placeholder */}
+      {shareSection}
 
       {/* Create Group Modal */}
       {showCreateGroup && ReactDOM.createPortal(
