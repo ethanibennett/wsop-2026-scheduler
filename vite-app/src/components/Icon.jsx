@@ -270,6 +270,25 @@ const Icon = {
       <circle cx="17" cy="17" r="1.4"/>
     </svg>
   ),
+  plane: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'16px',height:'16px'}}>
+      <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+    </svg>
+  ),
+  umbrella: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'16px',height:'16px'}}>
+      <path d="M23 12a11 11 0 0 0-22 0"/>
+      <path d="M12 12v6a2 2 0 0 0 4 0"/>
+    </svg>
+  ),
+  palmTree: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" style={{width:'16px',height:'16px'}}>
+      <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/>
+      <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/>
+      <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35z"/>
+      <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-10-2-10z"/>
+    </svg>
+  ),
 };
 
 export default Icon;

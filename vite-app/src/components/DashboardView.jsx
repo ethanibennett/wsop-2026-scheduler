@@ -177,12 +177,13 @@ function MiniLateRegBar({ lateRegEnd, date, time, venueAbbr, openOnly, venue }) 
 export default function DashboardView({
   mySchedule, myActiveUpdates, trackingData, shareBuddies,
   buddyLiveUpdates, buddyEvents, displayName, onPost, onDeleteUpdate,
-  onAddTracking, onNavigate, tournaments, onToggle, onRefresh
+  onAddTracking, onResetResults, onNavigate, tournaments, onToggle, onRefresh
 }) {
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [selectedUpNextIdx, setSelectedUpNextIdx] = useState(0);
   const [connDropdownId, setConnDropdownId] = useState(null);
   const [now, setNow] = useState(getNow());
-  const [dashCurrency, setDashCurrency] = useState(() => localStorage.getItem('trackingCurrency') || 'NATIVE');
+  const [dashCurrency, setDashCurrency] = useState(() => localStorage.getItem('trackingCurrency') || 'USD');
   const [dashRates, setDashRates] = useState(null);
   const [dashRatesStale, setDashRatesStale] = useState(false);
   useEffect(() => {
@@ -877,21 +878,56 @@ export default function DashboardView({
       <div className="dash-bottom-stack">
       {/* Results */}
       <div className="dashboard-section">
-        <div className="dashboard-section-header">
-          <div className="dashboard-section-title">Results</div>
-          {plData.count > 0 && dashRates && (
-            <select value={dashCurrency} onChange={e => onDashCurrencyChange(e.target.value)}
-              style={{marginLeft:'auto',fontSize:'0.65rem',padding:'2px 4px',border:'1px solid var(--border)',borderRadius:'5px',
-                background:'var(--surface)',color:'var(--text)',cursor:'pointer',fontWeight:600}}>
-              <option value="NATIVE">Native</option>
-              {Object.keys(CURRENCY_CONFIG).map(c => (
-                <option key={c} value={c}>{(CURRENCY_CONFIG[c]||{}).symbol} {c}</option>
-              ))}
-            </select>
-          )}
-          {plData.count > 0 && !dashRates && (
-            <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
-          )}
+        {/* Header laid out as a 3-column grid that mirrors the P&L grid
+            below: title + Reset on the left (Reset right-aligned to the
+            Total Buyins col), empty middle, currency dropdown flush
+            right with the Net card. */}
+        <div className="dashboard-section-header" style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'8px'}}>
+          <div style={{display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:'8px'}}>
+            <div className="dashboard-section-title">Results</div>
+            {plData.count > 0 && onResetResults && (
+              resetConfirmOpen ? (
+                <span style={{display:'inline-flex',alignItems:'center',gap:'6px'}}>
+                  <button
+                    onClick={() => { onResetResults(); setResetConfirmOpen(false); }}
+                    style={{fontSize:'0.7rem',fontWeight:700,padding:'3px 8px',border:'1px solid #b91c1c',borderRadius:'5px',background:'#b91c1c',color:'#fff',cursor:'pointer'}}
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setResetConfirmOpen(false)}
+                    style={{fontSize:'0.7rem',padding:'3px 8px',border:'1px solid var(--border)',borderRadius:'5px',background:'var(--surface)',color:'var(--text-muted)',cursor:'pointer'}}
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setResetConfirmOpen(true)}
+                  title="Clear all logged results"
+                  style={{fontSize:'0.7rem',fontWeight:600,padding:'3px 8px',border:'1px solid var(--border)',borderRadius:'5px',background:'var(--surface)',color:'var(--text-muted)',cursor:'pointer'}}
+                >
+                  Reset
+                </button>
+              )
+            )}
+          </div>
+          <div />{/* empty middle column to mirror the Cashes button */}
+          <div style={{justifySelf:'end', alignSelf:'center'}}>
+            {plData.count > 0 && dashRates && (
+              <select value={dashCurrency} onChange={e => onDashCurrencyChange(e.target.value)}
+                style={{fontSize:'0.65rem',padding:'2px 4px',border:'1px solid var(--border)',borderRadius:'5px',
+                  background:'var(--surface)',color:'var(--text)',cursor:'pointer',fontWeight:600}}>
+                <option value="NATIVE">Native</option>
+                {Object.keys(CURRENCY_CONFIG).map(c => (
+                  <option key={c} value={c}>{(CURRENCY_CONFIG[c]||{}).symbol} {c}</option>
+                ))}
+              </select>
+            )}
+            {plData.count > 0 && !dashRates && (
+              <span className="dashboard-section-badge">{plData.count} result{plData.count !== 1 ? 's' : ''}</span>
+            )}
+          </div>
         </div>
         {plData.count > 0 ? (
           <>

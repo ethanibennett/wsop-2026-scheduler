@@ -82,10 +82,11 @@ setup.sh
 !.claude/hooks/session-start.sh
 
 # Schedule source documents (user uploads, archived per-venue)
-# NOTE: tracked in git so production has the same archive as local.
-# Individual junk files under it can still be excluded with more specific rules.
-#schedule-docs/
-schedule-docs/**/.DS_Store
+# Kept local-only — structure/schedule PDFs are reference copies that the
+# extraction pipeline pulls data from into the DB. Production doesn't need
+# the raw files, just the extracted columns (starting_chips, level_duration,
+# etc.) which get carried across via /api/tournaments/sync.
+schedule-docs/
 
 # Build output
 public-vite/

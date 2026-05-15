@@ -2,13 +2,15 @@ import React from 'react';
 import Icon from './Icon.jsx';
 import { haptic } from '../utils/utils.js';
 
-export default function BottomNav({ current, onChange, scheduleCount, newShareCount }) {
+export default function BottomNav({ current, onChange, scheduleCount, newShareCount, isAdmin }) {
   const tabs = [
     { id: 'tournaments', label: 'Schedule', icon: Icon.calendar },
     { id: 'social', label: 'Social', icon: Icon.people },
-    { id: 'dashboard', label: 'Dashboard', icon: Icon.home, center: true },
+    { id: 'dashboard', label: 'Dashboard', icon: Icon.home },
+    // Hand Replayer — admin-only entry in the footer until the
+    // feature ships to all users.
+    ...(isAdmin ? [{ id: 'hands', label: 'Hands', icon: Icon.cards }] : []),
     { id: 'staking', label: 'Staking', icon: Icon.handshake },
-    { id: 'more', label: 'More', icon: Icon.dots },
   ];
 
   return (

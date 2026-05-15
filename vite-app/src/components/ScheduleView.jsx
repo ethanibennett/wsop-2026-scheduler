@@ -4,7 +4,7 @@ import Avatar from './Avatar.jsx';
 import CalendarEventRow from './CalendarEventRow.jsx';
 import ScheduleExportModal from './ScheduleExportModal.jsx';
 import {
-  getVenueInfo, normaliseDate, getToday, getNow, fmtShortDate, formatBuyin, currencySymbol,
+  getVenueInfo, normaliseDate, getToday, fmtShortDate, formatBuyin, currencySymbol,
   parseTournamentTime, findClosestFlight, extractConditions, detectConflicts,
   measureStickyStack,
 } from '../utils/utils.js';
@@ -127,24 +127,27 @@ export default function ScheduleView({
 
   useEffect(() => {
     const measure = () => {
-      if (!schedHeaderRef.current) return;
-      // Match TournamentsView: measure the sticky element's intrinsic height
-      // plus its (negative) margin-top. getBoundingClientRect drifts because
-      // the header is sticky and reports a different bottom once it pins,
-      // which leaves a gap between the page header and the date break.
       const el = schedHeaderRef.current;
-      const h = el.offsetHeight;
+      if (!el) return;
+      // Mirror TournamentsView: offsetHeight + marginTop (margin-top is negative,
+      // matching the sticky top: offset, giving the visible header height).
       const mt = parseFloat(getComputedStyle(el).marginTop) || 0;
-      setSchedDateTop(Math.max(0, h + mt));
+      setSchedDateTop(Math.max(0, el.offsetHeight + mt));
     };
     measure();
     const t = setTimeout(measure, 60);
     window.addEventListener('resize', measure);
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined' && schedHeaderRef.current) {
+      ro = new ResizeObserver(measure);
+      ro.observe(schedHeaderRef.current);
+    }
     return () => {
       clearTimeout(t);
       window.removeEventListener('resize', measure);
+      if (ro) ro.disconnect();
     };
-  }, []);
+  }, [mySchedule]);
 
   const todayISO = getToday();
 
@@ -161,10 +164,11 @@ export default function ScheduleView({
   useEffect(() => {
     const container = document.querySelector('.content-area');
     if (!container) return;
+    const panel = container.querySelector('.tab-panel[data-tab="schedule"]') || container;
     const hasTodayEvents = sorted.some(t => normaliseDate(t.date) === todayISO);
     const findTarget = () => {
-      if (hasTodayEvents) return container.querySelector('[data-today-scroll]');
-      const groups = container.querySelectorAll('[data-date-group]');
+      if (hasTodayEvents) return panel.querySelector('[data-today-scroll]');
+      const groups = panel.querySelectorAll('[data-date-group]');
       for (const g of groups) {
         if (g.getAttribute('data-date-group') >= todayISO) return g;
       }
@@ -179,7 +183,7 @@ export default function ScheduleView({
       const target = findTarget();
       if (!target) return;
       const stickyEl = container.querySelector('.schedule-sticky-header');
-      const stickyH = stickyEl ? stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0;
+      const stickyH = stickyEl ? Math.max(0, stickyEl.getBoundingClientRect().bottom - container.getBoundingClientRect().top) : 0;
       const groupAbsTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
       container.scrollTo({ top: Math.max(0, groupAbsTop - stickyH), behavior: 'smooth' });
     });
@@ -209,13 +213,6 @@ export default function ScheduleView({
     };
   }, [sorted, todayISO]);
 
-  // Auto-scroll to today's date group. Mirrors TournamentsView's logic
-  // exactly so the two views behave identically:
-  //   groupAbsTop = group.top(relativeToContainer) + container.scrollTop
-  //   container.scrollTop = groupAbsTop - sticky.visibleBottom
-  // The RAF follow-up correction we used to have was double-bookkeeping
-  // against the same sticky and could push the first date-break above the
-  // viewport — removed.
   useLayoutEffect(() => {
     if (sorted.length === 0) { setListVisible(true); return; }
     if (hasScrolled.current) return;
@@ -226,15 +223,9 @@ export default function ScheduleView({
     if (!container) { setListVisible(true); return; }
     const cRect = container.getBoundingClientRect();
     const sticky = container.querySelector('.schedule-sticky-header');
-    const stickyBottom = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - cRect.top) : 0;
-    // Account for the sticky date-break that pins below the page
-    // header — if the upcoming event isn't the first in its group, the
-    // date-break would otherwise overlay the event when scrolled to.
-    const dateGroup = el.closest('[data-date-group]');
-    const db = dateGroup ? dateGroup.querySelector('.schedule-date-break') : null;
-    const dbHeight = db ? db.getBoundingClientRect().height : 0;
+    const stickyH = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top) : 0;
     const elAbsTop = el.getBoundingClientRect().top - cRect.top + container.scrollTop;
-    container.scrollTop = Math.max(0, elAbsTop - stickyBottom - dbHeight);
+    container.scrollTop = Math.max(0, elAbsTop - stickyH);
     setListVisible(true);
   }, [sorted]);
 
@@ -277,49 +268,51 @@ export default function ScheduleView({
           <p>Browse All Tournaments and tap "+ Add to My Schedule"</p>
         </div>
       ) : (
-      <div style={{opacity: listVisible ? 1 : 0}}>
+      <div>
       <div className="schedule-sticky-header" ref={schedHeaderRef}>
-        <div className="section-header" style={{display:'flex',alignItems:'baseline',gap:'8px',marginBottom:0}}>
-          <h2>My Schedule</h2>
-          <span style={{fontSize:'0.82rem',color:'var(--text-muted)',flex:1}}>{sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}</span>
+        <div className="section-header" style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:0}}>
+          <h2 style={{marginRight:'auto',display:'flex',alignItems:'baseline',gap:'6px'}}>
+            My Schedule
+            <span style={{fontSize:'0.72rem',fontWeight:400,color:'var(--text-muted)'}}>
+              · {sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}
+            </span>
+          </h2>
+          {onAddPersonalEvent && (
+            <>
+              <button className="btn btn-ghost btn-sm"
+                style={{display:'inline-flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',padding:'4px 10px'}}
+                onClick={() => setShowTravelPicker(v => !v)}>
+                Travel
+              </button>
+              <button className="btn btn-ghost btn-sm"
+                style={{display:'inline-flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',padding:'4px 10px'}}
+                onClick={() => dayOffDateRef.current?.showPicker()}>
+                Day Off
+              </button>
+              <input ref={dayOffDateRef} type="date"
+                style={{position:'absolute', opacity:0, pointerEvents:'none', width:0, height:0}}
+                onChange={e => { if (e.target.value) { onAddPersonalEvent(e.target.value, 'Day Off'); e.target.value = ''; }}} />
+            </>
+          )}
           <button className="btn btn-ghost btn-sm"
             style={{display:'inline-flex',alignItems:'center',gap:'4px',fontSize:'0.78rem',padding:'4px 10px'}}
             onClick={() => setShowExportModal(true)}
             title="Export schedule">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
           </button>
         </div>
       </div>
-      {onAddPersonalEvent && (
-        <>
-          <div style={{display:'flex', gap:'8px', marginBottom: showTravelPicker ? '0' : '12px', padding:'0 2px'}}>
-            <button className="btn btn-ghost btn-sm"
-              style={{display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'0.8rem'}}
-              onClick={() => setShowTravelPicker(v => !v)}>
-              &#9992;&#65039; Travel Day
-            </button>
-            <button className="btn btn-ghost btn-sm"
-              style={{display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'0.8rem'}}
-              onClick={() => dayOffDateRef.current?.showPicker()}>
-              &#127958;&#65039; Day Off
-            </button>
-            <input ref={dayOffDateRef} type="date"
-              style={{position:'absolute', opacity:0, pointerEvents:'none', width:0, height:0}}
-              onChange={e => { if (e.target.value) { onAddPersonalEvent(e.target.value, 'Day Off'); e.target.value = ''; }}} />
-          </div>
-          {showTravelPicker && (
-            <div style={{padding:'0 2px', marginBottom:'12px'}}>
-              <TravelDayPicker
-                onSave={(date, notes) => {
-                  onAddPersonalEvent(date, 'Travel Day', notes);
-                  setShowTravelPicker(false);
-                }}
-                onCancel={() => setShowTravelPicker(false)}
-              />
-            </div>
-          )}
-        </>
+      {onAddPersonalEvent && showTravelPicker && (
+        <div style={{padding:'0 2px', marginBottom:'12px'}}>
+          <TravelDayPicker
+            onSave={(date, notes) => {
+              onAddPersonalEvent(date, 'Travel Day', notes);
+              setShowTravelPicker(false);
+            }}
+            onCancel={() => setShowTravelPicker(false)}
+          />
+        </div>
       )}
       {conflicts.size > 0 && (
         <div className="alert alert-error" style={{marginBottom:'12px'}}>
@@ -340,29 +333,6 @@ export default function ScheduleView({
             currentGroup.events.push({ t, globalIdx });
             globalIdx++;
           }
-          // Pick the FIRST event whose start time is still in the
-          // future (using getNow() so a debug-time override is honoured).
-          // Skips past dates AND skips events earlier today that have
-          // already started, landing the user on the truly-next event.
-          // Falls back to the first today-or-later event if everything
-          // remaining is already in progress.
-          const nowMs = getNow();
-          let upcomingEventId = null;
-          let upcomingDate = null;
-          for (const t of sorted) {
-            if (parseTournamentTime(t) >= nowMs) {
-              upcomingEventId = t.id;
-              upcomingDate = normaliseDate(t.date);
-              break;
-            }
-          }
-          if (!upcomingEventId) {
-            const fallback = sorted.find(t => normaliseDate(t.date) >= todayISO);
-            if (fallback) {
-              upcomingEventId = fallback.id;
-              upcomingDate = normaliseDate(fallback.date);
-            }
-          }
           let scrollRefAssigned = false;
           return groups.map((group, gi) => {
             const isGroupToday = group.date === todayISO;
@@ -371,10 +341,10 @@ export default function ScheduleView({
             const dayOfWeek = ['Su','M','Tu','W','Th','F','Sa'][dateObj.getDay()];
             const dayNum = String(dateObj.getDate()).padStart(2, '0');
             const past = group.date < todayISO;
-            const needsRef = !scrollRefAssigned && group.date === upcomingDate;
+            const needsRef = !scrollRefAssigned && group.date >= todayISO;
             if (needsRef) scrollRefAssigned = true;
             return (
-              <div key={group.date} ref={needsRef ? todayRef : null} data-date-group={group.date} data-today-scroll={needsRef ? 'true' : undefined} style={{marginTop: gi === 0 ? 0 : '8px'}}>
+              <div key={group.date} ref={needsRef ? todayRef : null} data-today-scroll={needsRef ? 'true' : undefined} data-date-group={group.date} style={{marginTop: gi === 0 ? 0 : '8px'}}>
                 <div className="schedule-date-break" style={{
                   position: 'sticky', top: schedDateTop + 'px', zIndex: 5,
                   padding: '12px 12px 8px 2px',
@@ -404,9 +374,8 @@ export default function ScheduleView({
                   )}
                 </div>
                 {group.events.map(({ t, globalIdx: gIdx }) => {
-                  const isUpcomingTarget = t.id === upcomingEventId;
                   return (
-                  <div key={t.id} ref={isUpcomingTarget ? todayRef : null} data-upcoming-target={isUpcomingTarget ? 'true' : undefined} style={{contentVisibility:'auto', containIntrinsicSize:'auto 72px'}}>
+                  <div key={t.id} style={{contentVisibility:'auto', containIntrinsicSize:'auto 72px'}}>
                     <CalendarEventRow
                       tournament={t}
                       isInSchedule={true}

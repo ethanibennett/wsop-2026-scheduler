@@ -744,7 +744,10 @@
       background: var(--bg);
       padding: 24px 12px 6px;
       margin: -12px -12px 0;
-      box-shadow: 0 4px 0 0 var(--bg);
+      /* Removed: box-shadow: 0 4px 0 0 var(--bg) — the var sometimes
+         resolved one frame late during sticky transitions and fell back
+         to currentColor (dark text), producing a thin black band below
+         the sticky. The negative margin already extends the bg edge. */
     }
     .gto-sticky-footer {
       position: fixed;
@@ -2610,7 +2613,10 @@
       background: var(--bg);
       margin: -12px -12px 0;
       padding: 24px 12px 6px;
-      box-shadow: 0 4px 0 0 var(--bg);
+      /* Removed: box-shadow: 0 4px 0 0 var(--bg) — the var sometimes
+         resolved one frame late during sticky transitions and fell back
+         to currentColor (dark text), producing a thin black band below
+         the sticky. The negative margin already extends the bg edge. */
     }
 
     .search-bar {
@@ -3294,9 +3300,12 @@
       top: -12px;
       z-index: 6;
       background: var(--bg);
-      padding: 14px 12px 0;
-      margin: -12px -12px -2px;
-      box-shadow: 0 4px 0 0 var(--bg);
+      padding: 24px 12px 6px;
+      margin: -12px -12px 0;
+      /* Removed: box-shadow: 0 4px 0 0 var(--bg) — the var sometimes
+         resolved one frame late during sticky transitions and fell back
+         to currentColor (dark text), producing a thin black band below
+         the sticky. The negative margin already extends the bg edge. */
     }
 
     /* ── Calendar event rows (collapsible) ── */
@@ -3835,11 +3844,9 @@
 
     .back-to-today-fab {
       position: fixed;
-      /* Sit above the bottom-nav. Nav height is max(44px, --tab-h + safe-area),
-         so we use the same max() to guarantee real clearance on both web
-         (where safe-area=0 and the 44px min kicks in) and iOS/Android (where
-         safe-area dominates). */
-      bottom: calc(max(44px, var(--tab-h) + env(safe-area-inset-bottom, 0px)) + 16px);
+      /* Sit above the bottom-nav. Mirror the nav's height formula exactly so
+         Safari's max() parsing can't drop the safe-area term. */
+      bottom: calc(max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px))) + 16px);
       left: 50%;
       z-index: 101;
       background: var(--accent);
@@ -4262,7 +4269,7 @@
     @media (min-width: 640px) {
       .content-area { padding: 16px 20px 80px; }
       .sticky-filters { margin: -16px -20px 0; padding: 32px 20px 6px; top: -16px; }
-      .schedule-sticky-header { margin: -16px -20px 0; padding: 18px 20px 0; top: -16px; }
+      .schedule-sticky-header { margin: -16px -20px 0; padding: 32px 20px 6px; top: -16px; }
 
       .tournament-list {
         display: grid;
@@ -4289,7 +4296,7 @@
     @media (min-width: 1024px) {
       .content-area { padding: 20px 32px 80px; }
       .sticky-filters { margin: -20px -32px 0; padding: 40px 32px 6px; top: -20px; }
-      .schedule-sticky-header { margin: -20px -32px 0; padding: 22px 32px 0; top: -20px; }
+      .schedule-sticky-header { margin: -20px -32px 0; padding: 40px 32px 6px; top: -20px; }
 
       .tournament-list {
         grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));

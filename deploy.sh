@@ -96,7 +96,7 @@ if $DEPLOY_IOS; then
   npx cap sync ios 2>&1 | grep -E "✔|error" || true
 fi
 
-# ── Step 4: Export local tournament DB ──
+# ── Step 4: Merge production → local so production edits survive the deploy ──
 # Start local server if not running
 LOCAL_STARTED=false
 if ! curl -sf "$LOCAL_URL/api/tournaments" > /dev/null 2>&1; then
@@ -120,8 +120,37 @@ LOCAL_TOKEN=$(curl -sf "$LOCAL_URL/api/login" \
   LOCAL_TOKEN=""
 }
 
+# Pull production into local BEFORE building so any admin edits made on
+# production are preserved through the deploy cycle (they'd otherwise be wiped
+# when Render spins a fresh instance and we push local data up).
+info "Logging in to production (pre-deploy pull)..."
+PRE_PROD_TOKEN=""
+PRE_PROD_TOKEN=$(curl -sf -m 15 "$PROD_URL/api/login" \
+  -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASS\"}" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])" 2>/dev/null) || true
+
+if [ -n "$PRE_PROD_TOKEN" ] && [ -n "$LOCAL_TOKEN" ]; then
+  info "Pulling production tournaments → local (preserving production edits)..."
+  curl -sf "$PROD_URL/api/tournaments/export" \
+    -H "Authorization: Bearer $PRE_PROD_TOKEN" > "$TMPDIR/deploy-prod-pre.json" || {
+    warn "Failed to export production DB — local data will be used as-is"
+  }
+  if [ -f "$TMPDIR/deploy-prod-pre.json" ]; then
+    PRE_COUNT=$(python3 -c "import json; print(json.load(open('$TMPDIR/deploy-prod-pre.json'))['count'])" 2>/dev/null) || PRE_COUNT="?"
+    info "Merging $PRE_COUNT production tournaments into local..."
+    python3 -c "import json; d=json.load(open('$TMPDIR/deploy-prod-pre.json')); json.dump({'tournaments':d['tournaments']}, open('$TMPDIR/deploy-prod-pre-sync.json','w'))"
+    curl -sf "$LOCAL_URL/api/tournaments/sync" \
+      -H 'Content-Type: application/json' \
+      -H "Authorization: Bearer $LOCAL_TOKEN" \
+      -d @"$TMPDIR/deploy-prod-pre-sync.json" > /dev/null || warn "Pre-deploy merge had errors"
+  fi
+else
+  warn "Could not reach production before deploy — production edits may be lost if any were made"
+fi
+
 if [ -n "$LOCAL_TOKEN" ]; then
-  info "Exporting local tournament database..."
+  info "Exporting local tournament database (post-merge)..."
   curl -sf "$LOCAL_URL/api/tournaments/export" \
     -H "Authorization: Bearer $LOCAL_TOKEN" > "$TMPDIR/deploy-local-export.json" || {
     warn "Failed to export local DB"
@@ -274,32 +303,6 @@ for abbr, color in colors.items():
   fi
 fi
 
-# ── Step 11: Sync production → local ──
-if [ -n "$LOCAL_TOKEN" ] && [ -n "$PROD_TOKEN" ]; then
-  info "Exporting production tournaments..."
-  curl -sf "$PROD_URL/api/tournaments/export" \
-    -H "Authorization: Bearer $PROD_TOKEN" > "$TMPDIR/deploy-prod-export.json" || {
-    warn "Failed to export production DB"
-  }
-  if [ -f "$TMPDIR/deploy-prod-export.json" ]; then
-    PROD_COUNT=$(python3 -c "import json; print(json.load(open('$TMPDIR/deploy-prod-export.json'))['count'])")
-    info "Syncing $PROD_COUNT production tournaments → local..."
-    python3 -c "import json; d=json.load(open('$TMPDIR/deploy-prod-export.json')); json.dump({'tournaments':d['tournaments']}, open('$TMPDIR/deploy-prod-sync.json','w'))"
-    SYNC_RESULT=$(curl -sf "$LOCAL_URL/api/tournaments/sync" \
-      -H 'Content-Type: application/json' \
-      -H "Authorization: Bearer $LOCAL_TOKEN" \
-      -d @"$TMPDIR/deploy-prod-sync.json" 2>/dev/null) || {
-      error "Sync production → local failed"
-      SYNC_RESULT=""
-    }
-    if [ -n "$SYNC_RESULT" ]; then
-      echo "$SYNC_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"  → {d['inserted']} new, {d['updated']} updated, {d['skipped']} skipped\")"
-    fi
-  fi
-elif [ -n "$PROD_TOKEN" ]; then
-  warn "Local server not available — skipping production → local sync"
-fi
-
 # Kill auto-started local server
 if $LOCAL_STARTED; then
   info "Stopping local server (PID $LOCAL_PID)..."
@@ -308,7 +311,7 @@ if $LOCAL_STARTED; then
 fi
 
 # Cleanup temp files
-rm -f "$TMPDIR/deploy-local-export.json" "$TMPDIR/deploy-sync-body.json" "$TMPDIR/deploy-prod-export.json" "$TMPDIR/deploy-prod-sync.json"
+rm -f "$TMPDIR/deploy-local-export.json" "$TMPDIR/deploy-sync-body.json" "$TMPDIR/deploy-prod-pre.json" "$TMPDIR/deploy-prod-pre-sync.json"
 rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
 
 echo

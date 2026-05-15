@@ -24,7 +24,6 @@ import TrackingView from './components/TrackingView.jsx';
 import HandReplayerView from './components/HandReplayerView.jsx';
 import SettingsView from './components/SettingsView.jsx';
 import SocialView from './components/SocialView.jsx';
-import MoreView from './components/MoreView.jsx';
 import AdminView from './components/AdminView.jsx';
 import LiveUpdatePanel from './components/LiveUpdatePanel.jsx';
 import ScheduleExportModal from './components/ScheduleExportModal.jsx';
@@ -55,7 +54,6 @@ export default function App() {
   const [authView, setAuthView] = useState('login');
   const [currentView, _setCurrentView] = useState('dashboard');
   const [viewKey, setViewKey] = useState(0);
-  const [showExportFromMore, setShowExportFromMore] = useState(false);
   const [visitedTabs, setVisitedTabs] = useState(new Set(['dashboard']));
   const scrollPositions = useRef({});
   const toast = useToast();
@@ -68,7 +66,18 @@ export default function App() {
         setVisitedTabs(s => { const n = new Set(s); n.add(v); return n; });
         requestAnimationFrame(() => {
           const c = document.querySelector('.content-area');
-          if (c && scrollPositions.current[v] != null) {
+          if (c && v === 'schedule') {
+            const panel = c.querySelector('.tab-panel[data-tab="schedule"]');
+            const todayEl = panel ? panel.querySelector('[data-today-scroll]') : null;
+            if (todayEl) {
+              const sticky = panel.querySelector('.schedule-sticky-header');
+              const stickyH = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - c.getBoundingClientRect().top) : 0;
+              const groupAbsTop = todayEl.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop;
+              c.scrollTop = Math.max(0, groupAbsTop - stickyH);
+            } else {
+              c.scrollTop = 0;
+            }
+          } else if (c && scrollPositions.current[v] != null) {
             c.scrollTop = scrollPositions.current[v];
           } else if (v === 'tournaments' && c) {
             const todayEl = c.querySelector('[data-today-scroll]');
@@ -310,6 +319,25 @@ export default function App() {
       setTrackingData(Array.isArray(data) ? data : []);
     } catch (e) { console.error('Fetch tracking:', e); toast.error('Failed to load tracking data'); }
   };
+
+  // Bulk-clear all of the user's tracking entries (Dashboard "Reset"
+  // button). Optimistic — clears local state immediately, then re-fetches.
+  const resetResults = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/tracking`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json().catch(() => ({}));
+      setTrackingData([]);
+      toast.success(`Cleared ${data.count || 0} result${data.count === 1 ? '' : 's'}`);
+      fetchTracking();
+    } catch (e) {
+      console.error('Reset tracking:', e);
+      toast.error('Failed to reset results');
+    }
+  }, [token]);
 
   const fetchMyLiveUpdate = async () => {
     try {
@@ -1066,11 +1094,45 @@ export default function App() {
           {showUserMenu && ReactDOM.createPortal(
             <>
               <div style={{position:'fixed',inset:0,zIndex:9998}} onClick={() => setShowUserMenu(false)} />
-              <div style={{position:'fixed',top:'52px',right:'12px',zIndex:9999,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px 0',minWidth:'160px',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',fontFamily:'Univers Condensed, Univers, sans-serif'}}>
-                <button onClick={() => { setShowUserMenu(false); setCurrentView('schedule'); }}
+              <div style={{position:'fixed',top:'52px',right:'12px',zIndex:9999,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px 0',minWidth:'180px',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',fontFamily:'Univers Condensed, Univers, sans-serif'}}>
+                <button onClick={() => {
+                  setShowUserMenu(false);
+                  setCurrentView('schedule');
+                  requestAnimationFrame(() => {
+                    const c = document.querySelector('.content-area');
+                    if (!c) return;
+                    const panel = c.querySelector('.tab-panel[data-tab="schedule"]');
+                    const todayEl = panel ? panel.querySelector('[data-today-scroll]') : null;
+                    if (!todayEl) { c.scrollTop = 0; return; }
+                    const sticky = panel.querySelector('.schedule-sticky-header');
+                    const stickyH = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - c.getBoundingClientRect().top) : 0;
+                    const groupAbsTop = todayEl.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop;
+                    c.scrollTop = Math.max(0, groupAbsTop - stickyH);
+                  });
+                }}
                   style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'0.85rem'}}>
                   My Schedule
                 </button>
+                <button onClick={() => { setShowUserMenu(false); setCurrentView('tracking'); }}
+                  style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'0.85rem'}}>
+                  Results &amp; Tracking
+                </button>
+                {handReplayerAccess && !isAdmin && (
+                  <button onClick={() => { setShowUserMenu(false); setCurrentView('hands'); }}
+                    style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'0.85rem'}}>
+                    Hand Replayer
+                  </button>
+                )}
+                <button onClick={() => { setShowUserMenu(false); setCurrentView('settings'); }}
+                  style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'0.85rem'}}>
+                  Settings
+                </button>
+                {isAdmin && (
+                  <button onClick={() => { setShowUserMenu(false); setCurrentView('admin'); }}
+                    style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'0.85rem'}}>
+                    Admin
+                  </button>
+                )}
                 <div style={{height:'1px',background:'var(--border)',margin:'2px 0'}} />
                 <button onClick={() => { setShowUserMenu(false); handleLogout(); }}
                   style={{display:'block',width:'100%',textAlign:'left',padding:'10px 16px',background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'0.85rem'}}>
@@ -1132,6 +1194,7 @@ export default function App() {
             onPost={postLiveUpdate}
             onDeleteUpdate={deleteLiveUpdate}
             onAddTracking={addTracking}
+            onResetResults={resetResults}
             tournaments={tournaments}
             onToggle={toggleTournament}
             onNavigate={(v) => {
@@ -1327,21 +1390,6 @@ export default function App() {
         )}
         </div>
 
-        <div className={'tab-panel' + (currentView === 'more' ? ' tab-active' : '')} data-tab="more" style={{display: currentView === 'more' ? undefined : 'none', height: currentView === 'more' ? '100%' : undefined}}>
-        {visitedTabs.has('more') && (
-          <MoreView
-            onNavigate={(v) => setCurrentView(v)}
-            onExport={() => setShowExportFromMore(true)}
-            hasSchedule={mySchedule && mySchedule.length > 0}
-            isAdmin={isAdmin}
-            handReplayerAccess={handReplayerAccess}
-          />
-        )}
-        </div>
-
-        {showExportFromMore && (
-          <ScheduleExportModal events={mySchedule} onClose={() => setShowExportFromMore(false)} />
-        )}
         {swapModalData && (
           <SwapModal
             buddy={swapModalData.buddy}
@@ -1353,7 +1401,12 @@ export default function App() {
       </main>
 
       <BottomNav
-        current={['tracking', 'calendar', 'settings', 'schedule'].includes(currentView) ? 'more' : currentView}
+        isAdmin={isAdmin}
+        current={(() => {
+          if (currentView === 'hands' && isAdmin) return 'hands';
+          if (['tracking', 'calendar', 'settings', 'schedule', 'hands', 'admin'].includes(currentView)) return null;
+          return currentView;
+        })()}
         onChange={v => {
           if (v === currentView && v === 'tournaments') {
             const todayEl = document.querySelector('[data-today-scroll]');

@@ -329,6 +329,8 @@ export const VENUE_COORDS = {
   'Aria Resort & Casino':        { lat: 36.1073, lng: -115.1765 },
   'Resorts World':               { lat: 36.1247, lng: -115.1697 },
   'Venetian':                    { lat: 36.1212, lng: -115.1696 },
+  'Venetian DeepStack Extravaganza': { lat: 36.1212, lng: -115.1696 },
+  'WSOPC Horseshoe Las Vegas':   { lat: 36.1162, lng: -115.1745 },
   'Golden Nugget':               { lat: 36.1711, lng: -115.1447 },
   'South Point':                 { lat: 36.0118, lng: -115.1720 },
   'Orleans':                     { lat: 36.1020, lng: -115.2013 },
