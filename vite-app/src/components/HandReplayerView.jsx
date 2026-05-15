@@ -2677,7 +2677,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD',
       'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy',
       'Archie 66': 'Badugi', 'Archie 99': 'Badugi', 'Ari': 'Badugi',
-      '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+      '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC',
+      'Dramaha Hi': 'PLO', 'Dramaha 2-7': 'PLO', 'Dramaha 49': 'PLO', 'Dramaha 0': 'PLO', 'Dramadugi': 'PLO', 'Omajack': 'PLO' },
     'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH',
       'Omaha': 'PLO', 'O8': 'PLO8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
       'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
@@ -2688,7 +2689,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD',
       'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy',
       'Archie 66': 'Badugi', 'Archie 99': 'Badugi', 'Ari': 'Badugi',
-      '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+      '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC',
+      'Dramaha Hi': 'PLO', 'Dramaha 2-7': 'PLO', 'Dramaha 49': 'PLO', 'Dramaha 0': 'PLO', 'Dramadugi': 'PLO', 'Omajack': 'PLO' },
     'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE',
       'Omaha': 'O8', 'O8': 'O8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
       'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
@@ -2699,7 +2701,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       'A-5 Triple Draw': 'A-5 TD', 'A-5 Single Draw': 'A-5 TD',
       'Badugi': 'Badugi', 'Badeucy': 'Badeucy', 'Badacey': 'Badacy',
       'Archie 66': 'Badugi', 'Archie 99': 'Badugi', 'Ari': 'Badugi',
-      '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC' },
+      '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC',
+      'Dramaha Hi': 'PLO', 'Dramaha 2-7': 'PLO', 'Dramaha 49': 'PLO', 'Dramaha 0': 'PLO', 'Dramadugi': 'PLO', 'Omajack': 'PLO' },
   };
   const defaultStructure = {
     "Hold'em": 'No Limit', 'Pineapple': 'No Limit', 'Short Deck': 'No Limit',
@@ -2714,6 +2717,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     'Badugi': 'Limit', 'Badeucy': 'Limit', 'Badacey': 'Limit',
     'Archie 66': 'Limit', 'Archie 99': 'Limit', 'Ari': 'Limit',
     '5-Card Draw': 'No Limit', 'OFC': 'No Limit',
+    'Dramaha Hi': 'Pot Limit', 'Dramaha 2-7': 'Pot Limit', 'Dramaha 49': 'Pot Limit',
+    'Dramaha 0': 'Pot Limit', 'Dramadugi': 'Pot Limit', 'Omajack': 'Pot Limit',
   };
 
   const variantDisplayName = useMemo(() => {
@@ -2743,7 +2748,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     { label: 'Stud',    games: ['Stud Hi', 'Stud 8', 'Razz', 'Stud Hi/Lo', 'Action Razz', '2-7 Razz', 'Razzdugi', 'Razzdeucy'] },
     { label: 'Draw',    games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'Badugi', '5-Card Draw'],
                         more:  ['A-5 Single Draw', 'Badeucy', 'Badacey', 'Archie 66', 'Archie 99', 'Ari'] },
-    { label: 'Other',   games: ['OFC', ...games.map(g => g.name || g.game_name).filter(Boolean)] },
+    { label: 'Other',   games: ['OFC', 'Dramaha Hi', 'Dramaha 2-7', 'Dramaha 49', 'Dramaha 0', 'Dramadugi', 'Omajack', ...games.map(g => g.name || g.game_name).filter(Boolean)] },
   ], [games]);
 
   const handleGameSelect = (game) => {
@@ -2989,7 +2994,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   return (
     <div className="replayer-view">
       <div className="replayer-header">
-        <h2>Hand Replayer</h2>
+        <h2 style={{fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.85rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',color:'var(--text-muted)'}}>Hand Replayer</h2>
       </div>
 
       {/* New hand creation */}
