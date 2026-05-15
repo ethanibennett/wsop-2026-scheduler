@@ -136,10 +136,10 @@ if [ -n "$PRE_PROD_TOKEN" ] && [ -n "$LOCAL_TOKEN" ]; then
     -H "Authorization: Bearer $PRE_PROD_TOKEN" > "$TMPDIR/deploy-prod-pre.json" || {
     warn "Failed to export production DB — local data will be used as-is"
   }
-  if [ -f "$TMPDIR/deploy-prod-pre.json" ]; then
+  if [ -s "$TMPDIR/deploy-prod-pre.json" ]; then
     PRE_COUNT=$(python3 -c "import json; print(json.load(open('$TMPDIR/deploy-prod-pre.json'))['count'])" 2>/dev/null) || PRE_COUNT="?"
     info "Merging $PRE_COUNT production tournaments into local..."
-    python3 -c "import json; d=json.load(open('$TMPDIR/deploy-prod-pre.json')); json.dump({'tournaments':d['tournaments']}, open('$TMPDIR/deploy-prod-pre-sync.json','w'))"
+    python3 -c "import json; d=json.load(open('$TMPDIR/deploy-prod-pre.json')); json.dump({'tournaments':d['tournaments']}, open('$TMPDIR/deploy-prod-pre-sync.json','w'))" || true
     curl -sf "$LOCAL_URL/api/tournaments/sync" \
       -H 'Content-Type: application/json' \
       -H "Authorization: Bearer $LOCAL_TOKEN" \
