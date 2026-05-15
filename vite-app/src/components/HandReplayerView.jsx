@@ -2654,6 +2654,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   const [loading, setLoading] = useState(true);
   const [bettingStructure, setBettingStructure] = useState('No Limit');
   const [selectedGame, setSelectedGame] = useState("Hold'em");
+  const [selectedCategory, setSelectedCategory] = useState("Hold'em");
   // Custom game config
   const [customGameName, setCustomGameName] = useState('');
   const [customHeroCards, setCustomHeroCards] = useState(2);
@@ -2690,19 +2691,27 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     return bettingStructure + ' ' + selectedGame;
   }, [bettingStructure, selectedGame]);
 
-  const gameGroups = [
+  const categoryGroups = useMemo(() => [
     { label: "Hold'em", games: ["Hold'em", 'Pineapple', 'Short Deck'] },
-    { label: 'Omaha', games: ['Omaha', 'Omaha 8/b', 'Big O'] },
-    { label: 'Stud', games: ['Stud Hi', 'Stud 8', 'Razz'] },
-    { label: 'Draw', games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw', 'Badugi', 'Badeucy', 'Badacey', 'Archie', 'Ari', '5-Card Draw'] },
-    { label: 'Chinese', games: ['OFC'] },
-  ];
+    { label: 'Omaha',   games: ['Omaha', 'Omaha 8/b', 'Big O'] },
+    { label: 'Stud',    games: ['Stud Hi', 'Stud 8', 'Razz'] },
+    { label: 'Draw',    games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw', 'Badugi', 'Badeucy', 'Badacey', 'Archie', 'Ari', '5-Card Draw'] },
+    { label: 'Other',   games: ['OFC', ...games.map(g => g.name || g.game_name).filter(Boolean)] },
+  ], [games]);
 
   const handleGameSelect = (game) => {
     setSelectedGame(game);
     if (defaultStructure[game]) setBettingStructure(defaultStructure[game]);
     const map = structureGameMap[defaultStructure[game] || 'No Limit'];
     if (map && map[game]) setSelectedGameType(map[game]);
+    // Sync category tab
+    const cat =
+      ["Hold'em", 'Pineapple', 'Short Deck'].includes(game) ? "Hold'em" :
+      ['Omaha', 'Omaha 8/b', 'Big O'].includes(game) ? 'Omaha' :
+      ['Stud Hi', 'Stud 8', 'Razz'].includes(game) ? 'Stud' :
+      ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw', 'Badugi', 'Badeucy', 'Badacey', 'Archie', 'Ari', '5-Card Draw'].includes(game) ? 'Draw' :
+      'Other';
+    setSelectedCategory(cat);
   };
 
   const handleStructureChange = (s) => {
@@ -2938,43 +2947,40 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
           <div className="replayer-section-title">New Hand</div>
           <span style={{fontSize:'0.7rem',color:'var(--accent2)',fontFamily:"'Univers Condensed','Univers',sans-serif",fontWeight:600}}>{variantDisplayName}</span>
         </div>
-        {/* Quick pills */}
-        {[
-          [{label:'NLH',struct:'No Limit',game:"Hold'em"},{label:'LHE',struct:'Limit',game:"Hold'em"}],
-          [{label:'PLO',struct:'Pot Limit',game:'Omaha'},{label:'O8',struct:'Limit',game:'Omaha 8/b'},{label:'PLO8',struct:'Pot Limit',game:'Omaha 8/b'},{label:'Big O',struct:'Pot Limit',game:'Big O'}],
-          [{label:'Stud Hi',struct:'Limit',game:'Stud Hi'},{label:'Stud 8',struct:'Limit',game:'Stud 8'},{label:'Razz',struct:'Limit',game:'Razz'}],
-          [{label:'2-7 TD',struct:'Limit',game:'2-7 Triple Draw'},{label:'NL 2-7 SD',struct:'No Limit',game:'2-7 Single Draw'},{label:'Badugi',struct:'Limit',game:'Badugi'}],
-        ].map((row, i) => (
-          <div key={i} className="hand-game-pill-row" style={{marginBottom:'4px'}}>
-            {row.map(q => (
-              <button key={q.label}
-                className={selectedGame === q.game && bettingStructure === q.struct ? 'active' : ''}
-                onClick={() => { setBettingStructure(q.struct); setSelectedGame(q.game); const m = structureGameMap[q.struct]; if (m && m[q.game]) setSelectedGameType(m[q.game]); }}
-              >{q.label}</button>
-            ))}
-          </div>
-        ))}
-        {/* Full game selection */}
-        <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'8px'}}>
-          {gameGroups.map(g => (
-            <div key={g.label}>
-              <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>{g.label}</div>
-              <div className="hand-game-pill-row" style={{flexWrap:'wrap'}}>
-                {g.games.map(game => (
-                  <button key={game} className={selectedGame === game ? 'active' : ''} onClick={() => handleGameSelect(game)}>{game}</button>
-                ))}
-              </div>
-            </div>
+        {/* Category tabs */}
+        <div className="hand-game-pill-row" style={{marginBottom:'6px',gap:'3px'}}>
+          {categoryGroups.map(cat => (
+            <button key={cat.label}
+              style={{flex:1,borderRadius:'6px',fontSize:'0.6rem',padding:'5px 2px'}}
+              className={selectedCategory === cat.label ? 'active' : ''}
+              onClick={() => {
+                setSelectedCategory(cat.label);
+                if (!cat.games.includes(selectedGame)) handleGameSelect(cat.games[0]);
+              }}
+            >{cat.label}</button>
           ))}
-          <div>
-            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>Betting Structure</div>
+        </div>
+        {/* Games in selected category */}
+        <div className="hand-game-pill-row" style={{flexWrap:'wrap',gap:'4px',marginBottom:'8px'}}>
+          {(categoryGroups.find(c => c.label === selectedCategory)?.games || []).map(game => (
+            <button key={game}
+              style={{flex:'0 1 auto'}}
+              className={selectedGame === game ? 'active' : ''}
+              onClick={() => handleGameSelect(game)}
+            >{game}</button>
+          ))}
+        </div>
+        {/* Betting structure — hidden for OFC */}
+        {selectedGame !== 'OFC' && (
+          <div style={{marginTop:'2px'}}>
+            <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px'}}>Structure</div>
             <div className="hand-game-pill-row">
               {['No Limit', 'Pot Limit', 'Limit'].map(s => (
                 <button key={s} className={bettingStructure === s ? 'active' : ''} onClick={() => handleStructureChange(s)}>{s}</button>
               ))}
             </div>
           </div>
-        </div>
+        )}
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:'10px'}}>
           <button className="btn btn-primary btn-sm" onClick={startNewHand}>Create {variantDisplayName} Hand</button>
         </div>
