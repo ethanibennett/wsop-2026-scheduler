@@ -578,7 +578,7 @@
     /* ── Game picker: tabbed checklist ── */
     .game-picker { border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:8px; }
     .game-subheading { font-size:0.55rem; font-family:'Univers Condensed','Univers',sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:5px; }
-    .game-faves-row { display:flex; gap:5px; margin-bottom:10px; }
+    .game-faves-row { display:flex; gap:5px; margin-bottom:18px; }
     .game-fave-btn { flex:1; padding:4px 2px; font-size:0.62rem; font-family:'Univers Condensed','Univers',sans-serif; text-transform:uppercase; letter-spacing:0.5px; border:1px solid var(--border); border-radius:4px; background:transparent; color:var(--text-muted); cursor:pointer; line-height:1; transition:color 0.12s,border-color 0.12s,background 0.12s; }
     .game-fave-btn.active { border-color:var(--accent2); color:var(--accent2); background:color-mix(in srgb, var(--accent2) 10%, transparent); font-weight:700; }
     .game-tab-bar { display:flex; border-bottom:1px solid var(--border); background:var(--surface2); }
