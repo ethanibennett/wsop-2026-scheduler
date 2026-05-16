@@ -2754,8 +2754,9 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
 
   const categoryGroups = useMemo(() => [
     { label: "Hold'em", games: ["Hold'em", 'Pineapple', 'Short Deck'] },
-    { label: 'Omaha',   games: ['Omaha', 'Omaha 8/b', 'Big O', 'PLO5', 'PLO6'],
-                        more:  ['Double Board Bomb Pot', 'Courchevel'] },
+    { label: 'Omaha',   games: ['Omaha', 'Omaha 8/b'],
+                        more:  ['Double Board Bomb Pot', 'Courchevel'],
+                        hidden: ['PLO5', 'PLO6', 'Big O'] },
     { label: 'Stud',    games: ['Stud Hi', 'Stud 8/b', 'Razz'],
                         more:  ['Stud Hi/Lo Regular', '2-7 Razz', 'Razzdugi', 'Razzdeucy'] },
     { label: 'Draw',    games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'Badugi', '5-Card Draw'],
@@ -3056,33 +3057,33 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
           <div className="replayer-section-title">New Hand</div>
           <span style={{fontSize:'0.7rem',color:'var(--accent2)',fontFamily:"'Univers Condensed','Univers',sans-serif",fontWeight:600}}>{variantDisplayName}</span>
         </div>
+        {/* Favorites row — above the full picker */}
+        <div className="game-faves-row">
+          {favorites.map(fav => {
+            const label = structureGameMap[fav.structure]?.[fav.game] || fav.game;
+            const isActive = selectedGame === fav.game && bettingStructure === fav.structure;
+            return (
+              <button key={fav.game + '|' + fav.structure}
+                className={`game-fave-btn${isActive ? ' active' : ''}`}
+                onClick={() => {
+                  handleGameSelect(fav.game);
+                  setBettingStructure(fav.structure);
+                  const map = structureGameMap[fav.structure];
+                  if (map?.[fav.game]) setSelectedGameType(map[fav.game]);
+                }}
+              >{label}</button>
+            );
+          })}
+        </div>
         {/* Game picker: tab bar + checklist */}
         <div className="game-picker">
-          {/* Favorites row */}
-          <div className="game-faves-row">
-            {favorites.map(fav => {
-              const label = structureGameMap[fav.structure]?.[fav.game] || fav.game;
-              const isActive = selectedGame === fav.game && bettingStructure === fav.structure;
-              return (
-                <button key={fav.game + '|' + fav.structure}
-                  className={`game-fave-btn${isActive ? ' active' : ''}`}
-                  onClick={() => {
-                    handleGameSelect(fav.game);
-                    setBettingStructure(fav.structure);
-                    const map = structureGameMap[fav.structure];
-                    if (map?.[fav.game]) setSelectedGameType(map[fav.game]);
-                  }}
-                >{label}</button>
-              );
-            })}
-          </div>
           {/* Category tabs */}
           <div className="game-tab-bar">
             {categoryGroups.map(cat => (
               <button key={cat.label}
                 className={`game-tab-btn${selectedCategory === cat.label ? ' active' : ''}`}
                 onClick={() => {
-                  const allGames = [...cat.games, ...(cat.more || [])];
+                  const allGames = [...cat.games, ...(cat.more || []), ...(cat.hidden || [])];
                   if (!allGames.includes(selectedGame)) handleGameSelect(cat.games[0]);
                   setSelectedCategory(cat.label);
                   setStudSuper(false);
@@ -3118,18 +3119,56 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
                 >{label}</span>
               </div>
             );
+            // Omaha family helpers — PLO5/PLO6/Big O are accessed via Cards section
+            const omahaHiGames = ['Omaha', 'PLO5', 'PLO6'];
+            const omahaHiLoGames = ['Omaha 8/b', 'Big O'];
+            const omahaFamily = omahaHiGames.includes(selectedGame) ? 'hi'
+              : omahaHiLoGames.includes(selectedGame) ? 'hilo' : null;
+            const omahaCards = selectedGame === 'PLO5' || selectedGame === 'Big O' ? 5
+              : selectedGame === 'PLO6' ? 6 : 4;
+            const cardToGame = {
+              4: omahaFamily === 'hi' ? 'Omaha' : omahaFamily === 'hilo' ? 'Omaha 8/b' : null,
+              5: omahaFamily === 'hi' ? 'PLO5' : omahaFamily === 'hilo' ? 'Big O' : null,
+              6: omahaFamily === 'hi' ? 'PLO6' : null,
+            };
             return (<>
-              {cat.games.map(game => (
-                <div key={game}
-                  className={`game-check-row${selectedGame === game ? ' selected' : ''}`}
-                  onClick={() => handleGameSelect(game)}
-                >
-                  <div className={`game-check-radio${selectedGame === game ? ' selected' : ''}`}>
-                    {selectedGame === game && <div className="game-check-radio-dot"/>}
+              {cat.games.map(game => {
+                // For Omaha tab, highlight the base-game row for PLO5/PLO6/Big O
+                const isSelected = selectedCategory === 'Omaha'
+                  ? (game === 'Omaha' ? omahaHiGames.includes(selectedGame)
+                    : game === 'Omaha 8/b' ? omahaHiLoGames.includes(selectedGame)
+                    : selectedGame === game)
+                  : selectedGame === game;
+                return (
+                  <div key={game}
+                    className={`game-check-row${isSelected ? ' selected' : ''}`}
+                    onClick={() => handleGameSelect(game)}
+                  >
+                    <div className={`game-check-radio${isSelected ? ' selected' : ''}`}>
+                      {isSelected && <div className="game-check-radio-dot"/>}
+                    </div>
+                    <span className={`game-check-row-label${isSelected ? ' selected' : ''}`}>{game}</span>
                   </div>
-                  <span className={`game-check-row-label${selectedGame === game ? ' selected' : ''}`}>{game}</span>
-                </div>
-              ))}
+                );
+              })}
+              {/* Cards section — Omaha only, for PLO5/PLO6/Big O via card count */}
+              {selectedCategory === 'Omaha' && omahaFamily && (<>
+                <div className="game-check-section-label" style={{borderTop:'1px solid var(--border)'}}>Cards</div>
+                {[4, 5, 6].map(n => (
+                  <div key={n}
+                    className={`game-check-row${omahaCards === n ? ' selected' : ''}`}
+                    style={{opacity: cardToGame[n] ? 1 : 0.35}}
+                    onClick={() => { if (cardToGame[n]) handleGameSelect(cardToGame[n]); }}
+                  >
+                    <div className={`game-check-radio${omahaCards === n ? ' selected' : ''}`}>
+                      {omahaCards === n && <div className="game-check-radio-dot"/>}
+                    </div>
+                    <span className={`game-check-row-label${omahaCards === n ? ' selected' : ''}`}
+                      style={{fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',fontSize:'0.7rem',letterSpacing:'0.4px'}}
+                    >{n}</span>
+                  </div>
+                ))}
+              </>)}
               {/* More dropdown — includes variant games + Stud modifiers */}
               {moreGames.length > 0 && (<>
                 {moreOpen && (<>
