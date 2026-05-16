@@ -2673,7 +2673,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   // Game selection config
   const structureGameMap = {
     'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH',
-      'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
+      'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Big Easy': 'Big Easy', 'PLO5': 'PLO', 'PLO6': 'PLO',
       'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
       'Stud Hi': 'NL Stud Hi', 'Stud 8/b': 'NL Stud 8', 'Razz': 'NL Razz',
       'Stud Hi/Lo Regular': 'Stud 8', '2-7 Razz': 'Razz',
@@ -2685,7 +2685,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC',
       'Dramaha Hi': 'PLO', 'Dramaha 2-7': 'PLO', 'Dramaha 49': 'PLO', 'Dramaha 0': 'PLO', 'Dramadugi': 'PLO', 'Omajack': 'PLO' },
     'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH',
-      'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
+      'Omaha': 'PLO', 'Omaha 8/b': 'PLO8', 'Big O': 'Big O', 'Big Easy': 'Big Easy', 'PLO5': 'PLO', 'PLO6': 'PLO',
       'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
       'Stud Hi': 'PL Stud Hi', 'Stud 8/b': 'PL Stud 8', 'Razz': 'PL Razz',
       'Stud Hi/Lo Regular': 'Stud 8', '2-7 Razz': 'Razz',
@@ -2697,7 +2697,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       '5-Card Draw': 'PL 5CD Hi', 'OFC': 'OFC',
       'Dramaha Hi': 'PLO', 'Dramaha 2-7': 'PLO', 'Dramaha 49': 'PLO', 'Dramaha 0': 'PLO', 'Dramadugi': 'PLO', 'Omajack': 'PLO' },
     'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE',
-      'Omaha': 'O8', 'Omaha 8/b': 'O8', 'Big O': 'Big O', 'PLO5': 'PLO', 'PLO6': 'PLO',
+      'Omaha': 'O8', 'Omaha 8/b': 'O8', 'Big O': 'Big O', 'Big Easy': 'Big Easy', 'PLO5': 'PLO', 'PLO6': 'PLO',
       'Double Board Bomb Pot': 'PLO', 'Courchevel': 'PLO',
       'Stud Hi': 'Stud Hi', 'Stud 8/b': 'Stud 8', 'Razz': 'Razz',
       'Stud Hi/Lo Regular': 'Stud 8', '2-7 Razz': 'Razz',
@@ -2711,7 +2711,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   };
   const defaultStructure = {
     "Hold'em": 'No Limit', 'Pineapple': 'No Limit', 'Short Deck': 'No Limit',
-    'Omaha': 'Pot Limit', 'Omaha 8/b': 'Pot Limit', 'Big O': 'Pot Limit',
+    'Omaha': 'Pot Limit', 'Omaha 8/b': 'Pot Limit', 'Big O': 'Pot Limit', 'Big Easy': 'Pot Limit',
     'PLO5': 'Pot Limit', 'PLO6': 'Pot Limit',
     'Double Board Bomb Pot': 'No Limit', 'Courchevel': 'Pot Limit',
     'Stud Hi': 'Limit', 'Stud 8/b': 'Limit', 'Razz': 'Limit',
@@ -2733,9 +2733,9 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     const superPrefix = studSuper && selectedCategory === 'Stud' ? 'Super ' : '';
     const actionPrefix = studAction && isRazz ? 'Action ' : '';
     const overrides = {
-      "Pot Limit|Omaha": 'Pot Limit Omaha', "Pot Limit|Omaha 8/b": 'PLO8', "Pot Limit|Big O": 'Big O',
-      "No Limit|Omaha": 'No Limit Omaha', "No Limit|Omaha 8/b": 'NLO8', "No Limit|Big O": 'No Limit Big O',
-      "Limit|Omaha": 'Limit Omaha Hi', "Limit|Omaha 8/b": 'O8', "Limit|Big O": 'Limit Big O',
+      "Pot Limit|Omaha": 'Pot Limit Omaha', "Pot Limit|Omaha 8/b": 'PLO8', "Pot Limit|Big O": 'Big O', "Pot Limit|Big Easy": 'Big Easy',
+      "No Limit|Omaha": 'No Limit Omaha', "No Limit|Omaha 8/b": 'NLO8', "No Limit|Big O": 'No Limit Big O', "No Limit|Big Easy": 'Big Easy',
+      "Limit|Omaha": 'Limit Omaha Hi', "Limit|Omaha 8/b": 'O8', "Limit|Big O": 'Limit Big O', "Limit|Big Easy": 'Big Easy',
       "Pot Limit|PLO5": 'PLO5', "Pot Limit|PLO6": 'PLO6',
       "No Limit|Double Board Bomb Pot": 'Bomb Pot',
       "Pot Limit|Courchevel": 'Courchevel',
@@ -2756,7 +2756,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     { label: "Hold'em", games: ["Hold'em", 'Pineapple', 'Short Deck'] },
     { label: 'Omaha',   games: ['Omaha', 'Omaha 8/b'],
                         more:  ['Double Board Bomb Pot', 'Courchevel'],
-                        hidden: ['PLO5', 'PLO6', 'Big O'] },
+                        hidden: ['PLO5', 'PLO6', 'Big O', 'Big Easy'] },
     { label: 'Stud',    games: ['Stud Hi', 'Stud 8/b', 'Razz'],
                         more:  ['Stud Hi/Lo Regular', '2-7 Razz', 'Razzdugi', 'Razzdeucy'] },
     { label: 'Draw',    games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'Badugi', '5-Card Draw'],
@@ -2809,7 +2809,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     // Sync category tab
     const cat =
       ["Hold'em", 'Pineapple', 'Short Deck'].includes(game) ? "Hold'em" :
-      ['Omaha', 'Omaha 8/b', 'Big O', 'PLO5', 'PLO6', 'Double Board Bomb Pot', 'Courchevel'].includes(game) ? 'Omaha' :
+      ['Omaha', 'Omaha 8/b', 'Big O', 'Big Easy', 'PLO5', 'PLO6', 'Double Board Bomb Pot', 'Courchevel'].includes(game) ? 'Omaha' :
       ['Stud Hi', 'Stud 8/b', 'Razz', 'Stud Hi/Lo Regular', '2-7 Razz', 'Razzdugi', 'Razzdeucy'].includes(game) ? 'Stud' :
       ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw',
        'Badugi', 'Badeucy', 'Badacey', 'Archie 66', 'Archie 99', 'Ari', '5-Card Draw'].includes(game) ? 'Draw' :
@@ -3121,15 +3121,15 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
             );
             // Omaha family helpers — PLO5/PLO6/Big O are accessed via Cards section
             const omahaHiGames = ['Omaha', 'PLO5', 'PLO6'];
-            const omahaHiLoGames = ['Omaha 8/b', 'Big O'];
+            const omahaHiLoGames = ['Omaha 8/b', 'Big O', 'Big Easy'];
             const omahaFamily = omahaHiGames.includes(selectedGame) ? 'hi'
               : omahaHiLoGames.includes(selectedGame) ? 'hilo' : null;
             const omahaCards = selectedGame === 'PLO5' || selectedGame === 'Big O' ? 5
-              : selectedGame === 'PLO6' ? 6 : 4;
+              : selectedGame === 'PLO6' || selectedGame === 'Big Easy' ? 6 : 4;
             const cardToGame = {
               4: omahaFamily === 'hi' ? 'Omaha' : omahaFamily === 'hilo' ? 'Omaha 8/b' : null,
               5: omahaFamily === 'hi' ? 'PLO5' : omahaFamily === 'hilo' ? 'Big O' : null,
-              6: omahaFamily === 'hi' ? 'PLO6' : null,
+              6: omahaFamily === 'hi' ? 'PLO6' : omahaFamily === 'hilo' ? 'Big Easy' : null,
             };
             return (<>
               {cat.games.map(game => {
