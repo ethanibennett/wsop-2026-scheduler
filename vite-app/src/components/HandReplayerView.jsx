@@ -3058,6 +3058,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
           <span style={{fontSize:'0.7rem',color:'var(--accent2)',fontFamily:"'Univers Condensed','Univers',sans-serif",fontWeight:600}}>{variantDisplayName}</span>
         </div>
         {/* Favorites row — above the full picker */}
+        <div className="game-subheading">Favorites</div>
         <div className="game-faves-row">
           {favorites.map(fav => {
             const label = structureGameMap[fav.structure]?.[fav.game] || fav.game;
@@ -3076,6 +3077,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
           })}
         </div>
         {/* Game picker: tab bar + checklist */}
+        <div className="game-subheading">Games</div>
         <div className="game-picker">
           {/* Category tabs */}
           <div className="game-tab-bar">
