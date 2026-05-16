@@ -3106,24 +3106,32 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
             </>);
           })()}
           {/* Betting structure — hidden for OFC */}
-          {selectedGame !== 'OFC' && (
-            <>
-              <div className="game-check-section-label" style={{borderTop:'1px solid var(--border)'}}>Structure</div>
-              {['No Limit', 'Pot Limit', 'Limit'].map(s => (
-                <div key={s}
-                  className={`game-check-row${bettingStructure === s ? ' selected' : ''}`}
-                  onClick={() => handleStructureChange(s)}
-                >
-                  <div className={`game-check-radio${bettingStructure === s ? ' selected' : ''}`}>
-                    {bettingStructure === s && <div className="game-check-radio-dot"/>}
+          {selectedGame !== 'OFC' && (()=> {
+            const dimmed = new Set(
+              selectedCategory === 'Stud'     ? ['No Limit', 'Pot Limit'] :
+              selectedCategory === "Hold'em"  ? ['Pot Limit'] :
+              selectedCategory === 'Omaha'    ? ['No Limit'] : []
+            );
+            return (
+              <>
+                <div className="game-check-section-label" style={{borderTop:'1px solid var(--border)'}}>Structure</div>
+                {['No Limit', 'Pot Limit', 'Limit'].map(s => (
+                  <div key={s}
+                    className={`game-check-row${bettingStructure === s ? ' selected' : ''}`}
+                    style={{opacity: dimmed.has(s) ? 0.35 : 1}}
+                    onClick={() => handleStructureChange(s)}
+                  >
+                    <div className={`game-check-radio${bettingStructure === s ? ' selected' : ''}`}>
+                      {bettingStructure === s && <div className="game-check-radio-dot"/>}
+                    </div>
+                    <span className={`game-check-row-label${bettingStructure === s ? ' selected' : ''}`}
+                      style={{fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',fontSize:'0.7rem',letterSpacing:'0.4px'}}
+                    >{s}</span>
                   </div>
-                  <span className={`game-check-row-label${bettingStructure === s ? ' selected' : ''}`}
-                    style={{fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',fontSize:'0.7rem',letterSpacing:'0.4px'}}
-                  >{s}</span>
-                </div>
-              ))}
-            </>
-          )}
+                ))}
+              </>
+            );
+          })()}
         </div>
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:'10px'}}>
           <button className="btn btn-primary btn-sm" onClick={startNewHand}>Create {variantDisplayName} Hand</button>
