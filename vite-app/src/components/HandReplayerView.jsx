@@ -2674,7 +2674,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   const structureGameMap = {
     'No Limit':  { "Hold'em": 'NLH', 'Pineapple': 'NLH', 'Short Deck': 'NLH',
       'PLO': 'PLO', 'PLO5': 'PLO5', 'PLO6': 'PLO6', 'O8': 'O8', 'PLO8': 'PLO8', 'Big O': 'Big O',
-      'Ultimate Big O': 'Ultimate Big O', 'Double Board Bomb Pot': 'PLO', 'Double Board High/High': 'PLO', 'Courchevel': 'PLO',
+      'Big Easy': 'Big Easy', 'Ultimate Big O': 'Ultimate Big O', 'Double Board Bomb Pot': 'PLO', 'Double Board High/High': 'PLO', 'Courchevel': 'PLO',
+      'Crazy Pineapple': 'Crazy Pineapple', 'Very Crazy Pineapple': 'Very Crazy Pineapple', 'Hideaway': 'Hideaway',
       'Stud Hi': 'NL Stud Hi', 'Stud 8/b': 'NL Stud 8', 'Razz': 'NL Razz',
       'Stud Hi/Lo Regular': 'Stud 8', '2-7 Razz': 'Razz',
       'Razzdugi': 'Badugi', 'Razzdeucy': 'Badeucy',
@@ -2686,7 +2687,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       'Dramaha Hi': 'PLO', 'Dramaha 2-7': 'PLO', 'Dramaha 49': 'PLO', 'Dramaha 0': 'PLO', 'Dramadugi': 'PLO', 'Omajack': 'PLO' },
     'Pot Limit': { "Hold'em": 'PLH', 'Pineapple': 'PLH', 'Short Deck': 'PLH',
       'PLO': 'PLO', 'PLO5': 'PLO5', 'PLO6': 'PLO6', 'O8': 'O8', 'PLO8': 'PLO8', 'Big O': 'Big O',
-      'Ultimate Big O': 'Ultimate Big O', 'Double Board Bomb Pot': 'PLO', 'Double Board High/High': 'PLO', 'Courchevel': 'PLO',
+      'Big Easy': 'Big Easy', 'Ultimate Big O': 'Ultimate Big O', 'Double Board Bomb Pot': 'PLO', 'Double Board High/High': 'PLO', 'Courchevel': 'PLO',
+      'Crazy Pineapple': 'Crazy Pineapple', 'Very Crazy Pineapple': 'Very Crazy Pineapple', 'Hideaway': 'Hideaway',
       'Stud Hi': 'PL Stud Hi', 'Stud 8/b': 'PL Stud 8', 'Razz': 'PL Razz',
       'Stud Hi/Lo Regular': 'Stud 8', '2-7 Razz': 'Razz',
       'Razzdugi': 'Badugi', 'Razzdeucy': 'Badeucy',
@@ -2698,7 +2700,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       'Dramaha Hi': 'PLO', 'Dramaha 2-7': 'PLO', 'Dramaha 49': 'PLO', 'Dramaha 0': 'PLO', 'Dramadugi': 'PLO', 'Omajack': 'PLO' },
     'Limit':     { "Hold'em": 'LHE', 'Pineapple': 'LHE', 'Short Deck': 'LHE',
       'PLO': 'PLO', 'PLO5': 'PLO5', 'PLO6': 'PLO6', 'O8': 'O8', 'PLO8': 'PLO8', 'Big O': 'Big O',
-      'Ultimate Big O': 'Ultimate Big O', 'Double Board Bomb Pot': 'PLO', 'Double Board High/High': 'PLO', 'Courchevel': 'PLO',
+      'Big Easy': 'Big Easy', 'Ultimate Big O': 'Ultimate Big O', 'Double Board Bomb Pot': 'PLO', 'Double Board High/High': 'PLO', 'Courchevel': 'PLO',
+      'Crazy Pineapple': 'Crazy Pineapple', 'Very Crazy Pineapple': 'Very Crazy Pineapple', 'Hideaway': 'Hideaway',
       'Stud Hi': 'Stud Hi', 'Stud 8/b': 'Stud 8', 'Razz': 'Razz',
       'Stud Hi/Lo Regular': 'Stud 8', '2-7 Razz': 'Razz',
       'Razzdugi': 'Badugi', 'Razzdeucy': 'Badeucy',
@@ -2712,8 +2715,9 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   const defaultStructure = {
     "Hold'em": 'No Limit', 'Pineapple': 'No Limit', 'Short Deck': 'No Limit',
     'PLO': 'Pot Limit', 'PLO5': 'Pot Limit', 'PLO6': 'Pot Limit',
-    'O8': 'Limit', 'PLO8': 'Pot Limit', 'Big O': 'Pot Limit', 'Ultimate Big O': 'Pot Limit',
+    'O8': 'Limit', 'PLO8': 'Pot Limit', 'Big O': 'Pot Limit', 'Big Easy': 'Pot Limit', 'Ultimate Big O': 'Pot Limit',
     'Double Board Bomb Pot': 'Pot Limit', 'Double Board High/High': 'Pot Limit', 'Courchevel': 'Pot Limit',
+    'Crazy Pineapple': 'No Limit', 'Very Crazy Pineapple': 'No Limit', 'Hideaway': 'No Limit',
     'Stud Hi': 'Limit', 'Stud 8/b': 'Limit', 'Razz': 'Limit',
     'Stud Hi/Lo Regular': 'Limit', '2-7 Razz': 'Limit',
     'Razzdugi': 'Limit', 'Razzdeucy': 'Limit',
@@ -2737,7 +2741,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       "Pot Limit|PLO5": 'PLO5', "Pot Limit|PLO6": 'PLO6',
       "Limit|O8": 'O8', "Pot Limit|O8": 'Pot Limit O8',
       "Pot Limit|PLO8": 'PLO8', "No Limit|PLO8": 'NL PLO8',
-      "Pot Limit|Big O": 'Big O', "Pot Limit|Ultimate Big O": 'Ultimate Big O',
+      "Pot Limit|Big O": 'Big O', "Pot Limit|Big Easy": 'Big Easy', "Pot Limit|Ultimate Big O": 'Ultimate Big O',
       "Pot Limit|Double Board Bomb Pot": 'Bomb Pot', "No Limit|Double Board Bomb Pot": 'Bomb Pot',
       "Pot Limit|Double Board High/High": 'Double Board Hi/Hi',
       "Pot Limit|Courchevel": 'Courchevel',
@@ -2755,9 +2759,10 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   }, [bettingStructure, selectedGame, studSuper, studAction, selectedCategory]);
 
   const categoryGroups = useMemo(() => [
-    { label: "Hold'em", games: ["Hold'em", 'Pineapple', 'Short Deck'] },
+    { label: "Hold'em", games: ["Hold'em", 'Pineapple', 'Short Deck'],
+                        more:  ['Crazy Pineapple', 'Very Crazy Pineapple', 'Hideaway'] },
     { label: 'Omaha',   games: ['PLO', 'PLO5', 'PLO6', null, 'O8', 'PLO8', 'Big O'],
-                        more:  ['Double Board Bomb Pot', 'Ultimate Big O', 'Double Board High/High', 'Courchevel'] },
+                        more:  ['Double Board Bomb Pot', 'Big Easy', 'Ultimate Big O', 'Double Board High/High', 'Courchevel'] },
     { label: 'Stud',    games: ['Stud Hi', 'Stud 8/b', 'Razz'],
                         more:  ['Stud Hi/Lo Regular', '2-7 Razz', 'Razzdugi', 'Razzdeucy'] },
     { label: 'Draw',    games: ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'Badugi', '5-Card Draw'],
@@ -2809,8 +2814,8 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     if (map && map[game]) setSelectedGameType(map[game]);
     // Sync category tab
     const cat =
-      ["Hold'em", 'Pineapple', 'Short Deck'].includes(game) ? "Hold'em" :
-      ['PLO', 'PLO5', 'PLO6', 'O8', 'PLO8', 'Big O', 'Ultimate Big O', 'Double Board Bomb Pot', 'Double Board High/High', 'Courchevel'].includes(game) ? 'Omaha' :
+      ["Hold'em", 'Pineapple', 'Short Deck', 'Crazy Pineapple', 'Very Crazy Pineapple', 'Hideaway'].includes(game) ? "Hold'em" :
+      ['PLO', 'PLO5', 'PLO6', 'O8', 'PLO8', 'Big O', 'Big Easy', 'Ultimate Big O', 'Double Board Bomb Pot', 'Double Board High/High', 'Courchevel'].includes(game) ? 'Omaha' :
       ['Stud Hi', 'Stud 8/b', 'Razz', 'Stud Hi/Lo Regular', '2-7 Razz', 'Razzdugi', 'Razzdeucy'].includes(game) ? 'Stud' :
       ['2-7 Triple Draw', '2-7 Single Draw', 'A-5 Triple Draw', 'A-5 Single Draw',
        'Badugi', 'Badeucy', 'Badacey', 'Archie 66', 'Archie 99', 'Ari', '5-Card Draw'].includes(game) ? 'Draw' :
