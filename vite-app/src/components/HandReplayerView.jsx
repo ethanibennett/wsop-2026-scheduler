@@ -2660,6 +2660,10 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   const [studSuper, setStudSuper] = useState(false);
   const [studAction, setStudAction] = useState(false);
   const [showMoreFor, setShowMoreFor] = useState(null); // 'Omaha' | 'Draw' | null
+  const [gameHistory, setGameHistory] = useState(() => {
+    try { const s = localStorage.getItem('replayer_game_history'); return s ? JSON.parse(s) : []; }
+    catch { return []; }
+  });
   // Custom game config
   const [customGameName, setCustomGameName] = useState('');
   const [customHeroCards, setCustomHeroCards] = useState(2);
@@ -2758,6 +2762,43 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
                         more:  ['A-5 Single Draw', 'Badeucy', 'Badacey', 'Archie 66', 'Archie 99', 'Ari'] },
     { label: 'Other',   games: ['OFC', 'Dramaha Hi', 'Dramaha 2-7', 'Dramaha 49', 'Dramaha 0', 'Dramadugi', 'Omajack', ...games.map(g => g.name || g.game_name).filter(Boolean)] },
   ], [games]);
+
+  const FAVE_DEFAULTS = useMemo(() => [
+    { game: "Hold'em", structure: 'No Limit' },
+    { game: 'Omaha',   structure: 'Pot Limit' },
+    { game: 'Stud Hi', structure: 'Limit' },
+    { game: '2-7 Triple Draw', structure: 'Limit' },
+  ], []);
+
+  const favorites = useMemo(() => {
+    if (!gameHistory.length) return FAVE_DEFAULTS;
+    const counts = {}, lastSeen = {};
+    gameHistory.forEach(({ game, structure }, i) => {
+      const k = game + '|' + structure;
+      counts[k] = (counts[k] || 0) + 1;
+      lastSeen[k] = i;
+    });
+    const sorted = Object.keys(counts).sort((a, b) =>
+      counts[b] !== counts[a] ? counts[b] - counts[a] : lastSeen[b] - lastSeen[a]
+    );
+    const result = sorted.slice(0, 4).map(k => {
+      const idx = k.lastIndexOf('|');
+      return { game: k.slice(0, idx), structure: k.slice(idx + 1) };
+    });
+    for (const def of FAVE_DEFAULTS) {
+      if (result.length >= 4) break;
+      if (!result.some(f => f.game === def.game && f.structure === def.structure)) result.push(def);
+    }
+    return result;
+  }, [gameHistory, FAVE_DEFAULTS]);
+
+  const recordGameUse = (game, structure) => {
+    setGameHistory(prev => {
+      const next = [{ game, structure }, ...prev].slice(0, 20);
+      try { localStorage.setItem('replayer_game_history', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   const handleGameSelect = (game) => {
     setSelectedGame(game);
@@ -2931,6 +2972,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       if (studAction && isRazzGame) hand.gameType = 'Action ' + hand.gameType;
       if (studSuper && selectedCategory === 'Stud') hand.gameType = 'Super ' + hand.gameType;
       setCurrentHand(hand);
+      recordGameUse(selectedGame, bettingStructure);
     }
     setCurrentHandId(null);
     setTitle('');
@@ -3016,6 +3058,24 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
         </div>
         {/* Game picker: tab bar + checklist */}
         <div className="game-picker">
+          {/* Favorites row */}
+          <div className="game-faves-row">
+            {favorites.map(fav => {
+              const label = structureGameMap[fav.structure]?.[fav.game] || fav.game;
+              const isActive = selectedGame === fav.game && bettingStructure === fav.structure;
+              return (
+                <button key={fav.game + '|' + fav.structure}
+                  className={`game-fave-btn${isActive ? ' active' : ''}`}
+                  onClick={() => {
+                    handleGameSelect(fav.game);
+                    setBettingStructure(fav.structure);
+                    const map = structureGameMap[fav.structure];
+                    if (map?.[fav.game]) setSelectedGameType(map[fav.game]);
+                  }}
+                >{label}</button>
+              );
+            })}
+          </div>
           {/* Category tabs */}
           <div className="game-tab-bar">
             {categoryGroups.map(cat => (
