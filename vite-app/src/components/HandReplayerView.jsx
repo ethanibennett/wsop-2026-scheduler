@@ -3037,7 +3037,27 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
             if (!cat) return null;
             const moreGames = cat.more || [];
             const moreSelected = moreGames.includes(selectedGame);
-            const moreOpen = showMoreFor === selectedCategory || moreSelected;
+            const studModifiers = selectedCategory === 'Stud' && (studSuper || studAction);
+            const moreOpen = showMoreFor === selectedCategory || moreSelected || studModifiers;
+            const checkboxRow = (label, checked, onToggle, disabled) => (
+              <div key={label} className={`game-check-row${checked ? ' selected' : ''}`}
+                style={{opacity: disabled ? 0.35 : 1, cursor: disabled ? 'default' : 'pointer'}}
+                onClick={disabled ? undefined : onToggle}
+              >
+                <div style={{
+                  width:'13px', height:'13px', borderRadius:'3px', flexShrink:0,
+                  border:`1.5px solid ${checked ? 'var(--accent2)' : 'var(--border)'}`,
+                  background: checked ? 'var(--accent2)' : 'transparent',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  transition:'background 0.15s,border-color 0.15s',
+                }}>
+                  {checked && <span style={{color:'#fff',fontSize:'9px',lineHeight:1,fontWeight:700}}>✓</span>}
+                </div>
+                <span className={`game-check-row-label${checked ? ' selected' : ''}`}
+                  style={{fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',fontSize:'0.68rem',letterSpacing:'0.5px'}}
+                >{label}</span>
+              </div>
+            );
             return (<>
               {cat.games.map(game => (
                 <div key={game}
@@ -3050,54 +3070,36 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
                   <span className={`game-check-row-label${selectedGame === game ? ' selected' : ''}`}>{game}</span>
                 </div>
               ))}
-              {/* Super + Action modifiers — Stud only */}
-              {selectedCategory === 'Stud' && (() => {
-                const isRazz = RAZZ_VARIANTS.includes(selectedGame);
-                const checkboxRow = (label, checked, onToggle, disabled) => (
-                  <div className={`game-check-row${checked ? ' selected' : ''}`}
-                    style={{opacity: disabled ? 0.35 : 1, cursor: disabled ? 'default' : 'pointer'}}
-                    onClick={disabled ? undefined : onToggle}
-                  >
-                    <div style={{
-                      width:'13px', height:'13px', borderRadius:'3px', flexShrink:0,
-                      border:`1.5px solid ${checked ? 'var(--accent2)' : 'var(--border)'}`,
-                      background: checked ? 'var(--accent2)' : 'transparent',
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      transition:'background 0.15s,border-color 0.15s',
-                    }}>
-                      {checked && <span style={{color:'#fff',fontSize:'9px',lineHeight:1,fontWeight:700}}>✓</span>}
-                    </div>
-                    <span className={`game-check-row-label${checked ? ' selected' : ''}`}
-                      style={{fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',fontSize:'0.68rem',letterSpacing:'0.5px'}}
-                    >{label}</span>
-                  </div>
-                );
-                return (
-                  <div style={{borderTop:'1px solid var(--border)'}}>
-                    {checkboxRow('Super', studSuper, () => setStudSuper(p => !p), false)}
-                    {checkboxRow('Action', studAction, () => setStudAction(p => !p), !isRazz)}
-                  </div>
-                );
-              })()}
-              {/* More dropdown */}
+              {/* More dropdown — includes variant games + Stud modifiers */}
               {moreGames.length > 0 && (<>
-                {moreOpen && moreGames.map(game => (
-                  <div key={game}
-                    className={`game-check-row${selectedGame === game ? ' selected' : ''}`}
-                    onClick={() => handleGameSelect(game)}
-                  >
-                    <div className={`game-check-radio${selectedGame === game ? ' selected' : ''}`}>
-                      {selectedGame === game && <div className="game-check-radio-dot"/>}
+                {moreOpen && (<>
+                  {moreGames.map(game => (
+                    <div key={game}
+                      className={`game-check-row${selectedGame === game ? ' selected' : ''}`}
+                      onClick={() => handleGameSelect(game)}
+                    >
+                      <div className={`game-check-radio${selectedGame === game ? ' selected' : ''}`}>
+                        {selectedGame === game && <div className="game-check-radio-dot"/>}
+                      </div>
+                      <span className={`game-check-row-label${selectedGame === game ? ' selected' : ''}`}>{game}</span>
                     </div>
-                    <span className={`game-check-row-label${selectedGame === game ? ' selected' : ''}`}>{game}</span>
-                  </div>
-                ))}
+                  ))}
+                  {selectedCategory === 'Stud' && (
+                    <div style={{borderTop:'1px solid var(--border)'}}>
+                      {checkboxRow('Super', studSuper, () => setStudSuper(p => !p), false)}
+                      {checkboxRow('Action', studAction, () => setStudAction(p => !p), !RAZZ_VARIANTS.includes(selectedGame))}
+                    </div>
+                  )}
+                </>)}
                 <div className="game-check-row"
                   style={{justifyContent:'center', borderTop:'1px solid var(--border)', padding:'5px 10px'}}
-                  onClick={() => setShowMoreFor(prev => prev === selectedCategory && !moreSelected ? null : selectedCategory)}
+                  onClick={() => {
+                    if (moreOpen && !moreSelected && !studModifiers) setShowMoreFor(null);
+                    else if (!moreOpen) setShowMoreFor(selectedCategory);
+                  }}
                 >
                   <span style={{fontSize:'0.6rem', color:'var(--accent2)', fontFamily:"'Univers Condensed','Univers',sans-serif", textTransform:'uppercase', letterSpacing:'0.5px'}}>
-                    {moreOpen && !moreSelected ? '▲ Less' : '▼ More'}
+                    {moreOpen && !moreSelected && !studModifiers ? '▲ Less' : '▼ More'}
                   </span>
                 </div>
               </>)}
