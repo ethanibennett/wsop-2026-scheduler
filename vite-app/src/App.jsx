@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 
 import { API_URL } from './utils/api.js';
@@ -21,10 +21,8 @@ import TournamentsView from './components/TournamentsView.jsx';
 import ScheduleView from './components/ScheduleView.jsx';
 import CalendarView from './components/CalendarView.jsx';
 import TrackingView from './components/TrackingView.jsx';
-import HandReplayerView from './components/HandReplayerView.jsx';
 import SettingsView from './components/SettingsView.jsx';
 import SocialView from './components/SocialView.jsx';
-import AdminView from './components/AdminView.jsx';
 import LiveUpdatePanel from './components/LiveUpdatePanel.jsx';
 import ScheduleExportModal from './components/ScheduleExportModal.jsx';
 import SharedScheduleView from './components/SharedScheduleView.jsx';
@@ -33,8 +31,16 @@ import SkeletonSchedule from './components/SkeletonSchedule.jsx';
 import RealNamePrompt from './components/RealNamePrompt.jsx';
 import NotificationsPanel from './components/NotificationsPanel.jsx';
 import SwapModal from './components/SwapModal.jsx';
-import StakingView from './components/StakingView.jsx';
 import MilestoneCelebration from './components/MilestoneCelebration.jsx';
+
+// Code-split the heaviest views (replayer alone is ~4.5k LOC) so the main
+// bundle drops by several hundred KB. Each loads on first navigation to
+// its tab; subsequent visits are cached by the browser.
+const HandReplayerView = lazy(() => import('./components/HandReplayerView.jsx'));
+const StakingView = lazy(() => import('./components/StakingView.jsx'));
+const AdminView = lazy(() => import('./components/AdminView.jsx'));
+
+const LazyFallback = () => <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--text-muted)',fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'0.85rem'}}>Loading…</div>;
 
 // Detect shared schedule URL: /shared/:token
 const SHARED_MATCH = window.location.pathname.match(/^\/shared\/([a-f0-9]+)$/);
@@ -1304,7 +1310,7 @@ export default function App() {
         <div className={'tab-panel' + (currentView === 'hands' ? ' tab-active' : '')} data-tab="hands" style={{display: currentView === 'hands' ? undefined : 'none', height: currentView === 'hands' ? '100%' : undefined}}>
         {visitedTabs.has('hands') && (
           isAdmin || sharedHandData
-            ? <HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} />
+            ? <Suspense fallback={<LazyFallback />}><HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} /></Suspense>
             : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
                 <h2 style={{fontFamily:"'Univers Condensed', 'Univers', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Hand Replayer</h2>
                 <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
@@ -1356,14 +1362,14 @@ export default function App() {
 
         <div className={'tab-panel' + (currentView === 'admin' ? ' tab-active' : '')} data-tab="admin" style={{display: currentView === 'admin' ? undefined : 'none', height: currentView === 'admin' ? '100%' : undefined}}>
         {visitedTabs.has('admin') && isAdmin && (
-          <AdminView token={token} onNavigate={(v) => setCurrentView(v)} />
+          <Suspense fallback={<LazyFallback />}><AdminView token={token} onNavigate={(v) => setCurrentView(v)} /></Suspense>
         )}
         </div>
 
         <div className={'tab-panel' + (currentView === 'staking' ? ' tab-active' : '')} data-tab="staking" style={{display: currentView === 'staking' ? undefined : 'none', height: currentView === 'staking' ? '100%' : undefined}}>
         {visitedTabs.has('staking') && (
           isAdmin
-            ? <StakingView token={token} tournaments={tournaments} mySchedule={mySchedule} />
+            ? <Suspense fallback={<LazyFallback />}><StakingView token={token} tournaments={tournaments} mySchedule={mySchedule} /></Suspense>
             : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
                 <h2 style={{fontFamily:"'Univers Condensed', 'Univers', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Staking</h2>
                 <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>

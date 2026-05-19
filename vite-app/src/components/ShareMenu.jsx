@@ -18,14 +18,13 @@ export default function ShareMenu({ trackingData, tournaments, mySchedule, myAct
   const nextEvent = useMemo(() => {
     if (!mySchedule || mySchedule.length === 0) return null;
     const now = Date.now();
-    const parseTs = (t) => t.venue ? parseDateTimeInTz(t.date, t.time, t.venue) : parseDateTime(t.date, t.time);
-    return [...mySchedule]
-      .filter(t => {
-        if (!t.date) return false;
-        const ts = parseTs(t);
-        return !isNaN(ts) && ts > now;
-      })
-      .sort((a, b) => parseTs(a) - parseTs(b))[0] || null;
+    // Compute each timestamp ONCE then filter+sort by the cached value.
+    const decorated = mySchedule
+      .filter(t => t.date)
+      .map(t => ({ t, ts: t.venue ? parseDateTimeInTz(t.date, t.time, t.venue) : parseDateTime(t.date, t.time) }))
+      .filter(x => !isNaN(x.ts) && x.ts > now)
+      .sort((a, b) => a.ts - b.ts);
+    return decorated[0]?.t || null;
   }, [mySchedule]);
 
   // Countdown text for next event

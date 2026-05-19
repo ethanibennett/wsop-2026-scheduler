@@ -384,10 +384,6 @@ export default function TableScanner() {
           position: i + 1, px: null, py: null,
         })).filter(p => p.name.length > 1);
 
-        console.log('[TableScanner] Claude found', extracted.length, 'players');
-        console.log('[TableScanner] Seats:', extracted.map(p => p.seat).join(', '));
-        console.log('[TableScanner] Hero:', extracted.find(p => p.isHero)?.name || 'none');
-
         const tableGroups = {};
         extracted.forEach(function(p) {
           if (p.seat && p.seat.includes('-')) {
@@ -397,7 +393,6 @@ export default function TableScanner() {
           }
         });
         var tableNums = Object.keys(tableGroups).sort(function(a, b) { return parseInt(a) - parseInt(b); });
-        console.log('[TableScanner] Table groups:', tableNums.map(t => t + ':' + tableGroups[t].length).join(', ') || 'none');
 
         if (tableNums.length > 1) {
           setAvailableTables(tableGroups);

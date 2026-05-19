@@ -679,11 +679,13 @@ export default function CalendarView({ allTournaments, mySchedule, onToggle, gam
     }
     const out = {};
     for (const d of Object.keys(buckets)) {
-      const sorted = buckets[d].slice().sort((a, b) => {
-        if (!!a.is_anchor !== !!b.is_anchor) return a.is_anchor ? -1 : 1;
-        return parseTournamentTime(a) - parseTournamentTime(b);
+      // Decorate-sort-undecorate so parseTournamentTime fires once per row.
+      const decorated = buckets[d].map(t => ({ t, ts: parseTournamentTime(t) }));
+      decorated.sort((a, b) => {
+        if (!!a.t.is_anchor !== !!b.t.is_anchor) return a.t.is_anchor ? -1 : 1;
+        return a.ts - b.ts;
       });
-      out[d] = sorted[0];
+      out[d] = decorated[0]?.t;
     }
     return out;
   }, [mySchedule]);

@@ -189,6 +189,10 @@ export default function ScheduleView({
     return () => cancelAnimationFrame(id);
   }, [visibleCount, sorted.length]);
 
+  // Memoize the non-restart count so the header doesn't run two
+  // identical filters every render (audit finding #3).
+  const nonRestartCount = useMemo(() => sorted.filter(t => !t.is_restart).length, [sorted]);
+
   // Pre-group events by date so the render body doesn't re-run the loop.
   const groups = useMemo(() => {
     const result = [];
@@ -332,7 +336,7 @@ export default function ScheduleView({
           <h2 style={{marginRight:'auto',display:'flex',alignItems:'baseline',gap:'6px'}}>
             My Schedule
             <span style={{fontSize:'0.72rem',fontWeight:400,color:'var(--text-muted)'}}>
-              · {sorted.filter(t => !t.is_restart).length} event{sorted.filter(t => !t.is_restart).length !== 1 ? 's' : ''}
+              · {nonRestartCount} event{nonRestartCount !== 1 ? 's' : ''}
             </span>
           </h2>
           {onAddPersonalEvent && (

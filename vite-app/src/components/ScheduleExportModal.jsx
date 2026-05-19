@@ -25,9 +25,13 @@ export default function ScheduleExportModal({ events, onClose }) {
   // already finished.
   const upcomingEvents = useMemo(() => {
     const todayISO = getToday();
-    return events
-      .filter(e => !e.is_restart && normaliseDate(e.date) >= todayISO)
-      .sort((a, b) => parseTournamentTime(a) - parseTournamentTime(b));
+    // Decorate-sort-undecorate — parseTournamentTime is now memoized but
+    // calling it O(n) instead of O(n log n) is still a meaningful win and
+    // keeps the call shape consistent with TournamentsView / ScheduleView.
+    const passed = events.filter(e => !e.is_restart && normaliseDate(e.date) >= todayISO);
+    const decorated = passed.map(t => ({ t, ts: parseTournamentTime(t) }));
+    decorated.sort((a, b) => a.ts - b.ts);
+    return decorated.map(x => x.t);
   }, [events]);
 
   const venueList = useMemo(() => {
