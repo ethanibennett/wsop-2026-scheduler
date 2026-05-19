@@ -1290,14 +1290,16 @@
     }
 
     /* Replay mode — fixed layout, no scroll. The bar below the table is
-       position:fixed above the nav; the 100px bottom padding reserves
-       space so the table never slides under it. overflow:hidden caps any
-       last-pixel overflow from row gaps. */
+       position:fixed above the nav; the 110px bottom padding reserves
+       space so the table never slides under it. justify-content:center
+       puts the table in the middle of the remaining height so any extra
+       slack splits evenly above/below the felt. */
     .replayer-replay {
       display: flex;
       flex-direction: column;
+      justify-content: center;
       gap: 4px;
-      padding-bottom: 100px;
+      padding-bottom: 110px;
       overflow: hidden;
       height: 100%;
     }
@@ -1347,13 +1349,14 @@
     .replayer-table {
       position: relative;
       /* Scale width so the table (at 3:4.5 aspect ratio) fits the viewport.
-         Reserve: header + safe-area-top + safe-area-bottom + nav (max 44 or
-         tab-h+safe-bottom) + bar (≈100px controls + secondary + padding)
-         + a small gap. 260px covers that on devices we care about. */
-      width: min(100%, calc((100vh - var(--header-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 260px) * 0.6667));
+         Reserve: header (60) + bar (~100, controls + secondary + padding)
+         + nav (handled separately via safe-area-bottom + tab-h below) +
+         small gap. 200px covers the constant part; safe-areas are added
+         on top so the table sizes correctly on iPhones with home
+         indicators / notches. */
+      width: min(100%, calc((100vh - var(--header-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 140px) * 0.6667));
       aspect-ratio: 3 / 4.5;
-      margin: 8px auto 0;
-      margin-bottom: 0;
+      margin: auto;
     }
     .replayer-table-rail {
       position: absolute;
@@ -1665,18 +1668,17 @@
     .replayer-seat-cards .card-classic { width: 30px; height: 44px; }
     .replayer-board-spaced .card-classic { width: 30px; height: 44px; }
 
-    /* Replay controls — sits ABOVE the nav, not over it. `bottom` is
-       pinned to the nav's height so the bar (which contains the play
-       controls AND the Back/Edit/Link/Image/Video/GIF/Settings row)
-       always shows in full, with the nav directly underneath. */
+    /* Replay controls — sits ABOVE the nav with a small visible gap so
+       the bar's edge can't ever blend into the nav on rounding/safe-area
+       quirks. Holds both rows of buttons. */
     .replayer-bottom-fixed {
       position: fixed;
-      bottom: max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px)));
+      bottom: calc(max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px))) + 4px);
       left: 0; right: 0;
       z-index: 101;
       background: var(--bg);
       display: flex; flex-direction: column; gap: 4px;
-      padding: 6px 12px 10px;
+      padding: 6px 12px 8px;
       box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
     }
     .replayer-bottom-fixed > * {
