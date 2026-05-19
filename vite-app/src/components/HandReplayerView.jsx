@@ -2912,13 +2912,10 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
   }, [initialHand]);
 
   const loadHand = async (handId) => {
-    console.log('[loadHand] called', handId, 'token?', !!token, 'API_URL', API_URL);
-    if (toast?.info) toast.info('Loading hand ' + handId);
     try {
       const res = await fetch(`${API_URL}/replayer/hands/${handId}`, {
         headers: { Authorization: 'Bearer ' + token }
       });
-      console.log('[loadHand] response', res.status);
       if (!res.ok) {
         console.error('Failed to load hand:', res.status, res.statusText);
         if (toast?.info) toast.info(`Failed to load hand (${res.status})`);

@@ -264,14 +264,22 @@ export default function ScheduleView({
   useEffect(() => {
     if (sorted.length === 0 || hasScrolled.current || !todayRef.current) return;
     hasScrolled.current = true;
-    const el = todayRef.current;
-    const container = el.closest('.content-area') || document.querySelector('.content-area');
-    if (!container) return;
-    const cRect = container.getBoundingClientRect();
-    const sticky = container.querySelector('.schedule-sticky-header');
-    const stickyH = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - cRect.top) : 0;
-    const elAbsTop = el.getBoundingClientRect().top - cRect.top + container.scrollTop;
-    container.scrollTop = Math.max(0, elAbsTop - stickyH);
+    // Re-fire over a few frames: rows use contentVisibility:auto with a
+    // 72px intrinsic placeholder, so the first measured offset is short
+    // until the browser materialises them. Same pattern as TournamentsView.
+    const settle = (remaining) => {
+      const el = todayRef.current;
+      if (!el) return;
+      const container = el.closest('.content-area') || document.querySelector('.content-area');
+      if (!container) return;
+      const cRect = container.getBoundingClientRect();
+      const sticky = container.querySelector('.schedule-sticky-header');
+      const stickyH = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - cRect.top) : 0;
+      const elAbsTop = el.getBoundingClientRect().top - cRect.top + container.scrollTop;
+      container.scrollTop = Math.max(0, elAbsTop - stickyH);
+      if (remaining > 0) requestAnimationFrame(() => settle(remaining - 1));
+    };
+    settle(4);
   }, [sorted]);
 
   const findBestFlightSchedule = useCallback((eventNum, sat) => {

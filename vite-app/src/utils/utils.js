@@ -164,6 +164,8 @@ export const VENUE_MAP = {
   'Caesars Palace':              { abbr: 'CAESARS', color: '#b8962e', longName: 'Caesars Palace' },
   'Seminole Hard Rock':          { abbr: 'HARD ROCK', color: '#1a9e9e', longName: 'Seminole Hard Rock' },
   'WSOP Europe':                 { abbr: 'WSOPE', color: '#1a3c6e', longName: 'WSOP Europe' },
+  'WSOP Online':                 { abbr: 'WSOP.COM', color: '#0e7490', longName: 'WSOP Online' },
+  'WSOP.com':                    { abbr: 'WSOP.COM', color: '#0e7490', longName: 'WSOP Online' },
   'Borgata':                     { abbr: 'BORGATA', color: '#6b21a8', longName: 'Borgata Spring Poker Open' },
   'Foxwoods':                    { abbr: 'FOXWOODS', color: '#4a2d7a', longName: 'Foxwoods Poker Classic' },
   'Thunder Valley':              { abbr: 'THUNDER VALLEY', color: '#d4a017', longName: 'Thunder Valley Poker Series' },
@@ -199,6 +201,7 @@ export const VENUE_BRAND_VAR = {
   'CAESARS':        '--venue-caesars',
   'HARD ROCK':      '--venue-hardrock',
   'WSOPE':          '--venue-wsope',
+  'WSOP.COM':       '--venue-wsop-online',
   'VENETIAN':       '--venue-venetian',
   'BORGATA':        '--venue-borgata',
   'FOXWOODS':       '--venue-foxwoods',
@@ -229,9 +232,10 @@ export function isBraceletEvent(t) {
   if (t.is_restart) return false;
   if ((t.category || '').toLowerCase() === 'side') return false;
   const v = (t.venue || '').toLowerCase();
-  if (!v.includes('horseshoe') && !v.includes('paris') && v !== 'wsop europe') return false;
+  const isOnline = v === 'wsop online' || v === 'wsop.com';
+  if (!v.includes('horseshoe') && !v.includes('paris') && v !== 'wsop europe' && !isOnline) return false;
   const name = (t.event_name || '').toLowerCase();
-  if (name.includes('circuit') && v !== 'wsop europe') return false;
+  if (name.includes('circuit') && v !== 'wsop europe' && !isOnline) return false;
   const info = getVenueInfo(t.venue);
   if (/^WSOPC/.test(info.longName)) return false;
   return !NON_BRACELET_KEYWORDS.some(kw => name.includes(kw));

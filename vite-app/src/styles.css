@@ -90,6 +90,7 @@
       --venue-choctaw:       #dc2626;
       --venue-tunica:        #0d6efd;
       --venue-wsopc-lv:      #d4a017;
+      --venue-wsop-online:   #0e7490;
     }
 
     [data-theme="light"] {
@@ -137,6 +138,7 @@
       --venue-choctaw:       #e53935;
       --venue-tunica:        #0d6efd;
       --venue-wsopc-lv:      #d4a017;
+      --venue-wsop-online:   #0e7490;
     }
 
     /* Dusk theme — deep navy/blue dark variant */
@@ -185,6 +187,7 @@
       --venue-choctaw:       #dc2626;
       --venue-tunica:        #0d6efd;
       --venue-wsopc-lv:      #d4a017;
+      --venue-wsop-online:   #0e7490;
     }
 
     /* Cloudy theme — muted grey light variant */
@@ -233,6 +236,7 @@
       --venue-choctaw:       #e53935;
       --venue-tunica:        #0d6efd;
       --venue-wsopc-lv:      #d4a017;
+      --venue-wsop-online:   #0e7490;
     }
 
     /* High contrast — dark */
@@ -3893,11 +3897,13 @@
 
     .back-to-today-fab {
       position: fixed;
-      /* Sit above the bottom-nav. Mirror the nav's height formula exactly so
-         Safari's max() parsing can't drop the safe-area term. */
-      bottom: calc(max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px))) + 16px);
+      /* Sit comfortably above the bottom-nav with breathing room.
+         Mirror the nav's height formula exactly so Safari's max()
+         parsing can't drop the safe-area term, then add a 22px gap
+         (was 16px) and a final +6px hedge for iOS hairline rounding. */
+      bottom: calc(max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px))) + 28px);
       left: 50%;
-      z-index: 101;
+      z-index: 110;
       background: var(--accent);
       color: var(--bg);
       border: none;
