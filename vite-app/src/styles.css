@@ -1671,12 +1671,14 @@
     .replayer-seat-cards .card-classic { width: 30px; height: 44px; }
     .replayer-board-spaced .card-classic { width: 30px; height: 44px; }
 
-    /* Replay controls — bar's bottom edge equals the nav's top edge,
-       both computed from the same --nav-h variable so no rounding /
-       env() drift can put them out of sync. */
+    /* Replay controls — bar's bottom edge equals the nav's measured top
+       edge. --measured-nav-top is set by JS from the nav's actual DOM
+       rectangle, so iOS/WebView env() quirks can't shift the bar away
+       from the nav. Falls back to the CSS --nav-h until the first
+       measurement lands. */
     .replayer-bottom-fixed {
       position: fixed;
-      bottom: var(--nav-h);
+      bottom: var(--measured-nav-top, var(--nav-h));
       left: 0; right: 0;
       z-index: 101;
       background: var(--bg);

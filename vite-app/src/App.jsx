@@ -206,6 +206,29 @@ export default function App() {
     localStorage.setItem('serifFont', serifFont);
   }, [serifFont]);
 
+  // Measure the bottom nav's actual top edge and expose it as
+  // --measured-nav-top (px from viewport bottom). CSS env() and var()
+  // expressions for the same formula resolved to different numbers in
+  // some WebView contexts (notably iOS Capacitor with contentInset:
+  // 'never') — measuring the real DOM rectangle removes that ambiguity
+  // so the replayer bar can sit flush with the nav guaranteed.
+  useEffect(() => {
+    const update = () => {
+      const nav = document.querySelector('.bottom-nav');
+      if (!nav) return;
+      const r = nav.getBoundingClientRect();
+      const fromBottom = Math.max(0, window.innerHeight - r.top);
+      document.documentElement.style.setProperty('--measured-nav-top', fromBottom + 'px');
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+
   // If a shared hand was decoded, switch to hands tab on mount
   useEffect(() => {
     if (sharedHandData) setCurrentView('hands');
