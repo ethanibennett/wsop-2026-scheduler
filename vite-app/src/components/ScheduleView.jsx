@@ -73,6 +73,12 @@ function TravelDayPicker({ onSave, onCancel }) {
       <div style={{marginBottom:'14px'}}>
         <div style={{fontSize:'0.72rem', color:'var(--text-muted)', marginBottom:'4px', fontWeight:600}}>Date</div>
         <input ref={dateRef} type="date" value={date} onChange={e => setDate(e.target.value)}
+          // iOS WKWebView frequently fails to open the native date picker
+          // for `<input type="date">` inside a fixed-position overlay. Force
+          // it with showPicker() — the click handler still counts as a user
+          // gesture, and onMouseDown beats the focus race on iOS 17+.
+          onMouseDown={e => { try { e.currentTarget.showPicker?.(); } catch {} }}
+          onClick={e => { try { e.currentTarget.showPicker?.(); } catch {} }}
           style={{
             padding:'6px 10px', fontSize:'0.85rem', borderRadius:'6px',
             border:'1px solid var(--border)', background:'var(--surface)',
