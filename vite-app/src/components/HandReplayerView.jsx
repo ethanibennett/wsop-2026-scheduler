@@ -647,19 +647,23 @@ function PotChipVisual({ amount }) {
 }
 
 // ── Card Row component ──
-// Trig-based card splay: shared pivot point for natural fan
-function getSplayStyle(index, total, angle, yOffset) {
+// Trig-based card splay: shared pivot point for natural fan.
+// reverseZ flips the z-index ordering — used for opponent seats so the
+// leftmost card sits on top of the fan instead of the rightmost (which
+// is how a real player would hold cards facing away from the viewer).
+function getSplayStyle(index, total, angle, yOffset, reverseZ) {
   if (total <= 1) return {};
   const step = (2 * angle) / (total - 1);
   const rot = -angle + step * index;
   const extraY = yOffset || 0;
+  const z = reverseZ ? (total - 1 - index) : index;
   if (total <= 2) {
     return {
       transform: 'rotate(' + rot + 'deg)',
       transformOrigin: '50% 120%',
       marginLeft: index === 0 ? 0 : -22,
       marginTop: extraY || undefined,
-      zIndex: index,
+      zIndex: z,
     };
   }
   // 3+ cards: arc from a true shared pivot point using trig
@@ -672,18 +676,18 @@ function getSplayStyle(index, total, angle, yOffset) {
     left: '50%',
     bottom: 0,
     transform: 'translate(calc(-50% + ' + x.toFixed(1) + 'px), ' + y.toFixed(1) + 'px) rotate(' + rot + 'deg)',
-    zIndex: index,
+    zIndex: z,
   };
 }
 
-function CardRow({ text, stud, max, placeholderCount, splay, cardTheme }) {
+function CardRow({ text, stud, max, placeholderCount, splay, cardTheme, reverseZ }) {
   const SUIT_SYMBOLS = {h:'\u2665',d:'\u2666',c:'\u2663',s:'\u2660'};
   let cards = parseCardNotation(text);
   if (!cards.length && placeholderCount > 0) {
     return (
       <div className={"card-row" + (splay ? " card-row-splay" : "")}>
         {Array.from({ length: placeholderCount }, (_, i) => {
-          const style = splay ? getSplayStyle(i, placeholderCount, splay) : undefined;
+          const style = splay ? getSplayStyle(i, placeholderCount, splay, 0, reverseZ) : undefined;
           return <div key={'ph' + i} className="card-placeholder" style={style} />;
         })}
       </div>
@@ -699,7 +703,7 @@ function CardRow({ text, stud, max, placeholderCount, splay, cardTheme }) {
         const isDown = downIdx && downIdx.has(i);
         const isStudUp = stud && !isDown && i >= 2 && i <= 5;
         const studYOffset = isStudUp ? -5 : isDown ? 5 : 0;
-        const splayStyle = splay ? getSplayStyle(i, cards.length, splay, studYOffset) : undefined;
+        const splayStyle = splay ? getSplayStyle(i, cards.length, splay, studYOffset, reverseZ) : undefined;
         if (c.suit === 'x' || (isDown && c.suit === 'x')) {
           return <div key={k} className="card-unknown" style={splayStyle} />;
         }
@@ -4195,7 +4199,8 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
                 <CardRow text={cards} stud={gameCfg.isStud} max={gameCfg.heroCards}
                   placeholderCount={!cards && !folded.has(pi) ? gameCfg.heroCards : 0}
                   splay={rSettings.cardSplay ? (gameCfg.heroCards <= 2 ? 12.5 : gameCfg.heroCards <= 4 ? 15 : gameCfg.heroCards <= 5 ? 18 : 22) : 0}
-                  cardTheme={cardTheme} />
+                  cardTheme={cardTheme}
+                  reverseZ={pi !== replayHeroIdx} />
               </div>
               <div className="replayer-seat-info">
                 {rSettings.showPlayerStats && (
