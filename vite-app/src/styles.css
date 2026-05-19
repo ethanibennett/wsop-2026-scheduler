@@ -1293,13 +1293,15 @@
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* Replay mode — felt fills the content-area height. The bar lives
-       in #above-nav-slot via portal (sibling of <BottomNav>), so this
-       container only needs to hold the table. */
+    /* Replay mode — felt sits high in the content-area so any leftover
+       slack lives BELOW the table. That keeps the hero seat (bottom of
+       the felt) near the middle of the screen instead of pinned to the
+       bar, leaving room for action chips/badges to render without
+       crowding. */
     .replayer-replay {
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 4px;
       overflow: hidden;
       height: 100%;
@@ -1355,7 +1357,10 @@
          subtracted separately to handle iPhone home-indicator devices. */
       width: min(100%, calc((100vh - var(--header-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 140px) * 0.6667));
       aspect-ratio: 3 / 4.5;
-      margin: auto;
+      /* Hug the top: horizontal auto centers, top margin is small so
+         any leftover slack sits below the table (between hero seat and
+         the bar) instead of being split top/bottom. */
+      margin: 4px auto 0;
     }
     .replayer-table-rail {
       position: absolute;
