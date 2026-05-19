@@ -3347,7 +3347,6 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
     return () => { mql.removeEventListener('change', handler); };
   }, []);
   const [showSettings, setShowSettings] = useState(false);
-  const [showFeltPicker, setShowFeltPicker] = useState(false);
   const [feltColor, setFeltColor] = useState(() => localStorage.getItem('replayerFeltColor') || '#6b5b8a');
   const [cardTheme, setCardTheme] = useState(() => localStorage.getItem('replayerCardTheme') || 'default');
   const playTimerRef = useRef(null);
@@ -4083,7 +4082,11 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
       <div ref={tableRef} className={'replayer-table' + themeClass}>
         <div className="replayer-table-rail" style={{'--rail-color': feltColor}} />
         {rSettings.lightStrip && <div className="replayer-light-strip" style={{'--strip-color': feltColor}} />}
-        <div className={'replayer-table-felt' + shapeClass} style={rSettings.theme === 'default' ? (() => {
+        {/* Felt — wrap in a <label> so a tap on the felt opens the native
+            color picker directly (mirrors TableScanner). The hidden color
+            input lives inside the label and receives the native picker
+            event; no popup, no extra UI. */}
+        <label className={'replayer-table-felt' + shapeClass} style={rSettings.theme === 'default' ? (() => {
           // Compute color-mix equivalents inline (html2canvas can't parse color-mix)
           const m = feltColor.match(/#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i);
           if (m) {
@@ -4094,21 +4097,11 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
           }
           return { borderColor: feltColor + 'cc' };
         })() : {}}
-          onClick={() => setShowFeltPicker(s => !s)}
-          title="Tap to change felt color"
-        />
-        {showFeltPicker && <div className="felt-picker-overlay" onClick={() => setShowFeltPicker(false)}>
-          <div className="felt-picker-popup" onClick={e => e.stopPropagation()}>
-            <div style={{fontSize:'0.7rem',fontFamily:"'Univers Condensed','Univers',sans-serif",textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'8px',color:'var(--text-muted)'}}>Felt Color</div>
-            <div style={{display:'flex',gap:'8px',flexWrap:'wrap',justifyContent:'center'}}>
-              {[{c:'#2d5a27',n:'Green'},{c:'#1a3a5c',n:'Blue'},{c:'#5a1a1a',n:'Red'},{c:'#6b5b8a',n:'Purple'},{c:'#1a1a2e',n:'Navy'},{c:'#3d3d3d',n:'Charcoal'}].map(fc => (
-                <div key={fc.c} title={fc.n} onClick={() => rSetters.feltColor(fc.c)}
-                  style={{width:32,height:32,borderRadius:'50%',background:fc.c,cursor:'pointer',border: feltColor === fc.c ? '2px solid var(--accent)' : '2px solid rgba(255,255,255,0.2)',boxShadow: feltColor === fc.c ? '0 0 0 2px var(--accent)' : 'none'}} />
-              ))}
-            </div>
-            <input type="color" value={feltColor} onChange={e => rSetters.feltColor(e.target.value)} style={{marginTop:'8px',width:'100%',height:'28px',border:'none',background:'transparent',cursor:'pointer'}} />
-          </div>
-        </div>}
+          title="Tap to change felt color">
+          <input type="color" value={feltColor}
+            onChange={e => rSetters.feltColor(e.target.value)}
+            style={{position:'absolute', inset:0, opacity:0, cursor:'pointer', border:'none', padding:0, background:'transparent', width:'100%', height:'100%'}} />
+        </label>
 
         {/* Pot */}
         {(() => {
