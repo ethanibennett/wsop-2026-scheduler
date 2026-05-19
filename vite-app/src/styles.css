@@ -1668,12 +1668,14 @@
     .replayer-seat-cards .card-classic { width: 30px; height: 44px; }
     .replayer-board-spaced .card-classic { width: 30px; height: 44px; }
 
-    /* Replay controls — sits ABOVE the nav with a small visible gap so
-       the bar's edge can't ever blend into the nav on rounding/safe-area
-       quirks. Holds both rows of buttons. */
+    /* Replay controls — sits ABOVE the nav with a generous visible gap
+       (Capacitor WKWebView's env(safe-area-inset-bottom) can read as 0
+       when contentInset:'never', which collapses a small offset). The
+       16px breathing room keeps the bar's edge clear of the nav across
+       every viewport we care about. */
     .replayer-bottom-fixed {
       position: fixed;
-      bottom: calc(max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px))) + 4px);
+      bottom: calc(max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px))) + 16px);
       left: 0; right: 0;
       z-index: 101;
       background: var(--bg);
