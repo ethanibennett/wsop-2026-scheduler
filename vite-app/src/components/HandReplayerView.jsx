@@ -261,9 +261,13 @@ function getChipBreakdown(amount) {
 }
 
 function ChipStack({ amount }) {
-  const chips = getChipBreakdown(amount);
+  const chips = getChipBreakdown(amount); // [biggest, ..., smallest]
   return (
-    <div className="chip-stack-visual" style={{ display:'inline-flex', flexDirection:'column-reverse', alignItems:'center', marginRight:'3px', verticalAlign:'middle' }}>
+    // Normal column flow (not column-reverse) puts chips[0]=biggest at the
+    // top of the pile. Negative margin-top on each subsequent chip slides it
+    // up beneath the bigger one; higher z-index on the bigger chip keeps it
+    // drawn on top, so the biggest-denom chip is the visible face.
+    <div className="chip-stack-visual" style={{ display:'inline-flex', flexDirection:'column', alignItems:'center', marginRight:'3px', verticalAlign:'middle' }}>
       {chips.map((color, i) => (
         <div key={i} className="chip-disc" style={{
           width: '12px', height: '4px', borderRadius: '50%', background: color,
@@ -4043,12 +4047,16 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
   }
 
   // ── Table layout ──
+  // Top/bottom seats sit at y=16/84 instead of y=6/94 so their cards (which
+  // extend above the seat marker by ~44px) fit fully inside the table's
+  // bounding box — html2canvas only captures the box, anything overflowing
+  // is clipped from the GIF/video exports.
   const layouts = {
-    2:[[50,6],[50,94]], 3:[[35,6],[50,94],[65,6]], 4:[[50,6],[82,50],[50,94],[18,50]],
-    5:[[35,6],[82,50],[50,94],[18,50],[65,6]], 6:[[50,6],[82,32],[82,68],[50,94],[18,68],[18,32]],
-    7:[[35,6],[82,32],[82,68],[50,94],[18,68],[18,32],[65,6]], 8:[[50,6],[82,24],[82,50],[82,76],[50,94],[18,76],[18,50],[18,24]],
-    9:[[35,6],[82,24],[82,50],[82,76],[50,94],[18,76],[18,50],[18,24],[65,6]],
-    10:[[30,6],[50,6],[82,24],[82,50],[82,76],[50,94],[18,76],[18,50],[18,24],[70,6]],
+    2:[[50,16],[50,84]], 3:[[35,16],[50,84],[65,16]], 4:[[50,16],[82,50],[50,84],[18,50]],
+    5:[[35,16],[82,50],[50,84],[18,50],[65,16]], 6:[[50,16],[82,34],[82,66],[50,84],[18,66],[18,34]],
+    7:[[35,16],[82,34],[82,66],[50,84],[18,66],[18,34],[65,16]], 8:[[50,16],[82,28],[82,50],[82,72],[50,84],[18,72],[18,50],[18,28]],
+    9:[[35,16],[82,28],[82,50],[82,72],[50,84],[18,72],[18,50],[18,28],[65,16]],
+    10:[[30,16],[50,16],[82,28],[82,50],[82,72],[50,84],[18,72],[18,50],[18,28],[70,16]],
   };
 
   const n = hand.players.length;
@@ -4076,12 +4084,8 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
           }
           return { borderColor: feltColor + 'cc' };
         })() : {}}
-          onTouchStart={e => { const timer = setTimeout(() => setShowFeltPicker(true), 600); e.currentTarget._lpTimer = timer; }}
-          onTouchEnd={e => clearTimeout(e.currentTarget._lpTimer)}
-          onTouchMove={e => clearTimeout(e.currentTarget._lpTimer)}
-          onMouseDown={e => { const timer = setTimeout(() => setShowFeltPicker(true), 600); e.currentTarget._lpTimer = timer; }}
-          onMouseUp={e => clearTimeout(e.currentTarget._lpTimer)}
-          onMouseLeave={e => clearTimeout(e.currentTarget._lpTimer)}
+          onClick={() => setShowFeltPicker(s => !s)}
+          title="Tap to change felt color"
         />
         {showFeltPicker && <div className="felt-picker-overlay" onClick={() => setShowFeltPicker(false)}>
           <div className="felt-picker-popup" onClick={e => e.stopPropagation()}>

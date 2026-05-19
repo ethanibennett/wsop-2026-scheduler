@@ -1022,7 +1022,7 @@
     }
     .gto-action-btn {
       flex: 1;
-      padding: 8px 4px 6px;
+      padding: 11px 6px 9px;
       background: none;
       border: none;
       cursor: pointer;
@@ -1031,30 +1031,34 @@
       align-items: center;
       gap: 0;
       font-family: inherit;
+      min-height: 56px;
+      transition: background 0.15s ease;
     }
     .gto-action-btn + .gto-action-btn { border-left: 1px solid var(--border); }
-    .gto-action-btn:active { background: rgba(160,160,160,0.1); }
+    .gto-action-btn:active { background: rgba(255,255,255,0.06); }
+    .gto-action-btn:hover { background: rgba(255,255,255,0.04); }
     .gto-action-icon {
-      font-size: 1rem;
+      font-size: 1.2rem;
       line-height: 1;
-      height: 1rem;
+      height: 1.2rem;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .gto-action-icon.fold { color: #f87171; }
-    .gto-action-icon.check { color: var(--text-muted); }
-    .gto-action-icon.call { color: #60a5fa; }
-    .gto-action-icon.raise { color: #4ade80; }
-    .gto-action-icon.allin { color: #facc15; }
+    .gto-action-icon.fold { color: #ef4444; }
+    .gto-action-icon.check { color: #cbd5e1; }
+    .gto-action-icon.call { color: #3b82f6; }
+    .gto-action-icon.raise { color: #22c55e; }
+    .gto-action-icon.allin { color: #eab308; }
     .gto-action-label {
       font-family: inherit;
-      font-size: 0.55rem;
-      font-weight: 600;
+      font-size: 0.72rem;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      color: var(--text-muted);
-      margin-top: 5px;
+      color: var(--text);
+      margin-top: 6px;
+      line-height: 1.1;
     }
 
     /* Sizing pills & raise input */
@@ -1285,8 +1289,13 @@
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* Replay mode */
-    .replayer-replay { display:flex; flex-direction:column; gap:4px; padding-bottom:80px; }
+    /* Replay mode — bottom padding clears the fixed playback bar (controls +
+       Back/Edit/Share row + nav + safe area). Matches the bar's effective
+       height so the last scrollable item never sits under the bar. */
+    .replayer-replay {
+      display:flex; flex-direction:column; gap:4px;
+      padding-bottom: calc(max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px))) + 110px);
+    }
 
     /* Landscape: fullscreen replayer, hide app chrome */
     .replayer-landscape {
@@ -1342,7 +1351,7 @@
     }
     .replayer-table-rail {
       position: absolute;
-      inset: calc(6% - 20px) calc(18% - 20px);
+      inset: calc(16% - 20px) calc(18% - 20px);
       border-radius: 999px;
       background:
         /* top-left light */
@@ -1384,7 +1393,7 @@
     }
     .replayer-table-felt {
       position: absolute;
-      inset: 6% 18%;
+      inset: 16% 18%;
       background: radial-gradient(ellipse 80% 70% at 50% 45%, #887aae, #342c4d);
       border-radius: 999px;
       border: 1px solid rgba(0,0,0,0.15);
