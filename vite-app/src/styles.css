@@ -1388,7 +1388,10 @@
     }
     .replayer-light-strip {
       position: absolute;
-      inset: calc(6% + 3px) calc(18% + 3px);
+      /* Matches the felt's inset so the light strip sits exactly on the
+         inner border of the rail (where the rail meets the felt). Felt
+         inset is 16% 18% — this rule mirrors it. */
+      inset: 16% 18%;
       border-radius: 999px;
       background: transparent;
       border: 1.5px solid rgba(255,255,255,0.4);
