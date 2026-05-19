@@ -1,7 +1,7 @@
 // Service Worker for WSOP Scheduler PWA
 // Handles offline caching + push notifications
 
-const CACHE_NAME = 'wsop-scheduler-v4';
+const CACHE_NAME = 'wsop-scheduler-v5';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -66,6 +66,21 @@ self.addEventListener('fetch', function(event) {
 
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
+
+  // Dev mode: never cache anything on localhost. Vite re-hashes optimized deps
+  // across restarts (e.g. /node_modules/.vite/deps/react.js?v=<hash>), and a
+  // stale cached copy becomes a second React instance → "Invalid hook call".
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return;
+
+  // Belt-and-suspenders: bypass Vite-internal paths even on non-localhost
+  // (e.g. LAN dev access). These are dev-only; production builds don't emit them.
+  if (
+    url.pathname.startsWith('/node_modules/.vite/') ||
+    url.pathname.startsWith('/@vite/') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.startsWith('/@id/') ||
+    url.pathname.startsWith('/@fs/')
+  ) return;
 
   // API requests — network only (don't cache dynamic data)
   if (url.pathname.startsWith('/api/')) return;

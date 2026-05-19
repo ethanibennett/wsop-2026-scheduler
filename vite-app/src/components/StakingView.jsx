@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
 import { API_URL } from '../utils/api.js';
 import { formatBuyin } from '../utils/utils.js';
@@ -214,7 +214,7 @@ function StakingSettings({ token, tournaments, onBack }) {
 // ── Main Staking View ──────────────────────────────────────
 
 export default function StakingView({ token, tournaments, mySchedule }) {
-  const [subView, setSubView] = useState('list'); // list | detail | backers | settings
+  const [subView, setSubView] = useState('list'); // list | detail | backers | backerSummary | settings
   const [series, setSeries] = useState([]);
   const [backers, setBackers] = useState([]);
   const [activeSeriesId, setActiveSeriesId] = useState(null);
@@ -248,6 +248,10 @@ export default function StakingView({ token, tournaments, mySchedule }) {
     return <BackerManager token={token} backers={backers} fetchBackers={fetchBackers} onBack={() => setSubView('list')} />;
   }
 
+  if (subView === 'backerSummary') {
+    return <BackerSummaryView token={token} onBack={() => setSubView('list')} onManage={() => setSubView('backers')} />;
+  }
+
   if (subView === 'detail' && activeSeries) {
     return (
       <StakingSeriesDetail
@@ -271,6 +275,7 @@ export default function StakingView({ token, tournaments, mySchedule }) {
         onSelect={s => { setActiveSeriesId(s.id); setSubView('detail'); }}
         onCreate={() => { setEditSeries(null); setShowSeriesForm(true); }}
         onBackers={() => setSubView('backers')}
+        onBackerSummary={() => setSubView('backerSummary')}
         onSettings={() => setSubView('settings')}
       />
       {showSeriesForm && (
@@ -288,7 +293,7 @@ export default function StakingView({ token, tournaments, mySchedule }) {
 
 // ── Series List ────────────────────────────────────────────
 
-function StakingSeriesList({ series, loading, onSelect, onCreate, onBackers, onSettings }) {
+function StakingSeriesList({ series, loading, onSelect, onCreate, onBackers, onBackerSummary, onSettings }) {
   if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>Loading&hellip;</div>;
 
   return (
@@ -297,6 +302,7 @@ function StakingSeriesList({ series, loading, onSelect, onCreate, onBackers, onS
         <h2 style={{fontFamily:'Univers Condensed, Univers, sans-serif',textTransform:'uppercase',letterSpacing:1,fontSize:14,margin:0,color:'var(--text-muted)'}}>Staking</h2>
         <div style={{display:'flex',gap:8}}>
           <button className="btn btn-ghost btn-sm" style={{fontSize:12,padding:'6px 10px',color:'var(--text-muted)'}} onClick={onSettings} title="Sell & Markup Settings">{'\u2699'}</button>
+          <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px',background:'transparent',color:'var(--accent)',border:'1px solid var(--accent)'}} onClick={onBackerSummary}>Summary</button>
           <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px',background:'transparent',color:'var(--accent)',border:'1px solid var(--accent)'}} onClick={onBackers}>Backers</button>
           <button className="create-group-submit" style={{fontSize:12,padding:'6px 14px'}} onClick={onCreate}>+ Series</button>
         </div>
@@ -381,7 +387,7 @@ function StakingSeriesForm({ token, series, tournaments, onClose, onSaved }) {
     } catch {}
   };
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <div className="notif-backdrop" onClick={onClose}>
       <div className="staking-modal" onClick={e => e.stopPropagation()}>
         <div className="staking-modal-header">
@@ -531,6 +537,130 @@ function BackerManager({ token, backers, fetchBackers, onBack }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── Backer Summary View ─────────────────────────────────────
+
+function BackerSummaryView({ token, onBack, onManage }) {
+  const [summaries, setSummaries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/staking/backers/summary`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) setSummaries(await res.json());
+      } catch {}
+      setLoading(false);
+    })();
+  }, []);
+
+  const get1099Status = (ytd) => {
+    if (ytd >= 600) return { label: '1099 Required', color: '#ef4444', level: 2 };
+    if (ytd >= 400) return { label: 'Near Threshold', color: '#f59e0b', level: 1 };
+    return null;
+  };
+
+  if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>Loading&hellip;</div>;
+
+  return (
+    <div style={{padding:'0 0 20px'}}>
+      <div className="section-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 16px 8px'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <button className="btn btn-ghost btn-sm" onClick={onBack} style={{fontSize:16,padding:'4px 8px'}}>&larr;</button>
+          <h2 style={{fontFamily:'Univers Condensed, Univers, sans-serif',textTransform:'uppercase',letterSpacing:1,fontSize:14,margin:0,color:'var(--text-muted)'}}>Backer Summary</h2>
+        </div>
+        <button className="btn btn-ghost btn-sm" style={{fontSize:12}} onClick={onManage}>Manage</button>
+      </div>
+
+      {summaries.length === 0 ? (
+        <div className="empty-state">
+          <Icon.people />
+          <h3>No backers yet</h3>
+          <p>Add backers and log events to see P&amp;L summaries here</p>
+        </div>
+      ) : summaries.map(b => {
+        const badge = get1099Status(b.ytd_winnings);
+        const isExpanded = expandedId === b.id;
+        return (
+          <div key={b.id} className="staking-backer-card" style={{flexDirection:'column',alignItems:'stretch',cursor:'pointer'}}
+            onClick={() => setExpandedId(isExpanded ? null : b.id)}>
+            {/* Header row */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div style={{minWidth:0,flex:1}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                  <span style={{fontWeight:600,fontSize:14}}>{b.name}</span>
+                  {badge && (
+                    <span style={{
+                      fontSize:10,fontWeight:600,color:'#fff',padding:'2px 8px',borderRadius:999,
+                      background: badge.color, letterSpacing:0.5
+                    }}>{badge.label}</span>
+                  )}
+                  {b.active_count > 0 && (
+                    <span style={{fontSize:10,color:'var(--text-muted)',background:'var(--bg-hover)',padding:'2px 6px',borderRadius:4}}>
+                      {b.active_count} active
+                    </span>
+                  )}
+                </div>
+                {b.email && <div style={{fontSize:12,color:'var(--text-secondary)',marginTop:2}}>{b.email}</div>}
+                {b.phone && <div style={{fontSize:12,color:'var(--text-muted)'}}>{b.phone}</div>}
+              </div>
+              <div style={{textAlign:'right',flexShrink:0,marginLeft:12}}>
+                <div style={{fontSize:13,fontWeight:700,color: b.net_pl >= 0 ? '#22c55e' : '#ef4444'}}>
+                  {b.net_pl >= 0 ? '+' : ''}{formatBuyin(b.net_pl)}
+                </div>
+                <div style={{fontSize:11,color:'var(--text-muted)'}}>net P&amp;L</div>
+              </div>
+            </div>
+
+            {/* Stats row */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:10,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:12,fontWeight:600}}>{formatBuyin(b.total_invested)}</div>
+                <div style={{fontSize:10,color:'var(--text-muted)'}}>Invested</div>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:12,fontWeight:600}}>{formatBuyin(b.total_returned)}</div>
+                <div style={{fontSize:10,color:'var(--text-muted)'}}>Returned</div>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:12,fontWeight:600,color: b.ytd_winnings > 0 ? '#f59e0b' : 'var(--text-secondary)'}}>
+                  {formatBuyin(b.ytd_winnings)}
+                </div>
+                <div style={{fontSize:10,color:'var(--text-muted)'}}>YTD</div>
+              </div>
+            </div>
+
+            {/* Expanded: active agreements */}
+            {isExpanded && b.agreements && b.agreements.length > 0 && (
+              <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+                <div style={{fontSize:11,fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,marginBottom:6,
+                  fontFamily:'Univers Condensed, Univers, sans-serif'}}>Active Agreements</div>
+                {b.agreements.map((ag, i) => (
+                  <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    padding:'5px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
+                    <div style={{minWidth:0,flex:1}}>
+                      <span style={{fontWeight:500}}>{ag.series_name}</span>
+                      <span style={{marginLeft:6,fontSize:11,color:'var(--text-muted)'}}>{BACKER_TYPE_LABELS[ag.backer_type] || ag.backer_type}</span>
+                    </div>
+                    <span style={{color:'var(--accent)',fontWeight:600,flexShrink:0,marginLeft:8}}>{ag.pct}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {isExpanded && b.agreements && b.agreements.length === 0 && (
+              <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid var(--border)',fontSize:12,color:'var(--text-muted)'}}>
+                No active agreements
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -783,7 +913,7 @@ function AgreementForm({ token, seriesId, backers, onClose, onSaved, tournaments
     setSaving(false);
   };
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <div className="notif-backdrop" onClick={onClose}>
       <div className="staking-modal" onClick={e => e.stopPropagation()}>
         <div className="staking-modal-header">
@@ -1016,6 +1146,24 @@ function StakingEventTracking({ seriesId, agreements, eventStatuses, tournaments
 
 function StakingSettlementView({ seriesId, settlementData, token, fetchSettlement, fetchSeries }) {
   const [settling, setSettling] = useState(false);
+  const [backerYtd, setBackerYtd] = useState({}); // backerId -> ytd_winnings
+
+  // Load backer YTD data for 1099 section
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/staking/backers/summary`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const map = {};
+          data.forEach(b => { map[b.id] = b.ytd_winnings; });
+          setBackerYtd(map);
+        }
+      } catch {}
+    })();
+  }, []);
 
   const handleFinalize = async () => {
     if (!confirm('Finalize settlement? This will lock in the P&L calculations.')) return;
@@ -1052,6 +1200,22 @@ function StakingSettlementView({ seriesId, settlementData, token, fetchSettlemen
     return <div style={{textAlign:'center',color:'var(--text-secondary)',padding:'30px 20px',fontSize:13}}>No agreements to settle. Add agreements and log events first.</div>;
   }
 
+  // Build 1099 rows: backers with positive returns in this settlement
+  const positiveSettlements = settlements.filter(s => {
+    const grossReturn = s.gross_return || s.grossReturn || 0;
+    return grossReturn > 0;
+  });
+  // De-dup by backerId, summing returns if multiple agreements
+  const backerReturnMap = {};
+  for (const s of positiveSettlements) {
+    const bid = s.backer_id || s.backerId;
+    const name = s.backer_name || s.backerName || 'Backer';
+    const ret = s.gross_return || s.grossReturn || 0;
+    if (!backerReturnMap[bid]) backerReturnMap[bid] = { id: bid, name, thisSettlement: 0 };
+    backerReturnMap[bid].thisSettlement += ret;
+  }
+  const backerReturnRows = Object.values(backerReturnMap);
+
   return (
     <div style={{padding:'12px 16px'}}>
       {settlements.map((s, i) => {
@@ -1085,6 +1249,48 @@ function StakingSettlementView({ seriesId, settlementData, token, fetchSettlemen
         );
       })}
 
+      {/* 1099 Summary Section */}
+      {backerReturnRows.length > 0 && (
+        <div style={{marginTop:20,paddingTop:16,borderTop:'2px solid var(--border)'}}>
+          <div style={{fontFamily:'Univers Condensed, Univers, sans-serif',textTransform:'uppercase',letterSpacing:1,
+            fontSize:12,fontWeight:700,color:'var(--text-muted)',marginBottom:10}}>1099 Summary</div>
+          {backerReturnRows.map(row => {
+            const ytd = backerYtd[row.id] || 0;
+            // After this settlement, YTD would be ytd (which already includes any settled amounts)
+            // Use ytd as the "total including this settlement" approximation
+            let indicator;
+            if (ytd >= 600) {
+              indicator = { icon: '\u26d4', label: 'Required ($600+)', color: '#ef4444' };
+            } else if (ytd >= 400) {
+              indicator = { icon: '\u26a0', label: 'Near threshold ($400+)', color: '#f59e0b' };
+            } else {
+              indicator = { icon: '\u2713', label: 'Under threshold', color: '#22c55e' };
+            }
+            return (
+              <div key={row.id} style={{
+                display:'flex',justifyContent:'space-between',alignItems:'center',
+                padding:'8px 10px',marginBottom:6,borderRadius:8,
+                background:'var(--surface)',border:'1px solid var(--border)',fontSize:12
+              }}>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontWeight:600}}>{row.name}</div>
+                  <div style={{color:'var(--text-muted)',marginTop:2}}>
+                    This settlement: <strong>{formatBuyin(row.thisSettlement)}</strong>
+                    {' \u00b7 '}YTD: <strong style={{color: ytd >= 600 ? '#ef4444' : ytd >= 400 ? '#f59e0b' : 'inherit'}}>
+                      {formatBuyin(ytd)}
+                    </strong>
+                  </div>
+                </div>
+                <div style={{flexShrink:0,marginLeft:10,textAlign:'right',fontSize:11,color:indicator.color,fontWeight:600}}>
+                  <span style={{fontSize:14,marginRight:4}}>{indicator.icon}</span>
+                  {indicator.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {!settlementData.isSettled && (
         <button
           className="create-group-submit"
@@ -1105,6 +1311,7 @@ export {
   StakingSeriesList,
   StakingSeriesForm,
   BackerManager,
+  BackerSummaryView,
   StakingSeriesDetail,
   AgreementsList,
   AgreementForm,

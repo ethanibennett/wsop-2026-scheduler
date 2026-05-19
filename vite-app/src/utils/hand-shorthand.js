@@ -9,7 +9,11 @@ export const GAME_CODES = {
   'LO Hi':'LH', 'PLH':'PH', 'Razz':'R', 'Stud Hi':'SH', 'Stud 8':'S8',
   'Stud Hi-Lo':'SL', '2-7 Razz':'2R', '2-7 TD':'TD', 'NL 2-7 SD':'SD',
   'PL 2-7 TD':'PT', 'L 2-7 TD':'LT', 'A-5 TD':'A5', 'Badugi':'BG',
-  'Badeucy':'BC', 'Badacy':'BA', 'PL 5CD Hi':'PD', 'OFC':'OF'
+  'Badeucy':'BC', 'Badacy':'BA', 'PL 5CD Hi':'PD', 'OFC':'OF',
+  'PLO5':'P5', 'PLO6':'P6', 'Big Easy':'BE', 'Ultimate Big O':'UB',
+  'Crazy Pineapple':'CP', 'Very Crazy Pineapple':'VP', 'Hideaway':'HW',
+  'NL Stud Hi':'NS', 'PL Stud Hi':'PS', 'NL Stud 8':'N8', 'PL Stud 8':'G8',
+  'NL Razz':'NZ', 'PL Razz':'PZ'
 };
 
 export const GAME_CODES_REV = {};

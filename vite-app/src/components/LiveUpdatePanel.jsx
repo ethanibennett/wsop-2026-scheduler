@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
 import { CameraOverlay, RegistrationCameraFlow } from './CameraOverlay.jsx';
 import { API_URL } from '../utils/api.js';
@@ -446,11 +446,11 @@ export default function LiveUpdatePanel({ mySchedule, myActiveUpdates, onPost, o
       >
         <Icon.signal />
       </button>
-      {open && !cameraOpen && !registrationOpen && ReactDOM.createPortal(
+      {open && !cameraOpen && !registrationOpen && createPortal(
         <div className="dropdown-backdrop" onClick={() => setOpen(false)} />,
         document.body
       )}
-      {open && !cameraOpen && !registrationOpen && ReactDOM.createPortal(
+      {open && !cameraOpen && !registrationOpen && createPortal(
         <div ref={panelRef} className="live-update-panel" style={(() => {
           const r = toggleRef.current?.getBoundingClientRect();
           if (!r) return { top: 68, left: '50%', transform: 'translateX(-50%)' };
@@ -802,7 +802,7 @@ export default function LiveUpdatePanel({ mySchedule, myActiveUpdates, onPost, o
         </div>,
         document.body
       )}
-      {cameraOpen && ReactDOM.createPortal(
+      {cameraOpen && createPortal(
         <CameraOverlay
           updateData={buildUpdateData()}
           tournamentName={selectedTournamentName}
@@ -818,7 +818,7 @@ export default function LiveUpdatePanel({ mySchedule, myActiveUpdates, onPost, o
         />,
         document.body
       )}
-      {registrationOpen && selectedTournament && ReactDOM.createPortal(
+      {registrationOpen && selectedTournament && createPortal(
         <RegistrationCameraFlow
           tournament={selectedTournament}
           guarantee={selectedTournament.prize_pool || null}

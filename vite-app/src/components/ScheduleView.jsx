@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
-import CalendarEventRow from './CalendarEventRow.jsx';
+import CalendarEventRow, { CalendarEventRowLite } from './CalendarEventRow.jsx';
 import ScheduleExportModal from './ScheduleExportModal.jsx';
 import {
   getVenueInfo, normaliseDate, getToday, fmtShortDate, formatBuyin, currencySymbol,
@@ -122,8 +122,23 @@ export default function ScheduleView({
   const [showTravelPicker, setShowTravelPicker] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [schedDateTop, setSchedDateTop] = useState(0);
-  const [listVisible, setListVisible] = useState(false);
   const fabContainerRef = useRef(null);
+
+  // Track which rows have been expanded — only those get the full (heavy)
+  // CalendarEventRow component. All others render CalendarEventRowLite
+  // (zero hooks, zero context subscriptions).
+  const [activatedIds, setActivatedIds] = useState(() => new Set());
+  const activateRow = useCallback((id) => {
+    setActivatedIds(prev => { const s = new Set(prev); s.add(id); return s; });
+  }, []);
+
+  // Progressive rendering: mount first batch instantly, then fill in the rest
+  // via animation frames so the tab opens immediately.
+  // (The matching useEffect that grows visibleCount lives below the `sorted`
+  // declaration — it has to, because its dep array reads `sorted.length`,
+  // which would be a TDZ ReferenceError if read here.)
+  const [visibleCount, setVisibleCount] = useState(3);
+  useLayoutEffect(() => { setVisibleCount(3); setActivatedIds(new Set()); }, [mySchedule]);
 
   useEffect(() => {
     const measure = () => {
@@ -151,12 +166,38 @@ export default function ScheduleView({
 
   const todayISO = getToday();
 
-  const sorted = useMemo(() =>
-    [...mySchedule].sort((a, b) => {
-      const da = parseTournamentTime(a);
-      const db = parseTournamentTime(b);
-      return da - db;
-    }), [mySchedule]);
+  const sorted = useMemo(() => {
+    // Pre-compute timestamps once (O(n)) instead of per-comparison (O(n log n))
+    const withTs = mySchedule.map(t => ({ t, ts: parseTournamentTime(t) }));
+    withTs.sort((a, b) => a.ts - b.ts);
+    return withTs.map(x => x.t);
+  }, [mySchedule]);
+
+  // Grow visibleCount by 10 per frame until we've mounted every event.
+  // Lives here (not next to setVisibleCount above) because the dep array
+  // reads `sorted.length`, which would TDZ-throw if read earlier.
+  useEffect(() => {
+    if (visibleCount >= sorted.length) return;
+    const id = requestAnimationFrame(() => setVisibleCount(v => Math.min(v + 10, sorted.length)));
+    return () => cancelAnimationFrame(id);
+  }, [visibleCount, sorted.length]);
+
+  // Pre-group events by date so the render body doesn't re-run the loop.
+  const groups = useMemo(() => {
+    const result = [];
+    let currentGroup = null;
+    let globalIdx = 0;
+    for (const t of sorted) {
+      const d = normaliseDate(t.date);
+      if (!currentGroup || currentGroup.date !== d) {
+        currentGroup = { date: d, events: [] };
+        result.push(currentGroup);
+      }
+      currentGroup.events.push({ t, globalIdx });
+      globalIdx++;
+    }
+    return result;
+  }, [sorted]);
 
   // Today/Next FAB — mirrors TournamentsView. Renders a button into
   // fabContainerRef, then toggles its `.visible` class based on whether
@@ -213,27 +254,29 @@ export default function ScheduleView({
     };
   }, [sorted, todayISO]);
 
-  useLayoutEffect(() => {
-    if (sorted.length === 0) { setListVisible(true); return; }
-    if (hasScrolled.current) return;
-    if (!todayRef.current) { setListVisible(true); return; }
+  useEffect(() => {
+    if (sorted.length === 0 || hasScrolled.current || !todayRef.current) return;
     hasScrolled.current = true;
     const el = todayRef.current;
     const container = el.closest('.content-area') || document.querySelector('.content-area');
-    if (!container) { setListVisible(true); return; }
+    if (!container) return;
     const cRect = container.getBoundingClientRect();
     const sticky = container.querySelector('.schedule-sticky-header');
-    const stickyH = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - container.getBoundingClientRect().top) : 0;
+    const stickyH = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - cRect.top) : 0;
     const elAbsTop = el.getBoundingClientRect().top - cRect.top + container.scrollTop;
     container.scrollTop = Math.max(0, elAbsTop - stickyH);
-    setListVisible(true);
   }, [sorted]);
 
-  function findBestFlightSchedule(eventNum, sat) {
+  const findBestFlightSchedule = useCallback((eventNum, sat) => {
     const flights = sorted.filter(t => t.event_number === eventNum);
     const best = findClosestFlight(flights, parseTournamentTime(sat));
     return best ? best.id : null;
-  }
+  }, [sorted]);
+
+  const handleNavigateToEvent = useCallback((num, sat) => {
+    const targetId = findBestFlightSchedule(num, sat);
+    if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
+  }, [findBestFlightSchedule]);
 
   return (
     <div>
@@ -321,18 +364,6 @@ export default function ScheduleView({
       )}
       <div style={{minHeight:'100vh', paddingBottom:'100vh'}}>
         {(() => {
-          const groups = [];
-          let currentGroup = null;
-          let globalIdx = 0;
-          for (const t of sorted) {
-            const d = normaliseDate(t.date);
-            if (!currentGroup || currentGroup.date !== d) {
-              currentGroup = { date: d, events: [] };
-              groups.push(currentGroup);
-            }
-            currentGroup.events.push({ t, globalIdx });
-            globalIdx++;
-          }
           let scrollRefAssigned = false;
           return groups.map((group, gi) => {
             const isGroupToday = group.date === todayISO;
@@ -374,35 +405,49 @@ export default function ScheduleView({
                   )}
                 </div>
                 {group.events.map(({ t, globalIdx: gIdx }) => {
+                  if (gIdx >= visibleCount) return null;
+                  // Today's rows need the full component for MiniLateRegBar timers.
+                  // Focused rows need full component for auto-expand.
+                  // Activated rows have been tapped open at least once.
+                  const needsFull = isGroupToday || activatedIds.has(t.id) || focusEventId === t.id;
                   return (
                   <div key={t.id} style={{contentVisibility:'auto', containIntrinsicSize:'auto 72px'}}>
-                    <CalendarEventRow
-                      tournament={t}
-                      isInSchedule={true}
-                      onToggle={onToggle}
-                      isPast={past}
-                      showMiniLateReg={isGroupToday}
-                      focusEventId={focusEventId}
-                      onNavigateToEvent={(num, sat) => {
-                        const targetId = findBestFlightSchedule(num, sat);
-                        if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
-                      }}
-                      conditions={extractConditions(t)}
-                      onSetCondition={onSetCondition}
-                      onRemoveCondition={onRemoveCondition}
-                      allTournaments={allTournaments}
-                      isAnchor={!!t.is_anchor}
-                      onToggleAnchor={onToggleAnchor}
-                      plannedEntries={t.planned_entries || 1}
-                      onSetPlannedEntries={onSetPlannedEntries}
-                      onUpdatePersonalEvent={onUpdatePersonalEvent}
-                      buddyEvents={buddyEvents}
-                      buddyLiveUpdates={buddyLiveUpdates}
-                      onBuddySwap={onBuddySwap}
-                      scheduleIds={scheduleIds}
-                      isAdmin={isAdmin}
-                      onAdminEdit={onAdminEdit}
-                    />
+                    {needsFull ? (
+                      <CalendarEventRow
+                        tournament={t}
+                        isInSchedule={true}
+                        onToggle={onToggle}
+                        isPast={past}
+                        showMiniLateReg={isGroupToday}
+                        focusEventId={focusEventId}
+                        onNavigateToEvent={handleNavigateToEvent}
+                        conditionsJson={t.conditions_json}
+                        onSetCondition={onSetCondition}
+                        onRemoveCondition={onRemoveCondition}
+                        allTournaments={allTournaments}
+                        isAnchor={!!t.is_anchor}
+                        onToggleAnchor={onToggleAnchor}
+                        plannedEntries={t.planned_entries || 1}
+                        onSetPlannedEntries={onSetPlannedEntries}
+                        onUpdatePersonalEvent={onUpdatePersonalEvent}
+                        buddyEvents={buddyEvents}
+                        buddyLiveUpdates={buddyLiveUpdates}
+                        onBuddySwap={onBuddySwap}
+                        scheduleIds={scheduleIds}
+                        isAdmin={isAdmin}
+                        onAdminEdit={onAdminEdit}
+                        initialOpen={activatedIds.has(t.id)}
+                      />
+                    ) : (
+                      <CalendarEventRowLite
+                        tournament={t}
+                        isInSchedule={true}
+                        isPast={past}
+                        isAnchor={!!t.is_anchor}
+                        conditionsJson={t.conditions_json}
+                        onExpand={() => activateRow(t.id)}
+                      />
+                    )}
                   </div>
                   );
                 })}

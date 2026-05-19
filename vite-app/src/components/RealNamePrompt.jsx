@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import { API_URL } from '../utils/api.js';
 
 export default function RealNamePrompt({ onSave, onDismiss, token }) {
@@ -22,7 +22,7 @@ export default function RealNamePrompt({ onSave, onDismiss, token }) {
     } catch (e) { console.error('Profile save:', e); setErr('Network error'); setSaving(false); }
   };
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <div className="modal-backdrop" onClick={onDismiss}>
       <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '380px' }}>
         <h3 style={{ marginBottom: '4px' }}>What's your name?</h3>

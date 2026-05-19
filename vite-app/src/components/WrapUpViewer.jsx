@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import {
   computeScorecardData, drawWrapSlide1, drawWrapSlide2, drawWrapSlide3,
   drawWrapSlide4, drawWrapSlide5, shareOrDownloadCanvas,
@@ -40,7 +40,7 @@ export default function WrapUpViewer({ trackingData, tournaments, onClose }) {
     slideFns[currentSlide](ctx, 1080, 1920, data);
   }, [currentSlide, data]);
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <>
       <div className="share-menu-backdrop" onClick={onClose} />
       <div className="share-menu-panel" style={{ maxHeight: '85vh' }}>

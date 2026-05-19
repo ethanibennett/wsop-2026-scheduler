@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import { getVenueInfo, currencySymbol, normaliseDate, getToday, parseTournamentTime, VENUE_COORDS, LOCATION_REGIONS } from '../utils/utils.js';
 import { generateSchedulePDF, generateScheduleImages, shareOrDownloadCanvas } from '../utils/export.js';
 
@@ -147,7 +147,7 @@ export default function ScheduleExportModal({ events, onClose }) {
     }, 0);
   }, [filteredEvents]);
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <>
       <div className="share-menu-backdrop" onClick={onClose} />
       <div className="share-menu-panel" style={{ maxHeight: '85vh' }}>

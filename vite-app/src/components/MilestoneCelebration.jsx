@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import { drawMilestoneImage, shareOrDownloadCanvas } from '../utils/export.js';
 
 export default function MilestoneCelebration({ milestone, onShare, onDismiss }) {
@@ -21,7 +21,7 @@ export default function MilestoneCelebration({ milestone, onShare, onDismiss }) 
     if (onShare) onShare();
   };
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <div className="milestone-modal-backdrop" onClick={onDismiss}>
       <div className="milestone-modal" onClick={e => e.stopPropagation()}>
         <div className="milestone-icon">{icons[milestone.type] || '\u2B50'}</div>

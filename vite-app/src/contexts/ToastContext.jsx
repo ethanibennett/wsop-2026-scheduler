@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 
 const ToastContext = createContext(null);
 
@@ -37,7 +37,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={ctx}>
       {children}
-      {ReactDOM.createPortal(
+      {createPortal(
         <div className="toast-container">
           {toasts.map(t => (
             <div

@@ -391,6 +391,12 @@ export function getVenueTzAbbr(venue) {
   } catch(e) { return ''; }
 }
 
+// Result cache: (isoDate|h|min|venue) → timestamp. Many tournaments share
+// the same date+time+venue (heats/flights), and Array.sort on ~2500 events
+// would otherwise invoke toLocaleString 9000+ times. Memoising drops the
+// per-call cost from ~0.1ms to a Map lookup.
+var parseDateTimeInTzCache = new Map();
+
 export function parseDateTimeInTz(date, time, venue) {
   if (!date) return NaN;
   var t = (time && time !== 'TBD') ? time : '12:00 AM';
@@ -409,7 +415,11 @@ export function parseDateTimeInTz(date, time, venue) {
     h = m24 ? parseInt(m24[1]) : 12;
     min = m24 ? m24[2] : '00';
   }
+  var cacheKey = isoDate + '|' + h + '|' + min + '|' + tz;
+  var cached = parseDateTimeInTzCache.get(cacheKey);
+  if (cached !== undefined) return cached;
   var dtStr = isoDate + 'T' + String(h).padStart(2, '0') + ':' + min + ':00';
+  var result;
   try {
     var naive = new Date(dtStr + 'Z');
     var utcStr = naive.toLocaleString('en-US', { timeZone: 'UTC' });
@@ -417,10 +427,12 @@ export function parseDateTimeInTz(date, time, venue) {
     var utcMs = new Date(utcStr).getTime();
     var tzMs = new Date(tzStr).getTime();
     var offset = utcMs - tzMs;
-    return naive.getTime() + offset;
+    result = naive.getTime() + offset;
   } catch(e) {
-    return new Date(dtStr).getTime();
+    result = new Date(dtStr).getTime();
   }
+  parseDateTimeInTzCache.set(cacheKey, result);
+  return result;
 }
 
 // ── Helpers ──────────────────────────────────────────────

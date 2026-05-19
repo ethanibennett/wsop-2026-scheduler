@@ -110,7 +110,7 @@ app.use(helmet({
 // CORS — restrict to known origins
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3001', 'http://localhost:3000', 'capacitor://localhost', 'http://localhost', 'https://futurega.me', 'http://futurega.me', 'https://www.futurega.me', 'http://www.futurega.me'];
+  : ['http://localhost:3001', 'http://localhost:3000', 'http://localhost:5173', 'capacitor://localhost', 'http://localhost', 'https://futurega.me', 'http://futurega.me', 'https://www.futurega.me', 'http://www.futurega.me'];
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, same-origin)
@@ -6399,6 +6399,153 @@ app.put('/api/staking/markup-settings', authenticateToken, requireRegistered, as
   }
 });
 
+// ── Backer Summary (P&L + 1099 tracking) ─────────────────
+// Returns per-backer aggregate stats across ALL series for this user.
+// YTD winnings = gross_return - gross_investment summed over settled series
+// where the settlement year matches the current calendar year.
+app.get('/api/staking/backers/summary', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const currentYear = new Date().getFullYear();
+
+    // Get all backers for this user
+    const backerStmt = db.prepare(
+      `SELECT id, name, email, phone, notes FROM backers WHERE user_id = ? ORDER BY name`
+    );
+    backerStmt.bind([userId]);
+    const backers = [];
+    while (backerStmt.step()) backers.push(backerStmt.getAsObject());
+    backerStmt.free();
+
+    if (backers.length === 0) return res.json([]);
+
+    // Get all settled backer_settlements for this user (across all series)
+    const settledStmt = db.prepare(
+      `SELECT bs.backer_id, bs.gross_investment, bs.gross_return, bs.net_pnl,
+              ss.end_date, ss.start_date
+       FROM backer_settlements bs
+       JOIN staking_series ss ON bs.series_id = ss.id
+       WHERE ss.user_id = ?`
+    );
+    settledStmt.bind([userId]);
+    const allSettlements = [];
+    while (settledStmt.step()) allSettlements.push(settledStmt.getAsObject());
+    settledStmt.free();
+
+    // Get active (non-settled) agreements with their series info for "active_count"
+    const activeStmt = db.prepare(
+      `SELECT ba.backer_id, ba.percentage, ba.backer_type,
+              ss.name AS series_name, ss.id AS series_id
+       FROM backer_agreements ba
+       JOIN staking_series ss ON ba.series_id = ss.id
+       WHERE ss.user_id = ? AND ba.is_active = 1 AND ss.status != 'settled'`
+    );
+    activeStmt.bind([userId]);
+    const activeAgreements = [];
+    while (activeStmt.step()) activeAgreements.push(activeStmt.getAsObject());
+    activeStmt.free();
+
+    // Get event statuses for active (unsettled) series to calculate unsettled invested/returned
+    const unsettledEventsStmt = db.prepare(
+      `SELECT ba.backer_id, ba.percentage, ba.markup, ba.backer_type,
+              bes.buyin_amount, bes.cash_amount, bes.bullets_used, bes.tip_amount,
+              bes.currency_rate, bes.status,
+              t.event_name, t.date, ss.name AS series_name, ss.id AS series_id,
+              t.buyin AS t_buyin
+       FROM backer_event_status bes
+       JOIN backer_agreements ba ON bes.agreement_id = ba.id
+       JOIN staking_series ss ON ba.series_id = ss.id
+       JOIN tournaments t ON bes.tournament_id = t.id
+       WHERE ss.user_id = ? AND ss.status != 'settled' AND bes.status != 'cancelled'`
+    );
+    unsettledEventsStmt.bind([userId]);
+    const unsettledEvents = [];
+    while (unsettledEventsStmt.step()) unsettledEvents.push(unsettledEventsStmt.getAsObject());
+    unsettledEventsStmt.free();
+
+    // Build summary per backer
+    const result = backers.map(b => {
+      const backerSettlements = allSettlements.filter(s => s.backer_id === b.id);
+
+      // All-time totals from settled series
+      const totalInvested = backerSettlements.reduce((sum, s) => sum + (s.gross_investment || 0), 0);
+      const totalReturned = backerSettlements.reduce((sum, s) => sum + (s.gross_return || 0), 0);
+
+      // YTD winnings: sum of (gross_return - gross_investment) for series that ended/started this year
+      // We consider a settlement "this year" if the series end_date (or start_date) falls in current year
+      let ytdWinnings = 0;
+      for (const s of backerSettlements) {
+        const yearStr = (s.end_date || s.start_date || '').substring(0, 4);
+        if (parseInt(yearStr, 10) === currentYear) {
+          const profit = (s.gross_return || 0) - (s.gross_investment || 0);
+          if (profit > 0) ytdWinnings += profit;
+        }
+      }
+
+      // Unsettled: compute running invested/returned from event statuses
+      const backerEvents = unsettledEvents.filter(e => e.backer_id === b.id);
+      let unsettledInvested = 0;
+      let unsettledReturned = 0;
+      for (const ev of backerEvents) {
+        const pct = (ev.percentage || 0) / 100;
+        const markup = ev.markup || 1.0;
+        const buyin = (ev.buyin_amount || ev.t_buyin || 0) * (ev.bullets_used || 1);
+        const cash = ev.cash_amount || 0;
+        const tip = ev.tip_amount || 0;
+        const rate = ev.currency_rate || 1.0;
+        const buyinC = buyin * rate;
+        const cashC = cash * rate;
+        const tipC = tip * rate;
+
+        if (ev.backer_type === 'profit_share_only') {
+          const net = cashC - buyinC - tipC;
+          if (net > 0) unsettledReturned += net * pct;
+        } else {
+          unsettledInvested += buyinC * pct * markup;
+          unsettledReturned += (cashC - tipC) * pct;
+        }
+      }
+
+      const grandTotalInvested = totalInvested + unsettledInvested;
+      const grandTotalReturned = totalReturned + unsettledReturned;
+      const netPl = grandTotalReturned - grandTotalInvested;
+
+      // Active agreements (de-duped by series)
+      const backerActive = activeAgreements.filter(a => a.backer_id === b.id);
+      const activeCount = backerActive.length;
+
+      // Build agreement list for active deals — include series name + estimated $ amount
+      // Dollar amount = percentage * (typical or last known buyin) — we don't have a single buyin here,
+      // so we just return pct and series context. Client can format as needed.
+      const agreements = backerActive.map(a => ({
+        series_name: a.series_name,
+        series_id: a.series_id,
+        pct: a.percentage,
+        backer_type: a.backer_type,
+      }));
+
+      return {
+        id: b.id,
+        name: b.name,
+        email: b.email || null,
+        phone: b.phone || null,
+        notes: b.notes || null,
+        total_invested: Math.round(grandTotalInvested * 100) / 100,
+        total_returned: Math.round(grandTotalReturned * 100) / 100,
+        net_pl: Math.round(netPl * 100) / 100,
+        ytd_winnings: Math.round(ytdWinnings * 100) / 100,
+        active_count: activeCount,
+        agreements,
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Backer summary error:', error);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
 // ── Saved Hands (Hand Replayer) ──────────────────────────
 
 app.get('/api/hands', authenticateToken, (req, res) => {
@@ -6699,12 +6846,13 @@ app.get('/api/replayer/hands/:id', authenticateToken, (req, res) => {
 
 app.post('/api/replayer/hands', authenticateToken, requireRegistered, async (req, res) => {
   try {
-    const hand = req.body;
-    const handData = JSON.stringify(hand);
-    const gameType = hand.gameKey || hand.gameDefinition?.shortName || 'custom';
+    // Body shape: { handData: <hand object>, gameType, title, notes, isPublic }
+    const { handData: hand, gameType: bodyGameType, title, notes, isPublic } = req.body;
+    if (!hand) return res.status(400).json({ error: 'handData is required' });
+    const gameType = bodyGameType || hand.gameType || 'custom';
     db.run(
-      'INSERT INTO saved_hands (user_id, hand_data, game_type, title, notes) VALUES (?, ?, ?, ?, ?)',
-      [req.user.id, handData, gameType, hand.title || null, hand.notes || null]
+      'INSERT INTO saved_hands (user_id, hand_data, game_type, title, notes, is_public) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.id, JSON.stringify(hand), gameType, title || hand.title || null, notes || hand.notes || null, isPublic ? 1 : 0]
     );
     await saveDatabase();
     const idStmt = db.prepare('SELECT last_insert_rowid() as id');
@@ -6725,11 +6873,11 @@ app.put('/api/replayer/hands/:id', authenticateToken, requireRegistered, async (
     checkStmt.bind([id, req.user.id]);
     if (!checkStmt.step()) { checkStmt.free(); return res.status(404).json({ error: 'Not found' }); }
     checkStmt.free();
-    const hand = req.body;
-    const handData = JSON.stringify(hand);
-    const gameType = hand.gameKey || hand.gameDefinition?.shortName || 'custom';
-    db.run('UPDATE saved_hands SET hand_data = ?, game_type = ?, title = ?, notes = ? WHERE id = ? AND user_id = ?',
-      [handData, gameType, hand.title || null, hand.notes || null, id, req.user.id]);
+    const { handData: hand, gameType: bodyGameType, title, notes, isPublic } = req.body;
+    if (!hand) return res.status(400).json({ error: 'handData is required' });
+    const gameType = bodyGameType || hand.gameType || 'custom';
+    db.run('UPDATE saved_hands SET hand_data = ?, game_type = ?, title = ?, notes = ?, is_public = ? WHERE id = ? AND user_id = ?',
+      [JSON.stringify(hand), gameType, title || hand.title || null, notes || hand.notes || null, isPublic ? 1 : 0, id, req.user.id]);
     await saveDatabase();
     res.json({ message: 'Updated' });
   } catch (error) {

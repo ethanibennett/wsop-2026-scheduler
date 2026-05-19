@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import {
   computeScorecardData, drawSeriesScorecard, drawCountdownStory,
   drawPollEventVsEvent, shareOrDownloadCanvas,
@@ -100,7 +100,7 @@ export default function ShareMenu({ trackingData, tournaments, mySchedule, myAct
     onClose();
   };
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <>
       <div className="share-menu-backdrop" onClick={onClose} />
       <div className="share-menu-panel">

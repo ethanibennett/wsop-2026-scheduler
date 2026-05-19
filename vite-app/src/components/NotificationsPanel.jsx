@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import { API_URL } from '../utils/api.js';
@@ -84,7 +84,7 @@ export default function NotificationsPanel({ notifications, token, onClose, fetc
     return `${days}d ago`;
   };
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <>
       <div className="notif-backdrop" onClick={onClose} />
       <div className="notif-panel">

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
-import CalendarEventRow from './CalendarEventRow.jsx';
+import CalendarEventRow, { CalendarEventRowLite } from './CalendarEventRow.jsx';
 import LocationDropdown from './LocationDropdown.jsx';
 import {
   getVenueInfo, normaliseDate, getToday, haptic, fmtShortDate, daysBetween, addDays,
@@ -146,11 +146,11 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         </div>
       </div>
 
-      {open && ReactDOM.createPortal(
+      {open && createPortal(
         <div className="dropdown-backdrop" onClick={() => setOpen(false)} />,
         document.body
       )}
-      {open && ReactDOM.createPortal(
+      {open && createPortal(
         <div ref={panelRef} className="filter-panel" style={(() => {
           const r = toggleRef.current?.getBoundingClientRect();
           if (!r) return { top: 60, left: 8, right: 8 };
@@ -673,7 +673,7 @@ function ImportSchedulePanel({ isOpen, onClose, token, onRefreshTournaments }) {
 
   if (!isOpen) return null;
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <>
       <div style={{position:'fixed',inset:0,zIndex:998}} onClick={() => { if (!visionParsing && !visionImporting) onClose(); }} />
       <div style={{
@@ -919,10 +919,23 @@ export default function TournamentsView({
   const filterToggleRef = useRef(null);
   const [focusEventId, setFocusEventId] = useState(null);
   const [renderedGroupCount, setRenderedGroupCount] = useState(8);
+  // Track which rows have been tapped open — only those get the full
+  // CalendarEventRow with hooks/context. All others render the zero-hook
+  // CalendarEventRowLite shell.
+  const [activatedIds, setActivatedIds] = useState(() => new Set());
+  const activateRow = useCallback((id) => {
+    setActivatedIds(prev => { const s = new Set(prev); s.add(id); return s; });
+  }, []);
   const loadMoreRef = useRef(null);
   const todayScrollRef = useRef(null);
   const hasScrolled = useRef(false);
   const stickyFiltersRef = useRef(null);
+  // Past dates aren't visible after the initial scroll-to-today and
+  // rendering ~50 days of pre-today rows is the bulk of first-paint cost
+  // (~250 rows of DOM + reconciliation). Render today onwards first, then
+  // backfill past on the next idle tick — useLayoutEffect re-pins today
+  // so the user doesn't see the layout shift.
+  const [includePast, setIncludePast] = useState(false);
 
   // Single source of truth for "scroll a date group to the top of the
   // events area" — same landing y as scrollBelowSticky uses for an
@@ -1094,7 +1107,7 @@ export default function TournamentsView({
   }, [tournaments]);
 
   const filtered = useMemo(() => {
-    return tournaments
+    const passed = tournaments
       .filter(t => {
         if (endedVenues.has(t.venue)) return false;
         if (deferredSearch) {
@@ -1171,15 +1184,21 @@ export default function TournamentsView({
         if (filters.dateFrom && normaliseDate(t.date) < filters.dateFrom) return false;
         if (filters.dateTo && normaliseDate(t.date) > filters.dateTo) return false;
         return true;
-      })
-      .sort((a, b) => {
-        const da = parseTournamentTime(a);
-        const db = parseTournamentTime(b);
-        if (da !== db) return da - db;
-        const na = (a.event_number || '').startsWith('SAT') ? 10000 + parseInt((a.event_number || '').slice(4)) : (parseInt(a.event_number) || 9999);
-        const nb = (b.event_number || '').startsWith('SAT') ? 10000 + parseInt((b.event_number || '').slice(4)) : (parseInt(b.event_number) || 9999);
-        return na - nb;
       });
+    // parseTournamentTime() → parseDateTimeInTz() calls toLocaleString twice
+    // per invocation (~1ms each). Array.sort calls the comparator O(n log n)
+    // times — for ~500 events that's ~9000 calls × 2 toLocaleStrings = 4s of
+    // main-thread blocking. Decorate-sort-undecorate: compute each event's
+    // timestamp ONCE up front, sort by the cached values, drop the wrapper.
+    const decorated = passed.map(t => {
+      const en = t.event_number || '';
+      const num = en.startsWith('SAT')
+        ? 10000 + parseInt(en.slice(4))
+        : (parseInt(en) || 9999);
+      return { t, ts: parseTournamentTime(t), num };
+    });
+    decorated.sort((a, b) => (a.ts - b.ts) || (a.num - b.num));
+    return decorated.map(x => x.t);
   }, [tournaments, deferredSearch, filters, endedVenues]);
 
   // Back-to-today FAB
@@ -1245,13 +1264,49 @@ export default function TournamentsView({
     return best ? best.id : null;
   }
 
-  // Auto-scroll to today's date group before first paint
+  // Auto-scroll to today's date group on first mount. Repeat over a few
+  // frames: when past dates backfill (and any contentVisibility:auto rows
+  // materialise from their intrinsic placeholder), the absolute position
+  // of today shifts down; re-firing the scroll converges on the correct
+  // spot before the browser paints.
   useLayoutEffect(() => {
-    if (!hasScrolled.current && todayScrollRef.current) {
-      hasScrolled.current = true;
-      scrollDateGroupToTop(todayScrollRef.current, 'auto');
-    }
+    if (hasScrolled.current || !todayScrollRef.current) return;
+    hasScrolled.current = true;
+    const settle = (remaining) => {
+      const el = todayScrollRef.current;
+      if (!el) return;
+      scrollDateGroupToTop(el, 'auto');
+      if (remaining > 0) requestAnimationFrame(() => settle(remaining - 1));
+    };
+    settle(4);
   }, [filtered, scrollDateGroupToTop]);
+
+  // Re-pin today after past dates backfill so the just-inserted history
+  // above doesn't push the visible content down. Multi-frame settle for
+  // the same reason as the initial scroll (contentVisibility rows
+  // materialise to real sizes over a few frames).
+  useLayoutEffect(() => {
+    if (!includePast || !todayScrollRef.current) return;
+    const settle = (remaining) => {
+      const el = todayScrollRef.current;
+      if (!el) return;
+      scrollDateGroupToTop(el, 'auto');
+      if (remaining > 0) requestAnimationFrame(() => settle(remaining - 1));
+    };
+    settle(4);
+  }, [includePast, scrollDateGroupToTop]);
+
+  // Backfill past dates on next idle tick so they don't block first paint.
+  useEffect(() => {
+    if (includePast) return;
+    const ric = window.requestIdleCallback;
+    if (ric) {
+      const id = ric(() => setIncludePast(true), { timeout: 400 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(() => setIncludePast(true), 50);
+    return () => clearTimeout(id);
+  }, [includePast]);
 
   return (
     <div>
@@ -1333,14 +1388,14 @@ export default function TournamentsView({
 
         <ImportSchedulePanel isOpen={importDropdownOpen} onClose={() => setImportDropdownOpen(false)} token={token} onRefreshTournaments={onRefreshTournaments} />
 
-        {locationDropdownOpen && ReactDOM.createPortal(
+        {locationDropdownOpen && createPortal(
           <div style={{position:'fixed',inset:0,zIndex:998}} onClick={() => setLocationDropdownOpen(false)} />,
           document.body
         )}
         {locationDropdownOpen && (() => {
           const btn = locationBtnRef.current;
           const rect = btn ? btn.getBoundingClientRect() : { left: 60, bottom: 100 };
-          return ReactDOM.createPortal(
+          return createPortal(
             <LocationDropdown
               rect={rect}
               filters={filters}
@@ -1388,8 +1443,13 @@ export default function TournamentsView({
             // Find today's group index so we render enough to include it
             const todayGroupIdx = groups.findIndex(g => g.date >= todayISO);
             const initialCount = Math.max(8, todayGroupIdx + 4);
+            // First paint: skip past dates so initial reconciliation only
+            // covers the rows the user can actually see after scroll-to-today.
+            // Past gets backfilled on the next idle tick (see includePast).
+            const startIdx = includePast || todayGroupIdx < 0 ? 0 : todayGroupIdx;
+            const endIdx = Math.min(groups.length, Math.max(renderedGroupCount, initialCount));
             let scrollRefAssigned = false;
-            return groups.slice(0, Math.min(groups.length, Math.max(renderedGroupCount, initialCount))).map((group, gi) => {
+            return groups.slice(startIdx, endIdx).map((group, gi) => {
               const isToday = group.date === todayISO;
               const past = group.date < todayISO;
               const dateObj = new Date(group.date + 'T12:00:00');
@@ -1451,36 +1511,51 @@ export default function TournamentsView({
                       </>
                     )}
                   </div>
-                  {!isCollapsed && group.events.map(t => (
-                    <div key={t.id}>
-                      <CalendarEventRow
-                        tournament={t}
-                        isInSchedule={scheduleIds.has(t.id)}
-                        onToggle={onToggle}
-                        isPast={past}
-                        showMiniLateReg={isToday}
-                        focusEventId={focusEventId}
-                        onNavigateToEvent={(num, sat) => {
-                          const targetId = findBestFlight(num, sat);
-                          if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
-                        }}
-                        conditions={conditionMap[t.id] || []}
-                        onSetCondition={onSetCondition}
-                        onRemoveCondition={onRemoveCondition}
-                        allTournaments={tournaments}
-                        isAnchor={anchorSet.has(t.id)}
-                        onToggleAnchor={onToggleAnchor}
-                        plannedEntries={plannedEntriesMap[t.id] || 1}
-                        onSetPlannedEntries={onSetPlannedEntries}
-                        buddyEvents={buddyEvents}
-                        buddyLiveUpdates={buddyLiveUpdates}
-                        onBuddySwap={onBuddySwap}
-                        scheduleIds={scheduleIds}
-                        isAdmin={isAdmin}
-                        onAdminEdit={onAdminEdit}
-                      />
+                  {!isCollapsed && group.events.map(t => {
+                    const needsFull = isToday || activatedIds.has(t.id) || focusEventId === t.id;
+                    return (
+                    <div key={t.id} style={{contentVisibility:'auto', containIntrinsicSize:'auto 72px'}}>
+                      {needsFull ? (
+                        <CalendarEventRow
+                          tournament={t}
+                          isInSchedule={scheduleIds.has(t.id)}
+                          onToggle={onToggle}
+                          isPast={past}
+                          showMiniLateReg={isToday}
+                          focusEventId={focusEventId}
+                          onNavigateToEvent={(num, sat) => {
+                            const targetId = findBestFlight(num, sat);
+                            if (targetId) { setFocusEventId(null); setTimeout(() => setFocusEventId(targetId), 0); }
+                          }}
+                          conditions={conditionMap[t.id] || []}
+                          onSetCondition={onSetCondition}
+                          onRemoveCondition={onRemoveCondition}
+                          allTournaments={tournaments}
+                          isAnchor={anchorSet.has(t.id)}
+                          onToggleAnchor={onToggleAnchor}
+                          plannedEntries={plannedEntriesMap[t.id] || 1}
+                          onSetPlannedEntries={onSetPlannedEntries}
+                          buddyEvents={buddyEvents}
+                          buddyLiveUpdates={buddyLiveUpdates}
+                          onBuddySwap={onBuddySwap}
+                          scheduleIds={scheduleIds}
+                          isAdmin={isAdmin}
+                          onAdminEdit={onAdminEdit}
+                          initialOpen={activatedIds.has(t.id)}
+                        />
+                      ) : (
+                        <CalendarEventRowLite
+                          tournament={t}
+                          isInSchedule={scheduleIds.has(t.id)}
+                          isPast={past}
+                          isAnchor={anchorSet.has(t.id)}
+                          conditions={conditionMap[t.id]}
+                          onExpand={() => activateRow(t.id)}
+                        />
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             });

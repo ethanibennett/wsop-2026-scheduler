@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
 import { API_URL } from '../utils/api.js';
 import { HAND_CONFIG, HAND_CONFIG_DEFAULT, getGamePills, haptic } from '../utils/utils.js';
@@ -7,7 +7,10 @@ import { parseCardNotation, dualPlaceholder, evaluateHand, evaluateShowdown, ass
          bestHighHand, bestOmahaHigh, bestOmahaLow, bestLowA5Hand, bestLow27Hand, bestBadugiHand } from '../utils/poker-engine.js';
 import { encodeHand, decodeHand, GAME_CODES } from '../utils/hand-shorthand.js';
 import { loadCardImages } from '../utils/export.js';
+import { exportReplayVideo } from '../utils/replay-video-export.js';
+import { exportReplayGif } from '../utils/replay-gif-export.js';
 import { useToast } from '../contexts/ToastContext.jsx';
+import { parseHandText } from '../utils/hand-text-parser.js';
 
 // ── Street definitions ──────────────────────────────────────
 const STREET_DEFS = {
@@ -640,15 +643,45 @@ function PotChipVisual({ amount }) {
 }
 
 // ── Card Row component ──
+// Trig-based card splay: shared pivot point for natural fan
+function getSplayStyle(index, total, angle, yOffset) {
+  if (total <= 1) return {};
+  const step = (2 * angle) / (total - 1);
+  const rot = -angle + step * index;
+  const extraY = yOffset || 0;
+  if (total <= 2) {
+    return {
+      transform: 'rotate(' + rot + 'deg)',
+      transformOrigin: '50% 120%',
+      marginLeft: index === 0 ? 0 : -22,
+      marginTop: extraY || undefined,
+      zIndex: index,
+    };
+  }
+  // 3+ cards: arc from a true shared pivot point using trig
+  const rad = rot * Math.PI / 180;
+  const radius = total <= 5 ? 85 : 110;
+  const x = Math.sin(rad) * radius;
+  const y = -Math.cos(rad) * radius + radius + extraY;
+  return {
+    position: 'absolute',
+    left: '50%',
+    bottom: 0,
+    transform: 'translate(calc(-50% + ' + x.toFixed(1) + 'px), ' + y.toFixed(1) + 'px) rotate(' + rot + 'deg)',
+    zIndex: index,
+  };
+}
+
 function CardRow({ text, stud, max, placeholderCount, splay, cardTheme }) {
   const SUIT_SYMBOLS = {h:'\u2665',d:'\u2666',c:'\u2663',s:'\u2660'};
   let cards = parseCardNotation(text);
   if (!cards.length && placeholderCount > 0) {
     return (
-      <div className="card-row">
-        {Array.from({ length: placeholderCount }, (_, i) => (
-          <div key={'ph' + i} className="card-placeholder" />
-        ))}
+      <div className={"card-row" + (splay ? " card-row-splay" : "")}>
+        {Array.from({ length: placeholderCount }, (_, i) => {
+          const style = splay ? getSplayStyle(i, placeholderCount, splay) : undefined;
+          return <div key={'ph' + i} className="card-placeholder" style={style} />;
+        })}
       </div>
     );
   }
@@ -659,12 +692,11 @@ function CardRow({ text, stud, max, placeholderCount, splay, cardTheme }) {
     <div className={"card-row" + (splay ? " card-row-splay" : "")}>
       {cards.map((c, i) => {
         const k = c.rank + c.suit + '_' + i;
-        const splayStyle = splay ? {
-          marginLeft: i > 0 ? (-splay + 'px') : 0,
-          transform: 'rotate(' + ((i - (cards.length-1)/2) * (splay/2)) + 'deg)',
-          transformOrigin: 'bottom center',
-        } : undefined;
-        if (c.suit === 'x' || (downIdx && downIdx.has(i) && c.suit === 'x')) {
+        const isDown = downIdx && downIdx.has(i);
+        const isStudUp = stud && !isDown && i >= 2 && i <= 5;
+        const studYOffset = isStudUp ? -5 : isDown ? 5 : 0;
+        const splayStyle = splay ? getSplayStyle(i, cards.length, splay, studYOffset) : undefined;
+        if (c.suit === 'x' || (isDown && c.suit === 'x')) {
           return <div key={k} className="card-unknown" style={splayStyle} />;
         }
         if (cardTheme === 'classic') {
@@ -715,7 +747,7 @@ function useReplayerSetting(key, defaultVal) {
 
 // ── Settings Panel ──
 function ReplayerSettingsPanel({ onClose, settings, onUpdate }) {
-  return ReactDOM.createPortal(
+  return createPortal(
     <>
       <div className="replayer-settings-backdrop" onClick={onClose} />
       <div className="replayer-settings-panel">
@@ -2398,7 +2430,7 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
 
   return (
     <div className="gto-entry">
-      {stickySlot && ReactDOM.createPortal(streetCardEl, stickySlot)}
+      {stickySlot && createPortal(streetCardEl, stickySlot)}
       {seatOrder.map(i => {
         const p = hand.players[i];
         const isActive = i === currentActor;
@@ -2623,7 +2655,7 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
           </div>
         );
       })}
-      {ReactDOM.createPortal(
+      {createPortal(
         <div className="gto-sticky-footer">
           <div className="gto-street-card">
             <div style={{display:'flex',gap:'6px',justifyContent:'space-between',alignItems:'center',padding:'10px 12px'}}>
@@ -2639,12 +2671,40 @@ function GTOEntryView({ hand, setHand, onDone, onCancel, heroName }) {
 }
 
 // ══════════════════════════════════════════════════════════
+// ── Replay Error Boundary ────────────────────────────────
+// ══════════════════════════════════════════════════════════
+class ReplayErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(err) { return { error: err }; }
+  componentDidCatch(err, info) { console.error('[ReplayErrorBoundary]', err, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{padding:'24px',color:'var(--text-muted)',textAlign:'center'}}>
+          <div style={{fontSize:'0.85rem',marginBottom:'8px',color:'var(--danger,#f87171)'}}>Error loading replay</div>
+          <div style={{fontSize:'0.7rem',fontFamily:'monospace',wordBreak:'break-all',maxWidth:'400px',margin:'0 auto 12px',opacity:0.7}}>
+            {this.state.error.message}
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => { this.setState({ error: null }); this.props.onBack(); }}>
+            ← Back to list
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 // ── Main Hand Replayer View ──────────────────────────────
 // ══════════════════════════════════════════════════════════
 export default function HandReplayerView({ token, heroName, cardSplay, initialHand, onClearInitialHand }) {
   const toast = useToast();
   const [mode, setMode] = useState(initialHand ? 'replay' : 'list');
   const [entryMode, setEntryMode] = useState('gto');
+  const [entryTab, setEntryTab] = useState('form');
+  const [shorthandText, setShorthandText] = useState('');
+  const [shorthandErrors, setShorthandErrors] = useState([]);
   const [hands, setHands] = useState([]);
   const [games, setGames] = useState([]);
   const [currentHand, setCurrentHand] = useState(initialHand || null);
@@ -2873,7 +2933,13 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       }
       {
         const data = await res.json();
-        const handData = typeof data.hand_data === 'string' ? JSON.parse(data.hand_data) : data.hand_data;
+        let handData = typeof data.hand_data === 'string' ? JSON.parse(data.hand_data) : data.hand_data;
+        // Backwards-compat: old saves wrapped the entire POST body as hand_data,
+        // so the actual hand object lives under handData.handData
+        if (handData && handData.handData && !handData.streets) handData = handData.handData;
+        // Normalize missing fields so the replay view never crashes on old/incomplete records
+        if (!handData.streets) handData.streets = [];
+        if (!handData.players) handData.players = [];
         if (handData.gameType && !HAND_CONFIG[handData.gameType]) {
           const cc = handData.customConfig;
           if (cc) {
@@ -2945,6 +3011,15 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
     setMode('replay');
   };
 
+  const handleParseShorthand = () => {
+    const { hand, errors } = parseHandText(shorthandText, selectedGame || 'NLH');
+    setShorthandErrors(errors || []);
+    if (hand) {
+      setCurrentHand(hand);
+      setEntryTab('form'); // switch back to form view to review/edit
+    }
+  };
+
   const startNewHand = () => {
     if (selectedGameType === 'Custom') {
       const gameName = customGameName.trim() || 'Custom';
@@ -2997,12 +3072,14 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
           <span className="replayer-hand-card-game">{currentHand.gameType + (currentHand.blinds ? ' ' + formatChipAmount(currentHand.blinds.sb) + '/' + formatChipAmount(currentHand.blinds.bb) + (currentHand.blinds.ante ? '/' + formatChipAmount(currentHand.blinds.ante) : '') : '')}</span>
         </div>
         {notes && <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginBottom:'8px'}}>{notes}</div>}
-        <HandReplayerReplayView
-          hand={currentHand}
-          onEdit={() => setMode('entry')}
-          onBack={() => { setMode('list'); fetchHands(); }}
-          cardSplay={cardSplay}
-        />
+        <ReplayErrorBoundary onBack={() => { setMode('list'); fetchHands(); }}>
+          <HandReplayerReplayView
+            hand={currentHand}
+            onEdit={() => setMode('entry')}
+            onBack={() => { setMode('list'); fetchHands(); }}
+            cardSplay={cardSplay}
+          />
+        </ReplayErrorBoundary>
       </div>
     );
   }
@@ -3013,19 +3090,44 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
       <div className="replayer-view">
         <div className="gto-sticky-header">
           <div className="replayer-header"><h2>New Hand</h2></div>
-          {currentHand.gameType !== 'OFC' && <div className="live-update-tabs" style={{marginBottom:'8px'}}>
+          {/* Form / Text toggle */}
+          <div className="live-update-tabs" style={{marginBottom:'8px'}}>
+            <button className={entryTab === 'form' ? 'active' : ''} onClick={() => setEntryTab('form')}>Form</button>
+            <button className={entryTab === 'text' ? 'active' : ''} onClick={() => setEntryTab('text')}>Text</button>
+          </div>
+          {entryTab === 'form' && currentHand.gameType !== 'OFC' && <div className="live-update-tabs" style={{marginBottom:'8px'}}>
             <button className={entryMode === 'gto' ? 'active' : ''} onClick={() => setEntryMode('gto')}>GTO Style</button>
             <button className={entryMode === 'classic' ? 'active' : ''} onClick={() => setEntryMode('classic')}>Classic</button>
           </div>}
-          <div className="replayer-row" style={{marginBottom:'8px'}}>
+          {entryTab === 'form' && <div className="replayer-row" style={{marginBottom:'8px'}}>
             <div className="replayer-field">
               <label>Title</label>
               <input type="text" placeholder="e.g. Huge pot with AA" value={title} onChange={e => setTitle(e.target.value)} />
             </div>
-          </div>
+          </div>}
           <div id="gto-sticky-slot"></div>
         </div>
-        {(entryMode === 'gto' || currentHand.gameType === 'OFC') ? (
+        {entryTab === 'text' ? (
+          <div style={{padding:'12px'}}>
+            <textarea
+              placeholder={'25/50\nUTG: AhKd  HJ: 9c8c  BTN: raise 3x  SB: fold  BB: call\n/ Qh Jc 2d  check  bet 50  fold\n/ 7s  bet 200  fold'}
+              style={{width:'100%', minHeight:140, fontFamily:'monospace', fontSize:'0.8rem',
+                      background:'var(--surface)', color:'var(--text)', border:'1px solid var(--border)',
+                      borderRadius:6, padding:8, resize:'vertical', boxSizing:'border-box'}}
+              value={shorthandText}
+              onChange={e => setShorthandText(e.target.value)}
+            />
+            {shorthandErrors.length > 0 && (
+              <div style={{color:'var(--text-warning, #f59e0b)', fontSize:'0.72rem', marginTop:6}}>
+                {shorthandErrors.map((e,i) => <div key={i}>&#9888; {e}</div>)}
+              </div>
+            )}
+            <button className="create-group-submit" style={{marginTop:8, width:'100%'}}
+              onClick={handleParseShorthand}>
+              Parse Hand
+            </button>
+          </div>
+        ) : (entryMode === 'gto' || currentHand.gameType === 'OFC') ? (
           <GTOEntryView
             hand={currentHand}
             setHand={setCurrentHand}
@@ -3164,14 +3266,13 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
                     </div>
                   )}
                 </>)}
-                <div className="game-check-row"
-                  style={{justifyContent:'center', borderTop:'1px solid var(--border)', padding:'5px 10px'}}
+                <div className="game-check-more-row"
                   onClick={() => {
                     if (moreOpen && !moreSelected && !studModifiers) setShowMoreFor(null);
                     else if (!moreOpen) setShowMoreFor(selectedCategory);
                   }}
                 >
-                  <span style={{fontSize:'0.6rem', color:'var(--accent2)', fontFamily:"'Univers Condensed','Univers',sans-serif", textTransform:'uppercase', letterSpacing:'0.5px'}}>
+                  <span className="game-check-more-btn">
                     {moreOpen && !moreSelected && !studModifiers ? '▲ Less' : '▼ More'}
                   </span>
                 </div>
@@ -3262,6 +3363,20 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
   const prevActionIdxRef = useRef(-1);
   const prevShowResultRef = useRef(false);
 
+  // Video export state
+  const [videoExporting, setVideoExporting] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoStep, setVideoStep] = useState(0);
+  const [videoTotal, setVideoTotal] = useState(0);
+  // GIF export state
+  const [gifExporting, setGifExporting] = useState(false);
+  const [gifProgress, setGifProgress] = useState(0);
+  const [gifStep, setGifStep] = useState(0);
+  const [gifTotal, setGifTotal] = useState(0);
+  // Refs that stay live with current values so the async export loop always calls latest functions
+  const canGoForwardRef = useRef(true);
+  const stepForwardRef = useRef(null);
+
   // Animation states
   const [animFolded, setAnimFolded] = useState(new Set());
   const [animStreetTransition, setAnimStreetTransition] = useState(false);
@@ -3321,6 +3436,16 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
     cardSplay: _cardSplay[1], lightStrip: _lightStrip[1],
   };
   const handleSettingsUpdate = (key, val) => { if (rSetters[key]) rSetters[key](val); };
+
+  // Guard against old/incomplete hand records with no streets
+  if (!hand.streets || hand.streets.length === 0) {
+    return (
+      <div style={{padding:'32px',textAlign:'center',color:'var(--text-muted)'}}>
+        <div style={{marginBottom:'12px',fontSize:'0.85rem'}}>This hand has no recorded streets.</div>
+        <button className="btn btn-ghost btn-sm" onClick={onBack}>← Back to list</button>
+      </div>
+    );
+  }
 
   const gameCfg = HAND_CONFIG[hand.gameType] || HAND_CONFIG_DEFAULT;
   const category = getGameCategory(hand.gameType);
@@ -3512,12 +3637,18 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
   const canGoForward = streetIdx < totalStreets - 1 || actionIdx < currentActions.length - 1 || !showResult;
   const canGoBack = streetIdx > 0 || actionIdx >= 0 || showResult;
 
+  // Update refs inline during render — guaranteed current before any async code runs.
+  // useEffect is too late (fires after paint); inline assignment happens during commit.
+  canGoForwardRef.current = canGoForward;
+
   const stepForward = useCallback(() => {
     if (actionIdx < currentActions.length - 1) setActionIdx(a => a + 1);
     else if (streetIdx < totalStreets - 1) { setStreetIdx(s => s + 1); setActionIdx(-1); }
     else if (!showResult) { setShowResult(true); if (isHiLo) setTimeout(() => setHiloAnimate(true), 100); }
     else setPlaying(false);
   }, [actionIdx, currentActions.length, streetIdx, totalStreets, showResult, isHiLo]);
+  // Update inline so the export loop always gets the latest closure
+  stepForwardRef.current = stepForward;
 
   const stepBack = useCallback(() => {
     if (showResult) { setShowResult(false); setHiloAnimate(false); }
@@ -3790,6 +3921,71 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
     } catch (e) { console.error('Share replay error:', e); }
   };
 
+  // ── Video export ──
+  const handleExportVideo = useCallback(async () => {
+    if (videoExporting) return;
+    if (!tableRef.current) return;
+
+    // Reset replay to start before recording
+    setStreetIdx(0);
+    setActionIdx(-1);
+    setShowResult(false);
+    setHiloAnimate(false);
+    setPlaying(false);
+
+    // Wait a tick for React to commit the reset
+    await new Promise(r => setTimeout(r, 120));
+
+    setVideoExporting(true);
+    setVideoProgress(0);
+    setVideoStep(0);
+
+    const totalSteps = hand.streets.reduce((sum, s) => sum + 1 + (s.actions?.length || 0), 0) + 1;
+    setVideoTotal(totalSteps);
+
+    await exportReplayVideo({
+      hand,
+      tableEl: tableRef.current,
+      stepForward: () => stepForwardRef.current?.(),
+      canGoForwardRef,
+      mode: 'transparent',
+      onProgress: (pct, step, total) => {
+        setVideoProgress(pct);
+        setVideoStep(step);
+        setVideoTotal(total);
+      },
+      onDone: () => {
+        setVideoExporting(false);
+        setVideoProgress(0);
+      },
+      onError: (err) => {
+        console.error('Video export error:', err);
+        setVideoExporting(false);
+        setVideoProgress(0);
+      },
+    });
+  }, [videoExporting, hand]);
+
+  const handleExportGif = useCallback(async () => {
+    if (gifExporting || videoExporting) return;
+    if (!tableRef.current) return;
+    setStreetIdx(0); setActionIdx(-1); setShowResult(false);
+    setHiloAnimate(false); setPlaying(false);
+    await new Promise(r => setTimeout(r, 120));
+    setGifExporting(true); setGifProgress(0); setGifStep(0);
+    const totalSteps = hand.streets.reduce((sum, s) => sum + 1 + (s.actions?.length || 0), 0) + 1;
+    setGifTotal(totalSteps);
+    await exportReplayGif({
+      hand,
+      tableEl: tableRef.current,
+      stepForward: () => stepForwardRef.current?.(),
+      canGoForwardRef,
+      onProgress: (pct, step, total) => { setGifProgress(pct); setGifStep(step); setGifTotal(total); },
+      onDone: () => { setGifExporting(false); setGifProgress(0); },
+      onError: (err) => { console.error('GIF export error:', err); setGifExporting(false); setGifProgress(0); },
+    });
+  }, [gifExporting, videoExporting, hand]);
+
   // ── OFC Replay View ──
   if (hand.gameType === 'OFC') {
     const ofcRows = hand.ofcRows || {};
@@ -3880,10 +4076,17 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
       <div ref={tableRef} className={'replayer-table' + themeClass}>
         <div className="replayer-table-rail" style={{'--rail-color': feltColor}} />
         {rSettings.lightStrip && <div className="replayer-light-strip" style={{'--strip-color': feltColor}} />}
-        <div className={'replayer-table-felt' + shapeClass} style={rSettings.theme === 'default' ? {
-          background: 'radial-gradient(ellipse at 50% 50%, ' + feltColor + ' 0%, ' + feltColor + 'dd 60%, ' + feltColor + 'aa 100%)',
-          borderColor: feltColor + 'cc',
-        } : {}}
+        <div className={'replayer-table-felt' + shapeClass} style={rSettings.theme === 'default' ? (() => {
+          // Compute color-mix equivalents inline (html2canvas can't parse color-mix)
+          const m = feltColor.match(/#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i);
+          if (m) {
+            const [r,g,b] = [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)];
+            const light = `rgb(${Math.round(r*0.9+255*0.1)},${Math.round(g*0.9+255*0.1)},${Math.round(b*0.9+255*0.1)})`;
+            const dark = `rgb(${Math.round(r*0.6)},${Math.round(g*0.6)},${Math.round(b*0.6)})`;
+            return { background: `radial-gradient(ellipse 80% 70% at 50% 45%, ${light}, ${dark})`, borderColor: feltColor + 'cc' };
+          }
+          return { borderColor: feltColor + 'cc' };
+        })() : {}}
           onTouchStart={e => { const timer = setTimeout(() => setShowFeltPicker(true), 600); e.currentTarget._lpTimer = timer; }}
           onTouchEnd={e => clearTimeout(e.currentTarget._lpTimer)}
           onTouchMove={e => clearTimeout(e.currentTarget._lpTimer)}
@@ -4207,10 +4410,16 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
           </button>
-          <button className="btn btn-ghost btn-sm" disabled title="Video export (coming soon)" style={{opacity:0.3}}>
+          <button className="btn btn-ghost btn-sm" disabled={videoExporting || gifExporting}
+            title="Export WebM (transparent overlay)" onClick={handleExportVideo}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:'14px',height:'14px'}}>
               <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
             </svg>
+          </button>
+          <button className="btn btn-ghost btn-sm" disabled={gifExporting || videoExporting}
+            title="Export GIF (Instagram sticker)" onClick={handleExportGif}
+            style={{fontSize:'10px',fontWeight:700,letterSpacing:'0.04em',padding:'0 6px',lineHeight:'24px'}}>
+            GIF
           </button>
           <button className="replayer-gear-btn" onClick={() => setShowSettings(true)} title="Replayer Settings">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4219,6 +4428,50 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
           </button>
         </div>
       </div>
+
+      {/* Video export progress overlay */}
+      {videoExporting && createPortal(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:9999}}>
+          <div style={{color:'#fff',fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'1.1rem',marginBottom:'4px',letterSpacing:'0.08em',textTransform:'uppercase'}}>
+            Recording Overlay…
+          </div>
+          <div style={{color:'rgba(255,255,255,0.45)',fontSize:'0.65rem',fontFamily:"'Univers Condensed','Univers',sans-serif",marginBottom:'14px',letterSpacing:'0.05em'}}>
+            WebM VP9 · transparent background
+          </div>
+          <div style={{width:'220px',height:'5px',background:'rgba(255,255,255,0.15)',borderRadius:'3px',marginBottom:'10px',overflow:'hidden'}}>
+            <div style={{width:videoProgress+'%',height:'100%',background:'var(--accent, #a78bfa)',borderRadius:'3px',transition:'width 0.3s ease'}} />
+          </div>
+          <div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.72rem',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
+            Step {videoStep} of {videoTotal}
+          </div>
+          <div style={{color:'rgba(255,255,255,0.3)',fontSize:'0.65rem',fontFamily:"'Univers Condensed','Univers',sans-serif",marginTop:'6px',maxWidth:'200px',textAlign:'center'}}>
+            Export will download automatically when complete
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* GIF export progress overlay */}
+      {gifExporting && createPortal(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:9999}}>
+          <div style={{color:'#fff',fontFamily:"'Univers Condensed','Univers',sans-serif",fontSize:'1.1rem',marginBottom:'4px',letterSpacing:'0.08em',textTransform:'uppercase'}}>
+            Building GIF…
+          </div>
+          <div style={{color:'rgba(255,255,255,0.45)',fontSize:'0.65rem',fontFamily:"'Univers Condensed','Univers',sans-serif",marginBottom:'14px',letterSpacing:'0.05em'}}>
+            Transparent · upload to GIPHY for Instagram sticker
+          </div>
+          <div style={{width:'220px',height:'5px',background:'rgba(255,255,255,0.15)',borderRadius:'3px',marginBottom:'10px',overflow:'hidden'}}>
+            <div style={{width:gifProgress+'%',height:'100%',background:'var(--accent, #a78bfa)',borderRadius:'3px',transition:'width 0.3s ease'}} />
+          </div>
+          <div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.72rem',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
+            Step {gifStep} of {gifTotal}
+          </div>
+          <div style={{color:'rgba(255,255,255,0.3)',fontSize:'0.65rem',fontFamily:"'Univers Condensed','Univers',sans-serif",marginTop:'6px',maxWidth:'200px',textAlign:'center'}}>
+            Export will download automatically when complete
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

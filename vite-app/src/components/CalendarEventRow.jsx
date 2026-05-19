@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import { wsopStructureUrlFor } from '../utils/wsop-structure-pages.js';
@@ -534,8 +534,14 @@ function ConditionPicker({ tournament, conditions, allTournaments, onSet, onRemo
   );
 }
 
-function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, scheduleIds, isAdmin, onAdminEdit, onNavigateToEvent }) {
-  const [open, setOpen] = useState(false);
+function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMiniLateReg, focusEventId, readOnly, conditions: conditionsProp, conditionsJson, onSetCondition, onRemoveCondition, allTournaments, isAnchor, onToggleAnchor, plannedEntries, onSetPlannedEntries, onUpdatePersonalEvent, buddyEvents, buddyLiveUpdates, onBuddySwap, scheduleIds, isAdmin, onAdminEdit, onNavigateToEvent, initialOpen }) {
+  // Support both conditions array (legacy) and conditionsJson string (memo-friendly)
+  const conditions = conditionsProp || React.useMemo(() => {
+    if (!conditionsJson) return [];
+    try { const c = JSON.parse(conditionsJson); return Array.isArray(c) ? c : []; }
+    catch { return []; }
+  }, [conditionsJson]);
+  const [open, setOpen] = useState(!!initialOpen);
   const [showConditionUI, setShowConditionUI] = useState(false);
   const [showRakeBreakdown, setShowRakeBreakdown] = useState(false);
   const [travelNotes, setTravelNotes] = useState(tournament.notes || '');
@@ -990,4 +996,104 @@ function CalendarEventRow_({ tournament, isInSchedule, onToggle, isPast, showMin
   );
 }
 
-export default CalendarEventRow_;
+// ── Lightweight collapsed-only renderer ──
+// Zero hooks, zero context. ScheduleView renders this for rows that
+// haven't been expanded yet, swapping in the full CalendarEventRow on
+// first tap. Eliminates ~15 hook calls per row on initial mount.
+function CalendarEventRowLite({ tournament, isInSchedule, isPast, isAnchor, conditionsJson, conditions, onExpand }) {
+  const venue = getVenueInfo(tournament.venue);
+  const venueClass = getVenueClass(tournament);
+  const stripColor = getVenueBrandColor(venue.abbr);
+  const stripTextColor = venue.abbr === 'WSOP' ? 'var(--bg)' : 'rgba(255,255,255,0.85)';
+  const bracelet = isBraceletEvent(tournament);
+  const isBounty = /bounty|mystery millions/i.test(tournament.event_name);
+  const isSat = !!tournament.is_satellite;
+  const isRestart = !!tournament.is_restart;
+  const isRingEvent = /^WSOPC/.test(getVenueInfo(tournament.venue).longName) && !!tournament.event_number && !tournament.is_satellite;
+  const tzAbbr = getVenueTzAbbr(tournament.venue);
+  const timeLabel = (tournament.time || '—') + (tzAbbr ? ' ' + tzAbbr : '');
+  let hasConditions = false;
+  if (conditions && conditions.length > 0) {
+    hasConditions = true;
+  } else if (conditionsJson) {
+    try { const c = JSON.parse(conditionsJson); hasConditions = Array.isArray(c) && c.length > 0; } catch {}
+  }
+  const rowClasses = [
+    'cal-event-row',
+    isInSchedule ? 'saved' : '',
+    isAnchor ? 'anchor' : (hasConditions ? 'conditional' : ''),
+    venueClass,
+    bracelet ? 'bracelet' : '',
+    isPast ? 'past' : '',
+  ].filter(Boolean).join(' ');
+  return (
+    <div className={rowClasses} style={isInSchedule && isAnchor ? {'--anchor-color': stripColor} : undefined}>
+      <div
+        className={`cal-venue-strip venue-strip-${venue.abbr.toLowerCase().replace(/\s+/g, '-')}`}
+        style={{ background: stripColor, color: stripTextColor, cursor: 'pointer' }}
+        onClick={onExpand}
+      ><span className="venue-strip-abbr">{venue.abbr}</span></div>
+      <div className="cal-event-row-content" style={isInSchedule ? {borderColor: hasConditions ? (venue.abbr === 'WSOP' ? 'var(--venue-wsop-cond)' : stripColor) : stripColor} : undefined}>
+        <div className="cal-event-bar" onClick={onExpand}>
+          {tournament.venue === 'Personal' ? (
+            <div className="cal-bar-row2" style={{display:'flex', alignItems:'center', gap:'8px'}}>
+              <span className="cal-event-name" style={{fontSize:'0.88rem'}}>
+                {tournament.event_name === 'Travel Day' ? '✈️' : '🏖️'} {tournament.event_name}
+              </span>
+              {tournament.notes && (
+                <span style={{fontSize:'0.78rem', color:'var(--text-muted)', fontStyle:'italic', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                  {'—'} {tournament.notes}
+                </span>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="cal-bar-row1">
+                <span className="cal-event-time">{timeLabel}</span>
+                <span className="cal-event-buyin">{currencySymbol(tournament.venue)}{Number(tournament.buyin).toLocaleString()}</span>
+              </div>
+              <div className="cal-bar-row2">
+                <span className="cal-event-name">{formatEventName(tournament.event_name)}</span>
+                {isBounty && !isSat && <span className="cal-bounty-icon"><Icon.crosshairs /></span>}
+                {isSat && <span className="cal-bounty-icon"><Icon.satellite /></span>}
+                {isRestart && <span className="cal-bounty-icon"><Icon.restart /></span>}
+                {bracelet && <span className="cal-bracelet-icon"><Icon.bracelet /></span>}
+                {isRingEvent && <span className="cal-ring-icon"><Icon.ring /></span>}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="cal-event-chevron" onClick={onExpand}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CalendarEventRow = React.memo(CalendarEventRow_, (prev, next) => {
+  // Check props that actually affect the collapsed row render.
+  // Skip allTournaments/buddyLiveUpdates (large, only used when expanded).
+  if (prev.tournament !== next.tournament) return false;
+  if (prev.isInSchedule !== next.isInSchedule) return false;
+  if (prev.isPast !== next.isPast) return false;
+  if (prev.isAnchor !== next.isAnchor) return false;
+  if (prev.plannedEntries !== next.plannedEntries) return false;
+  if (prev.conditionsJson !== next.conditionsJson) return false;
+  if (prev.showMiniLateReg !== next.showMiniLateReg) return false;
+  if (prev.readOnly !== next.readOnly) return false;
+  if (prev.isAdmin !== next.isAdmin) return false;
+  // focusEventId: only re-render if focus state changed for THIS row
+  if ((prev.focusEventId === prev.tournament.id) !== (next.focusEventId === next.tournament.id)) return false;
+  // buddyEvents: only check this tournament's entry
+  if (prev.buddyEvents?.[prev.tournament.id] !== next.buddyEvents?.[next.tournament.id]) return false;
+  // scheduleIds: used for condition picker, check reference
+  if (prev.scheduleIds !== next.scheduleIds) return false;
+  // Callbacks are all useCallback in App.jsx — stable references, skip check.
+  // allTournaments, buddyLiveUpdates: only used in expanded state, skip.
+  return true;
+});
+export { CalendarEventRowLite };
+export default CalendarEventRow;

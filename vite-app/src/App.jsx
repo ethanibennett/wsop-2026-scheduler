@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 
 import { API_URL } from './utils/api.js';
 import { haptic, THEME_ORDER, THEME_LABEL, THEME_ICON, THEME_META, VENUE_BRAND_VAR, getVenueBrandColor } from './utils/utils.js';
@@ -33,6 +33,7 @@ import SkeletonSchedule from './components/SkeletonSchedule.jsx';
 import RealNamePrompt from './components/RealNamePrompt.jsx';
 import NotificationsPanel from './components/NotificationsPanel.jsx';
 import SwapModal from './components/SwapModal.jsx';
+import StakingView from './components/StakingView.jsx';
 import MilestoneCelebration from './components/MilestoneCelebration.jsx';
 
 // Detect shared schedule URL: /shared/:token
@@ -1091,7 +1092,7 @@ export default function App() {
             <Avatar src={avatar} username={username} size={22} style={{flexShrink:0}} />
             <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{nameMode === 'username' ? username : (realName || username)}</span>
           </button>
-          {showUserMenu && ReactDOM.createPortal(
+          {showUserMenu && createPortal(
             <>
               <div style={{position:'fixed',inset:0,zIndex:9998}} onClick={() => setShowUserMenu(false)} />
               <div style={{position:'fixed',top:'52px',right:'12px',zIndex:9999,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px 0',minWidth:'180px',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',fontFamily:'Univers Condensed, Univers, sans-serif'}}>
@@ -1361,10 +1362,12 @@ export default function App() {
 
         <div className={'tab-panel' + (currentView === 'staking' ? ' tab-active' : '')} data-tab="staking" style={{display: currentView === 'staking' ? undefined : 'none', height: currentView === 'staking' ? '100%' : undefined}}>
         {visitedTabs.has('staking') && (
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
-            <h2 style={{fontFamily:"'Univers Condensed', 'Univers', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Staking</h2>
-            <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
-          </div>
+          isAdmin
+            ? <StakingView token={token} tournaments={tournaments} mySchedule={mySchedule} />
+            : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
+                <h2 style={{fontFamily:"'Univers Condensed', 'Univers', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Staking</h2>
+                <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>
+              </div>
         )}
         </div>
 

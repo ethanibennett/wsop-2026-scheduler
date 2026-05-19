@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import Avatar from './Avatar.jsx';
 import { API_URL } from '../utils/api.js';
 import { getVenueInfo, getVenueBrandColor, normaliseDate, getToday, formatBuyin, formatLiveUpdate } from '../utils/utils.js';
@@ -1003,7 +1003,7 @@ export default function SocialView({
       {shareSection}
 
       {/* Create Group Modal */}
-      {showCreateGroup && ReactDOM.createPortal(
+      {showCreateGroup && createPortal(
         <CreateGroupModal
           shareBuddies={shareBuddies}
           displayName={displayName}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
 import { getVenueInfo, haptic } from '../utils/utils.js';
 
@@ -40,7 +40,7 @@ export default function FilterPanel({
 
   const hasFilters = selectedVenues.length > 0 || selectedGames.length > 0 || buyinMin || buyinMax || dateFrom || dateTo;
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <>
       <div className="dropdown-backdrop" onClick={onClose} />
       <div className="filter-panel">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import { API_URL } from '../utils/api.js';
 import { useDisplayName } from '../contexts/DisplayNameContext.jsx';
 import Avatar from './Avatar.jsx';
@@ -33,7 +33,7 @@ export default function SwapModal({ buddy, tournament, token, onClose }) {
     } catch (e) { console.error('Send failed:', e); setMsg('Failed to send'); setSending(false); }
   };
 
-  return ReactDOM.createPortal(
+  return createPortal(
     <div style={{position:'fixed',inset:0,zIndex:9999,overflowY:'auto',WebkitOverflowScrolling:'touch'}} onClick={onClose}>
       <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)'}} />
       <div style={{position:'relative',minHeight:'100%',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}}>

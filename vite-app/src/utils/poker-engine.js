@@ -227,6 +227,22 @@ export const GAME_EVAL = {
   'NL 2-7 SD':{type:'low',lowType:'27'},'2-7 Razz':{type:'low',lowType:'27'},
   'Badugi':{type:'badugi'},
   'Badeucy':{type:'split-badugi',otherLow:'27'},'Badacy':{type:'split-badugi',otherLow:'a5'},
+  // Omaha variants (omaha method works for any N >= 2 hole cards)
+  'PLO5':{type:'high',method:'omaha'},
+  'PLO6':{type:'high',method:'omaha'},
+  'Big Easy':{type:'hilo',method:'omaha'},
+  'Ultimate Big O':{type:'hilo',method:'omaha'},
+  // Community-card Hi games (standard 5-best from all cards)
+  'Crazy Pineapple':{type:'high',method:'standard'},
+  'Very Crazy Pineapple':{type:'high',method:'standard'},
+  'Hideaway':{type:'high',method:'standard'},
+  // NL/PL Stud variants
+  'NL Stud Hi':{type:'high',method:'standard'},
+  'PL Stud Hi':{type:'high',method:'standard'},
+  'NL Stud 8':{type:'hilo',method:'standard'},
+  'PL Stud 8':{type:'hilo',method:'standard'},
+  'NL Razz':{type:'low',lowType:'a5'},
+  'PL Razz':{type:'low',lowType:'a5'},
   'OFC Pineapple':null
 };
 

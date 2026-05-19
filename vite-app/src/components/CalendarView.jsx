@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
 import CalendarEventRow from './CalendarEventRow.jsx';
 import {
@@ -205,11 +205,11 @@ function Filters({ filters, setFilters, gameVariants, venues, buyinOptions, tour
         </div>
       </div>
 
-      {open && ReactDOM.createPortal(
+      {open && createPortal(
         <div className="dropdown-backdrop" onClick={() => setOpen(false)} />,
         document.body
       )}
-      {open && ReactDOM.createPortal(
+      {open && createPortal(
         <div ref={panelRef} className="filter-panel" style={(() => {
           const r = toggleRef.current?.getBoundingClientRect();
           if (!r) return { top: 60, left: 8, right: 8 };
