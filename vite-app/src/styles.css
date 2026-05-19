@@ -1349,12 +1349,11 @@
     .replayer-table {
       position: relative;
       /* Scale width so the table (at 3:4.5 aspect ratio) fits the viewport.
-         Reserve: header (60) + bar (~100, controls + secondary + padding)
-         + nav (handled separately via safe-area-bottom + tab-h below) +
-         small gap. 200px covers the constant part; safe-areas are added
-         on top so the table sizes correctly on iPhones with home
-         indicators / notches. */
-      width: min(100%, calc((100vh - var(--header-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 140px) * 0.6667));
+         Nav is hidden in replayer mode, so chrome is just header + bar +
+         safe areas. 120px reserves the bar height (controls + secondary
+         + padding); safe-areas are added on top so iPhone home-indicator
+         devices keep the buttons clear of the indicator. */
+      width: min(100%, calc((100vh - var(--header-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 120px) * 0.6667));
       aspect-ratio: 3 / 4.5;
       margin: auto;
     }
@@ -1668,20 +1667,28 @@
     .replayer-seat-cards .card-classic { width: 30px; height: 44px; }
     .replayer-board-spaced .card-classic { width: 30px; height: 44px; }
 
-    /* Replay controls — sits ABOVE the nav with a generous visible gap
-       (Capacitor WKWebView's env(safe-area-inset-bottom) can read as 0
-       when contentInset:'never', which collapses a small offset). The
-       16px breathing room keeps the bar's edge clear of the nav across
-       every viewport we care about. */
+    /* Replay controls — anchored to viewport bottom, takes over the
+       footer's real estate. The nav is hidden while the replayer is
+       active (rule below); the bar's bottom padding reserves the safe-
+       area inset so home-indicator devices keep the buttons clear of
+       the indicator. */
     .replayer-bottom-fixed {
       position: fixed;
-      bottom: calc(max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px))) + 16px);
+      bottom: 0;
       left: 0; right: 0;
       z-index: 101;
       background: var(--bg);
       display: flex; flex-direction: column; gap: 4px;
-      padding: 6px 12px 8px;
+      padding: 6px 12px calc(8px + env(safe-area-inset-bottom, 0px));
       box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+    }
+
+    /* Hide the global bottom nav while the replayer is active. The bar
+       above owns the bottom of the viewport so the secondary action row
+       can never collide with the nav's icons/labels. The Back button in
+       the bar lets the user navigate away. */
+    body:has(.tab-panel.tab-active .replayer-replay) .bottom-nav {
+      display: none !important;
     }
     .replayer-bottom-fixed > * {
       max-width: 600px;
