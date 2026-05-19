@@ -45,12 +45,13 @@ export default function ShareMenu({ trackingData, tournaments, mySchedule, myAct
   const nextTwoEvents = useMemo(() => {
     if (!mySchedule || mySchedule.length < 2) return null;
     const now = new Date();
-    const upcoming = [...mySchedule]
-      .filter(t => {
-        if (!t.date) return false;
-        return new Date(t.date + 'T23:59:59') >= now;
-      })
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
+    // Decorate by venue-TZ aware timestamp so cross-venue events sort by
+    // absolute time, not user-local date.
+    const upcoming = mySchedule
+      .filter(t => t.date && new Date(t.date + 'T23:59:59') >= now)
+      .map(t => ({ t, ts: t.venue ? parseDateTimeInTz(t.date, t.time, t.venue) : parseDateTime(t.date, t.time) }))
+      .sort((a, b) => a.ts - b.ts)
+      .map(x => x.t)
       .slice(0, 2);
     return upcoming.length === 2 ? upcoming : null;
   }, [mySchedule]);

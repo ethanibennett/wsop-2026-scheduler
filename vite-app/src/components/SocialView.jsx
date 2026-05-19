@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Avatar from './Avatar.jsx';
 import { API_URL } from '../utils/api.js';
-import { getVenueInfo, getVenueBrandColor, normaliseDate, getToday, formatBuyin, formatLiveUpdate } from '../utils/utils.js';
+import { getVenueInfo, getVenueBrandColor, normaliseDate, getToday, formatBuyin, formatLiveUpdate, parseTournamentTime } from '../utils/utils.js';
 
 // ── Create Group Modal ──────────────────────────────────────
 function CreateGroupModal({ shareBuddies, displayName, token, onClose, onCreated }) {
@@ -877,11 +877,14 @@ export default function SocialView({
                   if (!sched || sched.length === 0) {
                     return <div style={{padding:'12px',fontSize:'0.8rem',color:'var(--text-muted)'}}>No events scheduled</div>;
                   }
-                  const upcoming = sched.filter(t => normaliseDate(t.date) >= todayISO).sort((a, b) => {
-                    const da = new Date(`${a.date} ${(a.time && a.time !== 'TBD') ? a.time : '12:00 AM'}`);
-                    const db = new Date(`${b.date} ${(b.time && b.time !== 'TBD') ? b.time : '12:00 AM'}`);
-                    return da - db;
-                  });
+                  // Decorate-sort-undecorate with parseTournamentTime so the
+                  // sort uses each event's VENUE timezone (matches My
+                  // Schedule + TournamentsView), not the user's local clock.
+                  const upcoming = sched
+                    .filter(t => normaliseDate(t.date) >= todayISO)
+                    .map(t => ({ t, ts: parseTournamentTime(t) }))
+                    .sort((a, b) => a.ts - b.ts)
+                    .map(x => x.t);
                   if (upcoming.length === 0) {
                     return <div style={{padding:'12px',fontSize:'0.8rem',color:'var(--text-muted)'}}>No upcoming events</div>;
                   }

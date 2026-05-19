@@ -737,7 +737,14 @@ export default function DashboardView({
       .filter(b => buddyToday[b.id] && buddyToday[b.id].length > 0)
       .map(b => ({
         ...b,
-        todayEvents: buddyToday[b.id].sort((a, c) => (a.time || '') < (c.time || '') ? -1 : 1),
+        // parseTournamentTime is venue-TZ aware AND memoized — sorts
+        // by absolute start instant instead of string-comparing "10:00 AM"
+        // against "9:00 AM" (which used to put 10 AM before 9 AM).
+        todayEvents: (() => {
+          const decorated = buddyToday[b.id].map(t => ({ t, ts: parseTournamentTime(t) }));
+          decorated.sort((a, c) => a.ts - c.ts);
+          return decorated.map(x => x.t);
+        })(),
       }));
   }, [shareBuddies, buddyEvents, tournaments]);
 
