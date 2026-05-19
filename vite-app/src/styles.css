@@ -1349,11 +1349,35 @@
       margin: 8px auto 0;
       margin-bottom: 0;
     }
-    /* Rail is hidden — the felt fills the entire table area now.
-       The wrapper still ships its ::before light strip for theming, so
-       leave the element in the DOM but make it visually invisible. */
     .replayer-table-rail {
-      display: none;
+      position: absolute;
+      inset: calc(16% - 20px) calc(18% - 20px);
+      border-radius: 999px;
+      background:
+        /* top-left light */
+        linear-gradient(155deg,
+          rgba(255,255,255,0.28) 0%,
+          rgba(255,255,255,0.1) 12%,
+          transparent 30%,
+          transparent 70%,
+          rgba(0,0,0,0.06) 85%,
+          rgba(0,0,0,0.15) 100%
+        ),
+        /* bottom-right light */
+        linear-gradient(335deg,
+          rgba(255,255,255,0.18) 0%,
+          rgba(255,255,255,0.06) 12%,
+          transparent 30%,
+          transparent 70%,
+          rgba(0,0,0,0.04) 85%,
+          rgba(0,0,0,0.1) 100%
+        );
+      background-color: var(--rail-color, #6b5b8a);
+      border: none;
+      box-shadow:
+        0 2px 0 rgba(255,255,255,0.11) inset,
+        0 -3px 6px rgba(0,0,0,0.25) inset,
+        0 1px 3px rgba(0,0,0,0.15);
     }
     .replayer-light-strip {
       position: absolute;
@@ -1369,10 +1393,7 @@
     }
     .replayer-table-felt {
       position: absolute;
-      /* Felt now fills the table — the grey rail is gone. Seat layouts
-         (y=16/84, side rows pulled in) still position cards safely above
-         and below the felt edge for html2canvas exports. */
-      inset: 0;
+      inset: 16% 18%;
       background: radial-gradient(ellipse 80% 70% at 50% 45%, #887aae, #342c4d);
       border-radius: 999px;
       border: 1px solid rgba(0,0,0,0.15);
