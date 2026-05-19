@@ -1669,14 +1669,12 @@
     .replayer-seat-cards .card-classic { width: 30px; height: 44px; }
     .replayer-board-spaced .card-classic { width: 30px; height: 44px; }
 
-    /* Replay controls — sits ABOVE the bottom nav with comfortable
-       clearance. The nav stays visible (Schedule/Social/Dashboard/Hands/
-       Staking remain reachable). Bottom offset = nav-height + 8px
-       buffer; the buffer is enough to survive iOS Capacitor's collapsed
-       safe-area-inset reading without ever touching the nav. */
+    /* Replay controls — bottom edge flush with the top of the bottom nav.
+       Same formula the nav uses for its own height, so the bar's bottom
+       edge meets the nav's top edge exactly: no gap, no overlap. */
     .replayer-bottom-fixed {
       position: fixed;
-      bottom: calc(max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px))) + 8px);
+      bottom: max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px)));
       left: 0; right: 0;
       z-index: 101;
       background: var(--bg);
