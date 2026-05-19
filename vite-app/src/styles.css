@@ -1293,15 +1293,14 @@
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* Replay mode — fixed-height layout. Table is centered vertically;
-       bar sits below the table reserved via padding-bottom matching the
-       bar's own height. */
+    /* Replay mode — felt fills the content-area height. The bar lives
+       in #above-nav-slot via portal (sibling of <BottomNav>), so this
+       container only needs to hold the table. */
     .replayer-replay {
       display: flex;
       flex-direction: column;
       justify-content: center;
       gap: 4px;
-      padding-bottom: 110px;
       overflow: hidden;
       height: 100%;
     }
@@ -1671,20 +1670,18 @@
     .replayer-seat-cards .card-classic { width: 30px; height: 44px; }
     .replayer-board-spaced .card-classic { width: 30px; height: 44px; }
 
-    /* Replay controls — bar's bottom edge equals the nav's measured top
-       edge. --measured-nav-top is set by JS from the nav's actual DOM
-       rectangle, so iOS/WebView env() quirks can't shift the bar away
-       from the nav. Falls back to the CSS --nav-h until the first
-       measurement lands. */
+    /* Replay controls — portaled into #above-nav-slot in App.jsx so the
+       bar is a real sibling of <BottomNav> in the app-shell flex column.
+       No fixed positioning, no env() math: the bar's bottom edge meets
+       the nav's top edge by layout. */
     .replayer-bottom-fixed {
-      position: fixed;
-      bottom: var(--measured-nav-top, var(--nav-h));
-      left: 0; right: 0;
-      z-index: 101;
+      flex-shrink: 0;
       background: var(--bg);
       display: flex; flex-direction: column; gap: 4px;
       padding: 6px 12px 8px;
       box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+      position: relative;
+      z-index: 101;
     }
     .replayer-bottom-fixed > * {
       max-width: 600px;

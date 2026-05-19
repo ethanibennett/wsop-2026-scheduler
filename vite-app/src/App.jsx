@@ -1432,6 +1432,12 @@ export default function App() {
         )}
       </main>
 
+      {/* Portal target for views that need a control bar pinned directly
+          above the bottom nav (replayer). Sibling of <BottomNav>, in the
+          app-shell flex column — so its bottom edge meets the nav's top
+          edge by layout, not by env() math. */}
+      <div id="above-nav-slot" />
+
       <BottomNav
         isAdmin={isAdmin}
         current={(() => {

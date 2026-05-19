@@ -4367,7 +4367,13 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
         );
       })()}
 
-      {/* Controls */}
+      {/* Controls — portaled into #above-nav-slot in App so the bar is
+          a real sibling of <BottomNav> in the app-shell flex column. The
+          bar's bottom edge meets the nav's top edge by layout, not by
+          env() / fixed-position math. */}
+      {(() => {
+        const slot = typeof document !== 'undefined' && document.getElementById('above-nav-slot');
+        const controls = (
       <div className="replayer-bottom-fixed">
         <div className="replayer-controls">
           <button onClick={goToStart} disabled={!canGoBack} title="Start">
@@ -4429,6 +4435,9 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
           </button>
         </div>
       </div>
+        );
+        return slot ? createPortal(controls, slot) : controls;
+      })()}
 
       {/* Video export progress overlay */}
       {videoExporting && createPortal(
