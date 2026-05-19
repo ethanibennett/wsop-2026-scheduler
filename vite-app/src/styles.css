@@ -1688,6 +1688,15 @@
       position: relative;
       z-index: 101;
     }
+    /* Slot is global (sibling of nav) so the portal target always exists.
+       Hide it on every tab except hands so the bar doesn't bleed onto
+       Schedule/Social/Dashboard/Staking. */
+    #above-nav-slot {
+      display: none;
+    }
+    .app-shell:has(.tab-panel.tab-active[data-tab="hands"]) #above-nav-slot {
+      display: block;
+    }
     .replayer-bottom-fixed > * {
       max-width: 600px;
       margin: 0 auto;
