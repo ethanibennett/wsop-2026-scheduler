@@ -1,6 +1,6 @@
 # futurega.me Monetization Plan
 
-Last updated: March 31, 2026
+Last updated: May 19, 2026 (suite + trial + payment-backend addendum)
 
 ---
 
@@ -16,6 +16,8 @@ Last updated: March 31, 2026
 8. [Pricing Benchmarks](#7-pricing-benchmarks)
 9. [Growth and Conversion Tactics](#8-growth-and-conversion-tactics)
 10. [Revenue Projections](#9-revenue-projections)
+11. [Three-App Suite Strategy](#10-three-app-suite-strategy)
+12. [Payment Backend Architecture](#11-payment-backend-architecture)
 
 ---
 
@@ -382,6 +384,215 @@ The single biggest lever is **summer-to-annual conversion rate.** If 40% of summ
 - Advanced analytics
 - International festival expansion
 - Loyalty/returning user pricing
+
+---
+
+## 10. Three-App Suite Strategy
+
+The long-term product roadmap splits futurega.me into three focused apps that share a single backend, account system, and subscription:
+
+- **futurega.me: Planner** — tournament schedules, calendar, social connections, series tracking, table scanner, live updates
+- **futurega.me: Replayer** — full hand replayer with social media exports and AI hand analysis
+- **futurega.me: Manager** — bankroll, P&L tracking, staking, tax reports
+
+Each app stands alone on the App Store with its own listing, screenshots, and reviews. They share authentication, subscriptions, user data, and a `packages/shared` core (auth, API, theme).
+
+### Why Split?
+
+| Problem with single-app | What splitting solves |
+|---|---|
+| App is doing too much for users who only want one thing — the schedule browser is buried under tracking and replayer UI for casual users | Each app's first screen IS the thing the user came for |
+| App Store keywords/category compete with themselves ("poker tracker" vs "poker schedule") | Three independent listings each rank for their own keyword set |
+| Replayer-only users (content creators) and bankroll-only users (grinders) currently pay full Pro+ for features they ignore | À la carte pricing matches willingness-to-pay per persona |
+| One bad review tanks the whole app | Risk is partitioned across listings |
+| Update cycles are coupled (a replayer bug can't ship without re-reviewing every feature) | Each app ships on its own cadence |
+
+### Pricing Across the Suite
+
+The subscription model becomes **one cross-app account with three tiers**, not three independent products:
+
+| Plan | Includes | Monthly | Annual | Summer Pass |
+|---|---|---|---|---|
+| **Free (any app)** | Browse schedules · 5 saved events · 5 results/month · view-only replayer (no save/export) | $0 | $0 | — |
+| **Single App Pro** | Full features for ONE app only (user picks: Planner OR Replayer OR Manager) | $4.99 | $34.99 | $14.99 |
+| **Suite Pro** | Full features across all three apps | $7.99 | $49.99 | $18.99 |
+| **Suite Pro+** | Suite Pro + table scanner + staking + tax reports + analytics | $14.99 | $99.99 | $34.99 |
+
+Suite pricing is barely above single-app pricing — this is intentional. Single-app exists mainly to anchor the Suite Pro decision ("for $3 more I get all three apps"). The split also lets us test demand: if Replayer Single is the only one anyone buys, that's the product-market-fit signal to invest there.
+
+### Per-App Free Tiers
+
+Each app's free tier is calibrated to the value it provides on its own:
+
+**Planner Free**: full schedule browsing (this is the acquisition funnel — never gate). 5-event save cap. Push reminders. No calendar sync, no export.
+
+**Replayer Free**: build and replay one hand at a time, no save (you can replay and discard). One GIF export per week with a small "futurega.me" watermark. The watermark IS the marketing — every shared GIF is a discovery channel.
+
+**Manager Free**: 5 results per month. Running totals visible but no charts, no ROI, no export. Comes with the "data hostage" hook from §1.
+
+### Sharing the Account
+
+A single account holds all three apps. Subscription status is queried from a shared `/api/subscription` endpoint that returns:
+
+```json
+{
+  "tier": "suite_pro" | "suite_pro_plus" | "planner_pro" | "replayer_pro" | "manager_pro" | "free",
+  "renewsAt": "2026-08-01",
+  "status": "active" | "trial" | "grace" | "cancelled",
+  "trial": { "endsAt": "2026-06-02", "remainingDays": 13 }
+}
+```
+
+Each app checks this on launch and on resume. Permission gates throughout the apps consult a shared `useFeatureAccess(featureKey)` hook so the gating logic lives in one place.
+
+### Cross-App Promotion
+
+The suite is also the marketing engine. A Planner user who's saved 30 events sees a one-time "You'd love the Manager app — track your results from these tournaments. Download free →" interstitial. Replayer-shared GIFs link back to a download page that detects which app the viewer would want first (no hand history → Planner, has hand history → Replayer).
+
+### Migration / Split Roadmap
+
+Splitting is a build/release problem, not a code problem:
+
+1. Reorganize `vite-app/src/` into `vite-app/src/shared/` + `vite-app/src/planner/` + `vite-app/src/replayer/` + `vite-app/src/manager/`.
+2. Build matrix in `vite.config.js`: `VITE_APP=planner|replayer|manager` env var produces three different bundles from the same source tree, each importing only its module + shared.
+3. Capacitor: three separate `capacitor.config.json` files in `apps/{planner,replayer,manager}/` referencing a single `webDir` populated by the right build.
+4. Three App Store Connect listings, each with its own bundle ID and provisioning profile.
+5. Backend: one server, one database, one subscription source-of-truth. The `app` query param on every API call tells the server which surface is calling so analytics stay separate.
+
+Estimated implementation cost: ~2–3 weeks of refactor (most of it is moving files and updating imports), then ongoing maintenance becomes EASIER because each app's surface is smaller.
+
+### When to Split
+
+**Not yet.** The 2026 WSOP summer is too close. Ship the single-app pricing for summer 2026, learn which features drive conversion, then split before summer 2027. The split also benefits enormously from real data on which feature combinations users actually buy.
+
+---
+
+## 11. Payment Backend Architecture
+
+The subscription system needs to support all three platforms (iOS, Android, Web), the Summer Pass time-bounded SKU, free trials, and the three-app suite. The recommended architecture:
+
+### Source of Truth: Server-Side Subscription Table
+
+A single `subscriptions` table in the existing SQLite (or future Postgres) database:
+
+```sql
+CREATE TABLE subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  tier TEXT NOT NULL,          -- 'suite_pro', 'suite_pro_plus', 'planner_pro', etc.
+  status TEXT NOT NULL,        -- 'trial', 'active', 'grace', 'cancelled', 'expired'
+  source TEXT NOT NULL,        -- 'apple', 'google', 'stripe', 'manual', 'promo'
+  source_id TEXT,              -- StoreKit transaction ID / Stripe sub ID
+  starts_at INTEGER NOT NULL,  -- epoch ms
+  ends_at INTEGER,             -- epoch ms (null = open-ended)
+  trial_ends_at INTEGER,       -- epoch ms (null if not in trial)
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX idx_subs_user ON subscriptions(user_id);
+CREATE INDEX idx_subs_active ON subscriptions(user_id, status, ends_at);
+```
+
+The server resolves a user's *effective* subscription with one query, ordering by `tier` rank then `ends_at`:
+
+```javascript
+function getActiveSubscription(userId) {
+  return db.exec(`
+    SELECT * FROM subscriptions
+    WHERE user_id = ? AND status IN ('trial', 'active', 'grace')
+    AND (ends_at IS NULL OR ends_at > ?)
+    ORDER BY CASE tier
+      WHEN 'suite_pro_plus' THEN 1
+      WHEN 'suite_pro' THEN 2
+      WHEN 'planner_pro' THEN 3
+      WHEN 'replayer_pro' THEN 3
+      WHEN 'manager_pro' THEN 3
+      ELSE 99 END,
+    ends_at DESC LIMIT 1
+  `, [userId, Date.now()]);
+}
+```
+
+Client never decides what tier the user has — it always reads from `/api/subscription`.
+
+### Three Payment Sources
+
+**Apple StoreKit 2** (iOS native app):
+- Use Capacitor's `@capacitor-community/in-app-purchases` or a custom Swift plugin (we already have one example with `InstagramStoriesPlugin`).
+- After purchase, the iOS app sends the signed `transactionId` to `POST /api/subscription/apple/verify`.
+- The server calls Apple's `/inApps/v1/transactions/{transactionId}` endpoint with a JWT signed by an App Store Connect API key (you already have `AuthKey_UCFMFW9636.p8`) to verify and read the renewal info.
+- App Store server notifications (App Store Server Notifications v2) hit `POST /api/subscription/apple/webhook` to update the row when subscriptions renew, lapse, refund, etc.
+
+**Google Play Billing** (Android, future):
+- Similar pattern: client purchases via Play Billing, sends `purchaseToken` + `productId` to `POST /api/subscription/google/verify`.
+- Server verifies with the Google Play Developer API (Service Account JSON credentials).
+- Real-time Developer Notifications (Pub/Sub) → `POST /api/subscription/google/webhook`.
+
+**Stripe** (web, also handles iOS/Android users who choose to pay on web for cheaper "reader" pricing per Apple's 2024 ruling):
+- Stripe Checkout for subscription creation (`POST /api/subscription/stripe/checkout`).
+- Stripe Customer Portal for cancel/upgrade/payment-method (`POST /api/subscription/stripe/portal`).
+- Webhook at `POST /api/subscription/stripe/webhook` for `customer.subscription.updated`, `invoice.paid`, `invoice.payment_failed`, etc.
+
+All three writers funnel into the same `subscriptions` table. The `source` column tells us which API to call for cancellations/lookups.
+
+### Trial Mechanics
+
+A free trial is just a `subscriptions` row with `status='trial'`, `tier='suite_pro'`, `trial_ends_at=NOW + 14 days`, and a CRON job that flips it to `status='expired'` when it lapses. The trial doesn't require any payment provider — it's a server-side construct.
+
+When a trial user subscribes through Apple/Stripe, we close the trial row (`status='cancelled'`) and open a new `active` row from the real payment.
+
+### Summer Pass Mechanics
+
+The Summer Pass is a non-renewing time-bounded purchase, not a recurring subscription. Apple supports this via "Non-Renewing Subscription" or "Auto-Renewable Subscription with 3-month period that expires May→Aug". The simpler route is to model it as a one-time consumable in StoreKit and Stripe, and let the server write `tier='suite_pro', starts_at=NOW, ends_at=Aug 1` into the row. No webhook needed for renewal — it just expires.
+
+At expiration the user gets a prompt to convert to Annual (§4).
+
+### Endpoints to Build
+
+| Endpoint | Purpose | Phase |
+|---|---|---|
+| `GET /api/subscription` | Returns the user's effective subscription + entitlements | MVP |
+| `POST /api/subscription/trial/start` | Starts the 14-day trial (idempotent — can only be called once per user) | MVP |
+| `POST /api/subscription/apple/verify` | Validates an Apple transaction; inserts row | MVP |
+| `POST /api/subscription/apple/webhook` | Apple server notifications | MVP |
+| `POST /api/subscription/stripe/checkout` | Creates a Stripe Checkout session, returns URL | MVP |
+| `POST /api/subscription/stripe/portal` | Creates a Stripe Customer Portal session | MVP |
+| `POST /api/subscription/stripe/webhook` | Stripe events | MVP |
+| `POST /api/subscription/google/verify` | (Android, post-MVP) | Phase 2 |
+| `POST /api/subscription/google/webhook` | (Android, post-MVP) | Phase 2 |
+| `POST /api/subscription/redeem-promo` | Promo code redemption (referrals, partnerships) | Phase 2 |
+
+### Frontend Hook
+
+```javascript
+// vite-app/src/shared/hooks/useSubscription.js
+export function useSubscription() {
+  const [sub, setSub] = useState(null);
+  useEffect(() => { fetchApi('/subscription').then(r => r.json()).then(setSub); }, []);
+  return {
+    sub,
+    has: (feature) => featureMatrix[sub?.tier]?.[feature] === true,
+    isPro: sub?.tier?.includes('pro'),
+    isProPlus: sub?.tier === 'suite_pro_plus',
+    isTrialing: sub?.status === 'trial',
+    daysLeft: sub?.trial?.remainingDays,
+  };
+}
+```
+
+Every gated feature consults `has('feature_key')` so the gating rules live in one feature-matrix object that ships with the app.
+
+### Build Order (MVP)
+
+1. Database migration: add `subscriptions` table.
+2. `GET /api/subscription` returns derived state from the table.
+3. Trial start endpoint + automatic trial on first login.
+4. Frontend `useSubscription()` hook + paywall component.
+5. Stripe Checkout + webhook (faster to ship than StoreKit, lets us launch web sales while iOS catches up).
+6. Apple StoreKit verification + webhook (required for iOS app review).
+7. Replace all current hard-coded admin gates with `has('replayer')`, `has('staking')`, etc.
+
+Steps 1–4 are ~3 days. Stripe integration is another ~2 days. Apple StoreKit is ~3–5 days including a TestFlight verification cycle. Total: about two weeks of focused work to ship a working monetization MVP.
 
 ---
 

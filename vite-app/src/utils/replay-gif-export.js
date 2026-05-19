@@ -183,21 +183,43 @@ export async function exportReplayGif({
     const blob = new Blob([encoder.bytes()], { type: 'image/gif' });
     const file = new File([blob], filename, { type: 'image/gif' });
 
-    // On iOS: try direct Instagram Stories share, fall back to share sheet
+    // shareMethod tells the caller which path the GIF took so the UI can
+    // show context-appropriate feedback ("Opened Instagram", "Saved to
+    // Files", etc.). The auto-share order: iOS native IG → Web Share API
+    // (share sheet) → direct download.
+    let shareMethod = 'download';
+    let shareError = null;
+
     const { canShareToInstagram, shareGifToInstagramStories } = await import('./instagram-stories.js');
     if (canShareToInstagram()) {
       try {
-        await shareGifToInstagramStories(blob);
+        // Brand-matched gradient behind the sticker.
+        await shareGifToInstagramStories(blob, {
+          backgroundTopColor: '#0f172a',
+          backgroundBottomColor: '#1e293b',
+        });
+        shareMethod = 'instagram';
       } catch (e) {
-        // Instagram not installed or plugin failed — fall back to share sheet
+        shareError = e;
         console.warn('Instagram direct share failed, falling back:', e);
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Hand Replay' });
+          try {
+            await navigator.share({ files: [file], title: 'Hand Replay' });
+            shareMethod = 'share-sheet';
+          } catch (e2) { shareError = e2; }
         }
       }
     } else if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Hand Replay' });
-    } else {
+      try {
+        await navigator.share({ files: [file], title: 'Hand Replay' });
+        shareMethod = 'share-sheet';
+      } catch (e) {
+        shareError = e;
+      }
+    }
+
+    // If no share method succeeded, save to the user's downloads.
+    if (shareMethod === 'download') {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -209,7 +231,7 @@ export async function exportReplayGif({
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
-    onDone();
+    onDone({ shareMethod, shareError, blob });
   } catch (err) {
     tableEl.style.paddingTop = origPadTop;
     tableEl.style.marginTop = origMarginTop;

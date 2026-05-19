@@ -2493,6 +2493,35 @@ async function initDatabase() {
   db.run('CREATE INDEX IF NOT EXISTS idx_user_schedules_user_id ON user_schedules(user_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_user_schedules_tournament_id ON user_schedules(tournament_id)');
 
+  // ── Subscriptions (monetization foundation) ──
+  // One table holds every subscription event from every source (Apple,
+  // Stripe, manual). The user's "current" tier is derived by querying
+  // active rows and picking the highest-rank one. See MONETIZATION-PLAN
+  // §11 for the design rationale.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      tier TEXT NOT NULL,
+      status TEXT NOT NULL,
+      source TEXT NOT NULL,
+      source_id TEXT,
+      starts_at INTEGER NOT NULL,
+      ends_at INTEGER,
+      trial_ends_at INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_subscriptions_active ON subscriptions(user_id, status, ends_at)');
+
+  // Track whether the user has ever started a trial — one trial per user lifetime.
+  try {
+    db.run('ALTER TABLE users ADD COLUMN trial_used_at INTEGER');
+  } catch (e) { /* already exists */ }
+
   console.log('Database initialized');
 }
 
@@ -8884,6 +8913,140 @@ No markdown, no explanation. Example for an 8-max PLO table:
       : `Scan failed (${err.status || 500})`;
     res.status(err.status || 500).json({ error: msg });
   }
+});
+
+// ── Subscriptions ─────────────────────────────────────────────
+// Monetization foundation. See MONETIZATION-PLAN.md §11 for the full design.
+
+const TIER_RANK = {
+  suite_pro_plus: 1,
+  suite_pro: 2,
+  planner_pro: 3,
+  replayer_pro: 3,
+  manager_pro: 3,
+  free: 99,
+};
+const TRIAL_DAYS = 14;
+const SUBSCRIPTION_GRACE_DAYS = 7;
+
+function getActiveSubscriptionRow(userId) {
+  const now = Date.now();
+  const stmt = db.prepare(`
+    SELECT id, tier, status, source, source_id, starts_at, ends_at, trial_ends_at, created_at, updated_at
+    FROM subscriptions
+    WHERE user_id = ?
+      AND status IN ('trial', 'active', 'grace')
+      AND (ends_at IS NULL OR ends_at > ?)
+  `);
+  stmt.bind([userId, now]);
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  if (rows.length === 0) return null;
+  rows.sort((a, b) => {
+    const ra = TIER_RANK[a.tier] ?? 99;
+    const rb = TIER_RANK[b.tier] ?? 99;
+    if (ra !== rb) return ra - rb;
+    return (b.ends_at || Infinity) - (a.ends_at || Infinity);
+  });
+  return rows[0];
+}
+
+function subscriptionToClient(row) {
+  if (!row) return { tier: 'free', status: 'free', renewsAt: null, trial: null };
+  const trialDaysLeft = row.trial_ends_at ? Math.max(0, Math.ceil((row.trial_ends_at - Date.now()) / 86400000)) : null;
+  return {
+    tier: row.tier,
+    status: row.status,
+    source: row.source,
+    renewsAt: row.ends_at ? new Date(row.ends_at).toISOString() : null,
+    startedAt: new Date(row.starts_at).toISOString(),
+    trial: row.status === 'trial' && row.trial_ends_at
+      ? { endsAt: new Date(row.trial_ends_at).toISOString(), remainingDays: trialDaysLeft }
+      : null,
+  };
+}
+
+app.get('/api/subscription', authenticateToken, (req, res) => {
+  try {
+    const row = getActiveSubscriptionRow(req.user.id);
+    res.json(subscriptionToClient(row));
+  } catch (e) {
+    console.error('GET /api/subscription error:', e);
+    res.status(500).json({ error: 'Failed to load subscription' });
+  }
+});
+
+app.post('/api/subscription/trial/start', authenticateToken, requireRegistered, async (req, res) => {
+  try {
+    // One trial per user, ever.
+    const u = db.prepare('SELECT trial_used_at FROM users WHERE id = ?');
+    u.bind([req.user.id]);
+    if (!u.step()) { u.free(); return res.status(404).json({ error: 'User not found' }); }
+    const { trial_used_at } = u.getAsObject();
+    u.free();
+    if (trial_used_at) return res.status(409).json({ error: 'Trial already used' });
+
+    const now = Date.now();
+    const trialEnd = now + TRIAL_DAYS * 86400000;
+    db.run(
+      `INSERT INTO subscriptions (user_id, tier, status, source, starts_at, ends_at, trial_ends_at, created_at, updated_at)
+       VALUES (?, 'suite_pro', 'trial', 'system', ?, ?, ?, ?, ?)`,
+      [req.user.id, now, trialEnd, trialEnd, now, now]
+    );
+    db.run('UPDATE users SET trial_used_at = ? WHERE id = ?', [now, req.user.id]);
+    await saveDatabase();
+    res.json(subscriptionToClient(getActiveSubscriptionRow(req.user.id)));
+  } catch (e) {
+    console.error('POST /api/subscription/trial/start error:', e);
+    res.status(500).json({ error: 'Failed to start trial' });
+  }
+});
+
+// Admin-only: grant a subscription manually. Used for promo codes, support,
+// and giving comp accounts. Same shape as the payment-provider webhook will
+// eventually populate.
+app.post('/api/subscription/grant', authenticateToken, requireRegistered, async (req, res) => {
+  if (!['ham', 'ham5'].includes((req.user.username || '').toLowerCase())) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const { userId, tier, days, source = 'manual', sourceId = null } = req.body || {};
+    if (!userId || !tier || !Number.isFinite(days)) return res.status(400).json({ error: 'userId, tier, days required' });
+    if (!(tier in TIER_RANK)) return res.status(400).json({ error: 'Unknown tier' });
+    const now = Date.now();
+    const ends = now + days * 86400000;
+    db.run(
+      `INSERT INTO subscriptions (user_id, tier, status, source, source_id, starts_at, ends_at, created_at, updated_at)
+       VALUES (?, ?, 'active', ?, ?, ?, ?, ?, ?)`,
+      [userId, tier, source, sourceId, now, ends, now, now]
+    );
+    await saveDatabase();
+    res.json(subscriptionToClient(getActiveSubscriptionRow(userId)));
+  } catch (e) {
+    console.error('POST /api/subscription/grant error:', e);
+    res.status(500).json({ error: 'Failed to grant subscription' });
+  }
+});
+
+// Provider webhooks (skeletons — verification + signature checks come
+// during the Apple/Stripe integration phase). They live here so the route
+// surface exists from day one and the frontend can wire to stable URLs.
+app.post('/api/subscription/apple/webhook', express.json({ limit: '256kb' }), async (req, res) => {
+  // TODO: verify signedPayload JWS with Apple's root certs (per Apple docs
+  // for App Store Server Notifications v2), then upsert a row keyed by
+  // originalTransactionId. For now, accept-and-log so the endpoint URL is
+  // stable for App Store Connect's notification config.
+  console.log('[apple webhook]', JSON.stringify(req.body)?.slice(0, 500));
+  res.json({ ok: true });
+});
+
+app.post('/api/subscription/stripe/webhook', express.raw({ type: 'application/json', limit: '256kb' }), async (req, res) => {
+  // TODO: verify signature with STRIPE_WEBHOOK_SECRET (constructEvent), then
+  // upsert subscriptions row using the customer/subscription IDs. For now,
+  // accept-and-log so Stripe webhook config has a target.
+  console.log('[stripe webhook] received', req.headers['stripe-signature'] ? 'signed' : 'unsigned');
+  res.json({ ok: true });
 });
 
 // SPA catch-all for /shared/* routes

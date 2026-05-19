@@ -3974,8 +3974,18 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
       stepForward: () => stepForwardRef.current?.(),
       canGoForwardRef,
       onProgress: (pct, step, total) => { setGifProgress(pct); setGifStep(step); setGifTotal(total); },
-      onDone: () => { setGifExporting(false); setGifProgress(0); },
-      onError: (err) => { console.error('GIF export error:', err); setGifExporting(false); setGifProgress(0); },
+      onDone: (info) => {
+        setGifExporting(false); setGifProgress(0);
+        // Surface which path the share took so the user knows where the GIF went.
+        if (info?.shareMethod === 'instagram') toast?.success?.('Opened Instagram with your replay');
+        else if (info?.shareMethod === 'share-sheet') toast?.success?.('Share sheet opened');
+        else if (info?.shareMethod === 'download') toast?.success?.('GIF saved');
+      },
+      onError: (err) => {
+        console.error('GIF export error:', err);
+        setGifExporting(false); setGifProgress(0);
+        toast?.error?.('GIF export failed: ' + (err?.message || 'unknown'));
+      },
     });
   }, [gifExporting, videoExporting, hand]);
 
