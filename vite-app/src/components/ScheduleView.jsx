@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import CalendarEventRow, { CalendarEventRowLite } from './CalendarEventRow.jsx';
@@ -346,16 +347,31 @@ export default function ScheduleView({
           </button>
         </div>
       </div>
-      {onAddPersonalEvent && showTravelPicker && (
-        <div style={{padding:'0 2px', marginBottom:'12px'}}>
-          <TravelDayPicker
-            onSave={(date, notes) => {
-              onAddPersonalEvent(date, 'Travel Day', notes);
-              setShowTravelPicker(false);
-            }}
-            onCancel={() => setShowTravelPicker(false)}
-          />
-        </div>
+      {onAddPersonalEvent && showTravelPicker && createPortal(
+        // Rendered into document.body so opening the picker doesn't grow the
+        // sticky header's parent container. iOS WKWebView re-runs sticky
+        // layout on container resize, which made the Travel button "jump
+        // around" instead of revealing an inline picker below it.
+        <div
+          style={{
+            position:'fixed', inset:0, zIndex:9999,
+            background:'rgba(0,0,0,0.55)',
+            display:'flex', alignItems:'flex-start', justifyContent:'center',
+            padding:'80px 16px 16px', overflowY:'auto'
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowTravelPicker(false); }}
+        >
+          <div style={{width:'100%', maxWidth:'420px'}}>
+            <TravelDayPicker
+              onSave={(date, notes) => {
+                onAddPersonalEvent(date, 'Travel Day', notes);
+                setShowTravelPicker(false);
+              }}
+              onCancel={() => setShowTravelPicker(false)}
+            />
+          </div>
+        </div>,
+        document.body
       )}
       {conflicts.size > 0 && (
         <div className="alert alert-error" style={{marginBottom:'12px'}}>
