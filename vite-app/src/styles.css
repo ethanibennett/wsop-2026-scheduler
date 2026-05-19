@@ -1289,20 +1289,17 @@
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* Replay mode — fixed layout, no scroll. The bar below the table is
-       position:fixed above the nav; the 110px bottom padding reserves
-       space so the table never slides under it. justify-content:center
-       puts the table in the middle of the remaining height so any extra
-       slack splits evenly above/below the felt. */
+    /* Replay mode — fixed-height, no scroll. Table is sized by its
+       width formula and vertically centered (margin:auto) in the
+       remaining space; bar is a normal flow item that sits at the
+       bottom of .replayer-replay, directly above the nav. */
     .replayer-replay {
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 4px;
-      padding-bottom: 110px;
       overflow: hidden;
       height: 100%;
     }
+    .replayer-replay > .replayer-bottom-fixed { flex: 0 0 auto; margin-top: auto; }
 
     /* Landscape: fullscreen replayer, hide app chrome */
     .replayer-landscape {
@@ -1669,14 +1666,12 @@
     .replayer-seat-cards .card-classic { width: 30px; height: 44px; }
     .replayer-board-spaced .card-classic { width: 30px; height: 44px; }
 
-    /* Replay controls — bottom edge flush with the top of the bottom nav.
-       Same formula the nav uses for its own height, so the bar's bottom
-       edge meets the nav's top edge exactly: no gap, no overlap. */
+    /* Replay controls — sits in normal flow at the bottom of
+       .replayer-replay, directly above the bottom nav. No fixed
+       positioning math; the layout naturally puts the bar flush with
+       the nav's top edge because content-area's padding-bottom is
+       zeroed in replayer mode (see .content-area:has rule). */
     .replayer-bottom-fixed {
-      position: fixed;
-      bottom: max(44px, calc(var(--tab-h) + env(safe-area-inset-bottom, 0px)));
-      left: 0; right: 0;
-      z-index: 101;
       background: var(--bg);
       display: flex; flex-direction: column; gap: 4px;
       padding: 6px 12px 8px;
