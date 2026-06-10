@@ -6990,8 +6990,9 @@ function loadSolverStrategy(gameId) {
   if (gameId in solverStrategies) return solverStrategies[gameId];
   let loaded = null;
   try {
+    const fsSync = require('fs'); // top-level fs is the promises API
     const file = path.join(__dirname, 'solver', 'strategies', `${gameId}.json`);
-    if (fs.existsSync(file)) loaded = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (fsSync.existsSync(file)) loaded = JSON.parse(fsSync.readFileSync(file, 'utf8'));
   } catch (e) {
     console.error(`Failed to load solver strategy for ${gameId}:`, e.message);
   }
