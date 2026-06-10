@@ -37,6 +37,7 @@ import MilestoneCelebration from './components/MilestoneCelebration.jsx';
 // bundle drops by several hundred KB. Each loads on first navigation to
 // its tab; subsequent visits are cached by the browser.
 const HandReplayerView = lazy(() => import('./components/HandReplayerView.jsx'));
+const SolverTrainerView = lazy(() => import('./components/SolverTrainerView.jsx'));
 const StakingView = lazy(() => import('./components/StakingView.jsx'));
 const AdminView = lazy(() => import('./components/AdminView.jsx'));
 
@@ -124,6 +125,9 @@ export default function App() {
 
   // Hand replayer access
   const [handReplayerAccess, setHandReplayerAccess] = useState(localStorage.getItem('handReplayerAccess') === 'true');
+
+  // Hands tab tool: hand replayer or CFR solver trainer
+  const [handsTool, setHandsTool] = useState('replayer');
 
   // Shared hand from URL hash
   const [sharedHandData, setSharedHandData] = useState(() => {
@@ -1333,7 +1337,26 @@ export default function App() {
         <div className={'tab-panel' + (currentView === 'hands' ? ' tab-active' : '')} data-tab="hands" style={{display: currentView === 'hands' ? undefined : 'none', height: currentView === 'hands' ? '100%' : undefined}}>
         {visitedTabs.has('hands') && (
           isAdmin || sharedHandData
-            ? <Suspense fallback={<LazyFallback />}><HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} /></Suspense>
+            ? <div style={{height:'100%',display:'flex',flexDirection:'column'}}>
+                {isAdmin && (
+                  <div style={{display:'flex',gap:6,padding:'8px 14px 0',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
+                    {[['replayer','Replayer'],['trainer','Solver Trainer']].map(([id,lbl]) => (
+                      <button key={id} onClick={() => setHandsTool(id)}
+                        style={{padding:'4px 12px',borderRadius:12,fontFamily:'inherit',fontSize:'0.7rem',fontWeight:600,cursor:'pointer',
+                          border:'1px solid ' + (handsTool === id ? 'var(--accent)' : 'var(--border)'),
+                          background: handsTool === id ? 'var(--accent)' : 'transparent',
+                          color: handsTool === id ? '#fff' : 'var(--text-muted)'}}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{flex:1,minHeight:0}}>
+                  {handsTool === 'trainer' && isAdmin
+                    ? <Suspense fallback={<LazyFallback />}><SolverTrainerView /></Suspense>
+                    : <Suspense fallback={<LazyFallback />}><HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} /></Suspense>}
+                </div>
+              </div>
             : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
                 <h2 style={{fontFamily:"'Univers Condensed', 'Univers', sans-serif",fontSize:'1.3rem',fontWeight:700,color:'var(--text)',margin:'0 0 8px'}}>Hand Replayer</h2>
                 <p style={{color:'var(--text-muted)',fontSize:'0.9rem',margin:0}}>Coming Soon</p>

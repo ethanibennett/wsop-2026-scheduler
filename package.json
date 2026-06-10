@@ -9,7 +9,9 @@
     "dev": "node build.js && node server.js",
     "init-db": "node init-db.js",
     "seed": "node init-db.js --seed",
-    "test": "node test/test-ps-ocr.js"
+    "test": "node test/test-ps-ocr.js",
+    "test:solver": "node solver/tests/run-tests.js",
+    "train": "node --max-old-space-size=4096 solver/train.js"
   },
   "keywords": [],
   "author": "",

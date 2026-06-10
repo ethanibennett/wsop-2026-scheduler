@@ -6975,6 +6975,57 @@ app.delete('/api/replayer/games/:id', authenticateToken, requireRegistered, asyn
   }
 });
 
+/// ── CFR Solver Trainer API ─────────────────────────────
+// Games + strategies live in solver/. Strategies are trained offline
+// with `node solver/train.js --game <id> --iters N` and saved to
+// solver/strategies/<id>.json; they're lazily loaded and cached here.
+
+const { GAMES: solverGames, GAME_META: solverGameMeta } = require('./solver/games');
+const { generateSpot: generateSolverSpot } = require('./solver/spot');
+const { makeRng: makeSolverRng } = require('./solver/engine/cards');
+const solverRng = makeSolverRng(Date.now() & 0x7fffffff);
+const solverStrategies = {}; // gameId -> { strategy, iterations, trainedAt } | null
+
+function loadSolverStrategy(gameId) {
+  if (gameId in solverStrategies) return solverStrategies[gameId];
+  let loaded = null;
+  try {
+    const file = path.join(__dirname, 'solver', 'strategies', `${gameId}.json`);
+    if (fs.existsSync(file)) loaded = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    console.error(`Failed to load solver strategy for ${gameId}:`, e.message);
+  }
+  // don't cache misses — a strategy trained later should be picked up live
+  if (loaded) solverStrategies[gameId] = loaded;
+  return loaded;
+}
+
+app.get('/api/solver/games', authenticateToken, (req, res) => {
+  res.json(solverGameMeta.map(meta => {
+    const strat = loadSolverStrategy(meta.id);
+    return {
+      ...meta,
+      trained: !!strat,
+      iterations: strat ? strat.iterations : 0,
+      infosets: strat ? strat.infosets : 0,
+    };
+  }));
+});
+
+app.get('/api/solver/spot/:gameId', authenticateToken, (req, res) => {
+  try {
+    const game = solverGames[req.params.gameId];
+    if (!game) return res.status(404).json({ error: 'Unknown game' });
+    const strat = loadSolverStrategy(req.params.gameId);
+    const spot = generateSolverSpot(game, strat ? strat.strategy : {}, solverRng);
+    if (!spot) return res.status(500).json({ error: 'Could not generate a spot' });
+    res.json(spot);
+  } catch (error) {
+    console.error('Solver spot error:', error);
+    res.status(500).json({ error: 'Failed to generate spot' });
+  }
+});
+
 // Admin: list users (secret key protected)
 app.get('/api/admin/users', adminLimiter, (req, res) => {
   if (!process.env.ADMIN_KEY) {

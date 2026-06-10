@@ -102,3 +102,6 @@ generate-test-hands.js
 
 # macOS
 .DS_Store
+
+# CFR solver training checkpoints (full regret state, large)
+solver/strategies/*.ckpt.json
