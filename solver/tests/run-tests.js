@@ -13,6 +13,8 @@ const { MCCFRTrainer } = require('../engine/mccfr');
 const kuhn = require('../games/kuhn');
 const { GAMES } = require('../games');
 const { generateSpot } = require('../spot');
+const { playHand } = require('../playout');
+const { explainStep, potOdds } = require('../explain');
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -161,7 +163,45 @@ for (const [id, game] of Object.entries(GAMES)) {
     const sum = spot.actions.reduce((a, x) => a + x.prob, 0);
     assert(Math.abs(sum - 1) < 0.02, 'strategy normalized');
   });
+  test(`${id}: self-play produces steps with valid explain lines`, () => {
+    const trainer = new MCCFRTrainer(game);
+    trainer.train(200, makeRng(9));
+    const avg = trainer.averageStrategy();
+    const p = playHand(game, avg, makeRng(4));
+    assert(p.steps.length >= 1, 'at least one decision');
+    for (const st of p.steps) {
+      assert(typeof st.explain === 'string' && st.explain.length > 10, 'explain present');
+      assert(st.chosen && st.actions.some(a => a.id === st.chosen), 'chosen valid');
+    }
+    assert(p.result && p.result.type, 'result present');
+  });
 }
+
+console.log('— Explain lines —');
+test('pot odds: 4 to call into 20 needs ~17% equity', () => {
+  assert.strictEqual(potOdds(20, 4), 17);
+  assert.strictEqual(potOdds(6, 4), 40);
+});
+test('facing a bet produces a pot-odds sentence', () => {
+  const step = {
+    kind: 'bet', actor: 0, pot: 20, contrib: [8, 12],
+    players: [{ handLabel: '7-5 low' }, { handLabel: 'x' }],
+    actions: [{ id: 'f', label: 'Fold', prob: 0.05 }, { id: 'c', label: 'Call 4', prob: 0.15 }, { id: 'r', label: 'Raise to 16', prob: 0.80 }],
+  };
+  const line = explainStep(step, false);
+  assert(/needs ~17% equity/.test(line), 'has pot odds: ' + line);
+  assert(/7-5 low/.test(line), 'has hand');
+});
+test('snow draw is flagged as a bluff', () => {
+  const step = {
+    kind: 'draw', actor: 1, pot: 8, contrib: [4, 4],
+    players: [{ handLabel: 'x' }, { handLabel: '3-card 9' }],
+    actions: [{ id: 'd0', label: 'Stand Pat', prob: 0.05 }, { id: 'd2', label: 'Draw 2', prob: 0.95 }],
+  };
+  const line = explainStep(step, false);
+  assert(/draws 2/.test(line), 'describes the draw: ' + line);
+  assert(/snow/.test(line), 'flags the snow: ' + line);
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

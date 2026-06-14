@@ -177,6 +177,13 @@ export default function SolverPlayView() {
                 {!step.trained && ' · (unvisited — uniform)'}
               </div>
               {step.actions.map(a => <StrategyRow key={a.id} action={a} chosen={step.chosen} />)}
+              {step.explain && (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)',
+                  fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  <span style={{ ...label, color: 'var(--accent)', marginRight: 6 }}>Why</span>
+                  {step.explain}
+                </div>
+              )}
             </div>
           )}
 

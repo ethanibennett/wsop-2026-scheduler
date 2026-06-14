@@ -5,6 +5,8 @@
 // sampled action) plus the terminal result. Used by the self-play
 // viewer to step through a hand and watch the solver act.
 
+const { explainStep } = require('./explain');
+
 function strategyFor(strategyMap, key, acts) {
   const node = strategyMap[key];
   if (node && node.a.length === acts.length && node.a.every((a, i) => a === acts[i])) {
@@ -35,14 +37,16 @@ function playHand(game, strategyMap, rng) {
     const choiceIdx = sampleIndex(strat.probs, rng);
     const view = game.viewAll(state);
 
-    steps.push({
+    const stepObj = {
       ...view,
       actor: game.currentPlayer(state),
       kind: view.phase === 'draw' ? 'draw' : 'bet',
       trained: strat.trained,
       actions: acts.map((a, i) => ({ id: a, label: game.actionLabel(a, state), prob: strat.probs[i] })),
       chosen: acts[choiceIdx],
-    });
+    };
+    stepObj.explain = explainStep(stepObj, game.id === 'stud8');
+    steps.push(stepObj);
     state = game.applyAction(state, acts[choiceIdx]);
   }
 
