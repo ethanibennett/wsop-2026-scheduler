@@ -32,38 +32,36 @@ function StrategyRow({ action, chosen }) {
   );
 }
 
-// One seat at the table. Highlighted when it's this seat's turn.
-function Seat({ player, isStud, active, badge }) {
+// One seat on the felt. Highlighted when it's this seat's turn. Cards
+// are rendered as the replayer's card-face graphics.
+function Seat({ player, isStud, active, badge, chipLabel }) {
   return (
-    <div style={{ ...panel, padding: '10px 12px',
-      borderColor: active ? 'var(--accent)' : 'var(--border)',
-      boxShadow: active ? '0 0 0 1px var(--accent)' : 'none', transition: 'box-shadow 0.2s' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-        <span style={{ fontWeight: 700, color: active ? 'var(--accent)' : 'var(--text)', fontSize: '0.85rem' }}>
-          {badge}{active ? ' · to act' : ''}
-        </span>
-        <span style={label}>{player.handLabel || player.label}</span>
+    <div className={'solver-seat' + (active ? ' active' : '')}>
+      <div className="solver-seat-head">
+        <span className="solver-seat-name">{badge}</span>
+        <span className="solver-seat-hand">{player.handLabel || player.label}</span>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="solver-seat-cards">
         {isStud ? (
           <>
             {player.down.map((c, i) => <Card key={'d' + i} str={c} dim size="sm" />)}
-            <span style={{ ...label, margin: '0 6px 0 2px' }}>|</span>
             {player.up.map((c, i) => <Card key={'u' + i} str={c} size="sm" />)}
           </>
         ) : (
-          <>
-            {player.cards.map((c, i) => <Card key={i} str={c} size="sm" />)}
-            {player.draws && player.draws.length > 0 && (
-              <span style={{ ...label, marginLeft: 8 }}>drew {player.draws.join(', ')}</span>
-            )}
-          </>
+          player.cards.map((c, i) => <Card key={i} str={c} size="sm" />)
         )}
+      </div>
+      <div className="solver-seat-foot">
+        {chipLabel != null && <span className="solver-seat-chip">{chipLabel}</span>}
+        {!isStud && player.draws && player.draws.length > 0 && (
+          <span className="solver-seat-meta">drew {player.draws.join(', ')}</span>
+        )}
+        {active && <span className="solver-seat-toact">● to act</span>}
       </div>
       {/* Dead cards: what this seat has discarded on previous draws */}
       {!isStud && player.discards && player.discards.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginTop: 6, opacity: 0.85 }}>
-          <span style={{ ...label, marginRight: 6 }}>dead</span>
+        <div className="solver-seat-dead">
+          <span className="solver-seat-meta">dead</span>
           {player.discards.map((c, i) => <Card key={'x' + i} str={c} dim size="sm" />)}
         </div>
       )}
@@ -167,12 +165,17 @@ export default function SolverPlayView() {
             </span>
           </div>
 
-          {/* Table: two seats */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+          {/* Felt table: two seats with the pot between them */}
+          <div className="solver-felt">
             <Seat player={seats[1]} isStud={isStud} badge={isStud ? 'Player 2' : 'Big Blind'}
-              active={!atEnd && step.actor === 1} />
+              active={!atEnd && step.actor === 1}
+              chipLabel={(step ? step.contrib : null) ? step.contrib[1] : null} />
+            <div className="solver-felt-center">
+              <span className="solver-pot-chip">POT {atEnd ? play.result.pot : step.pot}</span>
+            </div>
             <Seat player={seats[0]} isStud={isStud} badge={isStud ? 'Player 1' : 'Button (SB)'}
-              active={!atEnd && step.actor === 0} />
+              active={!atEnd && step.actor === 0}
+              chipLabel={(step ? step.contrib : null) ? step.contrib[0] : null} />
           </div>
 
           {/* Strategy bars for the current decision */}

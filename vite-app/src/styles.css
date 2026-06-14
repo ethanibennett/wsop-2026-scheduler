@@ -6392,3 +6392,46 @@
       font-size: 0.6rem;
       color: var(--text-muted);
     }
+
+    /* ── Solver self-play felt table (reuses replayer card graphics) ── */
+    .solver-felt {
+      position: relative;
+      background: radial-gradient(ellipse 95% 85% at 50% 50%, #6b5b8a 0%, #4a3f63 65%, #322a49 100%);
+      border-radius: 20px;
+      border: 3px solid color-mix(in srgb, #6b5b8a 50%, #000);
+      box-shadow: inset 0 2px 16px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3);
+      padding: 14px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .solver-felt-center { display: flex; justify-content: center; align-items: center; margin: 1px 0; }
+    .solver-pot-chip {
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
+      color: #fff; background: rgba(0,0,0,0.38);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 999px; padding: 3px 14px;
+    }
+    .solver-seat {
+      background: rgba(0,0,0,0.30);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 8px 10px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .solver-seat.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+    .solver-seat-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .solver-seat-name { font-family: 'Univers Condensed', 'Univers', sans-serif; font-weight: 700; font-size: 0.82rem; color: #fff; }
+    .solver-seat.active .solver-seat-name { color: var(--accent); }
+    .solver-seat-hand { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255,255,255,0.62); }
+    .solver-seat-cards { display: flex; flex-wrap: wrap; align-items: center; }
+    .solver-seat-foot { display: flex; align-items: center; gap: 8px; margin-top: 5px; min-height: 14px; }
+    .solver-seat-chip { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.62rem; font-weight: 700; color: #ffe08a; background: rgba(0,0,0,0.4); border-radius: 999px; padding: 1px 8px; }
+    .solver-seat-meta { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.55); }
+    .solver-seat-toact { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.6rem; font-weight: 700; color: var(--accent); margin-left: auto; }
+    .solver-seat-dead { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin-top: 5px; }
