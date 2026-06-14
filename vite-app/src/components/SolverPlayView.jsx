@@ -32,39 +32,32 @@ function StrategyRow({ action, chosen }) {
   );
 }
 
-// A seat positioned on the oval felt (top = opponent, bottom = button).
-// Cards render as the replayer's card-face graphics.
+// Bare card image (no inline sizing) so the replayer's seat-card CSS
+// (.replayer-seat-cards .card-row img) sizes + fans them like the replayer.
+function cardImg(c, key, dim) {
+  return <img key={key} className="card-img" src={`/cards/cards_gui_${c}.svg`} alt={c}
+    style={dim ? { opacity: 0.5, filter: 'grayscale(0.4)' } : undefined} />;
+}
+
+// A seat on the oval felt, rendered with the replayer's own seat classes
+// (plaque + fanned cards) so it matches the Hand Replayer exactly.
 function TableSeat({ player, isStud, active, badge, chipLabel, pos }) {
+  const cards = isStud
+    ? [...player.down.map((c, i) => cardImg(c, 'd' + i, true)), ...player.up.map((c, i) => cardImg(c, 'u' + i, false))]
+    : player.cards.map((c, i) => cardImg(c, i, false));
   return (
-    <div className={`solver-tseat solver-tseat-${pos}` + (active ? ' active' : '')}>
-      <div className="solver-tseat-label">
-        <span className="solver-tseat-name">{badge}</span>
-        {active && <span className="solver-tseat-toact">● to act</span>}
-        <span className="solver-tseat-hand">{player.handLabel || player.label}</span>
-      </div>
-      <div className="solver-tseat-cards">
-        {isStud ? (
-          <>
-            {player.down.map((c, i) => <Card key={'d' + i} str={c} dim size="sm" />)}
-            {player.up.map((c, i) => <Card key={'u' + i} str={c} size="sm" />)}
-          </>
-        ) : (
-          player.cards.map((c, i) => <Card key={i} str={c} size="sm" />)
-        )}
-      </div>
-      <div className="solver-tseat-label">
-        {chipLabel != null && <span className="solver-tseat-chip">{chipLabel}</span>}
-        {!isStud && player.draws && player.draws.length > 0 && (
-          <span className="solver-tseat-meta">drew {player.draws.join(', ')}</span>
-        )}
-      </div>
-      {/* Dead cards: what this seat has discarded on previous draws */}
-      {!isStud && player.discards && player.discards.length > 0 && (
-        <div className="solver-tseat-dead">
-          <span className="solver-tseat-meta">dead</span>
-          {player.discards.map((c, i) => <Card key={'x' + i} str={c} dim size="sm" />)}
+    <div className={'replayer-seat solver-rseat solver-rseat-' + pos + (active ? ' active-turn' : '')}
+      style={{ left: '50%', top: pos === 'top' ? '20%' : '80%' }}>
+      <div className="replayer-seat-cards"><div className="card-row">{cards}</div></div>
+      <div className="replayer-seat-info">
+        <div className="replayer-seat-name">
+          {badge}{active && <span className="solver-toact"> ●</span>}
         </div>
-      )}
+        <div className="replayer-seat-stack">
+          {player.handLabel || player.label}
+          {chipLabel != null && <span className="solver-contrib"> · {chipLabel}</span>}
+        </div>
+      </div>
     </div>
   );
 }
@@ -165,20 +158,32 @@ export default function SolverPlayView() {
             </span>
           </div>
 
-          {/* Oval felt table (reuses the replayer's table graphic) */}
+          {/* Oval felt table (reuses the replayer's table + seat graphics) */}
           <div className="solver-table">
             <div className="replayer-table-rail" style={{ '--rail-color': '#6b5b8a' }} />
             <div className="replayer-table-felt" />
+            <div className="solver-tpot">POT {atEnd ? play.result.pot : step.pot}</div>
             <TableSeat pos="top" player={seats[1]} isStud={isStud}
               badge={isStud ? 'Player 2' : 'Big Blind'}
               active={!atEnd && step.actor === 1}
               chipLabel={step ? step.contrib[1] : null} />
-            <div className="solver-tpot">POT {atEnd ? play.result.pot : step.pot}</div>
             <TableSeat pos="bottom" player={seats[0]} isStud={isStud}
               badge={isStud ? 'Player 1' : 'Button (SB)'}
               active={!atEnd && step.actor === 0}
               chipLabel={step ? step.contrib[0] : null} />
           </div>
+
+          {/* Dead cards discarded so far (draw games), kept off the felt */}
+          {!isStud && (seats[0].discards?.length > 0 || seats[1].discards?.length > 0) && (
+            <div className="solver-deadstrip">
+              {[seats[0], seats[1]].map((s, si) => s.discards?.length > 0 && (
+                <div key={si} className="solver-dead-row">
+                  <span className="solver-dead-label">{si === 0 ? 'Button' : 'BB'} dead</span>
+                  {s.discards.map((c, i) => cardImg(c, si + '-' + i, true))}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Strategy bars for the current decision */}
           {step && (
