@@ -42,7 +42,7 @@ function Seat({ player, isStud, active, badge }) {
         <span style={{ fontWeight: 700, color: active ? 'var(--accent)' : 'var(--text)', fontSize: '0.85rem' }}>
           {badge}{active ? ' · to act' : ''}
         </span>
-        <span style={label}>{player.handLabel}</span>
+        <span style={label}>{player.handLabel || player.label}</span>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
         {isStud ? (
@@ -60,6 +60,13 @@ function Seat({ player, isStud, active, badge }) {
           </>
         )}
       </div>
+      {/* Dead cards: what this seat has discarded on previous draws */}
+      {!isStud && player.discards && player.discards.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginTop: 6, opacity: 0.85 }}>
+          <span style={{ ...label, marginRight: 6 }}>dead</span>
+          {player.discards.map((c, i) => <Card key={'x' + i} str={c} dim size="sm" />)}
+        </div>
+      )}
     </div>
   );
 }

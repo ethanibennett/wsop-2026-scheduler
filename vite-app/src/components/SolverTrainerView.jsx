@@ -127,6 +127,12 @@ export default function SolverTrainerView() {
                   {d.oppDraws.length > 0 && ` · opp drew ${d.oppDraws.join(', ')}`}
                 </div>
                 <div>{d.heroCards.map((c, i) => <Card key={i} str={c} />)}</div>
+                {d.myDiscards && d.myDiscards.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
+                    <span style={{ ...label, marginRight: 6 }}>your dead cards</span>
+                    {d.myDiscards.map((c, i) => <Card key={'x' + i} str={c} dim size="sm" />)}
+                  </div>
+                )}
               </>
             )}
 

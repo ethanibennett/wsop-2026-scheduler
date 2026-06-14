@@ -37,6 +37,7 @@ function makeDrawGame(cfg) {
       curSeq: s.curSeq,
       pendingDraw: s.pendingDraw,
       drawCounts: [s.drawCounts[0].slice(), s.drawCounts[1].slice()],
+      discards: [s.discards[0].slice(), s.discards[1].slice()],
       log: s.log.slice(),
     };
   }
@@ -70,6 +71,7 @@ function makeDrawGame(cfg) {
         curSeq: '',
         pendingDraw: null,
         drawCounts: [[], []],
+        discards: [[], []],   // cards thrown away on previous draws (dead)
         log: [],
       };
     },
@@ -140,6 +142,9 @@ function makeDrawGame(cfg) {
         n.drawCounts[p].push(k);
         if (k > 0) {
           const keep = cfg.chooseKeep(n.hands[p], k);
+          // Cards in the old hand not kept are discarded — dead cards.
+          const discarded = n.hands[p].filter(c => !keep.includes(c));
+          n.discards[p] = n.discards[p].concat(discarded);
           n.hands[p] = keep.slice();
           n.pendingDraw = { player: p, count: k };
           n.phase = 'chance';
@@ -231,6 +236,7 @@ function makeDrawGame(cfg) {
         betSize: betSize(s.street),
         myDraws: s.drawCounts[p],
         oppDraws: s.drawCounts[1 - p],
+        myDiscards: s.discards[p].map(cardStr), // hero's own dead cards
         log: s.log.map(e => ({ who: e.p === p ? 'Hero' : 'Opponent', what: e.a })),
       };
     },
@@ -250,6 +256,7 @@ function makeDrawGame(cfg) {
           cards: s.hands[p].map(cardStr),
           handLabel: cfg.describeHand(s.hands[p]),
           draws: s.drawCounts[p].slice(),
+          discards: s.discards[p].map(cardStr), // dead cards thrown this hand
         })),
         log: s.log.map(e => ({ who: e.p === 0 ? 'Button' : 'BB', what: e.a })),
       };
@@ -260,6 +267,7 @@ function makeDrawGame(cfg) {
       const labels = [0, 1].map(p => ({
         cards: s.hands[p].map(cardStr),
         label: cfg.describeHand(s.hands[p]),
+        discards: s.discards[p].map(cardStr),
       }));
       if (s.folded !== null) {
         const winner = 1 - s.folded;
