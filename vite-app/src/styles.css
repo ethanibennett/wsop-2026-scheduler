@@ -6393,45 +6393,42 @@
       color: var(--text-muted);
     }
 
-    /* ── Solver self-play felt table (reuses replayer card graphics) ── */
-    .solver-felt {
+    /* ── Solver self-play table (reuses the replayer's oval felt graphic) ── */
+    .solver-table {
       position: relative;
-      background: radial-gradient(ellipse 95% 85% at 50% 50%, #6b5b8a 0%, #4a3f63 65%, #322a49 100%);
-      border-radius: 20px;
-      border: 3px solid color-mix(in srgb, #6b5b8a 50%, #000);
-      box-shadow: inset 0 2px 16px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3);
-      padding: 14px;
-      margin-bottom: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      width: min(100%, 440px);
+      aspect-ratio: 3 / 2.4;
+      margin: 4px auto 14px;
     }
-    .solver-felt-center { display: flex; justify-content: center; align-items: center; margin: 1px 0; }
-    .solver-pot-chip {
+    .solver-table .replayer-table-felt { cursor: default; }
+    .solver-tpot {
+      position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%);
+      z-index: 3;
       font-family: 'Univers Condensed', 'Univers', sans-serif;
-      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
-      color: #fff; background: rgba(0,0,0,0.38);
-      border: 1px solid rgba(255,255,255,0.22);
-      border-radius: 999px; padding: 3px 14px;
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; color: #fff;
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,224,138,0.55);
+      border-radius: 999px; padding: 4px 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.45);
+      white-space: nowrap;
     }
-    .solver-seat {
-      background: rgba(0,0,0,0.30);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 12px;
-      padding: 8px 10px;
-      transition: border-color 0.2s, box-shadow 0.2s;
+    .solver-tseat {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      width: 92%; z-index: 3;
+      display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center;
     }
-    .solver-seat.active {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px var(--accent), 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+    .solver-tseat-top { top: 7%; }
+    .solver-tseat-bottom { bottom: 6%; }
+    .solver-tseat-label {
+      font-family: 'Univers Condensed', 'Univers', sans-serif;
+      font-size: 0.74rem; font-weight: 700; color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center;
+      line-height: 1.1;
     }
-    .solver-seat-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-    .solver-seat-name { font-family: 'Univers Condensed', 'Univers', sans-serif; font-weight: 700; font-size: 0.82rem; color: #fff; }
-    .solver-seat.active .solver-seat-name { color: var(--accent); }
-    .solver-seat-hand { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255,255,255,0.62); }
-    .solver-seat-cards { display: flex; flex-wrap: wrap; align-items: center; }
-    .solver-seat-foot { display: flex; align-items: center; gap: 8px; margin-top: 5px; min-height: 14px; }
-    .solver-seat-chip { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.62rem; font-weight: 700; color: #ffe08a; background: rgba(0,0,0,0.4); border-radius: 999px; padding: 1px 8px; }
-    .solver-seat-meta { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.55); }
-    .solver-seat-toact { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.6rem; font-weight: 700; color: var(--accent); margin-left: auto; }
-    .solver-seat-dead { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin-top: 5px; }
+    .solver-tseat.active .solver-tseat-name { color: var(--accent); }
+    .solver-tseat-toact { color: var(--accent); font-weight: 700; font-size: 0.62rem; }
+    .solver-tseat-hand { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255,255,255,0.72); }
+    .solver-tseat-cards { display: flex; justify-content: center; align-items: center; }
+    .solver-tseat.active .solver-tseat-cards { filter: drop-shadow(0 0 7px var(--accent)); }
+    .solver-tseat-chip { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.62rem; font-weight: 700; color: #ffe08a; background: rgba(0,0,0,0.45); border-radius: 999px; padding: 1px 8px; }
+    .solver-tseat-meta { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.7); text-shadow: 0 1px 2px rgba(0,0,0,0.7); }
+    .solver-tseat-dead { display: flex; justify-content: center; align-items: center; gap: 1px; }

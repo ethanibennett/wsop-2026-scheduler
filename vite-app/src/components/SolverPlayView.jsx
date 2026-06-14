@@ -32,16 +32,17 @@ function StrategyRow({ action, chosen }) {
   );
 }
 
-// One seat on the felt. Highlighted when it's this seat's turn. Cards
-// are rendered as the replayer's card-face graphics.
-function Seat({ player, isStud, active, badge, chipLabel }) {
+// A seat positioned on the oval felt (top = opponent, bottom = button).
+// Cards render as the replayer's card-face graphics.
+function TableSeat({ player, isStud, active, badge, chipLabel, pos }) {
   return (
-    <div className={'solver-seat' + (active ? ' active' : '')}>
-      <div className="solver-seat-head">
-        <span className="solver-seat-name">{badge}</span>
-        <span className="solver-seat-hand">{player.handLabel || player.label}</span>
+    <div className={`solver-tseat solver-tseat-${pos}` + (active ? ' active' : '')}>
+      <div className="solver-tseat-label">
+        <span className="solver-tseat-name">{badge}</span>
+        {active && <span className="solver-tseat-toact">● to act</span>}
+        <span className="solver-tseat-hand">{player.handLabel || player.label}</span>
       </div>
-      <div className="solver-seat-cards">
+      <div className="solver-tseat-cards">
         {isStud ? (
           <>
             {player.down.map((c, i) => <Card key={'d' + i} str={c} dim size="sm" />)}
@@ -51,17 +52,16 @@ function Seat({ player, isStud, active, badge, chipLabel }) {
           player.cards.map((c, i) => <Card key={i} str={c} size="sm" />)
         )}
       </div>
-      <div className="solver-seat-foot">
-        {chipLabel != null && <span className="solver-seat-chip">{chipLabel}</span>}
+      <div className="solver-tseat-label">
+        {chipLabel != null && <span className="solver-tseat-chip">{chipLabel}</span>}
         {!isStud && player.draws && player.draws.length > 0 && (
-          <span className="solver-seat-meta">drew {player.draws.join(', ')}</span>
+          <span className="solver-tseat-meta">drew {player.draws.join(', ')}</span>
         )}
-        {active && <span className="solver-seat-toact">● to act</span>}
       </div>
       {/* Dead cards: what this seat has discarded on previous draws */}
       {!isStud && player.discards && player.discards.length > 0 && (
-        <div className="solver-seat-dead">
-          <span className="solver-seat-meta">dead</span>
+        <div className="solver-tseat-dead">
+          <span className="solver-tseat-meta">dead</span>
           {player.discards.map((c, i) => <Card key={'x' + i} str={c} dim size="sm" />)}
         </div>
       )}
@@ -165,17 +165,19 @@ export default function SolverPlayView() {
             </span>
           </div>
 
-          {/* Felt table: two seats with the pot between them */}
-          <div className="solver-felt">
-            <Seat player={seats[1]} isStud={isStud} badge={isStud ? 'Player 2' : 'Big Blind'}
+          {/* Oval felt table (reuses the replayer's table graphic) */}
+          <div className="solver-table">
+            <div className="replayer-table-rail" style={{ '--rail-color': '#6b5b8a' }} />
+            <div className="replayer-table-felt" />
+            <TableSeat pos="top" player={seats[1]} isStud={isStud}
+              badge={isStud ? 'Player 2' : 'Big Blind'}
               active={!atEnd && step.actor === 1}
-              chipLabel={(step ? step.contrib : null) ? step.contrib[1] : null} />
-            <div className="solver-felt-center">
-              <span className="solver-pot-chip">POT {atEnd ? play.result.pot : step.pot}</span>
-            </div>
-            <Seat player={seats[0]} isStud={isStud} badge={isStud ? 'Player 1' : 'Button (SB)'}
+              chipLabel={step ? step.contrib[1] : null} />
+            <div className="solver-tpot">POT {atEnd ? play.result.pot : step.pot}</div>
+            <TableSeat pos="bottom" player={seats[0]} isStud={isStud}
+              badge={isStud ? 'Player 1' : 'Button (SB)'}
               active={!atEnd && step.actor === 0}
-              chipLabel={(step ? step.contrib : null) ? step.contrib[0] : null} />
+              chipLabel={step ? step.contrib[0] : null} />
           </div>
 
           {/* Strategy bars for the current decision */}
