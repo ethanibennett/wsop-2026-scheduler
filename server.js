@@ -6986,7 +6986,34 @@ const { playHand: playSolverHand } = require('./solver/playout');
 const { makeRng: makeSolverRng } = require('./solver/engine/cards');
 const solverRng = makeSolverRng(Date.now() & 0x7fffffff);
 const solverStrategies = {}; // gameId -> { strategy, iterations, trainedAt } | null
+const solverMeta = {};       // gameId -> { iterations, infosets } | null
 
+// Lightweight metadata for the games list. Reads a tiny <id>.meta.json
+// sidecar so we never parse the multi-MB strategy files just to show
+// iteration/infoset counts (parsing all of them at once OOMs small
+// instances). Falls back to the full file's header only if no sidecar.
+function loadSolverMeta(gameId) {
+  if (gameId in solverMeta) return solverMeta[gameId];
+  let m = null;
+  try {
+    const fsSync = require('fs');
+    const metaFile = path.join(__dirname, 'solver', 'strategies', `${gameId}.meta.json`);
+    const fullFile = path.join(__dirname, 'solver', 'strategies', `${gameId}.json`);
+    if (fsSync.existsSync(metaFile)) {
+      m = JSON.parse(fsSync.readFileSync(metaFile, 'utf8'));
+    } else if (fsSync.existsSync(fullFile)) {
+      const full = loadSolverStrategy(gameId);
+      if (full) m = { iterations: full.iterations, infosets: full.infosets };
+    }
+  } catch (e) {
+    console.error(`Failed to load solver meta for ${gameId}:`, e.message);
+  }
+  if (m) solverMeta[gameId] = m;
+  return m;
+}
+
+// Full strategy map. Lazily loaded one game at a time and cached; only
+// the spot/playout endpoints need it.
 function loadSolverStrategy(gameId) {
   if (gameId in solverStrategies) return solverStrategies[gameId];
   let loaded = null;
@@ -7004,12 +7031,12 @@ function loadSolverStrategy(gameId) {
 
 app.get('/api/solver/games', authenticateToken, (req, res) => {
   res.json(solverGameMeta.map(meta => {
-    const strat = loadSolverStrategy(meta.id);
+    const m = loadSolverMeta(meta.id);
     return {
       ...meta,
-      trained: !!strat,
-      iterations: strat ? strat.iterations : 0,
-      infosets: strat ? strat.infosets : 0,
+      trained: !!m,
+      iterations: m ? m.iterations : 0,
+      infosets: m ? m.infosets : 0,
     };
   }));
 });
