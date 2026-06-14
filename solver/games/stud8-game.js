@@ -13,7 +13,7 @@
 // features. Betting history is kept exactly.
 
 const { shuffledDeck, cardStr, rankOf, suitOf } = require('../engine/cards');
-const { bestHi7, bestLo8, lowRankCount } = require('../eval/stud8');
+const { bestHi7, bestLo8, lowRankCount, describeHi7, describeLo8 } = require('../eval/stud8');
 
 const ANTE = 1, BRING = 2, SMALL = 4, BIG = 8, CAP = 4;
 const STREET_NAMES = ['3rd Street', '4th Street', '5th Street', '6th Street', '7th Street'];
@@ -296,6 +296,51 @@ const game = {
       betSize: betSize(s.street),
       log: s.log.map(e => ({ who: e.p === -1 ? 'Dealer' : (e.p === p ? 'Hero' : 'Opponent'), what: e.a })),
     };
+  },
+
+  // Full-information view (both hands shown) for the self-play viewer.
+  viewAll(s) {
+    return {
+      street: s.street,
+      streetName: STREET_NAMES[s.street],
+      phase: s.phase,
+      pot: s.contrib[0] + s.contrib[1],
+      contrib: s.contrib.slice(),
+      toAct: s.toAct,
+      players: [0, 1].map(p => ({
+        position: s.bringIn === p ? 'Bring-in' : 'Other',
+        down: s.down[p].map(cardStr),
+        up: s.up[p].map(cardStr),
+        handLabel: ownBucketLabel(s, p),
+      })),
+      log: s.log.map(e => ({ who: e.p === -1 ? 'Dealer' : (e.p === 0 ? 'P1' : 'P2'), what: e.a })),
+    };
+  },
+
+  // Terminal summary with hi/lo split detail for the self-play viewer.
+  result(s) {
+    const c = [allCards(s, 0), allCards(s, 1)];
+    const players = [0, 1].map(p => ({
+      down: s.down[p].map(cardStr),
+      up: s.up[p].map(cardStr),
+      hi: describeHi7(c[p]),
+      lo: describeLo8(c[p]) || 'no qualifying low',
+    }));
+    if (s.folded !== null) {
+      const winner = 1 - s.folded;
+      return { type: 'fold', hiWinner: winner, loWinner: winner, scoop: true,
+        profit: s.contrib[s.folded], pot: s.contrib[0] + s.contrib[1], players };
+    }
+    const hi0 = bestHi7(c[0]), hi1 = bestHi7(c[1]);
+    const hiWinner = hi0 > hi1 ? 0 : hi0 < hi1 ? 1 : -1;
+    const lo0 = bestLo8(c[0]), lo1 = bestLo8(c[1]);
+    let loWinner;
+    if (lo0 === null && lo1 === null) loWinner = null;
+    else if (lo0 !== null && lo1 !== null) loWinner = lo0 < lo1 ? 0 : lo0 > lo1 ? 1 : -1;
+    else loWinner = lo0 !== null ? 0 : 1;
+    const scoop = loWinner === null ? false : (hiWinner === loWinner && hiWinner >= 0);
+    return { type: 'showdown', hiWinner, loWinner, scoop,
+      pot: s.contrib[0] + s.contrib[1], players };
   },
 };
 

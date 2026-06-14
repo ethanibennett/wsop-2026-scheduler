@@ -6982,6 +6982,7 @@ app.delete('/api/replayer/games/:id', authenticateToken, requireRegistered, asyn
 
 const { GAMES: solverGames, GAME_META: solverGameMeta } = require('./solver/games');
 const { generateSpot: generateSolverSpot } = require('./solver/spot');
+const { playHand: playSolverHand } = require('./solver/playout');
 const { makeRng: makeSolverRng } = require('./solver/engine/cards');
 const solverRng = makeSolverRng(Date.now() & 0x7fffffff);
 const solverStrategies = {}; // gameId -> { strategy, iterations, trainedAt } | null
@@ -7024,6 +7025,19 @@ app.get('/api/solver/spot/:gameId', authenticateToken, (req, res) => {
   } catch (error) {
     console.error('Solver spot error:', error);
     res.status(500).json({ error: 'Failed to generate spot' });
+  }
+});
+
+app.get('/api/solver/playout/:gameId', authenticateToken, (req, res) => {
+  try {
+    const game = solverGames[req.params.gameId];
+    if (!game) return res.status(404).json({ error: 'Unknown game' });
+    const strat = loadSolverStrategy(req.params.gameId);
+    const playout = playSolverHand(game, strat ? strat.strategy : {}, solverRng);
+    res.json({ ...playout, trained: !!strat });
+  } catch (error) {
+    console.error('Solver playout error:', error);
+    res.status(500).json({ error: 'Failed to generate playout' });
   }
 });
 

@@ -78,4 +78,26 @@ function lowRankCount(cards) {
   return new Set(cards.map(lowRankOf).filter(r => r <= 8)).size;
 }
 
-module.exports = { score5hi, bestHi7, bestLo8, lowRankCount };
+const HI_CATEGORY = ['high card', 'a pair', 'two pair', 'trips', 'a straight',
+  'a flush', 'a full house', 'quads', 'a straight flush'];
+
+// Human label for the best hi hand out of 7 cards, e.g. "two pair", "a flush".
+function describeHi7(cards7) {
+  let best = -1, bestCat = 0;
+  for (const idx of COMBOS_7C5) {
+    const v = score5hi(idx.map(i => cards7[i]));
+    if (v > best) { best = v; bestCat = Math.floor(v / Math.pow(15, 5)); }
+  }
+  return HI_CATEGORY[bestCat];
+}
+
+// Human label for the best 8-or-better low, e.g. "8-6-4-3-A low", or null.
+function describeLo8(cards7) {
+  const lows = [...new Set(cards7.map(lowRankOf).filter(r => r <= 8))].sort((a, b) => a - b);
+  if (lows.length < 5) return null;
+  const five = lows.slice(0, 5).sort((a, b) => b - a);
+  const ch = r => (r === 1 ? 'A' : String(r));
+  return five.map(ch).join('-') + ' low';
+}
+
+module.exports = { score5hi, bestHi7, bestLo8, lowRankCount, describeHi7, describeLo8 };

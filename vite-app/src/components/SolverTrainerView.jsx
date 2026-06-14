@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchApi } from '../utils/api.js';
+import Card from './SolverCard.jsx';
 
 // ── CFR Solver Trainer ──────────────────────────────────────
 // Quiz mode against pre-trained MCCFR strategies (2-7 Triple Draw,
@@ -7,34 +8,6 @@ import { fetchApi } from '../utils/api.js';
 // seats from the solved strategy to a random decision point, and we
 // ask the user what they'd do; then reveal the solver's mixed
 // strategy and keep a running score.
-
-const SUIT_GLYPHS = { h: '♥', d: '♦', c: '♣', s: '♠' };
-const SUIT_COLORS = { h: '#ef4444', d: '#3b82f6', c: '#22c55e', s: '#a78bfa' };
-
-function Card({ str, faceDown }) {
-  if (faceDown) {
-    return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 34, height: 46, borderRadius: 6, margin: '0 2px',
-        background: 'repeating-linear-gradient(45deg, var(--surface-alt, #2a2a33), var(--surface-alt, #2a2a33) 4px, var(--border) 4px, var(--border) 5px)',
-        border: '1px solid var(--border)', fontSize: '0.7rem', color: 'var(--text-muted)',
-      }}>?</span>
-    );
-  }
-  const rank = str[0], suit = str[1];
-  return (
-    <span style={{
-      display: 'inline-flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      width: 34, height: 46, borderRadius: 6, margin: '0 2px',
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      fontWeight: 700, fontSize: '0.95rem', color: SUIT_COLORS[suit], lineHeight: 1,
-    }}>
-      <span>{rank}</span>
-      <span style={{ fontSize: '0.8rem' }}>{SUIT_GLYPHS[suit]}</span>
-    </span>
-  );
-}
 
 export default function SolverTrainerView() {
   const [games, setGames] = useState(null);

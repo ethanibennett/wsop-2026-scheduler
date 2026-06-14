@@ -38,6 +38,7 @@ import MilestoneCelebration from './components/MilestoneCelebration.jsx';
 // its tab; subsequent visits are cached by the browser.
 const HandReplayerView = lazy(() => import('./components/HandReplayerView.jsx'));
 const SolverTrainerView = lazy(() => import('./components/SolverTrainerView.jsx'));
+const SolverPlayView = lazy(() => import('./components/SolverPlayView.jsx'));
 const StakingView = lazy(() => import('./components/StakingView.jsx'));
 const AdminView = lazy(() => import('./components/AdminView.jsx'));
 
@@ -1339,8 +1340,8 @@ export default function App() {
           isAdmin || sharedHandData
             ? <div style={{height:'100%',display:'flex',flexDirection:'column'}}>
                 {isAdmin && (
-                  <div style={{display:'flex',gap:6,padding:'8px 14px 0',fontFamily:"'Univers Condensed','Univers',sans-serif"}}>
-                    {[['replayer','Replayer'],['trainer','Solver Trainer']].map(([id,lbl]) => (
+                  <div style={{display:'flex',gap:6,padding:'8px 14px 0',fontFamily:"'Univers Condensed','Univers',sans-serif",flexWrap:'wrap'}}>
+                    {[['replayer','Replayer'],['trainer','Solver Trainer'],['watch','Watch Solver']].map(([id,lbl]) => (
                       <button key={id} onClick={() => setHandsTool(id)}
                         style={{padding:'4px 12px',borderRadius:12,fontFamily:'inherit',fontSize:'0.7rem',fontWeight:600,cursor:'pointer',
                           border:'1px solid ' + (handsTool === id ? 'var(--accent)' : 'var(--border)'),
@@ -1354,6 +1355,8 @@ export default function App() {
                 <div style={{flex:1,minHeight:0}}>
                   {handsTool === 'trainer' && isAdmin
                     ? <Suspense fallback={<LazyFallback />}><SolverTrainerView /></Suspense>
+                    : handsTool === 'watch' && isAdmin
+                    ? <Suspense fallback={<LazyFallback />}><SolverPlayView /></Suspense>
                     : <Suspense fallback={<LazyFallback />}><HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} /></Suspense>}
                 </div>
               </div>

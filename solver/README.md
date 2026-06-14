@@ -62,11 +62,23 @@ and the solver decides *how many* to draw plus all betting. Known
 simplifications: suit composition is ignored when breaking 2-7 hands,
 and snow lines are limited to standing pat.
 
-## Trainer
+## Trainer & viewer
 
-The SPA's Hands tab (admin-gated) has a **Solver Trainer** toggle: the
-server plays a hand to a random decision point using the trained
-strategy and quizzes you; it then reveals the solver's mixed strategy
-and tracks how often you match its highest-frequency action.
+The SPA's Hands tab (admin-gated) has three tools, toggled at the top:
 
-API: `GET /api/solver/games`, `GET /api/solver/spot/:gameId`.
+- **Solver Trainer** (`SolverTrainerView`): the server plays a hand to a
+  random decision point using the trained strategy and quizzes you; it
+  then reveals the solver's mixed strategy and tracks how often you
+  match its highest-frequency action.
+- **Watch Solver** (`SolverPlayView`): the server plays a full hand with
+  both seats sampling from the strategy (`solver/playout.js`) and returns
+  the whole trajectory. The viewer steps through every decision — both
+  hands shown face-up, the acting seat highlighted, the solver's mixed
+  strategy drawn as frequency bars with the sampled action marked — with
+  prev/next/autoplay controls and a hi/lo split-aware showdown summary.
+
+Both reuse the app's theme tokens (CSS variables + Univers Condensed)
+and a shared `SolverCard` chip.
+
+API: `GET /api/solver/games`, `GET /api/solver/spot/:gameId` (quiz),
+`GET /api/solver/playout/:gameId` (full self-play trajectory).

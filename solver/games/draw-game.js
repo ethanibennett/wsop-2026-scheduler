@@ -234,6 +234,41 @@ function makeDrawGame(cfg) {
         log: s.log.map(e => ({ who: e.p === p ? 'Hero' : 'Opponent', what: e.a })),
       };
     },
+
+    // Full-information view (both hands shown) for the self-play viewer.
+    viewAll(s) {
+      const streetNames = ['Pre-draw', 'After 1st draw', 'After 2nd draw', 'After 3rd draw'];
+      return {
+        street: s.street,
+        streetName: s.phase === 'draw' ? `Draw ${s.street + 1}` : streetNames[s.street],
+        phase: s.phase,
+        pot: s.contrib[0] + s.contrib[1],
+        contrib: s.contrib.slice(),
+        toAct: s.toAct,
+        players: [0, 1].map(p => ({
+          position: p === 0 ? 'Button (SB)' : 'Big Blind',
+          cards: s.hands[p].map(cardStr),
+          handLabel: cfg.describeHand(s.hands[p]),
+          draws: s.drawCounts[p].slice(),
+        })),
+        log: s.log.map(e => ({ who: e.p === 0 ? 'Button' : 'BB', what: e.a })),
+      };
+    },
+
+    // Terminal summary for the self-play viewer
+    result(s) {
+      const labels = [0, 1].map(p => ({
+        cards: s.hands[p].map(cardStr),
+        label: cfg.describeHand(s.hands[p]),
+      }));
+      if (s.folded !== null) {
+        const winner = 1 - s.folded;
+        return { type: 'fold', winner, profit: s.contrib[s.folded], pot: s.contrib[0] + s.contrib[1], players: labels };
+      }
+      const cmp = cfg.compare(s.hands[0], s.hands[1]);
+      const winner = cmp > 0 ? 0 : cmp < 0 ? 1 : -1;
+      return { type: 'showdown', winner, profit: winner < 0 ? 0 : s.contrib[1 - winner], pot: s.contrib[0] + s.contrib[1], players: labels };
+    },
   };
 
   return game;
