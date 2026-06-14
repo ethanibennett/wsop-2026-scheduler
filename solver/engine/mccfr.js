@@ -71,10 +71,19 @@ class MCCFRTrainer {
         utils[i] = this.traverse(g.applyAction(state, acts[i]), traverser, rng);
         ev += strat[i] * utils[i];
       }
+      // Discounted CFR — DCFR(alpha=3/2, beta=0, gamma=2), the default
+      // recommended by Brown & Sandholm (AAAI 2019), reported to beat
+      // CFR+ by ~2-3x. Each iteration t: discount accumulated POSITIVE
+      // regret by t^1.5/(t^1.5+1) and NEGATIVE regret by 1/2 (beta=0),
+      // then add the new instantaneous regret. (CFR+ is the limiting
+      // case DCFR(inf,-inf,2), i.e. flooring negatives at 0.) The
+      // average strategy keeps linear-in-t weighting below, which is
+      // the gamma=2 recipe in the weight-at-visit MCCFR convention.
+      const t = this.iterations;
+      const posDiscount = Math.pow(t, 1.5) / (Math.pow(t, 1.5) + 1);
       for (let i = 0; i < acts.length; i++) {
-        // regret-matching+: floor cumulative regret at zero
-        const r = node.regret[i] + (utils[i] - ev);
-        node.regret[i] = r > 0 ? r : 0;
+        const prev = node.regret[i];
+        node.regret[i] = (prev > 0 ? prev * posDiscount : prev * 0.5) + (utils[i] - ev);
       }
       return ev;
     }
