@@ -1,0 +1,108 @@
+name: Train solvers (overnight)
+
+# Long-running MCCFR training for the three solver games, run on GitHub's
+# infrastructure (independent of any interactive session). Each game trains
+# in its own time-boxed job; the strategies are then staged on a fresh
+# branch for review (NOT pushed to master), so nothing deploys until you
+# merge it yourself.
+#
+# Trigger from the Actions tab ("Run workflow") or via the API. Optional
+# `minutes` input caps per-game training time (default 330, just under the
+# 6h GitHub-hosted job limit).
+
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Minutes to train each game"
+        required: false
+        default: "330"
+
+permissions:
+  contents: write
+
+jobs:
+  train:
+    name: Train ${{ matrix.game }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # iters are upper safety bounds; the --minutes time box normally
+          # stops first. stud8's infoset space is largest, so its bound is
+          # lower to stay within the runner's ~7 GB RAM.
+          - { game: td27, iters: "3000000" }
+          - { game: badugi, iters: "4000000" }
+          - { game: stud8, iters: "1200000" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Train ${{ matrix.game }}
+        run: |
+          set +e
+          node --max-old-space-size=6144 solver/train.js \
+            --game ${{ matrix.game }} \
+            --iters ${{ matrix.iters }} \
+            --minutes ${{ github.event.inputs.minutes || '330' }} \
+            --min-mass 0.0005 \
+            --checkpoint 0 \
+            --save-every 600 \
+            --out solver/strategies/${{ matrix.game }}.json
+          code=$?
+          echo "train exit code: $code"
+          # 0 = hit iter target, 3 = time-boxed stop (expected). Any other
+          # code (incl. OOM 134/137) still leaves the latest periodic save.
+          if [ "$code" != "0" ] && [ "$code" != "3" ]; then
+            echo "::warning::training exited $code — using last periodic save"
+          fi
+          if [ ! -f solver/strategies/${{ matrix.game }}.json ]; then
+            echo "::error::no strategy file was produced"
+            exit 1
+          fi
+          ls -la solver/strategies/${{ matrix.game }}.json solver/strategies/${{ matrix.game }}.meta.json
+      - name: Upload strategy artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strategy-${{ matrix.game }}
+          path: |
+            solver/strategies/${{ matrix.game }}.json
+            solver/strategies/${{ matrix.game }}.meta.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  stage:
+    name: Stage improved strategies on a branch
+    needs: train
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/strategies
+      - name: Commit strategies to a review branch
+        run: |
+          shopt -s nullglob
+          cp /tmp/strategies/strategy-*/*.json solver/strategies/ || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BR="solver-overnight-$(date +%Y%m%d-%H%M)"
+          git checkout -b "$BR"
+          git add solver/strategies/*.json
+          if git diff --cached --quiet; then
+            echo "No strategy changes to stage."
+            exit 0
+          fi
+          git commit \
+            -m "Overnight training: refreshed solver strategies" \
+            -m "Trained td27/badugi/stud8 via the Train Solvers workflow, pruned (minMassRatio 5e-4). Review the diff and merge to master to deploy."
+          git push -u origin "$BR"
+          echo "::notice::Staged improved strategies on branch $BR — review and merge to deploy."

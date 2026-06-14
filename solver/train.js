@@ -29,12 +29,35 @@ const minutes = parseFloat(arg('minutes', '0')); // 0 = no time box
 const seed = parseInt(arg('seed', '12345'), 10);
 const minMass = parseFloat(arg('min-mass', '0.00001'));
 const out = arg('out', path.join(__dirname, 'strategies', `${gameId}.json`));
+const metaOut = out.replace(/\.json$/, '.meta.json');
 const ckptFile = arg('ckpt', out.replace(/\.json$/, '.ckpt.json'));
+const saveCheckpoint = arg('checkpoint', '1') !== '0'; // --checkpoint 0 skips the big ckpt write
+const saveEverySec = parseInt(arg('save-every', '1200'), 10); // periodic strategy save (crash safety)
 
 const game = GAMES[gameId];
 if (!game) {
   console.error(`Unknown game '${gameId}'. Available: ${Object.keys(GAMES).join(', ')}`);
   process.exit(1);
+}
+
+// Write the pruned average strategy + a tiny metadata sidecar. Called
+// periodically during long runs so a crash/OOM never loses progress.
+function exportStrategy(trainer) {
+  const strategy = trainer.averageStrategy({ minMassRatio: minMass });
+  const payload = {
+    game: gameId,
+    name: game.name,
+    iterations: trainer.iterations,
+    trainedAt: new Date().toISOString(),
+    infosets: Object.keys(strategy).length,
+    strategy,
+  };
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, JSON.stringify(payload));
+  fs.writeFileSync(metaOut, JSON.stringify({
+    game: gameId, name: game.name, iterations: trainer.iterations, infosets: payload.infosets,
+  }));
+  return payload.infosets;
 }
 
 let trainer;
@@ -56,32 +79,31 @@ if (trainer.iterations >= targetIters) {
     (minutes ? ` (time box ${minutes}m)` : '') + `, ${trainer.iterations} done`);
   const t0 = Date.now();
   const startIters = trainer.iterations;
+  let lastSave = Date.now();
   while (trainer.iterations < targetIters && Date.now() < deadline) {
     const chunk = Math.min(1000, targetIters - trainer.iterations);
     trainer.train(chunk, rng);
     const rate = Math.round((trainer.iterations - startIters) / ((Date.now() - t0) / 1000));
     process.stdout.write(`\r  ${trainer.iterations}/${targetIters} iters, ${trainer.nodes.size} infosets, ${rate} it/s   `);
+    // Periodic crash-safe export so an OOM/kill never loses the run.
+    if (saveEverySec > 0 && (Date.now() - lastSave) > saveEverySec * 1000) {
+      const n = exportStrategy(trainer);
+      lastSave = Date.now();
+      process.stdout.write(`\n  [saved ${n} infosets at ${trainer.iterations} iters]\n`);
+    }
   }
   console.log(`\nStopped at ${trainer.iterations} iterations (${((Date.now() - t0) / 1000).toFixed(0)}s this run)`);
-  process.stdout.write('Saving checkpoint... ');
-  fs.mkdirSync(path.dirname(ckptFile), { recursive: true });
-  fs.writeFileSync(ckptFile, JSON.stringify(trainer.toCheckpoint()));
-  console.log(`${(fs.statSync(ckptFile).size / 1024 / 1024).toFixed(0)} MB`);
+  if (saveCheckpoint) {
+    process.stdout.write('Saving checkpoint... ');
+    fs.mkdirSync(path.dirname(ckptFile), { recursive: true });
+    fs.writeFileSync(ckptFile, JSON.stringify(trainer.toCheckpoint()));
+    console.log(`${(fs.statSync(ckptFile).size / 1024 / 1024).toFixed(0)} MB`);
+  }
 }
 
-const strategy = trainer.averageStrategy({ minMassRatio: minMass });
-const payload = {
-  game: gameId,
-  name: game.name,
-  iterations: trainer.iterations,
-  trainedAt: new Date().toISOString(),
-  infosets: Object.keys(strategy).length,
-  strategy,
-};
-fs.mkdirSync(path.dirname(out), { recursive: true });
-fs.writeFileSync(out, JSON.stringify(payload));
+const infosets = exportStrategy(trainer);
 const mb = (fs.statSync(out).size / 1024 / 1024).toFixed(2);
-console.log(`Saved ${payload.infosets} infosets to ${out} (${mb} MB)`);
+console.log(`Saved ${infosets} infosets to ${out} (${mb} MB)`);
 if (trainer.iterations < targetIters) {
   console.log(`Re-run the same command to continue toward ${targetIters} iterations.`);
   process.exitCode = 3; // signal "not finished" to wrapper scripts
