@@ -1,11 +1,19 @@
 // ── 2-7 Triple Draw (heads-up fixed limit) ──────────────────
-// Abstraction buckets:
-//   Pat hands:  P75/P76/P85/.../P87 (top two ranks while <= 8),
-//               P9-x / PT-x (9/T-high pat, x = what it breaks to), PH (J+)
-//   Draws:      D1<top><d?><x?> — one-card draw to <top>, 'd' = holds a
-//               deuce, 'x' = four in a row (straight danger)
-//               D2<top><d?> — two-card draw, D3 — worse
-// Discard heuristic: keep the lowest distinct ranks (aces are high).
+// Draw-aware abstraction. Hands are classified by what they DRAW TO,
+// not by the made-hand evaluator (which mislabels an unpaired
+// four-low-plus-a-high hand like 2-3-4-5-K as "pat" when it is really a
+// premium one-card draw). Buckets:
+//   M<hi><2nd>      — pat made 8-or-better low (e.g. M75 = 7-5 low)
+//   D<n>k<top><d?><x?><p?>
+//                   — a draw: <n> = cards drawn (1-4) keeping the low
+//                     cards, <top> = highest LOW card kept (0 = none),
+//                     d = holds a deuce (the premium card), x = straight
+//                     danger (4 consecutive lows), p = currently a rough
+//                     made 9/T low that may also stand pat.
+// The discard heuristic keeps the lowest distinct low cards; the draw
+// COUNT in each bucket is the count the solver actually takes, so a
+// "1-card draw to a 9" no longer exists — that hand is a 2-card draw to
+// the cards underneath, and is bucketed/labeled as such.
 
 const { rankOf, RANK_CHARS } = require('../engine/cards');
 const { score27 } = require('../eval/low27');
@@ -13,34 +21,38 @@ const { makeDrawGame } = require('./draw-game');
 
 const CAT_BASE = Math.pow(15, 5);
 
-function bucket(hand) {
-  const ranks = hand.map(rankOf).sort((a, b) => a - b); // asc
-  const uniq = [...new Set(ranks)];
-  const cat = Math.floor(score27(hand) / CAT_BASE);
-
-  if (cat === 0) { // made low — no pair/straight/flush
-    const hi = ranks[4], second = ranks[3];
-    if (hi <= 8) return `P${hi}${second}`;
-    const breakTop = uniq.slice(0, 4)[3]; // top rank after breaking the high card
-    if (hi === 9) return `P9-${breakTop}`;
-    if (hi === 10) return `PT-${breakTop}`;
-    return 'PH';
-  }
-
-  const d = uniq[0] === 2 ? 'd' : '';
-  if (uniq.length >= 4) {
-    const four = uniq.slice(0, 4);
-    if (four[3] <= 9) {
-      const x = four[3] - four[0] === 3 ? 'x' : '';
-      return `D1${four[3]}${d}${x}`;
-    }
-  }
-  if (uniq.length >= 3 && uniq[2] <= 8) return `D2${uniq[2]}${d}`;
-  return `D3${d}`;
+// Distinct "keepable" low ranks (2..8), ascending.
+function lowRanks(hand) {
+  return [...new Set(hand.map(rankOf).filter(r => r <= 8))].sort((a, b) => a - b);
 }
 
-// Keep the (5 - drawCount) best cards: lowest distinct ranks first,
-// then pad with the lowest duplicates if needed.
+function bucket(hand) {
+  const ranks = hand.map(rankOf);
+  const top = Math.max(...ranks);
+  const cat = Math.floor(score27(hand) / CAT_BASE);
+
+  // Pat made 8-or-better low (no pair/straight/flush, high card <= 8).
+  if (cat === 0 && top <= 8) {
+    const desc = [...new Set(ranks)].sort((a, b) => b - a);
+    return 'M' + desc[0] + desc[1]; // M75 = 7-5 low, M86 = 8-6 low
+  }
+
+  // Otherwise a draw: keep the low cards, draw the rest.
+  const lows = lowRanks(hand);
+  const L = lows.length;
+  let draw = 5 - L;
+  if (draw <= 0) draw = 1; // 5 distinct lows but a straight: break one
+  if (draw > 4) draw = 4;
+  const topLow = L > 0 ? lows[L - 1] : 0;
+  const deuce = (L > 0 && lows[0] === 2) ? 'd' : '';
+  let srisk = '';
+  for (let i = 0; i + 3 < L; i++) if (lows[i + 3] - lows[i] === 3) { srisk = 'x'; break; }
+  // A rough made 9/10-high low can also stand pat (street-dependent choice).
+  const patable = (cat === 0 && top <= 10) ? 'p' : '';
+  return `D${draw}k${topLow}${deuce}${srisk}${patable}`;
+}
+
+// Keep the (5 - drawCount) lowest distinct ranks (then lowest dups).
 function chooseKeep(hand, drawCount) {
   const keepN = hand.length - drawCount;
   const sorted = hand.slice().sort((a, b) => rankOf(a) - rankOf(b));
@@ -56,22 +68,32 @@ function chooseKeep(hand, drawCount) {
   return keep;
 }
 
-// Draw counts worth considering: snow (0), the natural draw toward an
-// 8-or-better low, and breaking a pat 9/T (k=1 when already pat).
+// Draw counts offered to the solver. A made 8-or-better low only pats.
+// A rough made 9/10 low chooses pat vs. its natural draw (the
+// street-dependent decision). Everything else: snow (0) or natural draw.
 function drawOptions(hand) {
-  const uniq = new Set(hand.map(rankOf).filter(r => r <= 8));
-  const natural = Math.min(3, hand.length - Math.min(hand.length, uniq.size));
-  const opts = new Set([0, natural]);
-  if (natural === 0) opts.add(1); // option to break a pat hand
-  return [...opts].sort((a, b) => a - b);
+  const ranks = hand.map(rankOf);
+  const top = Math.max(...ranks);
+  const cat = Math.floor(score27(hand) / CAT_BASE);
+  if (cat === 0 && top <= 8) return [0]; // pat the made low
+  let natural = 5 - new Set(ranks.filter(r => r <= 8)).size;
+  if (natural <= 0) natural = 1;
+  if (natural > 4) natural = 4;
+  return [...new Set([0, natural])].sort((a, b) => a - b); // 0 = pat/snow
 }
 
 function describeHand(hand) {
-  const cat = Math.floor(score27(hand) / CAT_BASE);
   const ranks = hand.map(rankOf).sort((a, b) => b - a);
-  if (cat === 0) return `${RANK_CHARS[ranks[0]]}-${RANK_CHARS[ranks[1]]} low`;
-  const names = { 1: 'a pair', 2: 'two pair', 3: 'trips', 4: 'a straight', 5: 'a flush', 6: 'a full house', 7: 'quads', 8: 'a straight flush' };
-  return `${RANK_CHARS[ranks[0]]} high with ${names[cat]}`;
+  const top = ranks[0];
+  const cat = Math.floor(score27(hand) / CAT_BASE);
+  if (cat === 0 && top <= 8) return `${RANK_CHARS[ranks[0]]}-${RANK_CHARS[ranks[1]]} low (pat)`;
+  const lows = lowRanks(hand);
+  const draw = Math.min(4, Math.max(1, 5 - lows.length));
+  const deuce = lows[0] === 2 ? ' with a deuce' : '';
+  if (cat === 0 && top <= 10) return `${RANK_CHARS[top]}-high low — pat or ${draw}-card draw${deuce}`;
+  if (lows.length === 0) return `no low cards (${draw}-card draw)`;
+  const tgt = lows[lows.length - 1] <= 7 ? 'a 7' : 'an 8';
+  return `${draw}-card draw to ${tgt}${deuce}`;
 }
 
 module.exports = makeDrawGame({

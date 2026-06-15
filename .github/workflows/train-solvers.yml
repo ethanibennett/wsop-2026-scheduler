@@ -88,7 +88,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: master
+          # Branch from the COMMIT THAT WAS TRAINED (not master) so the
+          # staged branch carries the abstraction/engine code together
+          # with the strategies trained on it — deploying strategies onto
+          # mismatched code would make every infoset lookup miss.
+          ref: ${{ github.sha }}
           fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
