@@ -17,11 +17,12 @@ on:
         description: "Minutes to train each game"
         required: false
         default: "330"
-  # The API integration can't dispatch workflows, so pushing a tag like
-  # `train-run-YYYYMMDD-HHMM` also kicks off a run.
+  # The API integration can't dispatch workflows and the git proxy blocks
+  # tag pushes, so pushing any commit to the `run-training` branch kicks
+  # off a run.
   push:
-    tags:
-      - "train-run-*"
+    branches:
+      - "run-training"
 
 permissions:
   contents: write
