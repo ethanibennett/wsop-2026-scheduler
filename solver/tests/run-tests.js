@@ -15,6 +15,7 @@ const { GAMES } = require('../games');
 const { generateSpot } = require('../spot');
 const { playHand } = require('../playout');
 const { explainStep, potOdds } = require('../explain');
+const { exactKuhnExploitability } = require('../exploitability');
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -201,6 +202,23 @@ test('snow draw is flagged as a bluff', () => {
   const line = explainStep(step, false);
   assert(/draws 2/.test(line), 'describes the draw: ' + line);
   assert(/snow/.test(line), 'flags the snow: ' + line);
+});
+
+console.log('— Exploitability meter —');
+test('exact Kuhn best response: a converged strategy is ~0 exploitable', () => {
+  const trainer = new MCCFRTrainer(kuhn);
+  trainer.train(120000, makeRng(7));
+  const e = exactKuhnExploitability(trainer.averageStrategy());
+  assert(e.exploitability < 0.01, `trained exploitability ${e.exploitability}`);
+});
+test('exact Kuhn: a uniform strategy is clearly exploitable', () => {
+  const trainer = new MCCFRTrainer(kuhn);
+  trainer.train(500, makeRng(1));
+  const avg = trainer.averageStrategy();
+  const uniform = {};
+  for (const k of Object.keys(avg)) uniform[k] = { a: avg[k].a, p: avg[k].a.map(() => 1 / avg[k].a.length) };
+  const e = exactKuhnExploitability(uniform);
+  assert(e.exploitability > 0.1, `uniform exploitability ${e.exploitability}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

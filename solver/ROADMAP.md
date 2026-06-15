@@ -28,7 +28,7 @@ flaws we found (the deuce premium / "draw to a 6" / wheel-draws-mislabeled-as-pa
 
 1. `[done]` **DCFR(3/2,0,2)** regret rule (≈2–3× over CFR+ on future runs).
 2. `[wip]` **2-7 draw-aware abstraction** — classify by what a hand draws *to*, honest draw counts, idiomatic labels; retraining tonight.
-3. `[next]` **Exploitability meter** (the single most important tool): a best-response / **LBR** calculation that reports how exploitable each trained strategy is, in chips/hand. Converts "we ran N million iters" into a real number, tells us when more training stops helping, and **detects abstraction pathology** (finer ≠ better). Build this before trusting any further abstraction change.
+3. `[wip]` **Exploitability meter** (the single most important tool): reports how exploitable each strategy is, in chips/hand. Started in `solver/exploitability.js`: an **exact** best response on Kuhn (validates the engine + confirms reach-weighted averaging — trained → 0.002, uniform → 0.46) and a Monte-Carlo **lower bound** for the big games via simple fixed exploiters. **Next:** the principled per-public-state best response / LBR with belief tracking (stud8 first), which gives a tight number and **detects abstraction pathology** (finer ≠ better). Build that before trusting further abstraction changes.
 4. `[next]` **Badugi** + **Stud 8** abstraction review/redesign in the same spirit (draw/holding structure, not just the made-hand label).
 5. `[next]` Re-train all three on the cleaned abstractions; review staged branch; **deploy code + strategies together** (the merge that's currently pending).
 6. `[later]` Average-strategy reach-weighting: formalize the audit (currently validated only by Kuhn convergence).
