@@ -104,9 +104,9 @@ if __name__ == "__main__":
     assert 0.0 <= s <= 1.0
     # A has the wheel (straight beats a pair) AND the only low -> scoops
     assert s == 1.0, s
-    # no-low board: pure high contest
-    c = _t("Ah Ad Kc Qs Jh 9c 9d")   # two pair
-    d = _t("Kh Kd Qc Js Th 9s 8c")   # one pair
+    # no-low board: pure high contest (two pair beats one pair)
+    c = _t("Ah Ad Kc Qs Jh 9c 9d")   # aces up (two pair)
+    d = _t("Kh Kd Qc Js 9h 7s 4c")   # pair of kings, no straight
     assert split_share(c, d) == 1.0
     # tie low (both wheel) splits the low half
     e = _t("As 2c 3d 4h 5s 9c 9d")
