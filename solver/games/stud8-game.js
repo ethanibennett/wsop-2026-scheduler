@@ -63,7 +63,12 @@ function clone(s) {
 
 function allCards(s, p) { return s.down[p].concat(s.up[p]); }
 
-// Own-hand abstraction bucket
+// Own-hand abstraction bucket. Deliberately COARSE: stud8 is severely
+// undertrained (its infoset table is large), so fewer buckets -> more
+// iterations per infoset and faster it/s. Made-low strength is collapsed
+// to strong(<=6)/weak(7-8)/none and flush to one flag. (Validated against
+// the finer version by the exploitability meter — coarser-but-more-trained
+// beat finer-but-undertrained.)
 function ownBucket(s, p) {
   const cards = allCards(s, p);
   const counts = {};
@@ -80,19 +85,15 @@ function ownBucket(s, p) {
     else pairCls = groups[0].r <= 8 ? 'p' : 'P';
   }
 
-  const L = lowRankCount(cards);
+  const L = Math.min(4, lowRankCount(cards));
   const suits = [0, 0, 0, 0];
   for (const c of cards) suits[suitOf(c)]++;
-  const maxSuit = Math.max(...suits);
-  const flushFlag = maxSuit >= 5 ? 'F' : (maxSuit >= (s.street < 2 ? 3 : 4) ? 'f' : '');
+  const flushFlag = Math.max(...suits) >= (s.street < 2 ? 3 : 4) ? 'f' : '';
   const aceFlag = cards.some(c => rankOf(c) === 14) ? 'a' : '';
 
   let lowFlag = '';
   const lo = bestLo8(cards);
-  if (lo !== null) {
-    const topOfLow = Math.floor(lo / Math.pow(15, 4)); // high card of the made low
-    lowFlag = 'L' + topOfLow;
-  }
+  if (lo !== null) lowFlag = Math.floor(lo / Math.pow(15, 4)) <= 6 ? 'Ls' : 'Lw';
   return `${pairCls}${L}${aceFlag}${flushFlag}${lowFlag}`;
 }
 

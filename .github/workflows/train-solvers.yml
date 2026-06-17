@@ -41,12 +41,22 @@ jobs:
           # lower to stay within the runner's ~7 GB RAM.
           - { game: td27, iters: "3000000" }
           - { game: badugi, iters: "4000000" }
-          - { game: stud8, iters: "1200000" }
+          - { game: stud8, iters: "100000000" }   # high cap: chained nights accumulate
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      # Resume from the most recent checkpoint for this game — chained
+      # training across nights, so iterations ACCUMULATE instead of
+      # restarting from scratch (the lever Stud 8 needs).
+      - name: Restore checkpoint
+        uses: actions/cache/restore@v4
+        with:
+          path: solver/strategies/${{ matrix.game }}.ckpt.json
+          key: ckpt-${{ matrix.game }}-${{ github.run_id }}
+          restore-keys: |
+            ckpt-${{ matrix.game }}-
       - name: Train ${{ matrix.game }}
         run: |
           set +e
@@ -55,7 +65,7 @@ jobs:
             --iters ${{ matrix.iters }} \
             --minutes ${{ github.event.inputs.minutes || '330' }} \
             --min-mass 0.0005 \
-            --checkpoint 0 \
+            --checkpoint 1 \
             --save-every 600 \
             --out solver/strategies/${{ matrix.game }}.json
           code=$?
@@ -70,6 +80,13 @@ jobs:
             exit 1
           fi
           ls -la solver/strategies/${{ matrix.game }}.json solver/strategies/${{ matrix.game }}.meta.json
+      # Persist the updated checkpoint so the next run resumes from it.
+      - name: Save checkpoint
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: solver/strategies/${{ matrix.game }}.ckpt.json
+          key: ckpt-${{ matrix.game }}-${{ github.run_id }}
       - name: Upload strategy artifact
         if: always()
         uses: actions/upload-artifact@v4
