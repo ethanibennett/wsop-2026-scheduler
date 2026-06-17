@@ -70,7 +70,8 @@ public upcards make the public-belief-state compact (RESEARCH.md Part IV). This 
 a new Python+GPU system; the JS engine becomes the tabular subgame solver that
 generates training data. Each milestone is independently useful.
 
-- `[later]` **A.** Tabular Stud 8 **CFR-D subgame solver** + exact best-response evaluator.
+- `[done]` **0. Foundation** — `solver/neural/`: milestone plan, PBS data contract, and the **value network implemented** (`value_net.py`: 7×500 PReLU + zero-sum layer + Huber). Critical-path next is Milestone A.
+- `[next]` **A.** Tabular Stud 8 **CFR-D subgame solver** + exact best-response evaluator.
 - `[later]` **B.** EMD bucketing for stud hi/lo ranges (builds on Phase 2).
 - `[later]` **C.** 7th/6th-street **counterfactual value networks** + self-play data pipeline.
 - `[later]` **D.** **Continual re-solving** at the table (depth-limited search + value net).
