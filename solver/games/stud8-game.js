@@ -63,7 +63,11 @@ function clone(s) {
 
 function allCards(s, p) { return s.down[p].concat(s.up[p]); }
 
-// Own-hand abstraction bucket
+// Own-hand abstraction bucket. Hi/lo games need both halves represented:
+// a coarse HIGH class (pair tier / two pair / trips+), the LOW state
+// (made low by top card, or low-draw strength, or none), and the
+// scoop/flush flags. Pair *tier* matters — a pair of 3s and a pair of
+// Kings defend very differently against aggression.
 function ownBucket(s, p) {
   const cards = allCards(s, p);
   const counts = {};
@@ -72,28 +76,31 @@ function ownBucket(s, p) {
     .map(r => ({ r: parseInt(r, 10), n: counts[r] }))
     .sort((a, b) => (b.n - a.n) || (b.r - a.r));
 
-  let pairCls = '-';
-  if (groups[0].n >= 3) pairCls = 'T';
-  else if (groups[0].n === 2 && groups[1] && groups[1].n === 2) pairCls = '2';
-  else if (groups[0].n === 2) {
-    if (groups[0].r === 14) pairCls = 'A';
-    else pairCls = groups[0].r <= 8 ? 'p' : 'P';
+  // HIGH class
+  let hi;
+  if (groups[0].n >= 3) hi = 'T';                       // trips or better
+  else if (groups[0].n === 2 && groups[1] && groups[1].n === 2) hi = '2p'; // two pair
+  else if (groups[0].n === 2) {                         // one pair, by rank tier
+    const r = groups[0].r;
+    hi = r === 14 ? 'pA' : r >= 12 ? 'pH' : r >= 9 ? 'pM' : 'pL';
+  } else hi = 'h';                                       // high card only
+
+  // LOW state: made low (by top card) > low draw strength > none
+  let lo;
+  const made = bestLo8(cards);
+  if (made !== null) {
+    lo = 'L' + Math.floor(made / Math.pow(15, 4));      // L5..L8 (top card of the low)
+  } else {
+    const L = lowRankCount(cards);
+    lo = L >= 4 ? 'd4' : L === 3 ? 'd3' : '-';          // 4+/3 low cards = a live low draw
   }
 
-  const L = lowRankCount(cards);
   const suits = [0, 0, 0, 0];
   for (const c of cards) suits[suitOf(c)]++;
   const maxSuit = Math.max(...suits);
   const flushFlag = maxSuit >= 5 ? 'F' : (maxSuit >= (s.street < 2 ? 3 : 4) ? 'f' : '');
   const aceFlag = cards.some(c => rankOf(c) === 14) ? 'a' : '';
-
-  let lowFlag = '';
-  const lo = bestLo8(cards);
-  if (lo !== null) {
-    const topOfLow = Math.floor(lo / Math.pow(15, 4)); // high card of the made low
-    lowFlag = 'L' + topOfLow;
-  }
-  return `${pairCls}${L}${aceFlag}${flushFlag}${lowFlag}`;
+  return `${hi}${lo}${aceFlag}${flushFlag}`;
 }
 
 // Opponent visible-board bucket
