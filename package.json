@@ -13,7 +13,8 @@
     "test:solver": "node solver/tests/run-tests.js",
     "train": "node --max-old-space-size=4096 solver/train.js",
     "supervise": "node solver/supervise.js",
-    "analyst": "node solver/analyst.js"
+    "analyst": "node solver/analyst.js",
+    "sync-prod": "bash solver/sync-prod.sh"
   },
   "keywords": [],
   "author": "",

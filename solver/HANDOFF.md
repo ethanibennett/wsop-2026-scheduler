@@ -57,6 +57,10 @@ tail -f solver/strategies/curve.csv
 # heuristics + "which game deserves the cores" (free, no API):
 npm run analyst
 npm run analyst -- --narrate --out report.md          # + Claude commentary (needs ANTHROPIC_API_KEY)
+
+# ship improved strategies to the live site (review first, then deploy):
+bash solver/sync-prod.sh --dry-run                    # review iteration delta + exploitability
+bash solver/sync-prod.sh --deploy                     # commit + push just the strategy files to master -> Render
 ```
 
 On 8 cores / 64 GB the supervisor auto-allocates **td27=3, badugi=3, stud8=1**
@@ -189,8 +193,11 @@ response / LBR is a future milestone (`ROADMAP.md` Phase 1).
 1. **Grind Stud 8** on the dedicated box toward the millions of iters it needs;
    watch `curve.csv` and rebalance workers via `npm run analyst`. Deploy the
    improved stud8 strategy once the meter shows a meaningful drop.
-2. **Production sync one-liner** — copy each improved `strategies/<game>.json` +
-   `.meta.json` back and deploy (Render). Not yet built; easy.
+2. **Production sync** — `bash solver/sync-prod.sh` (built). Reviews each game's
+   iteration delta vs prod + its exploitability (so you never ship a regression),
+   commits the strategy files on the current branch, and with `--deploy` ships
+   *just* the strategy files onto `master` via a throwaway worktree (no
+   feature-branch merge) and polls Render until live. `--dry-run` reviews only.
 3. **Phase 2 abstraction work** (`RESEARCH.md` C4/C5): distribution-aware **EMD
    bucketing** (learns the deuce/blocker/straight-risk structure instead of
    hand-coding it) and an **expanded draw action space**. Judge with the meter.
