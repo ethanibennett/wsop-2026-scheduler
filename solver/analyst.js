@@ -339,7 +339,10 @@ async function narrate(report) {
     return `\n## 3. Narrative\n_Skipped — @anthropic-ai/sdk not installed._\n`;
   }
   try {
-    const client = new Anthropic();
+    // maxRetries makes the SDK back off automatically on 429/5xx; we still
+    // catch and report so a rate limit degrades to "narrative skipped" rather
+    // than crashing the (free, deterministic) report above it.
+    const client = new Anthropic({ maxRetries: 6 });
     const msg = await client.messages.create({
       model: MODEL,
       max_tokens: 1500,
@@ -353,7 +356,11 @@ async function narrate(report) {
     const text = msg.content.map(c => c.text || '').join('');
     return `\n## 3. Narrative (Claude ${MODEL})\n\n${text}\n`;
   } catch (e) {
-    return `\n## 3. Narrative\n_Failed: ${e.message}_\n`;
+    const is429 = e && (e.status === 429 || /429|rate limit|too many requests/i.test(e.message || ''));
+    const why = is429
+      ? 'rate limited (429). The deterministic report above is unaffected — narrate less often (once or twice a day), or check your API tier/limits.'
+      : e.message;
+    return `\n## 3. Narrative\n_Skipped — ${why}_\n`;
   }
 }
 
