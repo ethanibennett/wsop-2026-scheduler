@@ -105,3 +105,6 @@ generate-test-hands.js
 
 # CFR solver training checkpoints (full regret state, large)
 solver/strategies/*.ckpt.json
+solver/strategies/*.ckpt.json.tmp
+# Supervisor convergence log (local training artifact)
+solver/strategies/curve.csv

@@ -43,7 +43,7 @@ the heuristics we mine read correctly (no "draw to a 6").
 1. `[next]` **Distribution-aware EMD bucketing** (the real fix, RESEARCH.md C4): cluster hands by their **equity distribution** with k-means under Earth Mover's Distance, potential-aware + imperfect-recall. This *learns* deuce-blocker value, smoothness, straight risk automatically instead of us hand-coding bits — the proper answer to the abstraction flaws Phase 1 patched by hand.
 2. `[next]` **Expand the draw action space** (C5) so the solver fully chooses draw counts (street-dependent), rather than the heuristic offering snow-vs-natural.
 3. `[later]` **More mixed games** — the engine is game-agnostic; add **Razz, Stud Hi, A-5 Triple Draw, Badeucy/Badacy**, mostly evaluators + rules.
-4. `[later]` **Training speed**: VR-MCCFR baselines (~orders-of-magnitude variance cut), regret/best-response pruning, multi-night chained training via Actions cache for >6h runs.
+4. `[wip]` **Training speed**: `[done]` data-parallel MCCFR (`engine/parallel.js`, synchronous delta-merge, `train.js --workers N`; verified `W=1` reproduces single-thread exactly) + a **continuous-training supervisor** (`supervise.js`) for a dedicated always-on box — runs all three games concurrently, auto-resumes from checkpoints across crashes, meters on a schedule and logs the curve (`PARALLEL.md`). `[later]` VR-MCCFR baselines (~orders-of-magnitude variance cut), regret/best-response pruning.
 
 **Exit criterion:** EMD abstraction measurably beats the hand-crafted one (via
 the Phase 1 exploitability meter), across ≥3 games.
