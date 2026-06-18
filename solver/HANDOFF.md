@@ -12,6 +12,22 @@ Working branch: **`claude/cfr-poker-solvers-jec846`**.
 
 ---
 
+## 0. Quickstart — execute this handoff
+
+```bash
+git clone -b claude/cfr-poker-solvers-jec846 <repo-url> wsop && cd wsop
+# drop the three *.ckpt.json.gz checkpoint files into this folder, then:
+bash solver/setup-local.sh                          # installs, restores checkpoints, prints launch
+npm run supervise -- --heap 16384 --meter-min 20    # training runs 24/7 (no API, no tokens)
+```
+Then, in the same folder, start a local Claude Code session (`claude`) and paste:
+> Read `solver/HANDOFF.md` and `CLAUDE.md`, confirm the state, then start the next priority: Stud 8 neural Milestone A (`solver/neural/resolve.py`).
+
+That's it. Training (above) and the Claude session are independent; only the
+Claude session uses your Anthropic plan. Details below.
+
+---
+
 ## 1. TL;DR — where things stand
 
 - A from-scratch **external-sampling MCCFR** engine (DCFR(3/2,0,2)) solves three
