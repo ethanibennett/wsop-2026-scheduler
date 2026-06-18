@@ -71,15 +71,22 @@ async function trainParallel(gameId, {
   deadline = Infinity,
   base = null,
   onMerge = null,
+  workerHeapMB = 0, // raise each worker thread's V8 old-space cap (0 = Node default)
 } = {}) {
   const game = GAMES[gameId];
   if (!game) throw new Error(`trainParallel: unknown game '${gameId}'`);
 
   const trainer = base ? MCCFRTrainer.fromCheckpoint(game, base) : new MCCFRTrainer(game);
 
+  // Worker threads each hold a full copy of the table in their OWN heap, so
+  // the coordinator's --max-old-space-size does NOT apply to them. Raise their
+  // cap explicitly or a long, table-growing run OOM-kills a worker (~2 GB
+  // default) even on a big-RAM box.
+  const opts = { workerData: { gameId } };
+  if (workerHeapMB > 0) opts.resourceLimits = { maxOldGenerationSizeMb: workerHeapMB };
   const pool = [];
   for (let w = 0; w < workers; w++) {
-    pool.push(new Worker(path.join(__dirname, 'cfr-worker.js'), { workerData: { gameId } }));
+    pool.push(new Worker(path.join(__dirname, 'cfr-worker.js'), opts));
   }
 
   let round = 0;

@@ -36,6 +36,7 @@ const saveEverySec = parseInt(arg('save-every', '1200'), 10); // periodic strate
 const ckptEverySec = parseInt(arg('ckpt-every', '0'), 10); // periodic full-state checkpoint (0 = only at end)
 const workers = parseInt(arg('workers', '1'), 10); // >1 => data-parallel across cores
 const mergeEvery = parseInt(arg('merge-every', '50000'), 10); // iters/worker between parallel merges
+const workerHeapMB = parseInt(arg('worker-heap', '0'), 10); // per-worker-thread V8 old-space cap (MB)
 
 const game = GAMES[gameId];
 if (!game) {
@@ -117,7 +118,7 @@ async function main() {
     let lastSave = Date.now();
     let lastCkpt = Date.now();
     trainer = await trainParallel(gameId, {
-      workers, targetIters, mergeEvery, seed, deadline,
+      workers, targetIters, mergeEvery, seed, deadline, workerHeapMB,
       base: trainer.iterations > 0 || trainer.nodes.size > 0 ? trainer.toCheckpoint() : null,
       onMerge: (tr) => {
         currentTrainer = tr; // coordinator's live table, for checkpoint-on-signal

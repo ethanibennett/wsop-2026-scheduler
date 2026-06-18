@@ -48,7 +48,11 @@ const meterMin = parseFloat(arg('meter-min', '30'));       // meter cadence (min
 const meterHands = parseInt(arg('meter-hands', '8000'), 10); // hands per meter pass
 const saveEverySec = parseInt(arg('save-every', '600'), 10);
 const ckptEverySec = parseInt(arg('ckpt-every', '1800'), 10);
-const heapMB = parseInt(arg('heap', '0'), 10);             // 0 = node default
+const heapMB = parseInt(arg('heap', '0'), 10);             // 0 = node default (coordinator/main thread)
+// Per-worker-thread heap cap. Workers have their own heaps that --heap does
+// NOT cover, so default them to a fraction of --heap (still generous) unless
+// set explicitly. Keeps a parallel game's (W+2) table copies within RAM.
+const workerHeapMB = parseInt(arg('worker-heap', heapMB > 0 ? String(Math.floor(heapMB * 0.6)) : '0'), 10);
 const targetIters = arg('iters', '2000000000');           // effectively unbounded
 const mergeEvery = parseInt(arg('merge-every', '100000'), 10);
 
@@ -100,6 +104,7 @@ function trainArgs(game) {
     '--checkpoint', '1',
     '--out', path.join(STRAT_DIR, `${game}.json`),
   ];
+  if (workerHeapMB > 0 && (workers[game] || 1) > 1) a.push('--worker-heap', String(workerHeapMB));
   return a;
 }
 
@@ -193,7 +198,8 @@ console.log(`  machine:    ${os.cpus().length} cores, ${(os.totalmem() / 1e9).to
 console.log(`  games:      ${games.map(g => `${g}(${workers[g] || 1}w)`).join(', ')}`);
 console.log(`  meter:      every ${meterMin} min, ${meterHands} hands -> ${path.relative(process.cwd(), CURVE_CSV)}`);
 console.log(`  saves:      strategy every ${saveEverySec}s, checkpoint every ${ckptEverySec}s`);
-console.log(`  heap cap:   ${heapMB > 0 ? heapMB + ' MB/child' : 'node default'}`);
+console.log(`  heap cap:   ${heapMB > 0 ? heapMB + ' MB/child' : 'node default'}` +
+  `${workerHeapMB > 0 ? `, ${workerHeapMB} MB/worker-thread` : ''}`);
 console.log('  Ctrl-C to stop (children checkpoint first).');
 console.log('═'.repeat(64));
 for (const g of games) startGame(g);
