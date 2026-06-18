@@ -12,7 +12,8 @@
     "test": "node test/test-ps-ocr.js",
     "test:solver": "node solver/tests/run-tests.js",
     "train": "node --max-old-space-size=4096 solver/train.js",
-    "supervise": "node solver/supervise.js"
+    "supervise": "node solver/supervise.js",
+    "analyst": "node solver/analyst.js"
   },
   "keywords": [],
   "author": "",
