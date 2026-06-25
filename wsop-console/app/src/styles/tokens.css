@@ -1,0 +1,37 @@
+/* WSOP 2027 Console — design tokens (§3 of the handoff).
+   Console aesthetic: dark felt, chip gold, mono data. */
+:root {
+  --ink: #14171c;
+  --surface: #1c2128;
+  --surface-2: #232a33;
+  --line: #2c343e;
+  --bone: #e8e4da;
+  --muted: #8a9099;
+  --felt: #3ca374;
+  --chip: #c8a04e;
+
+  /* track colors */
+  --t-health: #3ca374;
+  --t-mind: #a78bc9;
+  --t-bank: #c8a04e;
+  --t-skill: #6ba9c9;
+  --t-partner: #c98aa8;
+  --t-admin: #2fa0a0;
+
+  /* semantic */
+  --good: #3ca374;
+  --warn: #d9a441;
+  --bad: #c96b6b;
+
+  --font-head: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius: 14px;
+  --radius-sm: 10px;
+  --pad: 16px;
+
+  --nav-h: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}

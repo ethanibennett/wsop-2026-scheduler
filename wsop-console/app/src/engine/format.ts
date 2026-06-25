@@ -1,0 +1,60 @@
+// Small formatting + date helpers shared across screens.
+
+export function todayISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+export function nowISO(): string {
+  return new Date().toISOString()
+}
+
+export function dayKey(iso: string): string {
+  return iso.slice(0, 10)
+}
+
+export function uid(): string {
+  // crypto.randomUUID is available in all PWA-capable browsers.
+  return crypto.randomUUID()
+}
+
+export function money(n: number, opts: { sign?: boolean } = {}): string {
+  const sign = opts.sign && n > 0 ? '+' : ''
+  const neg = n < 0
+  const abs = Math.abs(Math.round(n))
+  const s = abs.toLocaleString('en-US')
+  return `${neg ? '-' : sign}$${s}`
+}
+
+export function moneyK(n: number): string {
+  const k = n / 1000
+  const sign = n < 0 ? '-' : ''
+  const abs = Math.abs(k)
+  const s = abs >= 100 ? abs.toFixed(0) : abs.toFixed(1).replace(/\.0$/, '')
+  return `${sign}$${s}k`
+}
+
+export function fmtDate(iso: string): string {
+  const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''))
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+export function fmtHours(h: number): string {
+  return `${h % 1 === 0 ? h : h.toFixed(1)}h`
+}
+
+// Monday-anchored week start for "this week" rollups.
+export function weekStart(d = new Date()): Date {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  const dow = (x.getDay() + 6) % 7 // 0 = Monday
+  x.setDate(x.getDate() - dow)
+  return x
+}
+
+export function isThisWeek(iso: string): boolean {
+  const start = weekStart()
+  const end = new Date(start)
+  end.setDate(end.getDate() + 7)
+  const d = new Date(iso)
+  return d >= start && d < end
+}
