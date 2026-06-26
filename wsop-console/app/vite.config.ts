@@ -38,6 +38,9 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/console/index.html',
+        // Pull in the push/notificationclick handlers (M2). Relative to the SW,
+        // which sits at /console/sw.js, so this resolves to /console/push-sw.js.
+        importScripts: ['push-sw.js'],
       },
       devOptions: { enabled: true },
     }),

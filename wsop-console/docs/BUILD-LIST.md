@@ -13,11 +13,12 @@ Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 - [x] "NOW" indicator on the current phase/week (driven by the phase engine)
 - [x] Day view — three dials, four fixed points, the three hourly templates (cash/MTT/study, expandable), morning anchor + evening wind-downs (`phase-1-playbook.md` Parts 4–5)
 
-## M2 — Nudges / Push
-- [ ] Deploy `push-service/` (web-push VAPID + node-cron) on an always-on host; generate VAPID keys + env
-- [ ] PWA push-subscribe flow (permission → subscribe → POST subscription to server)
-- [ ] Wire the Settings → push-enable toggle (replace the placeholder note)
-- [ ] Server gates each fire by the weekly ramp (`getNudges`)
+## M2 — Nudges / Push  ← built (needs a phone to confirm delivery)
+- [x] Cron runs inside the existing always-on `server.js` (no separate service); reuses the app's VAPID setup; nudge subs in `console_push_subscriptions`
+- [x] PWA push-subscribe flow (`src/push.ts`) + push/notificationclick handler (`public/push-sw.js` via Workbox importScripts)
+- [x] Settings → push-enable toggle (replaced the placeholder note)
+- [x] Each fire gated by the weekly ramp (`getNudges`), fired in `America/New_York`
+- [ ] Confirm end-to-end delivery on the installed iOS PWA (needs the phone; VAPID must be set in Render env)
 
 ## M3 — Training (port `lift-log.html`, IndexedDB-backed)  ← done
 - [x] Mon/Wed/Fri sessions with the real lift menu (`training-plan.md`)

@@ -253,6 +253,44 @@ const consoleDist = path.join(__dirname, 'wsop-console', 'app', 'dist');
 if (require('fs').existsSync(consoleDist)) {
   // Gate everything under /console (assets + shell) on the ham account.
   app.use('/console', requireHamBasic);
+
+  // Console push API (M2). Lives under /console so the browser sends the Basic
+  // creds, and is registered before the static/SPA-fallback so it wins. The
+  // gate above already restricts these to ham.
+  app.get('/console/api/push/vapid', (req, res) => {
+    res.json({ key: process.env.VAPID_PUBLIC_KEY || null });
+  });
+  app.post('/console/api/push/subscribe', async (req, res) => {
+    try {
+      const { subscription } = req.body || {};
+      if (!subscription || !subscription.endpoint || !subscription.keys) {
+        return res.status(400).json({ error: 'Invalid subscription' });
+      }
+      db.run('DELETE FROM console_push_subscriptions WHERE endpoint = ?', [subscription.endpoint]);
+      db.run(
+        'INSERT INTO console_push_subscriptions (endpoint, keys_p256dh, keys_auth) VALUES (?, ?, ?)',
+        [subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth]
+      );
+      await saveDatabase();
+      res.json({ message: 'Subscribed' });
+    } catch (err) {
+      console.error('Console push subscribe error:', err);
+      res.status(500).json({ error: 'Failed to subscribe' });
+    }
+  });
+  app.post('/console/api/push/unsubscribe', async (req, res) => {
+    try {
+      const { endpoint } = req.body || {};
+      if (endpoint) db.run('DELETE FROM console_push_subscriptions WHERE endpoint = ?', [endpoint]);
+      else db.run('DELETE FROM console_push_subscriptions');
+      await saveDatabase();
+      res.json({ message: 'Unsubscribed' });
+    } catch (err) {
+      console.error('Console push unsubscribe error:', err);
+      res.status(500).json({ error: 'Failed to unsubscribe' });
+    }
+  });
+
   app.use('/console', express.static(consoleDist, {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) {
@@ -1718,6 +1756,22 @@ async function initDatabase() {
           FOREIGN KEY (user_id) REFERENCES users(id)
         )`);
         console.log('Created push_subscriptions table');
+      }
+    },
+    {
+      name: 'console-push-subscriptions-2026-06',
+      fn: () => {
+        // Separate from the user-based push_subscriptions: the WSOP 2027 Console
+        // is a single-user (ham) app with no logged-in user concept, so its
+        // nudge subscriptions live in their own table.
+        db.run(`CREATE TABLE IF NOT EXISTS console_push_subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          endpoint TEXT NOT NULL UNIQUE,
+          keys_p256dh TEXT NOT NULL,
+          keys_auth TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        console.log('Created console_push_subscriptions table');
       }
     },
     {
@@ -7466,6 +7520,77 @@ async function sendPushToAdmin(title, body, url) {
   }
 }
 
+// ── WSOP 2027 Console nudges (M2) ──────────────────────────
+// Server-driven push for the ramped daily nudges. Reuses the existing VAPID
+// setup; subscriptions live in console_push_subscriptions; the schedule (PHASES
+// + ramped BASE_NUDGES + getNudges) is the same module the console ships.
+const cron = require('node-cron');
+let consoleSchedule = null;
+try {
+  consoleSchedule = require('./wsop-console/push-service/schedule.js');
+} catch (err) {
+  console.warn('[console] schedule.js not found — nudges disabled:', err.message);
+}
+// The plan runs on the user's Eastern clock (Philadelphia); fire nudges in ET
+// regardless of the server timezone.
+const CONSOLE_TZ = 'America/New_York';
+
+async function sendConsolePush(title, body, tag) {
+  if (!process.env.VAPID_PUBLIC_KEY) return;
+  try {
+    const stmt = db.prepare('SELECT endpoint, keys_p256dh, keys_auth FROM console_push_subscriptions');
+    const subs = [];
+    while (stmt.step()) subs.push(stmt.getAsObject());
+    stmt.free();
+    if (!subs.length) return;
+    const payload = JSON.stringify({ title, body, url: '/console/', tag: tag || 'nudge' });
+    let changed = false;
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth } },
+          payload
+        );
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          db.run('DELETE FROM console_push_subscriptions WHERE endpoint = ?', [sub.endpoint]);
+          changed = true;
+        } else {
+          console.error('Console push send error:', err.statusCode || err.message);
+        }
+      }
+    }
+    if (changed) await saveDatabase();
+  } catch (err) {
+    console.error('sendConsolePush error:', err);
+  }
+}
+
+function setupConsoleNudgeCron() {
+  if (!consoleSchedule || !Array.isArray(consoleSchedule.BASE_NUDGES)) return;
+  const { BASE_NUDGES, getNudges } = consoleSchedule;
+  let scheduled = 0;
+  for (const nudge of BASE_NUDGES) {
+    if (!nudge.cron || !cron.validate(nudge.cron)) continue;
+    cron.schedule(
+      nudge.cron,
+      () => {
+        try {
+          // Only fire if this nudge is in today's active (ramped-on) set.
+          const active = getNudges(new Date());
+          if (!active.some((n) => n.id === nudge.id)) return;
+          sendConsolePush(nudge.title, nudge.body, nudge.id);
+        } catch (err) {
+          console.error('Console nudge fire error:', err);
+        }
+      },
+      { timezone: CONSOLE_TZ }
+    );
+    scheduled++;
+  }
+  console.log(`[console] scheduled ${scheduled} nudge cron job(s) (${CONSOLE_TZ})`);
+}
+
 // ── Schedule Parser: extract tournament data from PDF/image via Claude Vision ──
 const scheduleUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -9213,6 +9338,7 @@ app.get('/shared/:token', serveIndex);
 initDatabase().then(() => {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
+    setupConsoleNudgeCron();
   });
 
   const shutdown = () => {

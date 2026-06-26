@@ -1,15 +1,48 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useToast } from '../components/Toast'
 import { exportAll, importAll, type BackupBlob } from '../db/idb'
 import { PHASES } from '../db/seed'
 import { nowISO } from '../engine/format'
+import { pushSupported, isSubscribed, enablePush, disablePush } from '../push'
 
 export function SettingsScreen() {
   const { settings, updateSettings, reloadAll } = useStore()
   const toast = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+
+  const [pushOn, setPushOn] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
+  const supported = pushSupported()
+  useEffect(() => {
+    void isSubscribed().then(setPushOn)
+  }, [])
+
+  const togglePush = async () => {
+    setPushBusy(true)
+    try {
+      if (pushOn) {
+        await disablePush()
+        setPushOn(false)
+        toast('Push disabled')
+      } else {
+        const r = await enablePush()
+        if (r === 'ok') {
+          setPushOn(true)
+          toast('Push enabled — nudges will fire')
+        } else if (r === 'denied') {
+          toast('Notifications blocked — enable them for this site')
+        } else if (r === 'unsupported') {
+          toast('Push needs the installed app (iOS: Add to Home Screen)')
+        } else {
+          toast('Could not enable push')
+        }
+      }
+    } finally {
+      setPushBusy(false)
+    }
+  }
 
   const doExport = async () => {
     const blob = await exportAll(nowISO())
@@ -145,11 +178,28 @@ export function SettingsScreen() {
         />
       </div>
 
-      <div className="placeholder-note">
-        <strong>Push notifications</strong> (M2) plug in here — stand up the
-        <code> push-service/</code> (web-push + VAPID + node-cron from the zip)
-        and add an enable toggle. Nudges already mirror into Today, so the app
-        works without push.
+      <div className="card">
+        <div className="row-split">
+          <div>
+            <div className="card-label" style={{ marginBottom: 4 }}>
+              Push notifications
+            </div>
+            <div className="muted" style={{ fontSize: 13 }}>
+              {supported
+                ? pushOn
+                  ? 'On — the ramped daily nudges fire on your phone.'
+                  : 'Get the daily nudges as phone notifications. (They also mirror into Today.)'
+                : 'Needs the installed app — on iOS, Add to Home Screen first, then enable here.'}
+            </div>
+          </div>
+          <button
+            className={`btn ${pushOn ? 'btn-danger' : 'btn-primary'}`}
+            disabled={!supported || pushBusy}
+            onClick={togglePush}
+          >
+            {pushBusy ? '…' : pushOn ? 'Disable' : 'Enable'}
+          </button>
+        </div>
       </div>
     </div>
   )
