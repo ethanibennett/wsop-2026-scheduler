@@ -211,8 +211,48 @@ app.use(express.static(path.join(__dirname, 'public-vite'), {
 // in wsop-console/app/, base '/console/'). No shared API/auth: all its data is
 // local to the browser (IndexedDB), so we just serve its static build under
 // /console. Registered before the route handlers so it wins those paths.
+//
+// Access is restricted to the "ham" account via HTTP Basic Auth: the console is
+// loaded by document navigation, which never carries the app's bearer token, so
+// we can't reuse authenticateToken. Basic creds are verified (bcrypt) against
+// the users table; only username "ham" passes. Enter "ham" (or ham's email) as
+// the username and the account password.
+async function requireHamBasic(req, res, next) {
+  const challenge = () => {
+    res.set('WWW-Authenticate', 'Basic realm="WSOP 2027 Console", charset="UTF-8"');
+    res.status(401).type('txt').send('Authentication required — WSOP 2027 Console is private.');
+  };
+  try {
+    const [scheme, encoded] = (req.headers['authorization'] || '').split(' ');
+    if (scheme !== 'Basic' || !encoded) return challenge();
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const sep = decoded.indexOf(':');
+    const login = sep >= 0 ? decoded.slice(0, sep) : decoded;
+    const password = sep >= 0 ? decoded.slice(sep + 1) : '';
+
+    // Look up by username or email (case-insensitive), like the app's login.
+    const stmt = db.prepare(
+      'SELECT username, password FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)'
+    );
+    stmt.bind([login, login]);
+    let user = null;
+    while (stmt.step()) user = stmt.getAsObject();
+    stmt.free();
+
+    const isHam = user && (user.username || '').toLowerCase() === 'ham';
+    const ok = isHam && (await bcrypt.compare(password, user.password));
+    if (!ok) return challenge();
+    next();
+  } catch (err) {
+    console.error('[console] basic-auth error:', err);
+    return challenge();
+  }
+}
+
 const consoleDist = path.join(__dirname, 'wsop-console', 'app', 'dist');
 if (require('fs').existsSync(consoleDist)) {
+  // Gate everything under /console (assets + shell) on the ham account.
+  app.use('/console', requireHamBasic);
   app.use('/console', express.static(consoleDist, {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) {
