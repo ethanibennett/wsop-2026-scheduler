@@ -1,0 +1,205 @@
+:root {
+  --ink: #14171C;
+  --surface: #1C2128;
+  --surface-2: #232A33;
+  --line: #2C343E;
+  --bone: #E8E4DA;
+  --muted: #8A9099;
+  --felt: #2E7D5B;
+  --felt-bright: #3CA374;
+  --chip: #C8A04E;
+  --danger: #C8694E;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100svh;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+
+.console {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 32px 22px 48px;
+}
+
+/* ---- Masthead ---- */
+.masthead { margin-bottom: 28px; }
+
+.eyebrow {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--chip);
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.eyebrow .suit { color: var(--felt-bright); font-size: 14px; }
+
+.masthead h1 {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+}
+.masthead .sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ---- Arm / status ---- */
+.arm {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 22px;
+}
+.arm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.status-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 0 0 0 rgba(60,163,116,0.6);
+}
+.status-dot[data-on="true"] {
+  background: var(--felt-bright);
+  animation: pulse 2.4s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(60,163,116,0.45); }
+  70% { box-shadow: 0 0 0 8px rgba(60,163,116,0); }
+  100% { box-shadow: 0 0 0 0 rgba(60,163,116,0); }
+}
+.status-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--bone);
+}
+
+button {
+  width: 100%;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.06s ease, background 0.15s ease, border-color 0.15s ease;
+}
+button:active { transform: translateY(1px); }
+button:focus-visible { outline: 2px solid var(--chip); outline-offset: 2px; }
+
+.primary {
+  background: var(--felt);
+  color: var(--bone);
+}
+.primary:hover { background: var(--felt-bright); }
+.primary:disabled { background: var(--surface-2); color: var(--muted); cursor: default; }
+
+.ghost {
+  background: transparent;
+  color: var(--bone);
+  border-color: var(--line);
+  margin-top: 10px;
+}
+.ghost:hover { border-color: var(--chip); color: var(--chip); }
+
+.hint {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.hint.warn { color: var(--chip); }
+.hint.err { color: var(--danger); }
+
+/* ---- Board (the signature: a tournament-level clock) ---- */
+.board {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.board-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.board-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+.board-meta {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.levels { list-style: none; margin: 0; padding: 0; }
+.level {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.level:last-child { border-bottom: none; }
+.level .time {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--chip);
+  font-variant-numeric: tabular-nums;
+}
+.level .title {
+  font-size: 15px;
+  color: var(--bone);
+}
+
+.foot {
+  margin-top: 26px;
+  text-align: center;
+}
+.foot p { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.foot code {
+  font-family: "JetBrains Mono", monospace;
+  color: var(--bone);
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot[data-on="true"] { animation: none; }
+  button { transition: none; }
+}

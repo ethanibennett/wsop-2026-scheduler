@@ -47,7 +47,14 @@ export const LADDER: Checkpoint[] = [
     key: 'wsop-ready',
     name: 'WSOP-ready',
     cleared: '5/10/30',
-    note: 'Fully rolled for the series.',
+    note: 'Playing roll (~$70k) + WSOP fund (~$65k). Fully rolled for the series.',
+  },
+  {
+    amount: 150000,
+    key: '10-10-25',
+    name: '10/10/25 (stretch)',
+    cleared: '10/10/25',
+    note: 'Next-cycle territory — only if accumulation carries you here with the edge intact.',
   },
 ]
 
