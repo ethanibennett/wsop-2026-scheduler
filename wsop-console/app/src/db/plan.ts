@@ -338,3 +338,130 @@ export const PHASE1_WEEKS: Phase1Week[] = [
 
 export const PHASE1_FOOT =
   'The arc: land & re-enter → install → repair → rebuild → humming → solo dress-rehearsal → hand off to Monterey. By the time the Phase 4 danger zone arrives, none of this is new — it has been running for months. The full hour-by-hour detail lives in phase-1-playbook.md.'
+
+// ── Day view (phase-1-playbook.md Parts 4 & 5) ──
+export interface Dial {
+  name: string
+  time: string
+  note: string
+}
+export const DIALS: Dial[] = [
+  { name: 'Wake anchor', time: '10:00', note: 'Held within ±1 hr even after a rough night. The keystone — everything hangs off it.' },
+  { name: 'Session cap', time: '01:30', note: 'Last hand. Wind-down 1:30–2:00, in bed by 2:00. The cap protects the anchor.' },
+  { name: 'Caffeine cutoff', time: '18:00', note: '~8 hrs before sleep. The tight one — sleep-protective on purpose.' },
+]
+
+export interface FixedPoint {
+  t: string
+  d: string
+}
+export const FIXED_POINTS: FixedPoint[] = [
+  { t: 'Wake + first hour · 10:00–11:00', d: 'Daylight (~10 min) → 5–10 min movement → protein breakfast + water. One block.' },
+  { t: 'Movement floor · by ~16:30', d: 'A real walk; the strength set on lifting days. Before the evening, not after.' },
+  { t: 'Caffeine cutoff · 18:00', d: 'Last caffeine. The late hours run on water and food.' },
+  { t: 'Wind-down · 01:30–02:00', d: 'No hand review, dim lights, shower, two-line journal. In bed by 2:00.' },
+]
+
+export interface TemplateStep {
+  time: string
+  what: string
+}
+export interface DayTemplate {
+  key: string
+  title: string
+  when: string
+  steps: TemplateStep[]
+}
+export const DAY_TEMPLATES: DayTemplate[] = [
+  {
+    key: 'cash',
+    title: 'Cash grind day — live at Parx',
+    when: 'Tue / Sat',
+    steps: [
+      { time: '10:00', what: 'Wake anchor + first hour: daylight, movement, protein, water.' },
+      { time: '11:30', what: 'Light block: range drills (~30 min) + a glance at notes.' },
+      { time: '16:00', what: 'Movement floor: a real walk (no strength — that’s M/W/F).' },
+      { time: '16:45', what: 'Pre-session meal: protein + slower carbs, nothing heavy.' },
+      { time: '17:00', what: 'Last caffeine before the 18:00 cutoff + prep: one process goal for the night.' },
+      { time: '18:15', what: 'Sit. Stand/water every ~90 min; tilt-reset between big pots.' },
+      { time: '~01:00', what: 'Live cap: rack up (you’re 40 min out). The drive home is the wind-down.' },
+      { time: '01:40', what: 'Shower, two-line journal, no hand review. Bed by 2:00.' },
+    ],
+  },
+  {
+    key: 'mtt',
+    title: 'Tournament day — Sunday online MTTs',
+    when: 'Sun',
+    steps: [
+      { time: '10:00', what: 'Wake anchor + first hour. The anchor matters most today.' },
+      { time: '11:30', what: 'Build the slate: pick events, set the buy-in budget, set up the station.' },
+      { time: '13:00', what: 'Weekly review (~15 min), then switch to play mode.' },
+      { time: '13:30', what: 'Registration / grind begins. Use breaks: stand, walk, hydrate.' },
+      { time: '17:30', what: 'Real dinner on a break, protein-first. Last caffeine by 18:00.' },
+      { time: 'most weeks', what: 'Bust before 1:30 → normal wind-down, bed by 2:00.' },
+      { time: 'deep run', what: 'Soft cap: a final table is the sanctioned exception. Let Monday flex.' },
+    ],
+  },
+  {
+    key: 'study',
+    title: 'Study day',
+    when: 'Thu (+ non-live Mon)',
+    steps: [
+      { time: '10:00', what: 'Wake anchor + first hour.' },
+      { time: '11:30', what: 'Deep study block (the heavy one, while fresh): Mon PLO/solver · Thu library/review.' },
+      { time: '14:00', what: 'Lighter block: range drills / coaching review. (Mon: grocery shop + prep.)' },
+      { time: '16:00', what: 'Movement floor: Mon strength + walk · Thu walk only.' },
+      { time: '17:30', what: 'Dinner — a deliberate shared one when Ellie has a window.' },
+      { time: 'before 2:00', what: 'No session → bank sleep: bed before 2 if tired. These nights repay the debt.' },
+    ],
+  },
+]
+
+export interface RoutineStep {
+  t: string
+}
+export const MORNING_ANCHOR: RoutineStep[] = [
+  { t: '10:00 — up on the first alarm. Feet on the floor, no snooze (phone charges across the room).' },
+  { t: 'Light, immediately. Blinds / step outside / 10 min of daylight. Sets tonight’s melatonin.' },
+  { t: 'Water. A big glass before coffee — you wake dehydrated.' },
+  { t: 'Move, 5–10 min. Mobility flow or an easy walk. Just "day’s on."' },
+  { t: 'Protein breakfast (~30–40g) — the nutrition anchor meal.' },
+  { t: 'Then coffee, ~11:00 — deliberately after light + water + food.' },
+]
+export const MORNING_RULE = 'No inputs before the protein meal — no phone-in-bed, email, Discord, news, or results. Light and water before screens.'
+
+export interface EveningWindDown {
+  key: string
+  title: string
+  lines: string[]
+}
+export const EVENING_WINDDOWNS: EveningWindDown[] = [
+  {
+    key: 'e1',
+    title: 'Live-cash nights',
+    lines: [
+      'The drive home is step one — no hype music, let the session settle, don’t relitigate hands.',
+      '~1:40 home: shower (drops core temp), kill the overhead lights.',
+      'Two-line journal: one thing that worked, one to fix. No hand review, no solver, no results-refresh.',
+      'In bed by 2:00. Wired? 10 min of breathing / the meditation floor.',
+    ],
+  },
+  {
+    key: 'e2',
+    title: 'Sunday MTTs',
+    lines: [
+      'Bust before ~1:30: run the live-cash wind-down — close tables, shower, two lines, bed by 2.',
+      'Deep run: a longer, deliberate decompress (20–30 min) — shower, low light, breathing. Accept the later bed; Monday flexes.',
+      'Whether a score or a bustout, make no decisions — don’t fire up cash to "stay hot," don’t spiral a beat.',
+    ],
+  },
+  {
+    key: 'e3',
+    title: 'No-session nights',
+    lines: [
+      'The most valuable one: no session means you can bed before 2. Do it.',
+      'Books closed by ~17:00 → easy evening → screens down 30–45 min before bed → meditation floor → in bed early.',
+      'Guard the leak: the urge to "use" the free night for more poker or study. Protect it as recovery.',
+    ],
+  },
+]

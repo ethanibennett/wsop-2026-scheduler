@@ -7,11 +7,11 @@ slotted in as they become urgent.
 
 Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 
-## M4 — Plan views  ← mostly done
+## M4 — Plan views  ← done
 - [x] **Year** view — ported `reference/year-plan-timeline.html`: 6 phases, track filters, tap-to-expand, rotation badges, sub-window segments, six-track copy, markers, the tournament series
 - [x] **Phase** view — ported `reference/phase-1-detail.html`: 9-week zoom, arc strip, install-ramp/event tags, surgery marker, the standard-week grid
 - [x] "NOW" indicator on the current phase/week (driven by the phase engine)
-- [ ] Day templates (hourly) + morning/evening routines from `phase-1-playbook.md` Parts 4–5 (the one remaining M4 piece)
+- [x] Day view — three dials, four fixed points, the three hourly templates (cash/MTT/study, expandable), morning anchor + evening wind-downs (`phase-1-playbook.md` Parts 4–5)
 
 ## M2 — Nudges / Push
 - [ ] Deploy `push-service/` (web-push VAPID + node-cron) on an always-on host; generate VAPID keys + env
@@ -44,7 +44,7 @@ Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 
 ## Cleanup / follow-ups
 - [x] Fixed stale default anchor times in `store.tsx` (07:00/23:00/14:00 → real 10:00/01:30/18:00)
-- [ ] Remove stale "Phase dates are placeholders" note in `SettingsScreen` (data is real now)
+- [x] Removed stale "Phase dates are placeholders" note in `SettingsScreen`
 - [ ] iOS installed-PWA Basic Auth UX — maybe switch `/console` to cookie/JWT login
 - [ ] `TodayScreen` writes a `'log-session'` tick key that no longer maps to a nudge (post-rename orphan)
 - [ ] Reconcile bankroll "cleared stake" labels at $75k/$100k rungs vs `bankroll-framework.md`

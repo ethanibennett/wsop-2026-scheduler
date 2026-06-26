@@ -1385,3 +1385,75 @@ textarea {
 .tag.neg {
   color: var(--bad);
 }
+
+/* ── Plan · Day view (M4) ── */
+.dv-fixed {
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.dv-fixed:first-of-type {
+  border-top: none;
+}
+.dv-fixed-t {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--chip);
+  margin-bottom: 2px;
+}
+.dv-step {
+  display: flex;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+}
+.dv-step:first-child {
+  border-top: none;
+}
+.dv-step-t {
+  flex: 0 0 64px;
+  font-size: 11px;
+  color: var(--chip);
+}
+.dv-step-w {
+  flex: 1;
+  font-size: 13px;
+}
+.dv-routine {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  align-items: flex-start;
+}
+.dv-bullet {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--chip);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+.dv-bullet.sm {
+  background: none;
+  border: none;
+  color: var(--muted);
+}
+.dv-evening {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.dv-evening:first-of-type {
+  border-top: none;
+}
+.dv-evening-t {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+}

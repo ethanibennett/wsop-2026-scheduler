@@ -111,8 +111,7 @@ export function SettingsScreen() {
           </select>
         </div>
         <div className="muted" style={{ fontSize: 12 }}>
-          Phase dates are placeholders until <code style={{ color: 'var(--chip)' }}>schedule.js</code>{' '}
-          is dropped in. Override to preview a phase today.
+          Phase dates come from the real plan schedule. Override to preview a phase today.
         </div>
       </div>
 

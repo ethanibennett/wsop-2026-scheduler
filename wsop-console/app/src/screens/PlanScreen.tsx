@@ -18,6 +18,12 @@ import {
   STANDARD_WEEK_NOTE,
   PHASE1_WEEKS,
   PHASE1_FOOT,
+  DIALS,
+  FIXED_POINTS,
+  DAY_TEMPLATES,
+  MORNING_ANCHOR,
+  MORNING_RULE,
+  EVENING_WINDDOWNS,
   type TrackKey,
 } from '../db/plan'
 import { phaseState } from '../engine/phase'
@@ -233,8 +239,114 @@ function PhaseView({ active, currentWeek }: { active: Filter; currentWeek?: numb
   )
 }
 
+function DayView() {
+  const [openT, setOpenT] = useState<Record<string, boolean>>({})
+  return (
+    <>
+      <div className="card">
+        <div className="card-label" style={{ marginBottom: 10 }}>
+          The three dials
+        </div>
+        {DIALS.map((d) => (
+          <div className="ladder-step" key={d.name}>
+            <span className="ladder-amt" style={{ width: 56 }}>
+              {d.time}
+            </span>
+            <div className="ladder-meta">
+              <div className="ladder-name">{d.name}</div>
+              <div className="sess-meta" style={{ whiteSpace: 'normal' }}>
+                {d.note}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <div className="card-label" style={{ marginBottom: 10 }}>
+          Four fixed points — hold every day
+        </div>
+        {FIXED_POINTS.map((f, i) => (
+          <div className="dv-fixed" key={i}>
+            <div className="dv-fixed-t">{f.t}</div>
+            <div className="muted" style={{ fontSize: 13 }}>
+              {f.d}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card-label" style={{ margin: '4px 2px 10px' }}>
+        Hourly templates
+      </div>
+      {DAY_TEMPLATES.map((tpl) => {
+        const isOpen = !!openT[tpl.key]
+        return (
+          <div key={tpl.key} className={`pl-card${isOpen ? ' open' : ''}`}>
+            <button
+              className="pl-head"
+              aria-expanded={isOpen}
+              onClick={() => setOpenT((o) => ({ ...o, [tpl.key]: !o[tpl.key] }))}
+            >
+              <div className="pl-ptop">
+                <span className="pl-pname" style={{ fontSize: 15 }}>
+                  {tpl.title}
+                </span>
+                <span className="pl-pdate">{tpl.when}</span>
+              </div>
+            </button>
+            <div className="pl-body">
+              <div className="pl-bodyinner">
+                {tpl.steps.map((s, i) => (
+                  <div className="dv-step" key={i}>
+                    <span className="dv-step-t mono">{s.time}</span>
+                    <span className="dv-step-w">{s.what}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+
+      <div className="card" style={{ marginTop: 8 }}>
+        <div className="card-label" style={{ marginBottom: 10 }}>
+          The morning anchor — the same every day
+        </div>
+        {MORNING_ANCHOR.map((s, i) => (
+          <div className="dv-routine" key={i}>
+            <span className="dv-bullet">{i + 1}</span>
+            <span>{s.t}</span>
+          </div>
+        ))}
+        <div className="alert alert-warn" style={{ marginTop: 12, marginBottom: 0 }}>
+          <span className="ai">⊘</span>
+          {MORNING_RULE}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-label" style={{ marginBottom: 10 }}>
+          The evening wind-downs
+        </div>
+        {EVENING_WINDDOWNS.map((e) => (
+          <div className="dv-evening" key={e.key}>
+            <div className="dv-evening-t">{e.title}</div>
+            {e.lines.map((l, i) => (
+              <div className="dv-routine" key={i}>
+                <span className="dv-bullet sm">·</span>
+                <span style={{ fontSize: 13 }}>{l}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
 export function PlanScreen() {
-  const [view, setView] = useState<'year' | 'phase'>('year')
+  const [view, setView] = useState<'year' | 'phase' | 'day'>('year')
   const [active, setActive] = useState<Filter>('all')
   const { settings } = useStore()
   const ps = phaseState(new Date(), settings.phaseOverride)
@@ -242,7 +354,7 @@ export function PlanScreen() {
   return (
     <div className="screen plan">
       <h1 className="screen-title">Plan</h1>
-      <div className="screen-sub">the year · the phase</div>
+      <div className="screen-sub">the year · the phase · the day</div>
 
       <div className="pill-row">
         <button className={`pill${view === 'year' ? ' on' : ''}`} onClick={() => setView('year')}>
@@ -251,15 +363,18 @@ export function PlanScreen() {
         <button className={`pill${view === 'phase' ? ' on' : ''}`} onClick={() => setView('phase')}>
           Phase 1
         </button>
+        <button className={`pill${view === 'day' ? ' on' : ''}`} onClick={() => setView('day')}>
+          Day
+        </button>
       </div>
 
-      <TrackFilter active={active} onPick={setActive} />
+      {view !== 'day' && <TrackFilter active={active} onPick={setActive} />}
 
-      {view === 'year' ? (
-        <YearView active={active} currentId={ps.phase?.id} />
-      ) : (
+      {view === 'year' && <YearView active={active} currentId={ps.phase?.id} />}
+      {view === 'phase' && (
         <PhaseView active={active} currentWeek={ps.phase?.id === 1 ? ps.week : undefined} />
       )}
+      {view === 'day' && <DayView />}
     </div>
   )
 }
