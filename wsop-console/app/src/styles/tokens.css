@@ -37,7 +37,7 @@
   --radius-sm: 10px;
   --pad: 16px;
 
-  --nav-h: 64px;
+  --nav-h: 112px; /* two rows of tabs */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
 }
