@@ -6,6 +6,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 // The service worker precaches the app shell (offline-first). Push is layered
 // on later (M2) via the separate push-service; treat it as enhancement.
 export default defineConfig({
+  // Served under /console on the futurega.me server (see server.js). Keep the
+  // trailing slash — Vite prefixes every asset URL and the PWA paths with it.
+  base: '/console/',
   plugins: [
     react(),
     VitePWA({
@@ -19,8 +22,8 @@ export default defineConfig({
         background_color: '#14171C',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
+        start_url: '/console/',
+        scope: '/console/',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -34,7 +37,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        navigateFallback: '/index.html',
+        navigateFallback: '/console/index.html',
       },
       devOptions: { enabled: true },
     }),

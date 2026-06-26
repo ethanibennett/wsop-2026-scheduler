@@ -207,6 +207,30 @@ app.use(express.static(path.join(__dirname, 'public-vite'), {
   }
 }));
 
+// WSOP 2027 Console — a self-contained, offline-first PWA (its own Vite build
+// in wsop-console/app/, base '/console/'). No shared API/auth: all its data is
+// local to the browser (IndexedDB), so we just serve its static build under
+// /console. Registered before the route handlers so it wins those paths.
+const consoleDist = path.join(__dirname, 'wsop-console', 'app', 'dist');
+if (require('fs').existsSync(consoleDist)) {
+  app.use('/console', express.static(consoleDist, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
+  }));
+  // SPA fallback for client-side paths under /console (any request static
+  // didn't resolve to a file). app.use avoids Express 5 wildcard-path parsing.
+  app.use('/console', (req, res) => {
+    res.sendFile(path.join(consoleDist, 'index.html'));
+  });
+} else {
+  console.warn('[console] wsop-console/app/dist not found — /console will 404 until built');
+}
+
 // Serve index.html with injected build version to bust any cache
 const BUILD_VERSION = Date.now().toString();
 function serveIndex(req, res) {

@@ -32,4 +32,20 @@ console.log(`[build] Wrote version.txt = ${buildVersion}`);
 // 3. Run vite build.
 console.log('[build] Running vite build...');
 const build = spawnSync('npm', ['run', 'build'], { cwd: viteAppDir, stdio: 'inherit' });
-process.exit(build.status ?? 0);
+if ((build.status ?? 0) !== 0) process.exit(build.status);
+
+// 4. Build the WSOP 2027 Console PWA (wsop-console/app → dist/), served by
+// server.js under /console. Self-contained; same install-if-missing pattern.
+const consoleAppDir = path.join(__dirname, 'wsop-console', 'app');
+if (fs.existsSync(consoleAppDir)) {
+  if (!fs.existsSync(path.join(consoleAppDir, 'node_modules'))) {
+    console.log('[build] Installing wsop-console deps...');
+    const hasLock = fs.existsSync(path.join(consoleAppDir, 'package-lock.json'));
+    const cInstall = spawnSync('npm', [hasLock ? 'ci' : 'install'], { cwd: consoleAppDir, stdio: 'inherit' });
+    if (cInstall.status !== 0) process.exit(cInstall.status);
+  }
+  console.log('[build] Building wsop-console PWA...');
+  const cBuild = spawnSync('npm', ['run', 'build'], { cwd: consoleAppDir, stdio: 'inherit' });
+  process.exit(cBuild.status ?? 0);
+}
+process.exit(0);
