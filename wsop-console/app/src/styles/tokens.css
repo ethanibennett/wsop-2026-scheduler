@@ -8,7 +8,13 @@
   --bone: #e8e4da;
   --muted: #8a9099;
   --felt: #3ca374;
+  --felt-bright: #3ca374;
   --chip: #c8a04e;
+
+  /* rotation context (Plan / year timeline) */
+  --away: #6b8fb5;
+  --philly: #7a8694;
+  --free: #c8a04e;
 
   /* track colors */
   --t-health: #3ca374;

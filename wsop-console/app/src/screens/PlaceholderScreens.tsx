@@ -1,12 +1,5 @@
-// M3–M6 screens — scaffolded with clear pointers to the source assets they
-// port from. Each renders something useful (the seeded plan data) so the tab
-// is not dead, and flags exactly which missing asset fills it in.
-
-import { useState } from 'react'
-import { PHASES, PLAN_WEEKS, TRACKS } from '../db/seed'
-import { phaseState } from '../engine/phase'
-import { useStore } from '../store'
-import { fmtDate } from '../engine/format'
+// M3 + M6 screens — scaffolded with clear pointers to the source assets they
+// port from. (M4 Plan now lives in its own screens/PlanScreen.tsx.)
 
 export function TrainingScreen() {
   return (
@@ -27,97 +20,6 @@ export function TrainingScreen() {
         <br />
         <br />
         Source: <code>docs/plan/training-plan.md</code>.
-      </div>
-    </div>
-  )
-}
-
-export function PlanScreen() {
-  const [view, setView] = useState<'year' | 'phase'>('year')
-  const { settings } = useStore()
-  const ps = phaseState(new Date(), settings.phaseOverride)
-
-  return (
-    <div className="screen">
-      <h1 className="screen-title">Plan</h1>
-      <div className="screen-sub">M4 · the year, the phase</div>
-
-      <div className="pill-row">
-        <button className={`pill${view === 'year' ? ' on' : ''}`} onClick={() => setView('year')}>
-          Year
-        </button>
-        <button className={`pill${view === 'phase' ? ' on' : ''}`} onClick={() => setView('phase')}>
-          Phase 1
-        </button>
-      </div>
-
-      {view === 'year' ? (
-        <div className="card">
-          <div className="card-label" style={{ marginBottom: 10 }}>6 phases</div>
-          {PHASES.map((p) => {
-            const here = ps.phase?.id === p.id
-            return (
-              <div
-                key={p.id}
-                className={`ladder-step${here ? ' current' : ''}`}
-              >
-                <span
-                  className="ladder-dot"
-                  style={here ? { background: 'var(--chip)', borderColor: 'var(--chip)' } : undefined}
-                />
-                <div className="ladder-meta">
-                  <div className="ladder-name">
-                    P{p.id} · {p.name}
-                  </div>
-                  <div className="sess-meta">
-                    {fmtDate(p.start)} – {fmtDate(p.end)} · {p.theme}
-                  </div>
-                </div>
-                {here && <span className="ladder-cleared-tag">NOW</span>}
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        <div className="card">
-          <div className="card-label" style={{ marginBottom: 10 }}>Phase 1 · 9 weeks</div>
-          {PLAN_WEEKS.map((w) => (
-            <div className="ladder-step" key={w.n} style={{ alignItems: 'flex-start' }}>
-              <span className="ladder-amt" style={{ width: 40 }}>W{w.n}</span>
-              <div className="ladder-meta">
-                <div className="ladder-name">{w.headline}</div>
-                <div className="sess-meta">{w.dates}</div>
-                {w.ramp && (
-                  <span
-                    className="tag"
-                    style={{ marginTop: 6, color: 'var(--chip)', background: 'var(--surface-2)' }}
-                  >
-                    ⤴ {w.ramp}
-                  </span>
-                )}
-                <div style={{ marginTop: 6 }}>
-                  {Object.entries(w.tracks).map(([k, v]) => {
-                    const tr = TRACKS.find((t) => t.key === k)
-                    return (
-                      <div key={k} className="sess-meta" style={{ marginTop: 2 }}>
-                        <span style={{ color: tr?.color }}>● </span>
-                        {v}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="placeholder-note">
-        These render the <strong>seeded placeholder</strong> plan data. Port the
-        real graphics from <code>reference/year-plan-timeline.html</code> and{' '}
-        <code>reference/phase-1-detail.html</code> (track filters, tap-to-expand,
-        the standard-week grid, day templates), with content from{' '}
-        <code>docs/plan/phase-1-playbook.md</code>.
       </div>
     </div>
   )
