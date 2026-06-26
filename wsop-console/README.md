@@ -57,6 +57,37 @@ install. All data is stored **local-first in IndexedDB** — export a JSON backu
 regularly from **Settings → Backup** (it's the only safety net for local-only
 data).
 
+## Continue from your phone (Remote Control)
+
+This branch was built in a cloud (web) session. To keep working on it from your
+phone while the code runs on **your own laptop**, use Claude Code's
+[Remote Control](https://code.claude.com/docs/en/remote-control.md). A cloud
+session can't be "handed off" — git is the bridge, then Claude runs locally.
+
+On your laptop, from a clone of this repo:
+
+```bash
+./wsop-console/remote-control.sh
+```
+
+It fetches the branch, installs `app/` deps, and starts a Remote Control
+session named **"WSOP Console"**. Scan the printed QR code with the Claude phone
+app (**Code** tab) — or open the URL — and steer it from there. Or do it by
+hand:
+
+```bash
+git checkout claude/wsop-2027-pwa-console-q5vem7
+cd wsop-console/app && npm install
+claude remote-control --name "WSOP Console"
+```
+
+Requirements: Claude Code **v2.1.51+**, signed in via `/login` on a
+Pro/Max/Team/Enterprise plan (not an API key). The laptop must stay awake with
+the session running. Set up phone push with `/config` so it pings you when a
+long task finishes. This is ideal for the next milestones — the missing assets
+(`wsop-console.zip`, `lift-log.html`, the plan docs) live on your machine, where
+you can actually drop them in.
+
 ## Layout
 
 ```
