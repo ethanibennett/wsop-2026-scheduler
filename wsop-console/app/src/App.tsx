@@ -6,7 +6,8 @@ import { SessionsScreen } from './screens/SessionsScreen'
 import { BankrollScreen } from './screens/BankrollScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { PlanScreen } from './screens/PlanScreen'
-import { TrainingScreen, ReviewScreen } from './screens/PlaceholderScreens'
+import { TrainingScreen } from './screens/TrainingScreen'
+import { ReviewScreen } from './screens/ReviewScreen'
 
 export function App() {
   const [tab, setTab] = useState<TabId>('today')

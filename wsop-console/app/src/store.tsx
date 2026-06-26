@@ -27,9 +27,9 @@ import type {
 
 const DEFAULT_SETTINGS: Settings = {
   startingRoll: 50000,
-  wakeTime: '07:00',
-  capTime: '23:00',
-  caffeineCutoff: '14:00',
+  wakeTime: '10:00', // the real anchor clock (wake 10:00 / cap 01:30 / caffeine 18:00)
+  capTime: '01:30',
+  caffeineCutoff: '18:00',
 }
 
 interface StoreData {

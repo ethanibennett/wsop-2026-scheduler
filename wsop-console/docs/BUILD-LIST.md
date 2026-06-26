@@ -19,12 +19,12 @@ Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 - [ ] Wire the Settings → push-enable toggle (replace the placeholder note)
 - [ ] Server gates each fire by the weekly ramp (`getNudges`)
 
-## M3 — Training (port `lift-log.html`, IndexedDB-backed)
-- [ ] Mon/Wed/Fri sessions with the real lift menu (`training-plan.md`)
-- [ ] Last-session reference + progressive-overload display
-- [ ] Pre-op / build toggle (hernia-aware ramp)
-- [ ] Benchmarks + prehab checklist
-- [ ] Swap prototype `window.storage` → `lifts`/`benchmarks`/`prehab` stores
+## M3 — Training (port `lift-log.html`, IndexedDB-backed)  ← done
+- [x] Mon/Wed/Fri sessions with the real lift menu (`training-plan.md`)
+- [x] Last-session reference + progressive-overload display
+- [x] Pre-op / build toggle (hernia-aware ramp)
+- [x] Benchmarks + prehab checklist + history
+- [x] Swap prototype `window.storage` → `lifts`/`benchmarks`/`prehab` stores
 
 ## M5 — Rhythm · Health · Study
 - [ ] Routine/streaks engine (wake-anchor headline + wind-down)
@@ -33,7 +33,7 @@ Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 - [ ] Nutrition defaults + shopping list (`nutrition.md`)
 
 ## M6 — Review · Insights · Polish
-- [ ] Sunday review screen: week's sessions/hours/mood/streak → 3 prompts → save `ReviewEntry`
+- [x] Sunday review screen: week's sessions/hours/mood/streak → 3 prompts → save `ReviewEntry`
 - [ ] Deeper analytics (cash bb/100, win-rate trends)
 - [ ] Backup hardening (reminders, maybe cloud backup)
 
@@ -43,6 +43,7 @@ Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 - [ ] Tournament-day protocol checklist (`tournament-day-protocol.md`)
 
 ## Cleanup / follow-ups
+- [x] Fixed stale default anchor times in `store.tsx` (07:00/23:00/14:00 → real 10:00/01:30/18:00)
 - [ ] Remove stale "Phase dates are placeholders" note in `SettingsScreen` (data is real now)
 - [ ] iOS installed-PWA Basic Auth UX — maybe switch `/console` to cookie/JWT login
 - [ ] `TodayScreen` writes a `'log-session'` tick key that no longer maps to a nudge (post-rename orphan)
