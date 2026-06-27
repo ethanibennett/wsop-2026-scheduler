@@ -40,8 +40,8 @@ Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 
 ## Plan-specific layers (unique to this plan)
 - [ ] Admin / tax / staking (`business-admin.md`): tax log, 2026 loss rule, quarterly estimates, backer settlements
-- [ ] WSOP-fund mechanics: monthly profit-slice feed + ~$200k slate / action-sold net-target tracker
-- [ ] Tournament-day protocol checklist (`tournament-day-protocol.md`)
+- [x] WSOP-fund tracker on the Bankroll screen: progress to the ~$65k net target + mechanics (monthly feed, opens at $100k, slate sold to net)
+- [x] Tournament-day protocol (selection filter + day-before/day-of/day-after) on the Plan → Day view
 
 ## Cleanup / follow-ups
 - [x] Fixed stale default anchor times in `store.tsx` (07:00/23:00/14:00 → real 10:00/01:30/18:00)

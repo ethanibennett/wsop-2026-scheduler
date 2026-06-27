@@ -24,6 +24,8 @@ import {
   MORNING_ANCHOR,
   MORNING_RULE,
   EVENING_WINDDOWNS,
+  TD_FILTER,
+  TD_PHASES,
   type TrackKey,
 } from '../db/plan'
 import { phaseState } from '../engine/phase'
@@ -336,6 +338,34 @@ function DayView() {
               <div className="dv-routine" key={i}>
                 <span className="dv-bullet sm">·</span>
                 <span style={{ fontSize: 13 }}>{l}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <div className="card-label" style={{ marginBottom: 4 }}>
+          Tournament-day protocol
+        </div>
+        <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+          A planned exception wrapped in buffers. Selection filter — <b>any one fails → pass</b>:
+        </div>
+        {TD_FILTER.map((f) => (
+          <div className="dv-fixed" key={f.t}>
+            <div className="dv-fixed-t">{f.t}</div>
+            <div className="muted" style={{ fontSize: 13 }}>
+              {f.d}
+            </div>
+          </div>
+        ))}
+        {TD_PHASES.map((p) => (
+          <div className="dv-evening" key={p.title}>
+            <div className="dv-evening-t">{p.title}</div>
+            {p.items.map((it, i) => (
+              <div className="dv-routine" key={i}>
+                <span className="dv-bullet sm">·</span>
+                <span style={{ fontSize: 13 }}>{it}</span>
               </div>
             ))}
           </div>

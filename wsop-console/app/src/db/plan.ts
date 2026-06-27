@@ -435,6 +435,51 @@ export interface EveningWindDown {
   title: string
   lines: string[]
 }
+// Tournament-day protocol (tournament-day-protocol.md) — a planned exception
+// wrapped in buffers. A selection filter (any one fails → pass) + the day-of run.
+export interface TdFilter {
+  t: string
+  d: string
+}
+export const TD_FILTER: TdFilter[] = [
+  { t: 'Bankroll fit', d: 'Buy-in within the tournament cap — a much deeper cushion than cash, since MTTs swing far harder.' },
+  { t: 'Structure / value', d: 'Deep stacks + slow levels reward edge; turbos/hypers are crapshoots. Favor guarantees, overlay, soft fields.' },
+  { t: 'Logistics cost', d: 'Drive time vs. what it’s worth. A long drive for a small, fast event is an automatic no.' },
+  { t: 'Schedule fit', d: 'Does it blow up a protected stretch (a free gap with Ellie, a cash run, a recovery day)?' },
+  { t: 'Under quota', d: 'Below the tournament-days-per-month cap — it protects the cash foundation and the sleep rhythm.' },
+]
+export interface TdPhase {
+  title: string
+  items: string[]
+}
+export const TD_PHASES: TdPhase[] = [
+  {
+    title: 'Day before (buffer)',
+    items: [
+      'Bank sleep — no late cash session the night before. Arrive rested.',
+      'Prep: bag, water, real snacks, route, registration, start time, and your latest acceptable late-reg decided in advance.',
+    ],
+  },
+  {
+    title: 'Tournament day',
+    items: [
+      'Wake earlier than 10:00 — (start − drive − buffer). The one day the anchor flexes by design.',
+      'Compressed first hour: even rushed, still daylight + protein + water.',
+      'In-event: hydrate steadily, eat real food on breaks (avoid the dinner-break crash), walk on breaks. Caffeine cutoff suspended today.',
+      'No cap — play till you bust or bag. Accept it going in.',
+      'Do NOT drive to a cash game to "get it back" after a bust.',
+      'The drive home is the real safety issue: if far/very late, take a hotel. Too gone → don’t drive.',
+    ],
+  },
+  {
+    title: 'Day after (recovery)',
+    items: [
+      'Re-anchor — hold the 10:00 wake as close as you can; earlier bed that night; light movement; hydrate; no late cash session.',
+      'If you bagged: Day 2 is another tournament day — re-run the protocol; recovery shifts to after the run ends.',
+    ],
+  },
+]
+
 export const EVENING_WINDDOWNS: EveningWindDown[] = [
   {
     key: 'e1',
