@@ -27,7 +27,7 @@ h3 {
   font-family: var(--font-head);
   font-weight: 700;
   margin: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.03em; /* tighten the Libre Baskerville serif, like futurega */
 }
 
 button {
@@ -66,7 +66,7 @@ textarea {
 }
 
 .screen-title {
-  font-size: 26px;
+  font-size: 23px;
   margin-bottom: 2px;
 }
 
@@ -178,7 +178,7 @@ textarea {
 
 .btn-primary {
   background: var(--felt);
-  color: #06130d;
+  color: var(--ink);
   border-color: transparent;
 }
 
@@ -256,7 +256,7 @@ textarea {
   right: 0;
   height: calc(var(--nav-h) + var(--safe-bottom));
   padding-bottom: var(--safe-bottom);
-  background: rgba(20, 23, 28, 0.94);
+  background: rgba(17, 17, 17, 0.94);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--line);
   display: flex;
@@ -292,7 +292,7 @@ textarea {
 }
 
 .nav-tab.on {
-  color: var(--chip);
+  color: var(--bone);
 }
 
 /* ── Phase banner ── */

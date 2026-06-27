@@ -1,40 +1,83 @@
-/* WSOP 2027 Console — design tokens (§3 of the handoff).
-   Console aesthetic: dark felt, chip gold, mono data. */
+/* WSOP 2027 Console — design tokens.
+   Matched to the futurega.me aesthetic: neutral greyscale, Libre Baskerville
+   serif titles, self-hosted Univers / Univers Condensed for UI. */
+
+/* Self-hosted Univers (same files as the main app). Served under /console. */
+@font-face {
+  font-family: 'Univers';
+  src: url('/console/fonts/univers-light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Univers';
+  src: url('/console/fonts/univers-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Univers';
+  src: url('/console/fonts/univers-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Univers Condensed';
+  src: url('/console/fonts/univers-condensed.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Univers Condensed';
+  src: url('/console/fonts/univers-bold-condensed.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --ink: #14171c;
-  --surface: #1c2128;
-  --surface-2: #232a33;
-  --line: #2c343e;
-  --bone: #e8e4da;
-  --muted: #8a9099;
-  --felt: #3ca374;
-  --felt-bright: #3ca374;
-  --chip: #c8a04e;
+  /* futurega.me default (dark) palette — neutral greyscale */
+  --ink: #111111;
+  --surface: #1a1a1a;
+  --surface-2: #242424;
+  --line: #333333;
+  --bone: #e8e8e8;
+  --muted: #808080;
+
+  /* Monochrome accent (futurega uses a single grey accent for chrome) */
+  --felt: #a0a0a0;
+  --felt-bright: #b8b8b8;
+  --chip: #a0a0a0;
+
+  /* track colors — kept as a data palette (analogous to the app's venue colors) */
+  --t-health: #5a9e7a;
+  --t-mind: #9a86b8;
+  --t-bank: #b8962e;
+  --t-skill: #6a92b0;
+  --t-partner: #b07e98;
+  --t-admin: #3a8a8a;
 
   /* rotation context (Plan / year timeline) */
   --away: #6b8fb5;
-  --philly: #7a8694;
-  --free: #c8a04e;
+  --philly: #8a8a8a;
+  --free: #b8962e;
 
-  /* track colors */
-  --t-health: #3ca374;
-  --t-mind: #a78bc9;
-  --t-bank: #c8a04e;
-  --t-skill: #6ba9c9;
-  --t-partner: #c98aa8;
-  --t-admin: #2fa0a0;
-
-  /* semantic */
-  --good: #3ca374;
-  --warn: #d9a441;
+  /* semantic (profit/loss + warnings keep meaning, like the main app) */
+  --good: #5a9e7a;
+  --warn: #b8962e;
   --bad: #c96b6b;
 
-  --font-head: 'Space Grotesk', system-ui, sans-serif;
-  --font-body: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-head: 'Libre Baskerville', Georgia, serif;
+  --font-body: 'Univers Condensed', 'Univers', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Univers Condensed', 'Univers', ui-monospace, monospace;
 
-  --radius: 14px;
-  --radius-sm: 10px;
+  --radius: 12px;
+  --radius-sm: 8px;
   --pad: 16px;
 
   --nav-h: 112px; /* two rows of tabs */
