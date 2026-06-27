@@ -8,6 +8,8 @@ import {
   computeBankroll,
   bankrollAlerts,
   LADDER,
+  WSOP_FUND_TARGET,
+  WSOP_FUND_OPEN_AT,
 } from '../engine/bankroll'
 import { phaseState } from '../engine/phase'
 import { cashHoursThisWeek } from '../engine/analytics'
@@ -82,6 +84,29 @@ export function BankrollScreen() {
           <span>{a.text}</span>
         </div>
       ))}
+
+      {/* WSOP fund tracker */}
+      <div className="card">
+        <div className="row-split" style={{ marginBottom: 8 }}>
+          <span className="card-label">WSOP fund → {moneyK(WSOP_FUND_TARGET)} net</span>
+          <span className="mono">
+            {moneyK(state.wsopFund)} / {moneyK(WSOP_FUND_TARGET)}
+          </span>
+        </div>
+        <div className="bar">
+          <span
+            style={{
+              width: `${Math.min(100, (state.wsopFund / WSOP_FUND_TARGET) * 100)}%`,
+              background: 'var(--chip)',
+            }}
+          />
+        </div>
+        <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          {state.playingRoll >= WSOP_FUND_OPEN_AT
+            ? 'Carve a fixed monthly slice off cash profit. ~$200k slate sold down to this net target.'
+            : `Opens once the playing roll clears ${moneyK(WSOP_FUND_OPEN_AT)} — then feed it monthly toward the ~$200k slate sold to net.`}
+        </div>
+      </div>
 
       {/* Checkpoint ladder */}
       <div className="card">

@@ -62,6 +62,12 @@ export const LADDER: Checkpoint[] = [
 export const FLOOR_SOFT = 40000
 export const FLOOR_HARD = 25000
 
+// WSOP 2027 fund (bankroll-framework.md): a ~$200k slate sold down to a
+// ~$60–70k NET target, carved off once the playing roll clears $100k, fed
+// monthly across P1–P4 so it's ready by Phase 5.
+export const WSOP_FUND_TARGET = 65000
+export const WSOP_FUND_OPEN_AT = 100000
+
 export interface BankrollState {
   startingRoll: number
   playingRoll: number
