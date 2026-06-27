@@ -27,11 +27,11 @@ Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 - [x] Benchmarks + prehab checklist + history
 - [x] Swap prototype `window.storage` → `lifts`/`benchmarks`/`prehab` stores
 
-## M5 — Rhythm · Health · Study
-- [ ] Routine/streaks engine (wake-anchor headline + wind-down)
-- [ ] Health metrics (weight, waist, sleep, RHR) — `health-plan-wsop-2027.md`
-- [ ] Study log (course / coaching / solver / library / review)
-- [ ] Nutrition defaults + shopping list (`nutrition.md`)
+## M5 — Rhythm · Health · Study  ← mostly done (new Health tab)
+- [x] Rhythm/streaks (wake-anchor + wind-down streaks, this-week routine adherence) — on the new Health tab
+- [x] Health metrics (weight, waist, sleep, RHR) with weight trend
+- [x] Study log (course / coaching / solver / library / review)
+- [ ] Nutrition defaults + shopping list (`nutrition.md`) — bigger content port, not yet
 
 ## M6 — Review · Insights · Polish
 - [x] Sunday review screen: week's sessions/hours/mood/streak → 3 prompts → save `ReviewEntry`

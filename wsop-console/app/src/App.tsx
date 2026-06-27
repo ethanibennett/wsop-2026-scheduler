@@ -7,6 +7,7 @@ import { BankrollScreen } from './screens/BankrollScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { PlanScreen } from './screens/PlanScreen'
 import { TrainingScreen } from './screens/TrainingScreen'
+import { HealthScreen } from './screens/HealthScreen'
 import { ReviewScreen } from './screens/ReviewScreen'
 
 export function App() {
@@ -30,6 +31,7 @@ export function App() {
       {tab === 'sessions' && <SessionsScreen />}
       {tab === 'bankroll' && <BankrollScreen />}
       {tab === 'training' && <TrainingScreen />}
+      {tab === 'health' && <HealthScreen />}
       {tab === 'plan' && <PlanScreen />}
       {tab === 'review' && <ReviewScreen />}
       {tab === 'settings' && <SettingsScreen />}

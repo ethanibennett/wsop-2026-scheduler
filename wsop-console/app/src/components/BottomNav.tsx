@@ -3,6 +3,7 @@ export type TabId =
   | 'sessions'
   | 'bankroll'
   | 'training'
+  | 'health'
   | 'plan'
   | 'review'
   | 'settings'
@@ -12,6 +13,7 @@ const TABS: { id: TabId; label: string; ic: string }[] = [
   { id: 'sessions', label: 'Sessions', ic: '▤' },
   { id: 'bankroll', label: 'Bankroll', ic: '◆' },
   { id: 'training', label: 'Train', ic: '⬓' },
+  { id: 'health', label: 'Health', ic: '✚' },
   { id: 'plan', label: 'Plan', ic: '◷' },
   { id: 'review', label: 'Review', ic: '✎' },
   { id: 'settings', label: 'Settings', ic: '⚙' },
