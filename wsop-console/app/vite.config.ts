@@ -2,6 +2,13 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Compile-time build id (UTC), e.g. "20260627-1930". Changes every build, so a
+// device can show which build it's running (Settings → footer) to diagnose
+// stale-PWA-cache situations.
+const d = new Date()
+const p = (n: number) => String(n).padStart(2, '0')
+const BUILD_ID = `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}-${p(d.getUTCHours())}${p(d.getUTCMinutes())}`
+
 // WSOP 2027 Console — installable, offline-first PWA.
 // The service worker precaches the app shell (offline-first). Push is layered
 // on later (M2) via the separate push-service; treat it as enhancement.
@@ -9,6 +16,9 @@ export default defineConfig({
   // Served under /console on the futurega.me server (see server.js). Keep the
   // trailing slash — Vite prefixes every asset URL and the PWA paths with it.
   base: '/console/',
+  define: {
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   plugins: [
     react(),
     VitePWA({

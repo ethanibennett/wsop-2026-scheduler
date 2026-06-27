@@ -201,6 +201,13 @@ export function SettingsScreen() {
           </button>
         </div>
       </div>
+
+      <div
+        className="mono"
+        style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 11, marginTop: 18 }}
+      >
+        WSOP 2027 Console · build {__BUILD_ID__}
+      </div>
     </div>
   )
 }
