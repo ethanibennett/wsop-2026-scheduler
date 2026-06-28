@@ -13,12 +13,13 @@ import {
 } from '../engine/analytics'
 
 // Nudge ids that also map onto the RoutineLog (so streaks count).
+// Keys MUST match the BASE_NUDGES ids (seed.ts) — they were renamed and this
+// map was left stale, which silently broke the wake-anchor streak. Caffeine
+// cutoff + weekly review have no routine-streak field, so they're not mapped.
 const ROUTINE_MAP: Record<string, keyof RoutineLog> = {
-  wake: 'wakeAnchor',
-  winddown: 'windDown',
-  meditation: 'meditation',
-  movement: 'movement',
-  'log-session': 'sessionLogged',
+  'wake-anchor': 'wakeAnchor',
+  'session-cap': 'windDown',
+  'movement-floor': 'movement',
 }
 
 export function TodayScreen() {
@@ -61,12 +62,8 @@ export function TodayScreen() {
 
   const save = async (s: Session) => {
     await put('sessions', s)
-    // Logging a session satisfies the session nudge + routine flag.
-    const tick: ChecklistTick = {
-      date: today,
-      items: { ...todayTicks, 'log-session': true },
-    }
-    await putByDate('checklist', tick)
+    // Logging a session sets the routine flag (no 'log-session' nudge exists —
+    // the old orphan checklist tick was dead weight, so it's gone).
     await putByDate('routine', { ...(todayRoutine ?? { date: today }), sessionLogged: true })
     setLogOpen(false)
     toast('Session logged')
@@ -153,13 +150,6 @@ export function TodayScreen() {
             </button>
           )
         })}
-      </div>
-
-      <div className="placeholder-note">
-        Morning / evening <strong>routine checklists</strong> and the day-type
-        template (cash / MTT / study / recovery) come from{' '}
-        <code>phase-1-playbook.md</code> Parts 4 &amp; 5 — drop that doc in and
-        wire it here (M4/M5).
       </div>
 
       <Sheet open={logOpen} onClose={() => setLogOpen(false)} title="Log session">
