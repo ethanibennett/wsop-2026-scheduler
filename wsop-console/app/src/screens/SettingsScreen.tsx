@@ -3,13 +3,14 @@ import { useStore } from '../store'
 import { useToast } from '../components/Toast'
 import { exportAll, importAll, type BackupBlob } from '../db/idb'
 import { PHASES } from '../db/seed'
+import { sessionsToCSV } from '../engine/csv'
 import { nowISO, daysSince } from '../engine/format'
 
 const BACKUP_STALE_DAYS = 14
 import { pushSupported, isSubscribed, enablePush, disablePush } from '../push'
 
 export function SettingsScreen() {
-  const { settings, updateSettings, reloadAll } = useStore()
+  const { settings, sessions, updateSettings, reloadAll } = useStore()
   const toast = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -57,6 +58,20 @@ export function SettingsScreen() {
     URL.revokeObjectURL(url)
     await updateSettings({ lastBackupAt: nowISO() })
     toast('Backup exported')
+  }
+
+  const doExportCSV = () => {
+    if (sessions.length === 0) {
+      toast('No sessions to export yet')
+      return
+    }
+    const url = URL.createObjectURL(new Blob([sessionsToCSV(sessions)], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `wsop-sessions-${nowISO().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast('Sessions CSV exported')
   }
 
   const doImport = async (file: File) => {
@@ -207,6 +222,9 @@ export function SettingsScreen() {
             if (f) void doImport(f)
           }}
         />
+        <button className="btn btn-ghost btn-block" onClick={doExportCSV} style={{ marginTop: 10 }}>
+          ⊞ Export sessions CSV (for the CPA / spreadsheet)
+        </button>
       </div>
 
       <div className="card">
