@@ -16,6 +16,31 @@ import {
   moodEdge,
   type EdgeSplit,
 } from '../engine/analytics'
+import { rateConfidence, type RateVerdict } from '../engine/risk'
+
+const VERDICT: Record<RateVerdict, { label: string; color: string; note: (h: number | null) => string }> = {
+  winning: {
+    label: 'Edge is real',
+    color: 'var(--good)',
+    note: () => 'Significant at this sample — the win rate clears zero with 95% confidence.',
+  },
+  'likely-winning': {
+    label: 'Positive, not yet proven',
+    color: 'var(--warn)',
+    note: (h) =>
+      `Up, but variance could explain it — ~${h ?? '?'}h more to call it real. Don't move up off this sample.`,
+  },
+  inconclusive: {
+    label: 'Too little data',
+    color: 'var(--muted)',
+    note: () => 'Not enough sample to read the edge yet. Keep logging.',
+  },
+  losing: {
+    label: 'Losing this sample',
+    color: 'var(--bad)',
+    note: () => 'Significantly negative — tighten game selection or move down.',
+  },
+}
 import { phaseState } from '../engine/phase'
 
 // Inline cumulative-P&L sparkline. Baseline at 0; green above, red below.
@@ -99,6 +124,7 @@ export function SessionsScreen() {
   const anchorEdge = useMemo(() => rhythmEdge(sessions, routine), [sessions, routine])
   const moodSplit = useMemo(() => moodEdge(sessions), [sessions])
   const showEdge = anchorEdge.delta != null || moodSplit.delta != null
+  const conf = useMemo(() => rateConfidence(sessions), [sessions])
 
   const ps = phaseState(new Date(), settings.phaseOverride)
   const target = ps.phase?.weeklyCashHours ?? 0
@@ -176,6 +202,31 @@ export function SessionsScreen() {
               </span>{' '}
               <span className="muted">· {money(all.perHour, { sign: true })}/h</span>
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Is your edge real? — win-rate significance */}
+      {conf.sessions > 0 && (
+        <div className="card">
+          <div className="card-head">
+            <span className="card-label">Is your edge real?</span>
+            <span className="mono muted" style={{ fontSize: 12 }}>
+              {conf.sessions} sess · {Math.round(conf.hours)}h
+            </span>
+          </div>
+          <div className="row-split" style={{ alignItems: 'baseline', marginBottom: 6 }}>
+            <span className="stat-big" style={{ fontSize: 20, color: VERDICT[conf.verdict].color }}>
+              {VERDICT[conf.verdict].label}
+            </span>
+            {conf.margin > 0 && (
+              <span className="mono" style={{ fontSize: 13 }}>
+                {money(conf.perHour, { sign: true })}/h ± {money(conf.margin)}
+              </span>
+            )}
+          </div>
+          <div className="muted" style={{ fontSize: 12 }}>
+            {VERDICT[conf.verdict].note(conf.extraHoursToSignif)}
           </div>
         </div>
       )}

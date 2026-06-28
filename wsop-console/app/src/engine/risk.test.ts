@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { estimateRate, simulateBankroll } from './risk'
+import { estimateRate, simulateBankroll, rateConfidence } from './risk'
 import type { Session } from '../db/types'
 
 function sess(result: number, hours: number, extra: Partial<Session> = {}): Session {
@@ -53,6 +53,31 @@ describe('estimateRate', () => {
     expect(estimateRate([sess(100, 5)]).sdPerHour).toBe(0)
     const r = estimateRate([sess(500, 5), sess(-500, 5), sess(200, 5)])
     expect(r.sdPerHour).toBeGreaterThan(0)
+  })
+})
+
+describe('rateConfidence', () => {
+  it('a big, tight winning sample is significant (CI low > 0)', () => {
+    const s = Array.from({ length: 20 }, (_, i) => sess(i % 2 ? 480 : 520, 5)) // ~+$100/hr, small spread
+    const c = rateConfidence(s)
+    expect(c.perHour).toBeCloseTo(100, 5)
+    expect(c.low).toBeGreaterThan(0)
+    expect(c.verdict).toBe('winning')
+    expect(c.extraHoursToSignif).toBeNull()
+  })
+  it('a small, swingy winning sample is positive but not yet significant', () => {
+    const c = rateConfidence([sess(2000, 5), sess(-1000, 5), sess(500, 5)])
+    expect(c.perHour).toBeGreaterThan(0)
+    expect(c.low).toBeLessThanOrEqual(0)
+    expect(c.verdict).toBe('likely-winning')
+    expect(c.extraHoursToSignif).toBeGreaterThan(0)
+  })
+  it('a clear losing sample reads as losing', () => {
+    const s = Array.from({ length: 20 }, (_, i) => sess(i % 2 ? -480 : -520, 5))
+    expect(rateConfidence(s).verdict).toBe('losing')
+  })
+  it('one session is inconclusive', () => {
+    expect(rateConfidence([sess(500, 5)]).verdict).toBe('inconclusive')
   })
 })
 

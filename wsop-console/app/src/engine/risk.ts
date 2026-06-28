@@ -39,6 +39,59 @@ export function estimateRate(sessions: Session[]): RateEstimate {
   }
 }
 
+// ── Win-rate significance: is the edge real, or just a small lucky sample? ──
+// The framework's discipline: don't move up off a winning sample that variance
+// could have produced. SE of the hourly rate = σ/√hours; 95% CI = μ ± 1.96·SE.
+export type RateVerdict = 'winning' | 'likely-winning' | 'inconclusive' | 'losing'
+
+export interface RateConfidence {
+  perHour: number
+  sdPerHour: number
+  hours: number
+  sessions: number
+  se: number // standard error of the hourly rate
+  margin: number // 1.96·SE (95% half-width)
+  low: number // perHour − margin
+  high: number // perHour + margin
+  verdict: RateVerdict
+  extraHoursToSignif: number | null // more hours to make a positive rate significant
+}
+
+export function rateConfidence(sessions: Session[]): RateConfidence {
+  const e = estimateRate(sessions)
+  const se = e.hours > 0 && e.sdPerHour > 0 ? e.sdPerHour / Math.sqrt(e.hours) : 0
+  const margin = 1.96 * se
+  const low = e.perHour - margin
+  const high = e.perHour + margin
+
+  let verdict: RateVerdict
+  if (se === 0 || e.sessions < 2) verdict = 'inconclusive'
+  else if (low > 0) verdict = 'winning'
+  else if (high < 0) verdict = 'losing'
+  else if (e.perHour > 0) verdict = 'likely-winning'
+  else verdict = 'inconclusive'
+
+  // Hours where μ·√h = 1.96·σ ⇒ h = (1.96σ/μ)². Only meaningful for a positive rate.
+  let extraHoursToSignif: number | null = null
+  if (e.perHour > 0 && e.sdPerHour > 0 && verdict !== 'winning') {
+    const hNeeded = Math.pow((1.96 * e.sdPerHour) / e.perHour, 2)
+    extraHoursToSignif = Math.max(0, Math.ceil(hNeeded - e.hours))
+  }
+
+  return {
+    perHour: e.perHour,
+    sdPerHour: e.sdPerHour,
+    hours: e.hours,
+    sessions: e.sessions,
+    se,
+    margin,
+    low,
+    high,
+    verdict,
+    extraHoursToSignif,
+  }
+}
+
 export interface SimParams {
   startingRoll: number
   perHour: number
