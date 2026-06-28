@@ -2,7 +2,8 @@
 // preserving muscle (so a slow, steady rate is the win, not speed).
 // Source: docs/plan/nutrition.md.
 
-import type { HealthMetric } from '../db/types'
+import type { HealthMetric, StudyLog } from '../db/types'
+import { isThisWeek, localDate, weekStart } from './format'
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 export const DEFAULT_GOAL_LOSS_LB = 30
@@ -59,4 +60,34 @@ export function weightProgress(
   }
 
   return { start, current, goal, lost, remaining, pctToGoal, lbsPerWeek, weeksToGoal, healthyRate }
+}
+
+// ── Study cadence: the skills track is a pillar; consistency is the metric ──
+export interface StudyCadence {
+  thisWeek: number // study logs this week
+  weekStreak: number // consecutive weeks (ending now) with ≥1 study
+  total: number
+}
+
+export function studyCadence(logs: StudyLog[], now: Date = new Date()): StudyCadence {
+  const weeks = new Set(logs.map((l) => localDate(weekStart(new Date(l.date + 'T00:00:00')))))
+  const thisWeek = logs.filter((l) => isThisWeek(l.date)).length
+
+  let weekStreak = 0
+  let allowSkip = true // current week may be empty without breaking the streak
+  const d = weekStart(now)
+  for (;;) {
+    if (weeks.has(localDate(d))) {
+      weekStreak++
+      allowSkip = false
+    } else if (allowSkip) {
+      allowSkip = false
+    } else {
+      break
+    }
+    d.setDate(d.getDate() - 7)
+    if (weekStreak > 300) break
+  }
+
+  return { thisWeek, weekStreak, total: logs.length }
 }

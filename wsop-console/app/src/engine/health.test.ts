@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { weightProgress } from './health'
-import type { HealthMetric } from '../db/types'
+import { weightProgress, studyCadence } from './health'
+import { localDate } from './format'
+import type { HealthMetric, StudyLog } from '../db/types'
 
 function m(date: string, weight: number): HealthMetric {
   return { id: Math.random().toString(36).slice(2), date, weight }
+}
+function study(date: string): StudyLog {
+  return { id: Math.random().toString(36).slice(2), date, type: 'solver', detail: 'x' }
 }
 
 describe('weightProgress', () => {
@@ -39,5 +43,40 @@ describe('weightProgress', () => {
   it('gaining weight → no weeks-to-goal', () => {
     const p = weightProgress([m('2026-08-01', 180), m('2026-08-15', 182)], 30)
     expect(p.weeksToGoal).toBeNull()
+  })
+})
+
+describe('studyCadence', () => {
+  const now = new Date('2026-08-12T12:00:00')
+  const off = (days: number) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() + days)
+    return localDate(d)
+  }
+
+  it('counts a streak of consecutive weeks with study', () => {
+    const c = studyCadence([study(off(0)), study(off(-7)), study(off(-14))], now)
+    expect(c.weekStreak).toBe(3)
+    expect(c.total).toBe(3)
+  })
+
+  it('an empty current week does not break the streak', () => {
+    const c = studyCadence([study(off(-7)), study(off(-14))], now)
+    expect(c.weekStreak).toBe(2)
+  })
+
+  it('a gap ends the streak', () => {
+    const c = studyCadence([study(off(0)), study(off(-21))], now)
+    expect(c.weekStreak).toBe(1)
+  })
+
+  it('empty logs → zero', () => {
+    const c = studyCadence([], now)
+    expect(c.weekStreak).toBe(0)
+    expect(c.thisWeek).toBe(0)
+  })
+
+  it('counts this week from the real calendar', () => {
+    expect(studyCadence([study(localDate(new Date()))]).thisWeek).toBe(1)
   })
 })

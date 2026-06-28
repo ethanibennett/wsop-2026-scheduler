@@ -15,7 +15,7 @@ import {
   downswingSeverity,
 } from '../engine/analytics'
 import { computeBankroll, recommendStake } from '../engine/bankroll'
-import { weightProgress, DEFAULT_GOAL_LOSS_LB } from '../engine/health'
+import { weightProgress, DEFAULT_GOAL_LOSS_LB, studyCadence } from '../engine/health'
 import { uid, todayISO, fmtDate, isThisWeek, moneyK } from '../engine/format'
 import { DOWNSWING_PROTOCOL } from '../db/protocol'
 import { NutritionView } from './NutritionView'
@@ -300,10 +300,15 @@ function StudyCard({
     toast('Study logged ✓')
   }
 
+  const cadence = studyCadence(study)
   return (
     <div className="card">
-      <div className="card-label" style={{ marginBottom: 12 }}>
-        Study log
+      <div className="card-head">
+        <span className="card-label">Study log</span>
+        <span className="mono muted" style={{ fontSize: 12 }}>
+          {cadence.thisWeek} this wk
+          {cadence.weekStreak >= 2 ? ` · ${cadence.weekStreak}-wk streak` : ''}
+        </span>
       </div>
       <div className="field-row">
         <div className="field" style={{ flex: '0 0 38%' }}>
