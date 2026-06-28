@@ -70,4 +70,9 @@ Beyond the original spec — turn the framework's judgment calls into numbers fr
 - [x] **WSOP fund pace projection** (Bankroll → Roll) — months to May, required monthly feed, observed pace, projected fund, on-track/shortfall.
 - [x] **Downswing protocol + circuit-breaker** (Today banner + Health card) — detects drawdown/loss-streak severity, surfaces the written protocol.
 - [x] **Sunday Review auto-readout** ("This week's read") — tone-coded plain-English insights (volume, net, anchor, rhythm→$/hr edge, best game, downswing flag).
-- Engine: `engine/risk.ts` + new `engine/analytics.ts` functions, all unit-tested (68 tests total).
+- [x] **Weight-recomp tracker** (Health) — progress to −30 lb, lb/week trend, weeks-to-goal, muscle-risk-rate flag.
+- [x] **"The climb" milestones** (Review) — bankroll/anchor/weight milestones cleared + next target.
+- [x] **Sessions CSV export** (Settings) — RFC-4180 CSV for the CPA / spreadsheet.
+- [x] **Lift PR detection** (Training) — estimated-1RM best-set + PR badge.
+- [x] **Study cadence** (Health) — this-week count + consecutive-week study streak.
+- Engines: `engine/risk.ts`, `health.ts`, `milestones.ts`, `training.ts`, `csv.ts` + new `analytics.ts` functions — all unit-tested (**90 tests** total, `npm test`).
