@@ -1,7 +1,17 @@
 // Small formatting + date helpers shared across screens.
 
+// LOCAL calendar date (YYYY-MM-DD). All record keys use local dates so "today"
+// and "this week" (weekStart/isThisWeek, which are local) agree — a UTC key
+// would drop an evening-EST session out of the current week near boundaries.
+export function localDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
+  return localDate(new Date())
 }
 
 export function nowISO(): string {
@@ -63,6 +73,6 @@ export function isThisWeek(iso: string): boolean {
   const start = weekStart()
   const end = new Date(start)
   end.setDate(end.getDate() + 7)
-  const d = new Date(iso)
+  const d = new Date(iso + 'T00:00:00') // parse as LOCAL midnight, matching weekStart()
   return d >= start && d < end
 }

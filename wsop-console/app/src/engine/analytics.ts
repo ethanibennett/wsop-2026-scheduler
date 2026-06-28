@@ -2,7 +2,7 @@
 // that feeds game selection and the Sunday review.
 
 import type { Session, RoutineLog } from '../db/types'
-import { isThisWeek } from './format'
+import { isThisWeek, localDate } from './format'
 
 /**
  * Big blind parsed from a stake level. These PLO notations are SB/BB/straddle,
@@ -238,14 +238,14 @@ export function taxEstimate(
 function streak(logs: RoutineLog[], pick: (l: RoutineLog) => boolean | undefined): number {
   const byDate = new Map(logs.map((l) => [l.date, l]))
   let count = 0
-  // Records are keyed by todayISO() = UTC date of the instant. Step back in the
-  // SAME UTC-date space (not local midnight) or evening keys drift a day and the
-  // streak misses today's log. Start from "now" so key 1 == todayISO().
+  // Records are keyed by todayISO() = LOCAL calendar date. Walk back in local
+  // date space so key 1 == todayISO() and the keys match stored records.
   const d = new Date()
+  d.setHours(0, 0, 0, 0)
   // Allow today to be unlogged without breaking the streak.
   let allowSkipToday = true
   for (;;) {
-    const key = d.toISOString().slice(0, 10)
+    const key = localDate(d)
     const log = byDate.get(key)
     if (log && pick(log)) {
       count += 1
@@ -255,7 +255,7 @@ function streak(logs: RoutineLog[], pick: (l: RoutineLog) => boolean | undefined
     } else {
       break
     }
-    d.setUTCDate(d.getUTCDate() - 1)
+    d.setDate(d.getDate() - 1)
     if (count > 400) break
   }
   return count
