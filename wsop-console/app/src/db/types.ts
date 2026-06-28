@@ -165,4 +165,5 @@ export interface Settings {
   caffeineCutoff: string
   phaseOverride?: number
   lastBackupAt?: string // ISO; set on every successful export — drives the backup reminder
+  ellieAway?: boolean // rotation mode for the Home module (away = solo / her on rotation)
 }

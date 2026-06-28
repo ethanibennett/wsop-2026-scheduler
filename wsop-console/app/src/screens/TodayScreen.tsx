@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { useToast } from '../components/Toast'
 import { Sheet } from '../components/Sheet'
 import { SessionForm } from '../components/SessionForm'
+import { HomeCard } from './HomeCard'
 import { getRecord, putRecord } from '../db/idb'
 import type { Session, RoutineLog, ChecklistTick } from '../db/types'
 import { todayISO, moneyK, fmtHours, daysSince } from '../engine/format'
@@ -223,6 +224,9 @@ export function TodayScreen() {
           )
         })}
       </div>
+
+      {/* Home — household contributions, surfaced so they don't fall on Ellie */}
+      <HomeCard />
 
       <Sheet open={logOpen} onClose={() => setLogOpen(false)} title="Log session">
         <SessionForm onSave={save} onCancel={() => setLogOpen(false)} />
