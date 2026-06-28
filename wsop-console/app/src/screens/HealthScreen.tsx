@@ -17,11 +17,20 @@ const STUDY_TYPES: StudyLog['type'][] = ['course', 'coaching', 'solver', 'librar
 type HealthView = 'vitals' | 'food'
 
 export function HealthScreen() {
-  const { routine } = useStore()
+  const { routine, putByDate } = useStore()
   const toast = useToast()
   const [view, setView] = useState<HealthView>('vitals')
   const [metrics, setMetrics] = useState<HealthMetric[]>([])
   const [study, setStudy] = useState<StudyLog[]>([])
+
+  // Meditation has no nudge (the others are toggled from Today's checklist), so
+  // it needs a manual logger here — otherwise the streak below is always 0.
+  const today = todayISO()
+  const todayRoutine = routine.find((r) => r.date === today)
+  const medToday = !!todayRoutine?.meditation
+  const toggleMed = async () => {
+    await putByDate('routine', { ...(todayRoutine ?? { date: today }), meditation: !medToday })
+  }
 
   const reload = async () => {
     const [h, s] = await Promise.all([getAll<HealthMetric>('health'), getAll<StudyLog>('study')])
@@ -98,6 +107,14 @@ export function HealthScreen() {
             </div>
           ))}
         </div>
+        <button
+          className={`check${medToday ? ' done' : ''}`}
+          onClick={toggleMed}
+          style={{ width: '100%', background: 'none', border: 'none', textAlign: 'left', marginTop: 10 }}
+        >
+          <span className="box">{medToday ? '✓' : ''}</span>
+          <span className="ctext">Meditation floor — today</span>
+        </button>
       </div>
 
       <BodyMetrics metrics={metrics} onSaved={reload} toast={toast} />
