@@ -9,8 +9,40 @@ import {
   winRateByGroup,
   totals,
   cashHoursThisWeek,
+  cumulativePnl,
+  monthlyBreakdown,
+  mttStats,
 } from '../engine/analytics'
 import { phaseState } from '../engine/phase'
+
+// Inline cumulative-P&L sparkline. Baseline at 0; green above, red below.
+function Sparkline({ data }: { data: { cum: number }[] }) {
+  if (data.length < 2) return null
+  const W = 300
+  const H = 64
+  const vals = data.map((d) => d.cum)
+  const min = Math.min(0, ...vals)
+  const max = Math.max(0, ...vals)
+  const span = max - min || 1
+  const x = (i: number) => (i / (data.length - 1)) * W
+  const y = (v: number) => H - ((v - min) / span) * H
+  const pts = data.map((d, i) => `${x(i).toFixed(1)},${y(d.cum).toFixed(1)}`).join(' ')
+  const last = vals[vals.length - 1]
+  const stroke = last >= 0 ? 'var(--good)' : 'var(--bad)'
+  const zeroY = y(0)
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none">
+      <line x1="0" y1={zeroY} x2={W} y2={zeroY} stroke="var(--line)" strokeWidth="1" />
+      <polyline points={pts} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function monthLabel(m: string): string {
+  const [y, mo] = m.split('-')
+  const d = new Date(Number(y), Number(mo) - 1, 1)
+  return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+}
 
 type Filter = 'all' | 'live' | 'online' | 'cash' | 'mtt'
 
@@ -33,6 +65,9 @@ export function SessionsScreen() {
 
   const groups = useMemo(() => winRateByGroup(sessions), [sessions])
   const all = useMemo(() => totals(sessions), [sessions])
+  const pnl = useMemo(() => cumulativePnl(sessions), [sessions])
+  const months = useMemo(() => monthlyBreakdown(sessions), [sessions])
+  const mtt = useMemo(() => mttStats(sessions), [sessions])
 
   const ps = phaseState(new Date(), settings.phaseOverride)
   const target = ps.phase?.weeklyCashHours ?? 0
@@ -79,9 +114,21 @@ export function SessionsScreen() {
           {groups.map((g) => (
             <div className="ladder-step" key={g.key} style={{ padding: '9px 0' }}>
               <div className="ladder-meta">
-                <div className="ladder-name">{g.key}</div>
+                <div className="ladder-name">
+                  {g.key}
+                  {g.smallSample && (
+                    <span className="tag" style={{ marginLeft: 6 }} title="Under 20 hours — too small to read edge">
+                      small
+                    </span>
+                  )}
+                </div>
                 <div className="sess-meta">
                   {fmtHours(g.hours)} · {g.sessions} sess
+                  {g.bbPer100 != null
+                    ? ` · ${g.bbPer100 >= 0 ? '+' : ''}${g.bbPer100.toFixed(1)} bb/100`
+                    : g.bbPerHour
+                      ? ` · ${g.bbPerHour >= 0 ? '+' : ''}${g.bbPerHour.toFixed(2)} bb/h`
+                      : ''}
                 </div>
               </div>
               <div className={`mono ${g.perHour >= 0 ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
@@ -98,6 +145,72 @@ export function SessionsScreen() {
               </span>{' '}
               <span className="muted">· {money(all.perHour, { sign: true })}/h</span>
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Cumulative P&L trend */}
+      {pnl.length >= 2 && (
+        <div className="card">
+          <div className="card-head">
+            <span className="card-label">Cumulative P&L</span>
+            <span className={`mono ${pnl[pnl.length - 1].cum >= 0 ? 'pos' : 'neg'}`}>
+              {money(pnl[pnl.length - 1].cum, { sign: true })}
+            </span>
+          </div>
+          <Sparkline data={pnl} />
+          <div className="sess-meta" style={{ marginTop: 4 }}>
+            {fmtDate(pnl[0].date)} → {fmtDate(pnl[pnl.length - 1].date)} · excludes WSOP-fund
+          </div>
+        </div>
+      )}
+
+      {/* Monthly breakdown */}
+      {months.length > 0 && (
+        <div className="card">
+          <div className="card-head">
+            <span className="card-label">By month</span>
+          </div>
+          {months.map((m) => (
+            <div className="ladder-step" key={m.month} style={{ padding: '8px 0' }}>
+              <div className="ladder-meta">
+                <div className="ladder-name">{monthLabel(m.month)}</div>
+                <div className="sess-meta">
+                  {fmtHours(m.hours)} · {m.sessions} sess · {money(m.perHour, { sign: true })}/h
+                </div>
+              </div>
+              <div className={`mono ${m.result >= 0 ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
+                {money(m.result, { sign: true })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* MTT ROI / ITM */}
+      {mtt && (
+        <div className="card">
+          <div className="card-head">
+            <span className="card-label">MTT</span>
+            <span className="mono muted">{mtt.tournaments} played</span>
+          </div>
+          <div className="stat-row">
+            <div className="card card-2">
+              <div className="card-label">ROI</div>
+              <div className={`stat-big ${mtt.roi >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: 20 }}>
+                {mtt.roi >= 0 ? '+' : ''}{mtt.roi.toFixed(0)}%
+              </div>
+            </div>
+            <div className="card card-2">
+              <div className="card-label">ITM</div>
+              <div className="stat-big" style={{ fontSize: 20 }}>{mtt.itmPct.toFixed(0)}%</div>
+            </div>
+            <div className="card card-2">
+              <div className="card-label">Net</div>
+              <div className={`stat-big ${mtt.result >= 0 ? 'pos' : 'neg'}`} style={{ fontSize: 20 }}>
+                {money(mtt.result, { sign: true })}
+              </div>
+            </div>
           </div>
         </div>
       )}

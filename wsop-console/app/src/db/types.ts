@@ -30,6 +30,7 @@ export interface Session {
   buyInTotal: number // includes rebuys / re-entries
   cashOut: number
   hours: number
+  hands?: number // online cash: hand count, enables true bb/100
   result: number // computed: cashOut - buyInTotal
   isWsopFund?: boolean // does this session settle against the WSOP fund bucket?
   // MTT extras

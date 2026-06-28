@@ -4,14 +4,35 @@
 import type { Session, RoutineLog } from '../db/types'
 import { isThisWeek } from './format'
 
+/**
+ * Big blind parsed from a stake level — the largest number in the structure.
+ * "2/2/5" → 5, "5/5/10" → 10, "5/10/30" → 30, "1/2" → 2. 0 if unparseable.
+ */
+export function bigBlind(stakeLevel?: string): number {
+  if (!stakeLevel) return 0
+  const nums = stakeLevel
+    .split('/')
+    .map((x) => parseFloat(x))
+    .filter((n) => !Number.isNaN(n))
+  return nums.length ? Math.max(...nums) : 0
+}
+
+// Cash groups under this many hours are too small to read edge off.
+export const SMALL_SAMPLE_HOURS = 20
+
 export interface GroupStat {
   key: string // "PLO · 5/5/10"
   format: string
   stakeLevel: string
   sessions: number
   hours: number
+  hands: number
   result: number
   perHour: number // $/hr — the headline edge read
+  bb: number // big blind for this group (0 for MTT / unparseable)
+  bbPerHour: number // normalized rate — compares a soft 5/5/10 vs a tough 5/10/30
+  bbPer100: number | null // true bb/100 when hands are logged, else null
+  smallSample: boolean // < SMALL_SAMPLE_HOURS and not MTT
 }
 
 /** Win-rate grouped by format + stakeLevel (cash) or format (MTT). */
@@ -28,19 +49,107 @@ export function winRateByGroup(sessions: Session[]): GroupStat[] {
         stakeLevel: stake,
         sessions: 0,
         hours: 0,
+        hands: 0,
         result: 0,
         perHour: 0,
+        bb: s.isMTT ? 0 : bigBlind(s.stakeLevel),
+        bbPerHour: 0,
+        bbPer100: null,
+        smallSample: false,
       }
       map.set(key, g)
     }
     g.sessions += 1
     g.hours += s.hours
+    g.hands += s.hands ?? 0
     g.result += s.result
   }
   const out = [...map.values()]
-  for (const g of out) g.perHour = g.hours > 0 ? g.result / g.hours : 0
+  for (const g of out) {
+    g.perHour = g.hours > 0 ? g.result / g.hours : 0
+    g.bbPerHour = g.bb > 0 && g.hours > 0 ? g.perHour / g.bb : 0
+    g.bbPer100 =
+      g.bb > 0 && g.hands > 0 ? g.result / g.bb / (g.hands / 100) : null
+    g.smallSample = g.bb > 0 && g.hours < SMALL_SAMPLE_HOURS
+  }
   // Most-played first.
   return out.sort((a, b) => b.hours - a.hours)
+}
+
+// ── Cumulative P&L (the graph) ──
+export interface PnlPoint {
+  date: string
+  cum: number
+}
+
+/** Running total over time. Excludes WSOP-fund sessions; cashOnly drops MTTs. */
+export function cumulativePnl(
+  sessions: Session[],
+  opts: { cashOnly?: boolean } = {},
+): PnlPoint[] {
+  const list = sessions
+    .filter((s) => !s.isWsopFund && (!opts.cashOnly || !s.isMTT))
+    .sort((a, b) => a.date.localeCompare(b.date))
+  let cum = 0
+  return list.map((s) => {
+    cum += s.result
+    return { date: s.date, cum }
+  })
+}
+
+// ── Monthly breakdown ──
+export interface MonthStat {
+  month: string // "2026-08"
+  sessions: number
+  hours: number
+  result: number
+  perHour: number
+}
+
+export function monthlyBreakdown(sessions: Session[]): MonthStat[] {
+  const map = new Map<string, MonthStat>()
+  for (const s of sessions) {
+    if (s.isWsopFund) continue
+    const month = s.date.slice(0, 7)
+    const m =
+      map.get(month) ?? { month, sessions: 0, hours: 0, result: 0, perHour: 0 }
+    m.sessions += 1
+    m.hours += s.hours
+    m.result += s.result
+    map.set(month, m)
+  }
+  const out = [...map.values()]
+  for (const m of out) m.perHour = m.hours > 0 ? m.result / m.hours : 0
+  return out.sort((a, b) => b.month.localeCompare(a.month))
+}
+
+// ── MTT-specific (ROI + ITM) ──
+export interface MttStats {
+  tournaments: number
+  entries: number
+  cashes: number
+  itmPct: number // cashes / tournaments
+  buyIns: number
+  result: number
+  roi: number // result / buyIns, %
+}
+
+export function mttStats(sessions: Session[]): MttStats | null {
+  const mtts = sessions.filter((s) => s.isMTT)
+  if (!mtts.length) return null
+  const entries = mtts.reduce((a, s) => a + (s.entries || 1), 0)
+  const cashes = mtts.filter((s) => s.cashOut > 0).length
+  const buyIns = mtts.reduce((a, s) => a + s.buyInTotal, 0)
+  const result = mtts.reduce((a, s) => a + s.result, 0)
+  return {
+    tournaments: mtts.length,
+    entries,
+    cashes,
+    itmPct: (cashes / mtts.length) * 100,
+    buyIns,
+    result,
+    roi: buyIns > 0 ? (result / buyIns) * 100 : 0,
+  }
 }
 
 export interface Totals {

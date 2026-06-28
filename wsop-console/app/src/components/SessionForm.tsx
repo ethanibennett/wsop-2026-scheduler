@@ -51,6 +51,7 @@ export function SessionForm({ initial, onSave, onCancel, onDelete }: Props) {
       buyInTotal: Number(s.buyInTotal) || 0,
       cashOut: Number(s.cashOut) || 0,
       hours: Number(s.hours) || 0,
+      hands: s.channel === 'online' && !s.isMTT && s.hands ? Number(s.hands) : undefined,
       result,
       stakeLevel: s.isMTT ? undefined : s.stakeLevel,
     })
@@ -162,6 +163,20 @@ export function SessionForm({ initial, onSave, onCancel, onDelete }: Props) {
           onChange={(e) => set('venue', e.target.value)}
         />
       </div>
+
+      {s.channel === 'online' && !s.isMTT && (
+        <div className="field">
+          <label>Hands (optional — enables bb/100)</label>
+          <input
+            className="input"
+            type="number"
+            inputMode="numeric"
+            placeholder="e.g. 1200"
+            value={s.hands || ''}
+            onChange={(e) => set('hands', Number(e.target.value))}
+          />
+        </div>
+      )}
 
       <div className="field-row">
         <div className="field">
