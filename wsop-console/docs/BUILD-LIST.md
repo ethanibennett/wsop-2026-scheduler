@@ -75,4 +75,12 @@ Beyond the original spec — turn the framework's judgment calls into numbers fr
 - [x] **Sessions CSV export** (Settings) — RFC-4180 CSV for the CPA / spreadsheet.
 - [x] **Lift PR detection** (Training) — estimated-1RM best-set + PR badge.
 - [x] **Study cadence** (Health) — this-week count + consecutive-week study streak.
-- Engines: `engine/risk.ts`, `health.ts`, `milestones.ts`, `training.ts`, `csv.ts` + new `analytics.ts` functions — all unit-tested (**90 tests** total, `npm test`).
+- Engines: `engine/risk.ts`, `health.ts`, `milestones.ts`, `training.ts`, `csv.ts` + new `analytics.ts` functions — all unit-tested (`npm test`).
+
+## Home — household contribution (woven into the schedule)
+The "I can't remember everything I could be doing" problem: the app surfaces contributions (esp. the invisible mental load) so the remembering doesn't fall on Ellie. Rotation-aware (home vs away).
+- [x] **Library + engine** (`db/home.ts`, `engine/home.ts`) — curated, rotation-aware tasks across daily load / errands & admin / mental load / connection-across-distance; `todaysHome()` surfaces relevant undone items, invisible work first; rotating daily mental-load prompt. Unit-tested.
+- [x] **Today 'Home' card** — Ellie home/away toggle (in Settings), the daily prompt, the contribution checklist, quick-add for one-offs she mentions, this-week count. Completions in localStorage.
+- [x] **Weekly review summary** — 'Home this week' card (count + per-category) folds household contribution into the Sunday ritual.
+- [x] **Daily push nudge** — 11:00 ET 'home check' (`HOME_NUDGES`, separate cron, not in the rhythm checklist).
+- All engines unit-tested — **102 tests** total.
