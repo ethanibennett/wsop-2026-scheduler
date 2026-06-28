@@ -2,7 +2,7 @@
 // that feeds game selection and the Sunday review.
 
 import type { Session, RoutineLog } from '../db/types'
-import { isThisWeek, localDate } from './format'
+import { isThisWeek, localDate, money, fmtHours } from './format'
 
 /**
  * Big blind parsed from a stake level. These PLO notations are SB/BB/straddle,
@@ -190,6 +190,70 @@ export function cashHoursThisWeek(sessions: Session[]): number {
 /** All hours (cash + MTT) this week. */
 export function hoursThisWeek(sessions: Session[]): number {
   return sessions.filter((s) => isThisWeek(s.date)).reduce((a, s) => a + s.hours, 0)
+}
+
+// ── Weekly auto-readout: the Sunday review, half-written from the data ──
+export interface Insight {
+  tone: 'good' | 'bad' | 'neutral'
+  text: string
+}
+
+export function weeklyReadout(
+  sessions: Session[],
+  routine: RoutineLog[],
+  targetHours: number,
+): Insight[] {
+  const wk = sessions.filter((s) => isThisWeek(s.date))
+  if (wk.length === 0) return [{ tone: 'neutral', text: 'No sessions logged this week yet.' }]
+
+  const out: Insight[] = []
+  const net = wk.reduce((a, s) => a + s.result, 0)
+
+  if (targetHours > 0) {
+    const cash = cashHoursThisWeek(sessions)
+    const p = Math.round((cash / targetHours) * 100)
+    out.push({
+      tone: p >= 100 ? 'good' : p >= 70 ? 'neutral' : 'bad',
+      text: `${fmtHours(cash)} cash of the ${targetHours}h target (${p}%).`,
+    })
+  }
+
+  out.push({
+    tone: net >= 0 ? 'good' : 'bad',
+    text: `${net >= 0 ? 'Up' : 'Down'} ${money(Math.abs(net))} across ${wk.length} session${wk.length === 1 ? '' : 's'}.`,
+  })
+
+  const anchorDays = routine.filter((r) => isThisWeek(r.date) && r.wakeAnchor).length
+  out.push({
+    tone: anchorDays >= 5 ? 'good' : anchorDays >= 3 ? 'neutral' : 'bad',
+    text: `Wake anchor held ${anchorDays}/7 days.`,
+  })
+
+  // The thesis check — does the anchor actually show up in $/hr?
+  const re = rhythmEdge(sessions, routine)
+  if (re.delta != null) {
+    out.push(
+      re.delta >= 0
+        ? { tone: 'good', text: `$/hr runs ${money(re.delta)} higher on anchor-held days — the rhythm is paying.` }
+        : { tone: 'neutral', text: `$/hr is ${money(Math.abs(re.delta))} lower on anchor days — likely small-sample noise; keep logging.` },
+    )
+  }
+
+  const groups = winRateByGroup(wk).filter((g) => g.hours >= 2 && g.bb > 0)
+  if (groups.length) {
+    const best = groups.reduce((a, b) => (b.perHour > a.perHour ? b : a))
+    out.push({
+      tone: best.perHour >= 0 ? 'good' : 'neutral',
+      text: `Best game: ${best.key} at ${money(best.perHour, { sign: true })}/h over ${fmtHours(best.hours)}.`,
+    })
+  }
+
+  const sw = downswingState(sessions)
+  if (net < 0 && sw.lossStreak >= 3) {
+    out.push({ tone: 'bad', text: `${sw.lossStreak} losing sessions running — run the downswing protocol.` })
+  }
+
+  return out
 }
 
 // ── Downswing detection: "a math event, not a verdict on you" ──

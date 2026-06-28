@@ -11,6 +11,7 @@ import {
   moodEdge,
   downswingState,
   downswingSeverity,
+  weeklyReadout,
 } from './analytics'
 import { localDate } from './format'
 import type { Session, RoutineLog } from '../db/types'
@@ -228,6 +229,30 @@ describe('downswingState / severity', () => {
       sess({ date: '2026-08-02', result: -32000 }), // dd 32000 = 16 bi at 2000
     ])
     expect(downswingSeverity(s, 2000)).toBe('deep') // bi ≥ 15
+  })
+})
+
+describe('weeklyReadout', () => {
+  function today(): string {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  it('empty week returns a single neutral note', () => {
+    const r = weeklyReadout([sess({ date: '2020-01-01', result: 100, hours: 5 })], [], 25)
+    expect(r).toHaveLength(1)
+    expect(r[0].tone).toBe('neutral')
+  })
+  it("surfaces net + anchor insights for this week's sessions", () => {
+    const r = weeklyReadout(
+      [
+        sess({ date: today(), result: -500, hours: 5, stakeLevel: '5/5/10' }),
+        sess({ date: today(), result: -300, hours: 4, stakeLevel: '5/5/10' }),
+      ],
+      [{ date: today(), wakeAnchor: true }],
+      25,
+    )
+    expect(r.some((i) => /Down/.test(i.text))).toBe(true)
+    expect(r.some((i) => /anchor held/i.test(i.text))).toBe(true)
   })
 })
 

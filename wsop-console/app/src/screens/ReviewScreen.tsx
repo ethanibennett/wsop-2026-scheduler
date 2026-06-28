@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../store'
 import type { ReviewEntry } from '../db/types'
 import { phaseState } from '../engine/phase'
-import { hoursThisWeek, cashHoursThisWeek, wakeAnchorStreak } from '../engine/analytics'
+import { hoursThisWeek, cashHoursThisWeek, wakeAnchorStreak, weeklyReadout } from '../engine/analytics'
 import { isThisWeek, todayISO, uid, fmtDate, fmtHours } from '../engine/format'
 
 export function ReviewScreen() {
@@ -30,6 +30,10 @@ export function ReviewScreen() {
   }, [sessions])
 
   const anchorStreak = wakeAnchorStreak(routine)
+  const readout = useMemo(
+    () => weeklyReadout(sessions, routine, ps.phase?.weeklyCashHours ?? 0),
+    [sessions, routine, ps.phase?.weeklyCashHours],
+  )
 
   const [anchorHeld, setAnchorHeld] = useState<boolean | undefined>(undefined)
   const [whatSlipped, setWhatSlipped] = useState('')
@@ -89,6 +93,28 @@ export function ReviewScreen() {
             <div className="rv-num mono">{fmtHours(week.cashHours)}</div>
             <div className="rv-lbl">cash hrs</div>
           </div>
+        </div>
+      </div>
+
+      {/* Auto-readout — the week, half-written for you */}
+      <div className="card">
+        <div className="card-label" style={{ marginBottom: 10 }}>This week’s read</div>
+        {readout.map((ins, i) => (
+          <div key={i} className="hl-row" style={{ alignItems: 'flex-start', borderBottom: 'none', padding: '4px 0' }}>
+            <span
+              style={{
+                color:
+                  ins.tone === 'good' ? 'var(--good)' : ins.tone === 'bad' ? 'var(--bad)' : 'var(--muted)',
+                marginRight: 8,
+              }}
+            >
+              {ins.tone === 'good' ? '▲' : ins.tone === 'bad' ? '▼' : '•'}
+            </span>
+            <span style={{ fontSize: 13 }}>{ins.text}</span>
+          </div>
+        ))}
+        <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          The data half of the review — read it, then answer the three below.
         </div>
       </div>
 
