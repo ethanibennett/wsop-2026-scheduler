@@ -238,8 +238,10 @@ export function taxEstimate(
 function streak(logs: RoutineLog[], pick: (l: RoutineLog) => boolean | undefined): number {
   const byDate = new Map(logs.map((l) => [l.date, l]))
   let count = 0
+  // Records are keyed by todayISO() = UTC date of the instant. Step back in the
+  // SAME UTC-date space (not local midnight) or evening keys drift a day and the
+  // streak misses today's log. Start from "now" so key 1 == todayISO().
   const d = new Date()
-  d.setHours(0, 0, 0, 0)
   // Allow today to be unlogged without breaking the streak.
   let allowSkipToday = true
   for (;;) {
@@ -253,7 +255,7 @@ function streak(logs: RoutineLog[], pick: (l: RoutineLog) => boolean | undefined
     } else {
       break
     }
-    d.setDate(d.getDate() - 1)
+    d.setUTCDate(d.getUTCDate() - 1)
     if (count > 400) break
   }
   return count
