@@ -30,11 +30,12 @@ export interface GroupStat {
   sessions: number
   hours: number
   hands: number
+  handsResult: number // result from ONLY the hands-tracked sessions (bb/100 numerator)
   result: number
   perHour: number // $/hr — the headline edge read
   bb: number // big blind for this group (0 for MTT / unparseable)
   bbPerHour: number // normalized rate — compares a soft 5/5/10 vs a tough 5/10/30
-  bbPer100: number | null // true bb/100 when hands are logged, else null
+  bbPer100: number | null // true bb/100 from hands-tracked sessions only, else null
   smallSample: boolean // < SMALL_SAMPLE_HOURS and not MTT
 }
 
@@ -53,6 +54,7 @@ export function winRateByGroup(sessions: Session[]): GroupStat[] {
         sessions: 0,
         hours: 0,
         hands: 0,
+        handsResult: 0,
         result: 0,
         perHour: 0,
         bb: s.isMTT ? 0 : bigBlind(s.stakeLevel),
@@ -64,15 +66,20 @@ export function winRateByGroup(sessions: Session[]): GroupStat[] {
     }
     g.sessions += 1
     g.hours += s.hours
-    g.hands += s.hands ?? 0
     g.result += s.result
+    // bb/100 must use only sessions that logged hands, or live sessions sharing
+    // the same stake string would inflate the numerator with no hands behind it.
+    if (s.hands) {
+      g.hands += s.hands
+      g.handsResult += s.result
+    }
   }
   const out = [...map.values()]
   for (const g of out) {
     g.perHour = g.hours > 0 ? g.result / g.hours : 0
     g.bbPerHour = g.bb > 0 && g.hours > 0 ? g.perHour / g.bb : 0
     g.bbPer100 =
-      g.bb > 0 && g.hands > 0 ? g.result / g.bb / (g.hands / 100) : null
+      g.bb > 0 && g.hands > 0 ? g.handsResult / g.bb / (g.hands / 100) : null
     g.smallSample = g.bb > 0 && g.hours < SMALL_SAMPLE_HOURS
   }
   // Most-played first.
