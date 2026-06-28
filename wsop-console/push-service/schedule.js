@@ -70,15 +70,30 @@ const PHASE_NUDGES = {
   // 1: [...], 2: [...], etc.
 };
 
+// The nudge cron fires on this wall-clock (server.js CONSOLE_TZ), so phase/week
+// gating must use the SAME zone — UTC dates drift a day on boundary nights
+// (e.g. the 01:30 ET cap is the next UTC day) and mis-ramp the nudge set.
+const SCHEDULE_TZ = process.env.CONSOLE_TZ || "America/New_York";
+
+function ymdInTZ(date, tz = SCHEDULE_TZ) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(date); // YYYY-MM-DD
+}
+
+// Whole days between two plain YYYY-MM-DD dates (b - a), free of TZ/DST skew.
+function daysBetweenYMD(a, b) {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  return Math.floor((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+}
+
 function getCurrentPhase(date = new Date()) {
-  const d = date.toISOString().slice(0, 10);
+  const d = ymdInTZ(date);
   return PHASES.find((p) => d >= p.start && d <= p.end) || null;
 }
 
 // 1-indexed week within a phase (W1 = the first 7 days from start).
 function weekInPhase(phase, date = new Date()) {
-  const start = new Date(phase.start + "T00:00:00Z");
-  const days = Math.floor((date - start) / 86400000);
+  const days = daysBetweenYMD(phase.start, ymdInTZ(date));
   return Math.floor(days / 7) + 1;
 }
 

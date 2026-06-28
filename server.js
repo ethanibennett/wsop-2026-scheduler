@@ -263,7 +263,10 @@ if (require('fs').existsSync(consoleDist)) {
   app.post('/console/api/push/subscribe', async (req, res) => {
     try {
       const { subscription } = req.body || {};
-      if (!subscription || !subscription.endpoint || !subscription.keys) {
+      // keys_p256dh / keys_auth are NOT NULL — validate the nested keys so a
+      // malformed subscription returns 400, not a 500 constraint error.
+      if (!subscription || !subscription.endpoint || !subscription.keys ||
+          !subscription.keys.p256dh || !subscription.keys.auth) {
         return res.status(400).json({ error: 'Invalid subscription' });
       }
       db.run('DELETE FROM console_push_subscriptions WHERE endpoint = ?', [subscription.endpoint]);
