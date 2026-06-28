@@ -192,6 +192,70 @@ export function hoursThisWeek(sessions: Session[]): number {
   return sessions.filter((s) => isThisWeek(s.date)).reduce((a, s) => a + s.hours, 0)
 }
 
+// ── Edge drivers: does the life-system actually move $/hr? ──
+// The plan's core bet is that rhythm/headspace → better poker. Test it with the
+// player's own logs by splitting cash $/hr on a condition (anchor held, mood).
+const EDGE_MIN_SIDE = 3 // sessions each side before a delta means anything
+
+export interface EdgeSide {
+  n: number
+  hours: number
+  perHour: number
+}
+export interface EdgeSplit {
+  label: string // condition-true side, e.g. "anchor held"
+  altLabel: string // condition-false side, e.g. "anchor missed"
+  a: EdgeSide
+  b: EdgeSide
+  delta: number | null // a.perHour − b.perHour; null if either side is too small
+}
+
+function side(sessions: Session[]): EdgeSide {
+  const hours = sessions.reduce((x, s) => x + s.hours, 0)
+  const result = sessions.reduce((x, s) => x + s.result, 0)
+  return { n: sessions.length, hours, perHour: hours > 0 ? result / hours : 0 }
+}
+
+/**
+ * Split cash sessions by a predicate (true → side a, false → side b, null →
+ * excluded) and compare $/hr. delta is null unless both sides clear EDGE_MIN_SIDE.
+ */
+export function edgeBy(
+  sessions: Session[],
+  predicate: (s: Session) => boolean | null,
+  label: string,
+  altLabel: string,
+): EdgeSplit {
+  const a: Session[] = []
+  const b: Session[] = []
+  for (const s of sessions) {
+    if (s.isMTT || s.isWsopFund) continue
+    const v = predicate(s)
+    if (v === true) a.push(s)
+    else if (v === false) b.push(s)
+  }
+  const sa = side(a)
+  const sb = side(b)
+  const delta = sa.n >= EDGE_MIN_SIDE && sb.n >= EDGE_MIN_SIDE ? sa.perHour - sb.perHour : null
+  return { label, altLabel, a: sa, b: sb, delta }
+}
+
+/** $/hr on days the wake-anchor held vs not (joined to RoutineLog by date). */
+export function rhythmEdge(sessions: Session[], routine: RoutineLog[]): EdgeSplit {
+  const heldDates = new Set(routine.filter((r) => r.wakeAnchor).map((r) => r.date))
+  return edgeBy(sessions, (s) => heldDates.has(s.date), 'anchor held', 'anchor missed')
+}
+
+/** $/hr in good headspace (mood 4–5) vs off (1–2); neutral/unrated excluded. */
+export function moodEdge(sessions: Session[]): EdgeSplit {
+  return edgeBy(
+    sessions,
+    (s) => (s.moodRating == null || s.moodRating === 3 ? null : s.moodRating >= 4),
+    'good headspace',
+    'off A-game',
+  )
+}
+
 // ── Tax (the 2026 OBBBA 90%-loss rule + "phantom income") ──
 export interface TaxEstimate {
   year: number

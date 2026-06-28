@@ -12,6 +12,9 @@ import {
   cumulativePnl,
   monthlyBreakdown,
   mttStats,
+  rhythmEdge,
+  moodEdge,
+  type EdgeSplit,
 } from '../engine/analytics'
 import { phaseState } from '../engine/phase'
 
@@ -46,8 +49,33 @@ function monthLabel(m: string): string {
 
 type Filter = 'all' | 'live' | 'online' | 'cash' | 'mtt'
 
+// One edge-driver row: the two sides' $/hr and the delta (green = the
+// good-condition side earns more, i.e. the system pays).
+function EdgeRow({ split }: { split: EdgeSplit }) {
+  return (
+    <div className="ladder-step" style={{ padding: '9px 0', alignItems: 'flex-start' }}>
+      <div className="ladder-meta">
+        <div className="ladder-name">
+          {split.label} <span className="muted">vs</span> {split.altLabel}
+        </div>
+        <div className="sess-meta">
+          {money(split.a.perHour, { sign: true })}/h ({split.a.n}) ·{' '}
+          {money(split.b.perHour, { sign: true })}/h ({split.b.n})
+        </div>
+      </div>
+      {split.delta == null ? (
+        <span className="mono muted" style={{ fontSize: 12 }}>need 3+ each</span>
+      ) : (
+        <span className={`mono ${split.delta >= 0 ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
+          {money(split.delta, { sign: true })}/h
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function SessionsScreen() {
-  const { sessions, put, remove, settings } = useStore()
+  const { sessions, routine, put, remove, settings } = useStore()
   const toast = useToast()
   const [editing, setEditing] = useState<Session | null>(null)
   const [adding, setAdding] = useState(false)
@@ -68,6 +96,9 @@ export function SessionsScreen() {
   const pnl = useMemo(() => cumulativePnl(sessions), [sessions])
   const months = useMemo(() => monthlyBreakdown(sessions), [sessions])
   const mtt = useMemo(() => mttStats(sessions), [sessions])
+  const anchorEdge = useMemo(() => rhythmEdge(sessions, routine), [sessions, routine])
+  const moodSplit = useMemo(() => moodEdge(sessions), [sessions])
+  const showEdge = anchorEdge.delta != null || moodSplit.delta != null
 
   const ps = phaseState(new Date(), settings.phaseOverride)
   const target = ps.phase?.weeklyCashHours ?? 0
@@ -184,6 +215,22 @@ export function SessionsScreen() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edge drivers — does the life-system pay? */}
+      {showEdge && (
+        <div className="card">
+          <div className="card-head">
+            <span className="card-label">Edge drivers</span>
+            <span className="mono muted" style={{ fontSize: 12 }}>$/hr split</span>
+          </div>
+          <EdgeRow split={anchorEdge} />
+          <EdgeRow split={moodSplit} />
+          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            Cash only. A positive delta is your own data backing the plan’s bet — rhythm and
+            headspace showing up in the win rate.
+          </div>
         </div>
       )}
 

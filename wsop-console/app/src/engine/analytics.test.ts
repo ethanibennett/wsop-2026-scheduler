@@ -7,6 +7,8 @@ import {
   mttStats,
   taxEstimate,
   wakeAnchorStreak,
+  rhythmEdge,
+  moodEdge,
 } from './analytics'
 import { localDate } from './format'
 import type { Session, RoutineLog } from '../db/types'
@@ -134,6 +136,55 @@ describe('taxEstimate (2026 OBBBA phantom income)', () => {
   it('only counts the requested year', () => {
     const t = taxEstimate([sess({ date: '2025-12-31', result: 9999 })], 2026)
     expect(t.winnings).toBe(0)
+  })
+})
+
+describe('rhythmEdge', () => {
+  const routine: RoutineLog[] = [
+    { date: '2026-08-01', wakeAnchor: true },
+    { date: '2026-08-02', wakeAnchor: true },
+    { date: '2026-08-03', wakeAnchor: true },
+    // 08-04..06 not held
+  ]
+  it('splits $/hr by whether the anchor held, with delta when both sides have data', () => {
+    const s = rhythmEdge(
+      [
+        sess({ date: '2026-08-01', hours: 5, result: 500 }), // held
+        sess({ date: '2026-08-02', hours: 5, result: 500 }), // held
+        sess({ date: '2026-08-03', hours: 5, result: 500 }), // held → +100/h
+        sess({ date: '2026-08-04', hours: 5, result: 0 }), // missed
+        sess({ date: '2026-08-05', hours: 5, result: 0 }), // missed
+        sess({ date: '2026-08-06', hours: 5, result: 0 }), // missed → 0/h
+      ],
+      routine,
+    )
+    expect(s.a.perHour).toBe(100)
+    expect(s.b.perHour).toBe(0)
+    expect(s.delta).toBe(100)
+  })
+  it('delta is null when a side is too small', () => {
+    const s = rhythmEdge([sess({ date: '2026-08-01', hours: 5, result: 500 })], routine)
+    expect(s.delta).toBeNull()
+  })
+})
+
+describe('moodEdge', () => {
+  it('excludes neutral (3) and unrated, compares 4–5 vs 1–2', () => {
+    const s = moodEdge([
+      sess({ hours: 5, result: 500, moodRating: 5 }),
+      sess({ hours: 5, result: 500, moodRating: 4 }),
+      sess({ hours: 5, result: 500, moodRating: 4 }),
+      sess({ hours: 5, result: -250, moodRating: 1 }),
+      sess({ hours: 5, result: -250, moodRating: 2 }),
+      sess({ hours: 5, result: -250, moodRating: 2 }),
+      sess({ hours: 5, result: 9999, moodRating: 3 }), // excluded
+      sess({ hours: 5, result: 9999 }), // unrated, excluded
+    ])
+    expect(s.a.n).toBe(3)
+    expect(s.b.n).toBe(3)
+    expect(s.a.perHour).toBe(100)
+    expect(s.b.perHour).toBe(-50)
+    expect(s.delta).toBe(150)
   })
 })
 
