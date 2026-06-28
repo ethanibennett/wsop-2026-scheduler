@@ -66,3 +66,8 @@ Beyond the original spec — turn the framework's judgment calls into numbers fr
 - [x] **Monte-Carlo risk simulator** (Bankroll → Risk) — estimates win rate + hourly variance from logged cash, simulates 3000 forward paths → P(hit the $25k/$40k move-down floors), P(reach $100k/$135k checkpoints), 5th/median/95th ending roll, typical worst drawdown. `engine/risk.ts` + seeded-RNG tests.
 - [x] **Edge drivers** (Sessions) — splits cash $/hr by whether the wake-anchor held that day and by mood (4–5 vs 1–2), with a delta once each side has 3+ sessions. Tests the plan's rhythm→poker thesis with real data.
 - [x] **Stake recommender / "Tonight's game"** (Bankroll → Roll + Today) — the 30/40/20 rules as a live call: standard stake, buy-ins held, move-up readiness, sanctioned-shot earmark, move-down floors.
+- [x] **Win-rate significance** ("Is your edge real?", Sessions) — 95% CI on the hourly rate, verdict + hours-to-significance. Backs "don't move up off a small winning sample."
+- [x] **WSOP fund pace projection** (Bankroll → Roll) — months to May, required monthly feed, observed pace, projected fund, on-track/shortfall.
+- [x] **Downswing protocol + circuit-breaker** (Today banner + Health card) — detects drawdown/loss-streak severity, surfaces the written protocol.
+- [x] **Sunday Review auto-readout** ("This week's read") — tone-coded plain-English insights (volume, net, anchor, rhythm→$/hr edge, best game, downswing flag).
+- Engine: `engine/risk.ts` + new `engine/analytics.ts` functions, all unit-tested (68 tests total).
