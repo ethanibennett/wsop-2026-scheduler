@@ -40,8 +40,11 @@ const consoleAppDir = path.join(__dirname, 'wsop-console', 'app');
 if (fs.existsSync(consoleAppDir)) {
   if (!fs.existsSync(path.join(consoleAppDir, 'node_modules'))) {
     console.log('[build] Installing wsop-console deps...');
-    const hasLock = fs.existsSync(path.join(consoleAppDir, 'package-lock.json'));
-    const cInstall = spawnSync('npm', [hasLock ? 'ci' : 'install'], { cwd: consoleAppDir, stdio: 'inherit' });
+    // Use `npm install`, NOT `npm ci`: the console has a dual-esbuild tree
+    // (vite 5 wants 0.21, vitest 4 wants 0.27/0.28) that strict `npm ci`
+    // rejects on Render's npm even when the lockfile validates locally. `npm
+    // install` resolves the right platform binaries on the build host.
+    const cInstall = spawnSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: consoleAppDir, stdio: 'inherit' });
     if (cInstall.status !== 0) process.exit(cInstall.status);
   }
   console.log('[build] Building wsop-console PWA...');
