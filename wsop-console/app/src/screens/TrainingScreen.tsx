@@ -104,8 +104,10 @@ export function TrainingScreen() {
 
   const reload = async () => {
     const [l, b] = await Promise.all([getAll<LiftEntry>('lifts'), getAll<Benchmark>('benchmarks')])
-    setLifts(l.sort((a, c) => a.date.localeCompare(c.date)))
-    setBenchmarks(b.sort((a, c) => a.date.localeCompare(c.date)))
+    // getAll returns key (random uuid) order — add an id tiebreaker so same-date
+    // ordering (and the "last set" reference it feeds) is stable across reloads.
+    setLifts(l.sort((a, c) => a.date.localeCompare(c.date) || a.id.localeCompare(c.id)))
+    setBenchmarks(b.sort((a, c) => a.date.localeCompare(c.date) || a.id.localeCompare(c.id)))
   }
   useEffect(() => {
     void reload()
@@ -215,7 +217,9 @@ function SessionPanel({
     S.prehab.forEach((name, i) => {
       if (prehab[i]) items[name] = true
     })
-    const tick: PrehabTick = { date, day, items }
+    // Composite key (date:day) so Mon + Wed logged on one calendar date don't
+    // overwrite each other (the store is keyed by `date`).
+    const tick: PrehabTick = { date: `${date}:${day}`, day, items }
     await putRecord('prehab', tick)
     setVals({})
     setPrehab({})

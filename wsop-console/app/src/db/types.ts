@@ -78,7 +78,9 @@ export interface Benchmark {
 }
 
 export interface PrehabTick {
-  date: string
+  date: string // composite store key "YYYY-MM-DD:day" — one record per lifting
+  // day so logging two lifting days on the same calendar date can't collide.
+  // The calendar date is date.split(':')[0]; the day is also in `day`.
   day: 'mon' | 'wed' | 'fri'
   items: Record<string, boolean>
 }
