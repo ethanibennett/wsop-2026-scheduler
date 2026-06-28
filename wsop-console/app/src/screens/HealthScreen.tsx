@@ -15,6 +15,7 @@ import {
   downswingSeverity,
 } from '../engine/analytics'
 import { computeBankroll, recommendStake } from '../engine/bankroll'
+import { weightProgress, DEFAULT_GOAL_LOSS_LB } from '../engine/health'
 import { uid, todayISO, fmtDate, isThisWeek, moneyK } from '../engine/format'
 import { DOWNSWING_PROTOCOL } from '../db/protocol'
 import { NutritionView } from './NutritionView'
@@ -190,6 +191,41 @@ function BodyMetrics({
           </div>
         )}
       </div>
+
+      {(() => {
+        const wp = weightProgress(metrics)
+        if (wp.start == null || wp.current == null) return null
+        return (
+          <div style={{ marginBottom: 14 }}>
+            <div className="row-split" style={{ marginBottom: 8 }}>
+              <span className="card-label">Cut → −{DEFAULT_GOAL_LOSS_LB} lb (keep muscle)</span>
+              <span className="mono" style={{ fontSize: 12 }}>
+                {wp.lost > 0 ? `−${wp.lost.toFixed(1)} lb` : '—'} · {Math.round(wp.pctToGoal * 100)}%
+              </span>
+            </div>
+            <div className="bar">
+              <span style={{ width: `${Math.min(100, wp.pctToGoal * 100)}%` }} />
+            </div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              {wp.current} → {wp.goal} lb · {wp.remaining.toFixed(1)} to go
+              {wp.lbsPerWeek != null && wp.lbsPerWeek < 0 ? (
+                <>
+                  {' · '}
+                  {Math.abs(wp.lbsPerWeek).toFixed(1)} lb/wk
+                  {wp.healthyRate === false ? (
+                    <span style={{ color: 'var(--warn)' }}> (easing the deficit protects muscle)</span>
+                  ) : wp.weeksToGoal != null ? (
+                    <span className="pos"> · ~{Math.round(wp.weeksToGoal)} wks at this rate</span>
+                  ) : null}
+                </>
+              ) : wp.lbsPerWeek != null && wp.lbsPerWeek > 0 ? (
+                <span style={{ color: 'var(--warn)' }}> · trending up — protein + the modest deficit</span>
+              ) : null}
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="field" style={{ maxWidth: 200 }}>
         <label>Date</label>
         <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
