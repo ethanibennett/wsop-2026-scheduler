@@ -13,6 +13,7 @@ import {
 } from '../engine/bankroll'
 import { phaseState } from '../engine/phase'
 import { cashHoursThisWeek } from '../engine/analytics'
+import { AdminView } from './AdminView'
 
 const ADJ_TYPES: { v: AdjustmentType; label: string }[] = [
   { v: 'deposit', label: 'Deposit' },
@@ -26,6 +27,7 @@ export function BankrollScreen() {
   const { sessions, adjustments, settings, put } = useStore()
   const toast = useToast()
   const [adjOpen, setAdjOpen] = useState(false)
+  const [view, setView] = useState<'roll' | 'admin'>('roll')
 
   const state = useMemo(
     () => computeBankroll(sessions, adjustments, settings.startingRoll),
@@ -52,8 +54,21 @@ export function BankrollScreen() {
   return (
     <div className="screen">
       <h1 className="screen-title">Bankroll</h1>
-      <div className="screen-sub">roll · fund · clearance</div>
+      <div className="screen-sub">roll · fund · clearance · admin</div>
 
+      <div className="pill-row">
+        <button className={`pill${view === 'roll' ? ' on' : ''}`} onClick={() => setView('roll')}>
+          Roll
+        </button>
+        <button className={`pill${view === 'admin' ? ' on' : ''}`} onClick={() => setView('admin')}>
+          Admin
+        </button>
+      </div>
+
+      {view === 'admin' && <AdminView />}
+
+      {view === 'roll' && (
+        <>
       {/* Buckets */}
       <div className="stat-row" style={{ marginBottom: 14 }}>
         <div className="card">
@@ -181,6 +196,8 @@ export function BankrollScreen() {
       <button className="btn btn-gold btn-block" onClick={() => setAdjOpen(true)}>
         + Add adjustment
       </button>
+        </>
+      )}
 
       <Sheet open={adjOpen} onClose={() => setAdjOpen(false)} title="Bankroll adjustment">
         <AdjustmentForm

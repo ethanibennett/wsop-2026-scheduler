@@ -182,6 +182,48 @@ export function hoursThisWeek(sessions: Session[]): number {
   return sessions.filter((s) => isThisWeek(s.date)).reduce((a, s) => a + s.hours, 0)
 }
 
+// ── Tax (the 2026 OBBBA 90%-loss rule + "phantom income") ──
+export interface TaxEstimate {
+  year: number
+  winnings: number // sum of winning sessions
+  losses: number // sum of |losing sessions|
+  net: number // winnings - losses (what you actually made)
+  deductibleLosses: number // min(rate * losses, winnings)
+  taxable: number // winnings - deductibleLosses
+  phantom: number // taxable - net: income you're taxed on but never pocketed
+}
+
+/**
+ * Gambling tax read for a year. Under OBBBA (TY2026) losses are only 90%
+ * deductible against winnings — a break-even year can still be taxed on
+ * "phantom income". NOT tax advice — the agenda to put in front of the CPA.
+ */
+export function taxEstimate(
+  sessions: Session[],
+  year: number,
+  lossDeductRate = 0.9,
+): TaxEstimate {
+  let winnings = 0
+  let losses = 0
+  for (const s of sessions) {
+    if (Number(s.date.slice(0, 4)) !== year) continue
+    if (s.result >= 0) winnings += s.result
+    else losses += -s.result
+  }
+  const net = winnings - losses
+  const deductibleLosses = Math.min(lossDeductRate * losses, winnings)
+  const taxable = winnings - deductibleLosses
+  return {
+    year,
+    winnings,
+    losses,
+    net,
+    deductibleLosses,
+    taxable,
+    phantom: taxable - net,
+  }
+}
+
 // ── Streaks (RoutineLog) — wake anchor is the headline metric ──
 function streak(logs: RoutineLog[], pick: (l: RoutineLog) => boolean | undefined): number {
   const byDate = new Map(logs.map((l) => [l.date, l]))
