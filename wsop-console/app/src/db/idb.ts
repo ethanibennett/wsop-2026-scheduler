@@ -149,10 +149,17 @@ export interface BackupBlob {
   data: Record<string, unknown[]>
 }
 
+// Derive the store list from the live DB so a newly-added store can never
+// silently drop out of backups (vs. a hand-maintained ALL_STORES that drifts).
+function storeNames(db: IDBPDatabase<ConsoleDB>): StoreName[] {
+  const live = Array.from(db.objectStoreNames) as StoreName[]
+  return live.length ? live : ALL_STORES
+}
+
 export async function exportAll(exportedAt: string): Promise<BackupBlob> {
   const db = await getDB()
   const data: Record<string, unknown[]> = {}
-  for (const store of ALL_STORES) {
+  for (const store of storeNames(db)) {
     data[store] = await db.getAll(store)
   }
   return { app: 'wsop-console', version: DB_VERSION, exportedAt, data }
@@ -162,9 +169,17 @@ export async function importAll(blob: BackupBlob): Promise<void> {
   if (blob?.app !== 'wsop-console') {
     throw new Error('Not a WSOP Console backup file.')
   }
+  // Refuse backups from a newer schema — restoring them into older code could
+  // write records that don't match the current stores' keyPaths.
+  if (typeof blob.version === 'number' && blob.version > DB_VERSION) {
+    throw new Error(
+      `Backup is from a newer app version (v${blob.version}); update the app before importing.`,
+    )
+  }
   const db = await getDB()
-  const tx = db.transaction(ALL_STORES, 'readwrite')
-  for (const store of ALL_STORES) {
+  const stores = storeNames(db)
+  const tx = db.transaction(stores, 'readwrite')
+  for (const store of stores) {
     const rows = blob.data?.[store]
     if (!Array.isArray(rows)) continue
     const os = tx.objectStore(store)
