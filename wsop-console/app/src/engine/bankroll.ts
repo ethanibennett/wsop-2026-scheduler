@@ -33,14 +33,14 @@ export const LADDER: Checkpoint[] = [
     key: 'delaware',
     name: 'Delaware shots',
     cleared: '5/5/10',
-    note: 'Delaware Park shot-takes unlocked.',
+    note: '5/5/10 fully comfortable. Delaware 5/10/30 = 30 bi, so Saturday shots only (shallow cap → higher variance than the stake suggests) — not your standard game yet.',
   },
   {
     amount: 100000,
     key: 'wsop-open',
     name: 'Open WSOP fund',
     cleared: '5/10/30',
-    note: 'Start carving the WSOP fund off the top.',
+    note: 'Open the dedicated WSOP-fund bucket off the top. 40 bi now clears 5/10/30 as a standard game (not just a shot).',
   },
   {
     amount: 135000,
