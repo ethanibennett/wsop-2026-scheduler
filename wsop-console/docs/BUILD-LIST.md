@@ -27,25 +27,26 @@ Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 - [x] Benchmarks + prehab checklist + history
 - [x] Swap prototype `window.storage` → `lifts`/`benchmarks`/`prehab` stores
 
-## M5 — Rhythm · Health · Study  ← mostly done (new Health tab)
-- [x] Rhythm/streaks (wake-anchor + wind-down streaks, this-week routine adherence) — on the new Health tab
+## M5 — Rhythm · Health · Study  ← done (Health tab: Vitals | Food)
+- [x] Rhythm/streaks (wake-anchor + wind-down streaks, this-week routine adherence) — on the Health tab
 - [x] Health metrics (weight, waist, sleep, RHR) with weight trend
 - [x] Study log (course / coaching / solver / library / review)
-- [ ] Nutrition defaults + shopping list (`nutrition.md`) — bigger content port, not yet
+- [x] Nutrition defaults + shopping list (`nutrition.md`) — Health → Food: protein target, principles, eating-on-the-day, default plates, phasing/surgery, standing shopping list (localStorage checks)
 
-## M6 — Review · Insights · Polish
+## M6 — Review · Insights · Polish  ← done
 - [x] Sunday review screen: week's sessions/hours/mood/streak → 3 prompts → save `ReviewEntry`
-- [ ] Deeper analytics (cash bb/100, win-rate trends)
-- [ ] Backup hardening (reminders, maybe cloud backup)
+- [x] Deeper analytics: bb/hr + true bb/100 (optional online `hands` field), cumulative-P&L sparkline, by-month breakdown, MTT ROI/ITM, small-sample flags — on Sessions
+- [x] Backup hardening: `lastBackupAt` tracking + overdue reminders (Settings status line + Today banner)
 
 ## Plan-specific layers (unique to this plan)
-- [ ] Admin / tax / staking (`business-admin.md`): tax log, 2026 loss rule, quarterly estimates, backer settlements
+- [x] Admin / tax / staking (`business-admin.md`) — Bankroll → Admin: 2026 OBBBA phantom-income estimator (reads the logs) + set-aside %, setup checklist, action-sale calculator, reference landscape
 - [x] WSOP-fund tracker on the Bankroll screen: progress to the ~$65k net target + mechanics (monthly feed, opens at $100k, slate sold to net)
 - [x] Tournament-day protocol (selection filter + day-before/day-of/day-after) on the Plan → Day view
 
 ## Cleanup / follow-ups
 - [x] Fixed stale default anchor times in `store.tsx` (07:00/23:00/14:00 → real 10:00/01:30/18:00)
 - [x] Removed stale "Phase dates are placeholders" note in `SettingsScreen`
-- [ ] iOS installed-PWA Basic Auth UX — maybe switch `/console` to cookie/JWT login
-- [ ] `TodayScreen` writes a `'log-session'` tick key that no longer maps to a nudge (post-rename orphan)
-- [ ] Reconcile bankroll "cleared stake" labels at $75k/$100k rungs vs `bankroll-framework.md`
+- [x] Fixed `TodayScreen` ROUTINE_MAP — keys were stale post-rename (wake/movement vs wake-anchor/movement-floor) so the wake-anchor streak silently never logged; dropped the orphan `'log-session'` tick
+- [x] Reconciled bankroll "cleared stake" notes at $75k/$100k (30-bi-sit vs 40-bi-clear for 5/10/30)
+- [x] Made the meditation floor loggable on Health (was a permanently-0 metric — no nudge wrote it)
+- [ ] iOS installed-PWA Basic Auth UX — maybe switch `/console` to cookie/JWT login  *(deliberately NOT done unprompted: changing prod auth risks locking the live console out + needs a login-UX decision)*
