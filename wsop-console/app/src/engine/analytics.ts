@@ -192,6 +192,53 @@ export function hoursThisWeek(sessions: Session[]): number {
   return sessions.filter((s) => isThisWeek(s.date)).reduce((a, s) => a + s.hours, 0)
 }
 
+// ── Downswing detection: "a math event, not a verdict on you" ──
+// You can't install a downswing protocol mid-downswing, so detect it early from
+// the logs and surface the written one. Signals: drawdown from the cash-P&L
+// peak, and the current losing-session streak.
+export interface DownswingState {
+  current: number // cumulative cash P&L now
+  peak: number // its running peak (>= 0 baseline)
+  drawdown: number // peak − current ($, ≥ 0)
+  lossStreak: number // consecutive most-recent losing cash sessions
+  sessionsSincePeak: number
+}
+
+export function downswingState(sessions: Session[]): DownswingState {
+  const pnl = cumulativePnl(sessions, { cashOnly: true }) // ascending by date
+  let peak = 0
+  let current = 0
+  let sincePeak = 0
+  for (const p of pnl) {
+    current = p.cum
+    if (p.cum >= peak) {
+      peak = p.cum
+      sincePeak = 0
+    } else {
+      sincePeak++
+    }
+  }
+  const cash = sessions
+    .filter((s) => !s.isMTT && !s.isWsopFund)
+    .sort((a, b) => b.date.localeCompare(a.date))
+  let lossStreak = 0
+  for (const s of cash) {
+    if (s.result < 0) lossStreak++
+    else break
+  }
+  return { current, peak, drawdown: Math.max(0, peak - current), lossStreak, sessionsSincePeak: sincePeak }
+}
+
+export type DownswingLevel = 'none' | 'watch' | 'deep'
+
+/** Severity from the drawdown (in buy-ins of the current stake) + loss streak. */
+export function downswingSeverity(state: DownswingState, buyIn: number): DownswingLevel {
+  const bi = buyIn > 0 ? state.drawdown / buyIn : 0
+  if (state.lossStreak >= 5 || bi >= 15) return 'deep'
+  if (state.lossStreak >= 3 || bi >= 7) return 'watch'
+  return 'none'
+}
+
 // ── Edge drivers: does the life-system actually move $/hr? ──
 // The plan's core bet is that rhythm/headspace → better poker. Test it with the
 // player's own logs by splitting cash $/hr on a condition (anchor held, mood).

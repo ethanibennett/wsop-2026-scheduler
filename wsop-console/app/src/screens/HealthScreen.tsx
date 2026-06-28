@@ -5,11 +5,18 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { getAll, putRecord } from '../db/idb'
-import type { HealthMetric, StudyLog, RoutineLog } from '../db/types'
+import type { HealthMetric, StudyLog, RoutineLog, Session, BankrollAdjustment } from '../db/types'
 import { useStore } from '../store'
 import { useToast } from '../components/Toast'
-import { wakeAnchorStreak, windDownStreak } from '../engine/analytics'
-import { uid, todayISO, fmtDate, isThisWeek } from '../engine/format'
+import {
+  wakeAnchorStreak,
+  windDownStreak,
+  downswingState,
+  downswingSeverity,
+} from '../engine/analytics'
+import { computeBankroll, recommendStake } from '../engine/bankroll'
+import { uid, todayISO, fmtDate, isThisWeek, moneyK } from '../engine/format'
+import { DOWNSWING_PROTOCOL } from '../db/protocol'
 import { NutritionView } from './NutritionView'
 
 const STUDY_TYPES: StudyLog['type'][] = ['course', 'coaching', 'solver', 'library', 'review']
@@ -17,7 +24,7 @@ const STUDY_TYPES: StudyLog['type'][] = ['course', 'coaching', 'solver', 'librar
 type HealthView = 'vitals' | 'food'
 
 export function HealthScreen() {
-  const { routine, putByDate } = useStore()
+  const { routine, putByDate, sessions, adjustments, settings } = useStore()
   const toast = useToast()
   const [view, setView] = useState<HealthView>('vitals')
   const [metrics, setMetrics] = useState<HealthMetric[]>([])
@@ -119,6 +126,7 @@ export function HealthScreen() {
 
       <BodyMetrics metrics={metrics} onSaved={reload} toast={toast} />
       <StudyCard study={study} onSaved={reload} toast={toast} />
+      <DownswingCard sessions={sessions} adjustments={adjustments} startingRoll={settings.startingRoll} />
         </>
       )}
     </div>
@@ -298,6 +306,57 @@ function StudyCard({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+const SWING_LABEL = {
+  none: { label: 'Steady', color: 'var(--good)' },
+  watch: { label: 'Rough patch', color: 'var(--warn)' },
+  deep: { label: 'In a downswing', color: 'var(--bad)' },
+} as const
+
+// The written downswing protocol — always here to review while calm, with a
+// live state badge driven by the cash logs. "A math event, not a verdict."
+function DownswingCard({
+  sessions,
+  adjustments,
+  startingRoll,
+}: {
+  sessions: Session[]
+  adjustments: BankrollAdjustment[]
+  startingRoll: number
+}) {
+  const roll = computeBankroll(sessions, adjustments, startingRoll).playingRoll
+  const buyIn = recommendStake(roll).sit?.buyIn ?? 0
+  const state = downswingState(sessions)
+  const level = downswingSeverity(state, buyIn)
+  const s = SWING_LABEL[level]
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <span className="card-label">Downswing protocol</span>
+        <span className="mono" style={{ fontSize: 13, color: s.color, fontWeight: 700 }}>
+          {s.label}
+        </span>
+      </div>
+      {level !== 'none' && (
+        <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+          {state.lossStreak >= 2 ? `${state.lossStreak} losing sessions · ` : ''}
+          {state.drawdown > 0 ? `${moneyK(state.drawdown)} off your peak. ` : ''}
+          Run the protocol — it’s why you wrote it down ahead of time.
+        </div>
+      )}
+      {DOWNSWING_PROTOCOL.map((p, i) => (
+        <div key={p.title} className="ladder-step" style={{ padding: '9px 0', alignItems: 'flex-start' }}>
+          <span className="mono muted" style={{ fontSize: 12, marginRight: 8, minWidth: 16 }}>{i + 1}</span>
+          <div className="ladder-meta">
+            <div className="ladder-name">{p.title}</div>
+            <div className="muted" style={{ fontSize: 13 }}>{p.body}</div>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

@@ -9,6 +9,8 @@ import {
   wakeAnchorStreak,
   rhythmEdge,
   moodEdge,
+  downswingState,
+  downswingSeverity,
 } from './analytics'
 import { localDate } from './format'
 import type { Session, RoutineLog } from '../db/types'
@@ -185,6 +187,47 @@ describe('moodEdge', () => {
     expect(s.a.perHour).toBe(100)
     expect(s.b.perHour).toBe(-50)
     expect(s.delta).toBe(150)
+  })
+})
+
+describe('downswingState / severity', () => {
+  it('all winning → no drawdown, no loss streak', () => {
+    const s = downswingState([
+      sess({ date: '2026-08-01', result: 500 }),
+      sess({ date: '2026-08-02', result: 500 }),
+    ])
+    expect(s.drawdown).toBe(0)
+    expect(s.lossStreak).toBe(0)
+    expect(downswingSeverity(s, 2000)).toBe('none')
+  })
+  it('measures drawdown from the peak and the current loss streak', () => {
+    const s = downswingState([
+      sess({ date: '2026-08-01', result: 1000 }),
+      sess({ date: '2026-08-02', result: 1000 }), // peak 2000
+      sess({ date: '2026-08-03', result: -300 }),
+      sess({ date: '2026-08-04', result: -300 }),
+      sess({ date: '2026-08-05', result: -300 }),
+      sess({ date: '2026-08-06', result: -300 }), // current 800
+    ])
+    expect(s.peak).toBe(2000)
+    expect(s.current).toBe(800)
+    expect(s.drawdown).toBe(1200)
+    expect(s.lossStreak).toBe(4)
+    expect(downswingSeverity(s, 2000)).toBe('watch') // streak ≥ 3
+  })
+  it('5+ losing sessions reads as deep', () => {
+    const s = downswingState(
+      Array.from({ length: 6 }, (_, i) => sess({ date: `2026-08-0${i + 1}`, result: -200 })),
+    )
+    expect(s.lossStreak).toBe(6)
+    expect(downswingSeverity(s, 2000)).toBe('deep')
+  })
+  it('a deep $ drawdown is deep even without a long streak', () => {
+    const s = downswingState([
+      sess({ date: '2026-08-01', result: 40000 }),
+      sess({ date: '2026-08-02', result: -32000 }), // dd 32000 = 16 bi at 2000
+    ])
+    expect(downswingSeverity(s, 2000)).toBe('deep') // bi ≥ 15
   })
 })
 

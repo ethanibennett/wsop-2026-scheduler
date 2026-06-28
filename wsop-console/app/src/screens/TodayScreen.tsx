@@ -11,6 +11,8 @@ import { computeBankroll, recommendStake } from '../engine/bankroll'
 import {
   cashHoursThisWeek,
   wakeAnchorStreak,
+  downswingState,
+  downswingSeverity,
 } from '../engine/analytics'
 
 // Nudge ids that also map onto the RoutineLog (so streaks count).
@@ -54,6 +56,8 @@ export function TodayScreen() {
   const target = ps.phase?.weeklyCashHours ?? 0
   const anchor = wakeAnchorStreak(routine)
   const rec = useMemo(() => recommendStake(bankroll.playingRoll), [bankroll.playingRoll])
+  const swing = useMemo(() => downswingState(sessions), [sessions])
+  const swingLevel = downswingSeverity(swing, rec.sit?.buyIn ?? 0)
 
   // Backup reminder: local-first data has no safety net but a manual export.
   const backupDays = daysSince(settings.lastBackupAt)
@@ -152,6 +156,26 @@ export function TodayScreen() {
           </div>
         </div>
       </div>
+
+      {/* Downswing circuit-breaker */}
+      {swingLevel !== 'none' && (
+        <div
+          style={{
+            fontSize: 13,
+            margin: '0 0 14px',
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: `1px solid ${swingLevel === 'deep' ? 'var(--bad)' : 'var(--warn)'}`,
+            color: swingLevel === 'deep' ? 'var(--bad)' : 'var(--warn)',
+          }}
+        >
+          <strong>{swingLevel === 'deep' ? 'In a downswing' : 'Rough patch'}</strong>
+          {swing.lossStreak >= 2 ? ` · ${swing.lossStreak} losing sessions` : ''}
+          {swing.drawdown > 0 ? ` · ${moneyK(swing.drawdown)} off peak` : ''}. It’s math, not a
+          verdict — hold the rules, don’t chase{rec.belowFloor !== 'none' ? ', move down' : ''}.
+          Protocol in Health.
+        </div>
+      )}
 
       {/* Tonight's game — one-line read of the bankroll rules */}
       {rec.sit && rec.belowFloor !== 'hard' && (
