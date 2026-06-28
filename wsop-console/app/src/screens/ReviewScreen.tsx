@@ -3,16 +3,31 @@
 // thing to tighten), and saves a dated ReviewEntry. Prompts from
 // docs/plan/mental-health-and-game.md.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
-import type { ReviewEntry } from '../db/types'
+import { getAll } from '../db/idb'
+import type { ReviewEntry, HealthMetric } from '../db/types'
 import { phaseState } from '../engine/phase'
 import { hoursThisWeek, cashHoursThisWeek, wakeAnchorStreak, weeklyReadout } from '../engine/analytics'
+import { computeBankroll } from '../engine/bankroll'
+import { weightProgress } from '../engine/health'
+import { milestones } from '../engine/milestones'
 import { isThisWeek, todayISO, uid, fmtDate, fmtHours } from '../engine/format'
 
 export function ReviewScreen() {
-  const { sessions, routine, reviews, settings, put } = useStore()
+  const { sessions, adjustments, routine, reviews, settings, put } = useStore()
   const ps = phaseState(new Date(), settings.phaseOverride)
+
+  const [metrics, setMetrics] = useState<HealthMetric[]>([])
+  useEffect(() => {
+    void getAll<HealthMetric>('health').then(setMetrics)
+  }, [])
+
+  const climb = useMemo(() => {
+    const roll = computeBankroll(sessions, adjustments, settings.startingRoll).playingRoll
+    const lbsLost = Math.max(0, weightProgress(metrics).lost)
+    return milestones({ roll, anchorStreak: wakeAnchorStreak(routine), lbsLost })
+  }, [sessions, adjustments, settings.startingRoll, metrics, routine])
 
   const week = useMemo(() => {
     const wk = sessions.filter((s) => isThisWeek(s.date))
@@ -94,6 +109,30 @@ export function ReviewScreen() {
             <div className="rv-lbl">cash hrs</div>
           </div>
         </div>
+      </div>
+
+      {/* The climb — cross-domain milestones */}
+      <div className="card">
+        <div className="card-head">
+          <span className="card-label">The climb</span>
+          <span className="mono muted">{climb.achieved}/{climb.total} cleared</span>
+        </div>
+        {climb.list
+          .filter((m) => m.done)
+          .slice(-4)
+          .reverse()
+          .map((m) => (
+            <div key={m.id} className="hl-row" style={{ padding: '4px 0', borderBottom: 'none' }}>
+              <span className="pos" style={{ marginRight: 8 }}>✓</span>
+              <span style={{ fontSize: 13 }}>{m.label}</span>
+            </div>
+          ))}
+        {climb.next && (
+          <div className="hl-row" style={{ padding: '6px 0 0', borderBottom: 'none' }}>
+            <span className="muted" style={{ marginRight: 8 }}>▸</span>
+            <span style={{ fontSize: 13 }} className="muted">Next: {climb.next.label}</span>
+          </div>
+        )}
       </div>
 
       {/* Auto-readout — the week, half-written for you */}
