@@ -5,8 +5,10 @@ import type { Session, RoutineLog } from '../db/types'
 import { isThisWeek } from './format'
 
 /**
- * Big blind parsed from a stake level — the largest number in the structure.
- * "2/2/5" → 5, "5/5/10" → 10, "5/10/30" → 30, "1/2" → 2. 0 if unparseable.
+ * Big blind parsed from a stake level. These PLO notations are SB/BB/straddle,
+ * so the big blind is the SECOND number (not the straddle): "2/2/5" → 2,
+ * "5/5/10" → 5, "5/10/30" → 10, "10/20/40" → 20. Two-number NLH ("1/2") → 2.
+ * 0 if unparseable. (Approximation for normalized rate, not exact for every room.)
  */
 export function bigBlind(stakeLevel?: string): number {
   if (!stakeLevel) return 0
@@ -14,7 +16,8 @@ export function bigBlind(stakeLevel?: string): number {
     .split('/')
     .map((x) => parseFloat(x))
     .filter((n) => !Number.isNaN(n))
-  return nums.length ? Math.max(...nums) : 0
+  if (!nums.length) return 0
+  return nums.length >= 3 ? nums[1] : nums[nums.length - 1]
 }
 
 // Cash groups under this many hours are too small to read edge off.
