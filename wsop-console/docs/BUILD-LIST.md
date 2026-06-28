@@ -50,3 +50,13 @@ Source-of-truth map is in `PWA-BUILD-HANDOFF.md` §8 and `docs/plan/`.
 - [x] Reconciled bankroll "cleared stake" notes at $75k/$100k (30-bi-sit vs 40-bi-clear for 5/10/30)
 - [x] Made the meditation floor loggable on Health (was a permanently-0 metric — no nudge wrote it)
 - [ ] iOS installed-PWA Basic Auth UX — maybe switch `/console` to cookie/JWT login  *(deliberately NOT done unprompted: changing prod auth risks locking the live console out + needs a login-UX decision)*
+
+## Quality / hardening (review-driven)
+Adversarial review of the codebase surfaced + fixed real bugs:
+- [x] **Date-key timezone bug** — `todayISO()` wrote UTC but week math is local; an EST session logged "today" could fall outside "this week". All record keys now local; streak walks local dates.
+- [x] **Rapid-tap data loss** — Today's `toggle`/`save` spread a stale render closure and clobbered ticks; now serialized read-merge-write via `getRecord`.
+- [x] **bb/100 channel mixing** — live sessions sharing a stake string inflated bb/100; now uses hands-tracked results only. **bigBlind** = the BB (2nd number), not the straddle.
+- [x] **Backup import** refuses newer-schema blobs; export/import derive stores from the live DB (no silent drift).
+- [x] **Console push** — cron phase/week gating computed in `America/New_York` (was UTC, drifted on boundary nights); subscribe validates nested keys.
+- [x] **Tests** — vitest + 39 engine unit tests (`npm test`); dev-only, prod build/deploy unchanged.
+- Skipped (low value / out of scope): bigBlind free-form parse (dropdown-constrained, degrades gracefully); Basic Auth username-timing side-channel (auth path, left per the auth decision above).
