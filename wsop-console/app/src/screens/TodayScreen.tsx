@@ -4,7 +4,7 @@ import { useToast } from '../components/Toast'
 import { Sheet } from '../components/Sheet'
 import { SessionForm } from '../components/SessionForm'
 import type { Session, RoutineLog, ChecklistTick } from '../db/types'
-import { todayISO, moneyK, fmtHours } from '../engine/format'
+import { todayISO, moneyK, fmtHours, daysSince } from '../engine/format'
 import { phaseState, getNudges } from '../engine/phase'
 import { computeBankroll } from '../engine/bankroll'
 import {
@@ -45,6 +45,10 @@ export function TodayScreen() {
   const target = ps.phase?.weeklyCashHours ?? 0
   const anchor = wakeAnchorStreak(routine)
 
+  // Backup reminder: local-first data has no safety net but a manual export.
+  const backupDays = daysSince(settings.lastBackupAt)
+  const backupOverdue = sessions.length > 0 && (backupDays == null || backupDays >= 14)
+
   const toggle = async (id: string) => {
     const next = !todayTicks[id]
     const tick: ChecklistTick = {
@@ -79,6 +83,23 @@ export function TodayScreen() {
     <div className="screen">
       <h1 className="screen-title">Today</h1>
       <div className="screen-sub">{dateLabel}</div>
+
+      {backupOverdue && (
+        <div
+          style={{
+            fontSize: 13,
+            margin: '0 0 14px',
+            padding: '9px 11px',
+            borderRadius: 8,
+            border: '1px solid var(--bad)',
+            color: 'var(--bad)',
+          }}
+        >
+          ⚠ Backup overdue
+          {backupDays == null ? ' — never exported' : ` — ${backupDays} days`}. Settings →
+          Export JSON.
+        </div>
+      )}
 
       {/* Phase / week banner */}
       <div className="phase-banner">

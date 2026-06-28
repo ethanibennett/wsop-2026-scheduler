@@ -161,4 +161,5 @@ export interface Settings {
   capTime: string
   caffeineCutoff: string
   phaseOverride?: number
+  lastBackupAt?: string // ISO; set on every successful export — drives the backup reminder
 }

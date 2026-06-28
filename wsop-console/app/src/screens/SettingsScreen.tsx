@@ -3,7 +3,9 @@ import { useStore } from '../store'
 import { useToast } from '../components/Toast'
 import { exportAll, importAll, type BackupBlob } from '../db/idb'
 import { PHASES } from '../db/seed'
-import { nowISO } from '../engine/format'
+import { nowISO, daysSince } from '../engine/format'
+
+const BACKUP_STALE_DAYS = 14
 import { pushSupported, isSubscribed, enablePush, disablePush } from '../push'
 
 export function SettingsScreen() {
@@ -53,6 +55,7 @@ export function SettingsScreen() {
     a.download = `wsop-console-backup-${nowISO().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
+    await updateSettings({ lastBackupAt: nowISO() })
     toast('Backup exported')
   }
 
@@ -154,6 +157,34 @@ export function SettingsScreen() {
           All data lives local-first on this device. Export regularly — it’s the
           only safety net.
         </div>
+        {(() => {
+          const since = daysSince(settings.lastBackupAt)
+          const stale = since == null || since >= BACKUP_STALE_DAYS
+          const label =
+            since == null
+              ? 'Never backed up — export now to start the safety net.'
+              : since === 0
+                ? 'Last backup: today.'
+                : `Last backup: ${since} day${since === 1 ? '' : 's'} ago${
+                    stale ? ' — overdue, export now.' : '.'
+                  }`
+          return (
+            <div
+              className="backup-status"
+              style={{
+                fontSize: 13,
+                marginBottom: 12,
+                padding: '8px 10px',
+                borderRadius: 8,
+                border: `1px solid ${stale ? 'var(--bad)' : 'var(--line)'}`,
+                color: stale ? 'var(--bad)' : 'var(--muted)',
+              }}
+            >
+              {stale ? '⚠ ' : '✓ '}
+              {label}
+            </div>
+          )
+        })()}
         <div className="field-row">
           <button className="btn btn-block" onClick={doExport} disabled={busy}>
             ↓ Export JSON

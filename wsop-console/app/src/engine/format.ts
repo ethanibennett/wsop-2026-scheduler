@@ -51,6 +51,14 @@ export function weekStart(d = new Date()): Date {
   return x
 }
 
+/** Whole days between `iso` and now (0 = today). Returns null for missing/bad input. */
+export function daysSince(iso?: string): number | null {
+  if (!iso) return null
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return null
+  return Math.floor((Date.now() - t) / (24 * 60 * 60 * 1000))
+}
+
 export function isThisWeek(iso: string): boolean {
   const start = weekStart()
   const end = new Date(start)
