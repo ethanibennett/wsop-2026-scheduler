@@ -58,5 +58,11 @@ Adversarial review of the codebase surfaced + fixed real bugs:
 - [x] **bb/100 channel mixing** — live sessions sharing a stake string inflated bb/100; now uses hands-tracked results only. **bigBlind** = the BB (2nd number), not the straddle.
 - [x] **Backup import** refuses newer-schema blobs; export/import derive stores from the live DB (no silent drift).
 - [x] **Console push** — cron phase/week gating computed in `America/New_York` (was UTC, drifted on boundary nights); subscribe validates nested keys.
-- [x] **Tests** — vitest + 39 engine unit tests (`npm test`); dev-only, prod build/deploy unchanged.
+- [x] **Tests** — vitest + 55 engine unit tests (`npm test`); dev-only, prod build/deploy unchanged.
 - Skipped (low value / out of scope): bigBlind free-form parse (dropdown-constrained, degrades gracefully); Basic Auth username-timing side-channel (auth path, left per the auth decision above).
+
+## Outside-the-box features (decision-support, data-driven)
+Beyond the original spec — turn the framework's judgment calls into numbers from the player's own logs:
+- [x] **Monte-Carlo risk simulator** (Bankroll → Risk) — estimates win rate + hourly variance from logged cash, simulates 3000 forward paths → P(hit the $25k/$40k move-down floors), P(reach $100k/$135k checkpoints), 5th/median/95th ending roll, typical worst drawdown. `engine/risk.ts` + seeded-RNG tests.
+- [x] **Edge drivers** (Sessions) — splits cash $/hr by whether the wake-anchor held that day and by mood (4–5 vs 1–2), with a delta once each side has 3+ sessions. Tests the plan's rhythm→poker thesis with real data.
+- [x] **Stake recommender / "Tonight's game"** (Bankroll → Roll + Today) — the 30/40/20 rules as a live call: standard stake, buy-ins held, move-up readiness, sanctioned-shot earmark, move-down floors.
