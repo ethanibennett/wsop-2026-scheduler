@@ -86,6 +86,15 @@ export async function putRecord<T>(store: ListStore | DateStore, value: T): Prom
   await db.put(store as never, value as never)
 }
 
+/** Fetch a single record by key (used for race-free read-merge-write). */
+export async function getRecord<T>(
+  store: DateStore,
+  key: string,
+): Promise<T | undefined> {
+  const db = await getDB()
+  return (await db.get(store as never, key)) as T | undefined
+}
+
 export async function deleteRecord(
   store: ListStore | DateStore,
   key: string,

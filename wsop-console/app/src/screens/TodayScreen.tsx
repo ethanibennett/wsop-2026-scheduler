@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useToast } from '../components/Toast'
 import { Sheet } from '../components/Sheet'
 import { SessionForm } from '../components/SessionForm'
+import { getRecord, putRecord } from '../db/idb'
 import type { Session, RoutineLog, ChecklistTick } from '../db/types'
 import { todayISO, moneyK, fmtHours, daysSince } from '../engine/format'
 import { phaseState, getNudges } from '../engine/phase'
@@ -23,10 +24,19 @@ const ROUTINE_MAP: Record<string, keyof RoutineLog> = {
 }
 
 export function TodayScreen() {
-  const { sessions, adjustments, settings, routine, checklist, put, putByDate } = useStore()
+  const { sessions, adjustments, settings, routine, checklist, reloadAll } = useStore()
   const toast = useToast()
   const [logOpen, setLogOpen] = useState(false)
   const today = todayISO()
+
+  // Serialize mutations so rapid taps can't clobber each other: each op reads
+  // the freshest persisted record (not a stale render closure) before merging.
+  const writeChain = useRef<Promise<unknown>>(Promise.resolve())
+  const enqueue = (op: () => Promise<void>) => {
+    const run = writeChain.current.then(op, op)
+    writeChain.current = run
+    return run
+  }
 
   const ps = phaseState(new Date(), settings.phaseOverride)
   const nudges = useMemo(
@@ -35,7 +45,6 @@ export function TodayScreen() {
   )
 
   const todayTicks = checklist.find((c) => c.date === today)?.items ?? {}
-  const todayRoutine = routine.find((r) => r.date === today)
 
   const bankroll = useMemo(
     () => computeBankroll(sessions, adjustments, settings.startingRoll),
@@ -49,29 +58,32 @@ export function TodayScreen() {
   const backupDays = daysSince(settings.lastBackupAt)
   const backupOverdue = sessions.length > 0 && (backupDays == null || backupDays >= 14)
 
-  const toggle = async (id: string) => {
-    const next = !todayTicks[id]
-    const tick: ChecklistTick = {
-      date: today,
-      items: { ...todayTicks, [id]: next },
-    }
-    await putByDate('checklist', tick)
-    // Mirror keystone items into RoutineLog for streaks.
-    const field = ROUTINE_MAP[id]
-    if (field) {
-      const r: RoutineLog = { ...(todayRoutine ?? { date: today }), [field]: next }
-      await putByDate('routine', r)
-    }
-  }
+  const toggle = (id: string) =>
+    enqueue(async () => {
+      const cur =
+        (await getRecord<ChecklistTick>('checklist', today)) ?? { date: today, items: {} }
+      const next = !cur.items[id]
+      await putRecord('checklist', { date: today, items: { ...cur.items, [id]: next } })
+      // Mirror keystone items into RoutineLog for streaks.
+      const field = ROUTINE_MAP[id]
+      if (field) {
+        const r = (await getRecord<RoutineLog>('routine', today)) ?? { date: today }
+        await putRecord('routine', { ...r, [field]: next })
+      }
+      await reloadAll()
+    })
 
-  const save = async (s: Session) => {
-    await put('sessions', s)
-    // Logging a session sets the routine flag (no 'log-session' nudge exists —
-    // the old orphan checklist tick was dead weight, so it's gone).
-    await putByDate('routine', { ...(todayRoutine ?? { date: today }), sessionLogged: true })
-    setLogOpen(false)
-    toast('Session logged')
-  }
+  const save = (s: Session) =>
+    enqueue(async () => {
+      await putRecord('sessions', s)
+      // Logging a session sets the routine flag (no 'log-session' nudge exists —
+      // the old orphan checklist tick was dead weight, so it's gone).
+      const r = (await getRecord<RoutineLog>('routine', today)) ?? { date: today }
+      await putRecord('routine', { ...r, sessionLogged: true })
+      await reloadAll()
+      setLogOpen(false)
+      toast('Session logged')
+    })
 
   const dateLabel = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
