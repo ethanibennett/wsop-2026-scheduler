@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getAll, putRecord } from '../db/idb'
 import type { LiftEntry, Benchmark, PrehabTick } from '../db/types'
 import { uid, todayISO, fmtDate } from '../engine/format'
+import { liftStats, type LiftStats } from '../engine/training'
 import { useToast } from '../components/Toast'
 
 type DayKey = 'mon' | 'wed' | 'fri'
@@ -113,10 +114,6 @@ export function TrainingScreen() {
     void reload()
   }, [])
 
-  const lastLift = (slug: string): LiftEntry | null => {
-    const a = lifts.filter((e) => e.liftSlug === slug)
-    return a.length ? a[a.length - 1] : null
-  }
   const lastBench = (slug: string): Benchmark | null => {
     const a = benchmarks.filter((e) => e.slug === slug)
     return a.length ? a[a.length - 1] : null
@@ -160,7 +157,7 @@ export function TrainingScreen() {
           key={tab + mode}
           day={tab}
           mode={mode}
-          lastOf={lastLift}
+          statsOf={(slug) => liftStats(lifts, slug)}
           onSaved={reload}
           toast={toast}
         />
@@ -172,13 +169,13 @@ export function TrainingScreen() {
 function SessionPanel({
   day,
   mode,
-  lastOf,
+  statsOf,
   onSaved,
   toast,
 }: {
   day: DayKey
   mode: Mode
-  lastOf: (slug: string) => LiftEntry | null
+  statsOf: (slug: string) => LiftStats
   onSaved: () => Promise<void>
   toast: (m: string) => void
 }) {
@@ -242,15 +239,24 @@ function SessionPanel({
       )}
 
       {S.lifts.map((l) => {
-        const last = lastOf(l.slug)
+        const st = statsOf(l.slug)
+        const last = st.last
         const v = vals[l.slug] ?? { weight: '', reps: '', sets: '' }
         return (
           <div className="tr-lift" key={l.slug}>
-            <div className="tr-ln">{l.name}</div>
+            <div className="tr-ln">
+              {l.name}
+              {st.lastIsPR && (
+                <span className="tag pos" style={{ marginLeft: 6 }}>PR</span>
+              )}
+            </div>
             <div className="tr-last">
               {last ? (
                 <>
                   last: <b>{fmtLift(last)}</b> · {last.date}
+                  {st.best && st.best !== last && (
+                    <> · best: <b>{fmtLift(st.best)}</b></>
+                  )}
                 </>
               ) : (
                 'last: —'
