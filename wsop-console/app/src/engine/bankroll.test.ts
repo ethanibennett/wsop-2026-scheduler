@@ -5,6 +5,7 @@ import {
   computeBankroll,
   bankrollAlerts,
   recommendStake,
+  fundProjection,
 } from './bankroll'
 import type { Session, BankrollAdjustment } from '../db/types'
 
@@ -94,6 +95,53 @@ describe('recommendStake', () => {
     const r = recommendStake(20000)
     expect(r.sit).toBeNull()
     expect(r.belowFloor).toBe('hard')
+  })
+})
+
+describe('fundProjection', () => {
+  const now = new Date('2026-08-01T00:00:00')
+  const wsop = new Date('2027-05-03T00:00:00') // ~9 months out
+  const transfer = (date: string, amount: number): BankrollAdjustment => ({
+    id: Math.random().toString(36).slice(2),
+    date,
+    amount,
+    type: 'wsop-fund-transfer',
+  })
+
+  it('no transfers: required feed = remaining / months, no observed pace', () => {
+    const f = fundProjection(0, [], now, wsop, 65000)
+    expect(f.remaining).toBe(65000)
+    expect(f.monthsLeft).toBeCloseTo(9, 0)
+    expect(f.requiredMonthly).toBeGreaterThan(6500)
+    expect(f.requiredMonthly).toBeLessThan(7600)
+    expect(f.observedMonthly).toBe(0)
+    expect(f.onTrack).toBe(false)
+  })
+
+  it('observed pace projects forward and flags a shortfall', () => {
+    const f = fundProjection(
+      10000,
+      [transfer('2026-06-01', 5000), transfer('2026-07-01', 5000)], // ~$5k/mo over 2 mo
+      now,
+      wsop,
+      65000,
+    )
+    expect(f.observedMonthly).toBeCloseTo(5000, -2) // ~5k/month
+    expect(f.projected).toBeGreaterThan(10000)
+    expect(f.onTrack).toBe(false)
+    expect(f.shortfall).toBeGreaterThan(0)
+  })
+
+  it('a strong pace reads as on track', () => {
+    const f = fundProjection(
+      30000,
+      [transfer('2026-06-01', 10000), transfer('2026-07-01', 10000)],
+      now,
+      wsop,
+      65000,
+    )
+    expect(f.onTrack).toBe(true)
+    expect(f.shortfall).toBe(0)
   })
 })
 

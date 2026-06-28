@@ -182,6 +182,62 @@ export function computeBankroll(
   }
 }
 
+// ── WSOP fund pace: the one hard target, fed monthly to be ready by May ──
+const MONTH_MS = 30.44 * 24 * 60 * 60 * 1000
+
+export interface FundProjection {
+  current: number
+  target: number
+  remaining: number
+  monthsLeft: number
+  requiredMonthly: number // remaining / monthsLeft — the feed needed from here
+  observedMonthly: number // transfer pace so far ($/month), 0 if not yet estimable
+  projected: number // current + observedMonthly · monthsLeft
+  shortfall: number // max(0, target − projected)
+  onTrack: boolean
+}
+
+/**
+ * Project the WSOP fund to the series. `transfers` are the wsop-fund-transfer
+ * adjustments; observed pace is the total fed divided by the months since the
+ * first feed. Dates injected for testability.
+ */
+export function fundProjection(
+  wsopFund: number,
+  adjustments: BankrollAdjustment[],
+  now: Date,
+  wsopStart: Date,
+  target: number = WSOP_FUND_TARGET,
+): FundProjection {
+  const remaining = Math.max(0, target - wsopFund)
+  const monthsLeft = Math.max(0, (wsopStart.getTime() - now.getTime()) / MONTH_MS)
+  const requiredMonthly = monthsLeft > 0 ? remaining / monthsLeft : remaining
+
+  const feeds = adjustments
+    .filter((a) => a.type === 'wsop-fund-transfer' && a.amount > 0)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  let observedMonthly = 0
+  if (feeds.length > 0) {
+    const total = feeds.reduce((s, a) => s + a.amount, 0)
+    const first = new Date(feeds[0].date + 'T00:00:00').getTime()
+    const monthsElapsed = Math.max(0.5, (now.getTime() - first) / MONTH_MS)
+    observedMonthly = total / monthsElapsed
+  }
+
+  const projected = wsopFund + observedMonthly * monthsLeft
+  return {
+    current: wsopFund,
+    target,
+    remaining,
+    monthsLeft,
+    requiredMonthly,
+    observedMonthly,
+    projected,
+    shortfall: Math.max(0, target - projected),
+    onTrack: projected >= target,
+  }
+}
+
 /** Highest rung at or below `roll`. */
 export function ladderLookup(roll: number): Checkpoint | null {
   let hit: Checkpoint | null = null

@@ -8,11 +8,13 @@ import {
   computeBankroll,
   bankrollAlerts,
   recommendStake,
+  fundProjection,
   LADDER,
   WSOP_FUND_TARGET,
   WSOP_FUND_OPEN_AT,
 } from '../engine/bankroll'
 import { phaseState } from '../engine/phase'
+import { PHASES } from '../db/seed'
 import { cashHoursThisWeek } from '../engine/analytics'
 import { AdminView } from './AdminView'
 import { RiskView } from './RiskView'
@@ -53,6 +55,11 @@ export function BankrollScreen() {
   const cashHrs = cashHoursThisWeek(sessions)
   const pct = target > 0 ? Math.min(100, (cashHrs / target) * 100) : 0
   const rec = useMemo(() => recommendStake(state.playingRoll), [state.playingRoll])
+  const fund = useMemo(() => {
+    const p5 = PHASES.find((p) => p.id === 5)
+    const wsopStart = new Date((p5?.start ?? '2027-05-03') + 'T00:00:00')
+    return fundProjection(state.wsopFund, adjustments, new Date(), wsopStart)
+  }, [state.wsopFund, adjustments])
 
   return (
     <div className="screen">
@@ -127,6 +134,45 @@ export function BankrollScreen() {
           {state.playingRoll >= WSOP_FUND_OPEN_AT
             ? 'Carve a fixed monthly slice off cash profit. ~$200k slate sold down to this net target.'
             : `Opens once the playing roll clears ${moneyK(WSOP_FUND_OPEN_AT)} — then feed it monthly toward the ~$200k slate sold to net.`}
+        </div>
+      </div>
+
+      {/* WSOP fund pace — the time dimension on the one hard target */}
+      <div className="card">
+        <div className="row-split" style={{ marginBottom: 8 }}>
+          <span className="card-label">Fund pace → May</span>
+          <span
+            className="mono"
+            style={{ fontSize: 12, color: fund.onTrack ? 'var(--good)' : 'var(--warn)' }}
+          >
+            {fund.onTrack ? 'on track' : 'behind'}
+          </span>
+        </div>
+        <div className="hl-row">
+          <span className="muted">Months left</span>
+          <span className="mono">{fund.monthsLeft.toFixed(1)}</span>
+        </div>
+        <div className="hl-row">
+          <span className="muted">Feed needed / month</span>
+          <span className="mono">{money(fund.requiredMonthly)}</span>
+        </div>
+        <div className="hl-row">
+          <span className="muted">Your pace / month</span>
+          <span className="mono">{fund.observedMonthly > 0 ? money(fund.observedMonthly) : '—'}</span>
+        </div>
+        <div className="divider" />
+        <div className="hl-row">
+          <span style={{ fontWeight: 600 }}>Projected by May</span>
+          <span className={`mono ${fund.onTrack ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
+            {money(fund.projected)}
+          </span>
+        </div>
+        <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          {fund.observedMonthly <= 0
+            ? `No fund feeds logged yet. Route ${money(fund.requiredMonthly)}/month of cash profit (a wsop-fund-transfer) to land the ~${moneyK(WSOP_FUND_TARGET)} net by the series.`
+            : fund.onTrack
+              ? 'On pace at your current feed. The lever if it slips is selling more action, not dipping the playing roll.'
+              : `${money(fund.shortfall)} short at this pace — lift the monthly feed to ${money(fund.requiredMonthly)} or plan to sell more action.`}
         </div>
       </div>
 
