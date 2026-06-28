@@ -14,6 +14,7 @@ import {
 import { phaseState } from '../engine/phase'
 import { cashHoursThisWeek } from '../engine/analytics'
 import { AdminView } from './AdminView'
+import { RiskView } from './RiskView'
 
 const ADJ_TYPES: { v: AdjustmentType; label: string }[] = [
   { v: 'deposit', label: 'Deposit' },
@@ -27,7 +28,7 @@ export function BankrollScreen() {
   const { sessions, adjustments, settings, put } = useStore()
   const toast = useToast()
   const [adjOpen, setAdjOpen] = useState(false)
-  const [view, setView] = useState<'roll' | 'admin'>('roll')
+  const [view, setView] = useState<'roll' | 'admin' | 'risk'>('roll')
 
   const state = useMemo(
     () => computeBankroll(sessions, adjustments, settings.startingRoll),
@@ -54,7 +55,7 @@ export function BankrollScreen() {
   return (
     <div className="screen">
       <h1 className="screen-title">Bankroll</h1>
-      <div className="screen-sub">roll · fund · clearance · admin</div>
+      <div className="screen-sub">roll · fund · clearance · admin · risk</div>
 
       <div className="pill-row">
         <button className={`pill${view === 'roll' ? ' on' : ''}`} onClick={() => setView('roll')}>
@@ -63,9 +64,13 @@ export function BankrollScreen() {
         <button className={`pill${view === 'admin' ? ' on' : ''}`} onClick={() => setView('admin')}>
           Admin
         </button>
+        <button className={`pill${view === 'risk' ? ' on' : ''}`} onClick={() => setView('risk')}>
+          Risk
+        </button>
       </div>
 
       {view === 'admin' && <AdminView />}
+      {view === 'risk' && <RiskView />}
 
       {view === 'roll' && (
         <>
