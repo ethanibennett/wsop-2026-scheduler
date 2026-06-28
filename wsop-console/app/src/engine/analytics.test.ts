@@ -140,6 +140,19 @@ describe('taxEstimate (2026 OBBBA phantom income)', () => {
     const t = taxEstimate([sess({ date: '2025-12-31', result: 9999 })], 2026)
     expect(t.winnings).toBe(0)
   })
+  it('a losing year has NO phantom income (you pocketed nothing positive)', () => {
+    const t = taxEstimate([sess({ date: '2026-03-01', result: -50000 })], 2026)
+    expect(t.net).toBe(-50000)
+    expect(t.taxable).toBe(0)
+    expect(t.phantom).toBe(0)
+  })
+  it('a winning year with disallowed losses = 10% of losses as phantom', () => {
+    const t = taxEstimate(
+      [sess({ date: '2026-03-01', result: 200000 }), sess({ date: '2026-09-01', result: -50000 })],
+      2026,
+    )
+    expect(t.phantom).toBe(5000) // 0.1 × 50k
+  })
 })
 
 describe('rhythmEdge', () => {

@@ -30,7 +30,7 @@ const COLUMNS: { header: string; get: (s: Session) => string | number }[] = [
 // newline; double any embedded quotes.
 function cell(v: string | number): string {
   const s = String(v)
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
 /** Sessions → CSV string, newest first. Header row + one row per session. */

@@ -79,4 +79,9 @@ describe('studyCadence', () => {
   it('counts this week from the real calendar', () => {
     expect(studyCadence([study(localDate(new Date()))]).thisWeek).toBe(1)
   })
+
+  it('thisWeek uses the injected now consistently with the streak', () => {
+    const c = studyCadence([study(off(0)), study(off(0)), study(off(-7))], now)
+    expect(c.thisWeek).toBe(2) // both off(0) logs, not the prior-week one
+  })
 })

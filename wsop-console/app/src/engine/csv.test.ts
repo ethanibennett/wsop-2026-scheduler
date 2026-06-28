@@ -42,6 +42,11 @@ describe('sessionsToCSV', () => {
     expect(row).toContain('"line1\nline2"')
   })
 
+  it('escapes carriage returns (Windows/rich-text paste) so rows don’t split', () => {
+    const csv = sessionsToCSV([sess({ tiltNote: 'line1\rline2' })])
+    expect(csv.split('\n').slice(1).join('\n')).toContain('"line1\rline2"')
+  })
+
   it('renders flags and optional fields cleanly', () => {
     const csv = sessionsToCSV([sess({ isMTT: true, isWsopFund: true, entries: 2, place: 5, moodRating: 4 })])
     const row = csv.split('\n')[1]

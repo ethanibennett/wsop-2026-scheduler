@@ -405,7 +405,9 @@ export function taxEstimate(
     net,
     deductibleLosses,
     taxable,
-    phantom: taxable - net,
+    // Taxed-but-not-pocketed = taxable minus what you actually kept (≥0). In a
+    // losing year you pocketed nothing positive, so there's no phantom income.
+    phantom: Math.max(0, taxable - Math.max(0, net)),
   }
 }
 

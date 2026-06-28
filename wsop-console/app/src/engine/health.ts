@@ -3,7 +3,7 @@
 // Source: docs/plan/nutrition.md.
 
 import type { HealthMetric, StudyLog } from '../db/types'
-import { isThisWeek, localDate, weekStart } from './format'
+import { localDate, weekStart } from './format'
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 export const DEFAULT_GOAL_LOSS_LB = 30
@@ -70,8 +70,11 @@ export interface StudyCadence {
 }
 
 export function studyCadence(logs: StudyLog[], now: Date = new Date()): StudyCadence {
-  const weeks = new Set(logs.map((l) => localDate(weekStart(new Date(l.date + 'T00:00:00')))))
-  const thisWeek = logs.filter((l) => isThisWeek(l.date)).length
+  const weekKey = (iso: string) => localDate(weekStart(new Date(iso + 'T00:00:00')))
+  const weeks = new Set(logs.map((l) => weekKey(l.date)))
+  // Count "this week" against the SAME now used for the streak, not the wall clock.
+  const nowWeek = localDate(weekStart(now))
+  const thisWeek = logs.filter((l) => weekKey(l.date) === nowWeek).length
 
   let weekStreak = 0
   let allowSkip = true // current week may be empty without breaking the streak
