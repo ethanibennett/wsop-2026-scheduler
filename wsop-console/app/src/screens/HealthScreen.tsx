@@ -10,12 +10,16 @@ import { useStore } from '../store'
 import { useToast } from '../components/Toast'
 import { wakeAnchorStreak, windDownStreak } from '../engine/analytics'
 import { uid, todayISO, fmtDate, isThisWeek } from '../engine/format'
+import { NutritionView } from './NutritionView'
 
 const STUDY_TYPES: StudyLog['type'][] = ['course', 'coaching', 'solver', 'library', 'review']
+
+type HealthView = 'vitals' | 'food'
 
 export function HealthScreen() {
   const { routine } = useStore()
   const toast = useToast()
+  const [view, setView] = useState<HealthView>('vitals')
   const [metrics, setMetrics] = useState<HealthMetric[]>([])
   const [study, setStudy] = useState<StudyLog[]>([])
 
@@ -45,8 +49,21 @@ export function HealthScreen() {
   return (
     <div className="screen">
       <h1 className="screen-title">Health</h1>
-      <div className="screen-sub">rhythm · body · study</div>
+      <div className="screen-sub">rhythm · body · study · food</div>
 
+      <div className="pill-row">
+        <button className={`pill${view === 'vitals' ? ' on' : ''}`} onClick={() => setView('vitals')}>
+          Vitals
+        </button>
+        <button className={`pill${view === 'food' ? ' on' : ''}`} onClick={() => setView('food')}>
+          Food
+        </button>
+      </div>
+
+      {view === 'food' && <NutritionView />}
+
+      {view === 'vitals' && (
+        <>
       {/* Rhythm */}
       <div className="card">
         <div className="card-label" style={{ marginBottom: 12 }}>
@@ -85,6 +102,8 @@ export function HealthScreen() {
 
       <BodyMetrics metrics={metrics} onSaved={reload} toast={toast} />
       <StudyCard study={study} onSaved={reload} toast={toast} />
+        </>
+      )}
     </div>
   )
 }
