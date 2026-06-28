@@ -64,6 +64,19 @@ const BASE_NUDGES = [
   },
 ];
 
+// Home/household nudges — fire daily regardless of the Phase-1 install ramp
+// (they aren't part of the rhythm system, so they're kept OUT of BASE_NUDGES /
+// getNudges and never show in the Today rhythm checklist).
+const HOME_NUDGES = [
+  {
+    id: "home-check",
+    time: "11:00",
+    cron: "0 11 * * *",
+    title: "Home",
+    body: "One thing you can take off Ellie's plate today — no questions asked. Open the Home list.",
+  },
+];
+
 // Per-phase overrides go here as you build the later phases out.
 // e.g. PHASE_NUDGES[5] = [ ...WSOP-day nudges... ]
 const PHASE_NUDGES = {
@@ -110,4 +123,4 @@ function getNudges(date = new Date()) {
   return BASE_NUDGES;
 }
 
-module.exports = { PHASES, BASE_NUDGES, PHASE_NUDGES, getCurrentPhase, weekInPhase, getNudges };
+module.exports = { PHASES, BASE_NUDGES, HOME_NUDGES, PHASE_NUDGES, getCurrentPhase, weekInPhase, getNudges };

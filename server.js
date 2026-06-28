@@ -7591,6 +7591,22 @@ function setupConsoleNudgeCron() {
     );
     scheduled++;
   }
+  // Home nudges fire daily, independent of the rhythm ramp.
+  for (const nudge of consoleSchedule.HOME_NUDGES || []) {
+    if (!nudge.cron || !cron.validate(nudge.cron)) continue;
+    cron.schedule(
+      nudge.cron,
+      () => {
+        try {
+          sendConsolePush(nudge.title, nudge.body, nudge.id);
+        } catch (err) {
+          console.error('Console home nudge fire error:', err);
+        }
+      },
+      { timezone: CONSOLE_TZ }
+    );
+    scheduled++;
+  }
   console.log(`[console] scheduled ${scheduled} nudge cron job(s) (${CONSOLE_TZ})`);
 }
 

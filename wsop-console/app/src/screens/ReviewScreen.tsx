@@ -12,6 +12,7 @@ import { hoursThisWeek, cashHoursThisWeek, wakeAnchorStreak, weeklyReadout } fro
 import { computeBankroll } from '../engine/bankroll'
 import { weightProgress } from '../engine/health'
 import { milestones } from '../engine/milestones'
+import { HOME_LIBRARY, CATEGORY_META, type HomeCategory } from '../db/home'
 import { isThisWeek, todayISO, uid, fmtDate, fmtHours } from '../engine/format'
 
 export function ReviewScreen() {
@@ -22,6 +23,26 @@ export function ReviewScreen() {
   useEffect(() => {
     void getAll<HealthMetric>('health').then(setMetrics)
   }, [])
+
+  // Home contributions this week (read from the Home card's localStorage).
+  const homeWeek = useMemo(() => {
+    let doneMap: Record<string, string[]> = {}
+    try {
+      doneMap = JSON.parse(localStorage.getItem('wsop-home-done') || '{}')
+    } catch {
+      doneMap = {}
+    }
+    const ids = new Set<string>()
+    for (const [date, list] of Object.entries(doneMap)) {
+      if (isThisWeek(date)) (list as string[]).forEach((id) => ids.add(id))
+    }
+    const byCat: Record<HomeCategory, number> = { load: 0, errand: 0, mental: 0, connection: 0 }
+    for (const id of ids) {
+      const t = HOME_LIBRARY.find((x) => x.id === id)
+      if (t) byCat[t.category]++
+    }
+    return { total: ids.size, byCat }
+  }, [sessions]) // recompute when the screen re-renders on data change
 
   const climb = useMemo(() => {
     const roll = computeBankroll(sessions, adjustments, settings.startingRoll).playingRoll
@@ -155,6 +176,29 @@ export function ReviewScreen() {
         <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
           The data half of the review — read it, then answer the three below.
         </div>
+      </div>
+
+      {/* Home this week — contribution to the household */}
+      <div className="card">
+        <div className="card-head">
+          <span className="card-label">Home this week</span>
+          <span className="mono muted">{homeWeek.total} contributions</span>
+        </div>
+        {homeWeek.total === 0 ? (
+          <div className="muted" style={{ fontSize: 13 }}>
+            Nothing logged from the Home list yet this week — an easy place to show up for Ellie.
+          </div>
+        ) : (
+          <div className="pill-row" style={{ marginBottom: 0 }}>
+            {(Object.keys(homeWeek.byCat) as HomeCategory[])
+              .filter((c) => homeWeek.byCat[c] > 0)
+              .map((c) => (
+                <span key={c} className="tag">
+                  {CATEGORY_META[c].label} · {homeWeek.byCat[c]}
+                </span>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* The three prompts */}
