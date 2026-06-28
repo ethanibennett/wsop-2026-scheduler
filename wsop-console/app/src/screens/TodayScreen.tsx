@@ -7,7 +7,7 @@ import { getRecord, putRecord } from '../db/idb'
 import type { Session, RoutineLog, ChecklistTick } from '../db/types'
 import { todayISO, moneyK, fmtHours, daysSince } from '../engine/format'
 import { phaseState, getNudges } from '../engine/phase'
-import { computeBankroll } from '../engine/bankroll'
+import { computeBankroll, recommendStake } from '../engine/bankroll'
 import {
   cashHoursThisWeek,
   wakeAnchorStreak,
@@ -53,6 +53,7 @@ export function TodayScreen() {
   const cashHrs = cashHoursThisWeek(sessions)
   const target = ps.phase?.weeklyCashHours ?? 0
   const anchor = wakeAnchorStreak(routine)
+  const rec = useMemo(() => recommendStake(bankroll.playingRoll), [bankroll.playingRoll])
 
   // Backup reminder: local-first data has no safety net but a manual export.
   const backupDays = daysSince(settings.lastBackupAt)
@@ -151,6 +152,20 @@ export function TodayScreen() {
           </div>
         </div>
       </div>
+
+      {/* Tonight's game — one-line read of the bankroll rules */}
+      {rec.sit && rec.belowFloor !== 'hard' && (
+        <div className="card" style={{ marginBottom: 14, padding: '10px 12px' }}>
+          <div className="row-split" style={{ alignItems: 'baseline' }}>
+            <span className="card-label">Tonight</span>
+            <span className="mono" style={{ fontSize: 13 }}>
+              sit <strong>{rec.sit.name}</strong>
+              {rec.shotEarmark > 0 && rec.next ? ` · shot ${rec.next.name}` : ''}
+              {rec.belowFloor === 'soft' ? ' · ▼ rebuild' : ''}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Log session CTA */}
       <button className="btn btn-primary btn-block" onClick={() => setLogOpen(true)} style={{ marginBottom: 16 }}>

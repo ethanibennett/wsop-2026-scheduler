@@ -4,6 +4,7 @@ import {
   nextCheckpoint,
   computeBankroll,
   bankrollAlerts,
+  recommendStake,
 } from './bankroll'
 import type { Session, BankrollAdjustment } from '../db/types'
 
@@ -58,6 +59,41 @@ describe('computeBankroll', () => {
     const b = computeBankroll([sess(8000, { isWsopFund: true })], [], 50000)
     expect(b.playingRoll).toBe(50000)
     expect(b.wsopFund).toBe(8000)
+  })
+})
+
+describe('recommendStake', () => {
+  it('$50k: sit 2/2/5, shot 5/5/10 sanctioned', () => {
+    const r = recommendStake(50000)
+    expect(r.sit?.key).toBe('2/2/5')
+    expect(r.next?.key).toBe('5/5/10')
+    expect(r.canMoveUp).toBe(false)
+    expect(r.shotEarmark).toBeGreaterThan(0)
+    expect(r.belowFloor).toBe('none')
+  })
+  it('$60k: sit 5/5/10, no surplus for a shot yet', () => {
+    const r = recommendStake(60000)
+    expect(r.sit?.key).toBe('5/5/10')
+    expect(r.shotEarmark).toBe(0)
+  })
+  it('$75k: standard 5/5/10, 5/10/30 shot earmark up to 5 bi', () => {
+    const r = recommendStake(75000)
+    expect(r.sit?.key).toBe('5/5/10')
+    expect(r.next?.key).toBe('5/10/30')
+    expect(r.shotEarmark).toBe(12500) // min(5×2500, surplus 15000)
+  })
+  it('$100k: 5/10/30 cleared as standard', () => {
+    expect(recommendStake(100000).sit?.key).toBe('5/10/30')
+  })
+  it('$35k: rebuild at 2/2/5 with a soft-floor flag', () => {
+    const r = recommendStake(35000)
+    expect(r.sit?.key).toBe('2/2/5')
+    expect(r.belowFloor).toBe('soft')
+  })
+  it('$20k: under the hard floor, no stake', () => {
+    const r = recommendStake(20000)
+    expect(r.sit).toBeNull()
+    expect(r.belowFloor).toBe('hard')
   })
 })
 

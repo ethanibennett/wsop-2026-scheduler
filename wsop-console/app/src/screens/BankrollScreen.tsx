@@ -7,6 +7,7 @@ import { money, moneyK, fmtDate, uid, todayISO, isThisWeek } from '../engine/for
 import {
   computeBankroll,
   bankrollAlerts,
+  recommendStake,
   LADDER,
   WSOP_FUND_TARGET,
   WSOP_FUND_OPEN_AT,
@@ -51,6 +52,7 @@ export function BankrollScreen() {
   const target = ps.phase?.weeklyCashHours ?? 0
   const cashHrs = cashHoursThisWeek(sessions)
   const pct = target > 0 ? Math.min(100, (cashHrs / target) * 100) : 0
+  const rec = useMemo(() => recommendStake(state.playingRoll), [state.playingRoll])
 
   return (
     <div className="screen">
@@ -154,6 +156,46 @@ export function BankrollScreen() {
             </div>
           )
         })}
+      </div>
+
+      {/* Tonight's game — the live read of the 30/40/20 rules */}
+      <div className="card">
+        <div className="card-label" style={{ marginBottom: 10 }}>Tonight’s game</div>
+        {rec.belowFloor === 'hard' ? (
+          <div className="alert alert-bad" style={{ margin: 0 }}>
+            <span className="ai">⚠</span>
+            <span>Under {moneyK(25000)} — stop. Lean on the separate income and reset; no reloading down here.</span>
+          </div>
+        ) : rec.sit ? (
+          <>
+            <div className="row-split" style={{ alignItems: 'baseline' }}>
+              <span className="stat-big" style={{ fontSize: 22 }}>{rec.sit.name}</span>
+              <span className="mono muted">{rec.buyInsAtSit} bi · {rec.sit.venue}</span>
+            </div>
+            {rec.belowFloor === 'soft' && (
+              <div className="alert alert-warn" style={{ marginTop: 10, marginBottom: 0 }}>
+                <span className="ai">▼</span>
+                <span>Under {moneyK(40000)} — you’re moving down to rebuild. No ego.</span>
+              </div>
+            )}
+            {rec.next && (
+              <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+                {rec.canMoveUp ? (
+                  <>Cleared to move up to <strong>{rec.next.name}</strong> — if your edge-per-hour holds there.</>
+                ) : rec.shotEarmark > 0 ? (
+                  <>Sanctioned shot at <strong>{rec.next.name}</strong>: earmark up to{' '}
+                    <strong>{money(rec.shotEarmark)}</strong> from surplus. Lose it → drop straight back.</>
+                ) : (
+                  <>{money(rec.moveUpShortfall)} to move up to <strong>{rec.next.name}</strong>.</>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="muted" style={{ fontSize: 13 }}>
+            Set your starting roll in Settings to get the call.
+          </div>
+        )}
       </div>
 
       {/* Volume ramp */}

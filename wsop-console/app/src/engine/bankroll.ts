@@ -62,6 +62,72 @@ export const LADDER: Checkpoint[] = [
 export const FLOOR_SOFT = 40000
 export const FLOOR_HARD = 25000
 
+// ── Live stake ladder (bankroll-framework.md "The live ladder") ──
+// Buy-ins per stake drive the 30-sit / 40-move-up / 20-move-down rules.
+export interface StakeRung {
+  key: string
+  name: string
+  venue: string
+  buyIn: number
+}
+export const STAKE_LADDER: StakeRung[] = [
+  { key: '2/2/5', name: '2/2/5 PLO', venue: 'Parx', buyIn: 1000 },
+  { key: '5/5/10', name: '5/5/10 PLO', venue: 'Parx', buyIn: 2000 },
+  { key: '5/10/30', name: '5/10/30 PLO', venue: 'Delaware Park', buyIn: 2500 },
+  { key: '10/10/25', name: '10/10/25 PLO', venue: 'Parx', buyIn: 5000 },
+  { key: '25/25/50', name: '25/25/50 PLO', venue: 'Parx', buyIn: 10000 },
+]
+
+export const SIT_BI = 30 // buy-ins to sit a stake
+export const MOVEUP_BI = 40 // buy-ins of the next stake to move up
+export const MOVEDOWN_BI = 20 // drop below this many bi of current stake → move down
+export const SHOT_BI_MIN = 3 // earmark 3–5 bi of the higher stake for a shot
+export const SHOT_BI_MAX = 5
+
+export interface StakeRecommendation {
+  sit: StakeRung | null // highest stake with ≥ SIT_BI buy-ins
+  buyInsAtSit: number
+  next: StakeRung | null // the stake above `sit`
+  canMoveUp: boolean // ≥ MOVEUP_BI buy-ins of `next` (edge still required — flagged, not known)
+  moveUpShortfall: number // $ to MOVEUP_BI of `next`
+  shotEarmark: number // $ a sanctioned shot at `next` can risk (0 if none)
+  belowFloor: 'none' | 'soft' | 'hard'
+}
+
+/**
+ * Game-selection call from the playing roll alone, per the framework's
+ * 30/40/20 rules. The standard stake follows the checkpoint ladder's `cleared`
+ * value (the doc's 40-bi "moved up" game, not a bare 30-bi sit), so it stays
+ * consistent with the Roll view. It can't see your edge-rate, so move-up still
+ * says "if the edge holds." Move-down is surfaced via the floors.
+ */
+export function recommendStake(roll: number): StakeRecommendation {
+  const clearedKey = ladderLookup(roll)?.cleared ?? null
+  let sitIdx = clearedKey ? STAKE_LADDER.findIndex((r) => r.key === clearedKey) : -1
+  // Below the $50k base rung but still ≥30 bi of 2/2/5 → rebuild at 2/2/5.
+  if (sitIdx < 0 && roll >= SIT_BI * STAKE_LADDER[0].buyIn) sitIdx = 0
+  const sit = sitIdx >= 0 ? STAKE_LADDER[sitIdx] : null
+  const next = sit && sitIdx + 1 < STAKE_LADDER.length ? STAKE_LADDER[sitIdx + 1] : null
+
+  const buyInsAtSit = sit ? Math.floor(roll / sit.buyIn) : 0
+  const canMoveUp = !!next && roll >= MOVEUP_BI * next.buyIn
+  const moveUpShortfall = next ? Math.max(0, MOVEUP_BI * next.buyIn - roll) : 0
+
+  // A shot is only sanctioned when fully rolled at `sit` (≥30 bi) and the
+  // surplus above that 30-bi floor covers ≥ SHOT_BI_MIN bi of `next`.
+  let shotEarmark = 0
+  if (sit && next && !canMoveUp) {
+    const surplus = roll - SIT_BI * sit.buyIn
+    if (surplus >= SHOT_BI_MIN * next.buyIn) {
+      shotEarmark = Math.min(SHOT_BI_MAX * next.buyIn, surplus)
+    }
+  }
+
+  const belowFloor = roll < FLOOR_HARD ? 'hard' : roll < FLOOR_SOFT ? 'soft' : 'none'
+
+  return { sit, buyInsAtSit, next, canMoveUp, moveUpShortfall, shotEarmark, belowFloor }
+}
+
 // WSOP 2027 fund (bankroll-framework.md): a ~$200k slate sold down to a
 // ~$60–70k NET target, carved off once the playing roll clears $100k, fed
 // monthly across P1–P4 so it's ready by Phase 5.
