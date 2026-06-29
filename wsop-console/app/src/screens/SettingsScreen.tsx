@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useToast } from '../components/Toast'
-import { exportAll, importAll, type BackupBlob } from '../db/idb'
+import { exportAll, importAll, getAll, type BackupBlob } from '../db/idb'
 import { PHASES } from '../db/seed'
 import { sessionsToCSV } from '../engine/csv'
 import { nowISO, daysSince } from '../engine/format'
@@ -20,6 +20,18 @@ export function SettingsScreen() {
   const supported = pushSupported()
   useEffect(() => {
     void isSubscribed().then(setPushOn)
+  }, [])
+
+  const [counts, setCounts] = useState<{ label: string; n: number }[]>([])
+  useEffect(() => {
+    const stores = [
+      ['sessions', 'Sessions'], ['adjustments', 'Adjustments'], ['health', 'Health logs'],
+      ['lifts', 'Lifts'], ['benchmarks', 'Benchmarks'], ['study', 'Study logs'],
+      ['reviews', 'Reviews'], ['routine', 'Routine days'],
+    ] as const
+    void Promise.all(stores.map(([s]) => getAll(s as never))).then((res) =>
+      setCounts(stores.map(([, label], i) => ({ label, n: (res[i] as unknown[]).length }))),
+    )
   }, [])
 
   const togglePush = async () => {
@@ -250,6 +262,23 @@ export function SettingsScreen() {
           </button>
         </div>
       </div>
+
+      {counts.length > 0 && (
+        <div className="card">
+          <div className="card-label" style={{ marginBottom: 10 }}>Your data</div>
+          {counts.map((c) => (
+            <div key={c.label} className="hl-row" style={{ padding: '4px 0', borderBottom: 'none' }}>
+              <span className="muted">{c.label}</span>
+              <span className="mono">{c.n}</span>
+            </div>
+          ))}
+          <div className="divider" />
+          <div className="hl-row" style={{ borderBottom: 'none' }}>
+            <span style={{ fontWeight: 600 }}>Total records</span>
+            <span className="mono" style={{ fontWeight: 700 }}>{counts.reduce((a, c) => a + c.n, 0)}</span>
+          </div>
+        </div>
+      )}
 
       <div
         className="mono"

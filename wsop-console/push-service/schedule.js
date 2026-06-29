@@ -64,9 +64,9 @@ const BASE_NUDGES = [
   },
 ];
 
-// Home/household nudges — fire daily regardless of the Phase-1 install ramp
-// (they aren't part of the rhythm system, so they're kept OUT of BASE_NUDGES /
-// getNudges and never show in the Today rhythm checklist).
+// Home + ops nudges — fire on their own cron regardless of the Phase-1 install
+// ramp (kept OUT of BASE_NUDGES / getNudges, so they never show in the Today
+// rhythm checklist).
 const HOME_NUDGES = [
   {
     id: "home-check",
@@ -74,6 +74,13 @@ const HOME_NUDGES = [
     cron: "0 11 * * *",
     title: "Home",
     body: "One thing you can take off Ellie's plate today — no questions asked. Open the Home list.",
+  },
+  {
+    id: "backup-reminder",
+    time: "Sun 12:00",
+    cron: "0 12 * * 0",
+    title: "Backup",
+    body: "Sunday: export a backup (Settings → Export JSON). Local-first data has no other safety net.",
   },
 ];
 

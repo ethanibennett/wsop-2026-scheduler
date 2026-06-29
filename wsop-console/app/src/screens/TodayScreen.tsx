@@ -119,6 +119,19 @@ export function TodayScreen() {
         </div>
       )}
 
+      {sessions.length === 0 && (
+        <div className="card">
+          <div className="card-label" style={{ marginBottom: 8 }}>Getting started</div>
+          <div className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
+            <div>1 · Set your starting roll in <strong>Settings</strong>.</div>
+            <div>2 · Log a session with <strong>◎ Log session</strong> (try a preset).</div>
+            <div>3 · Set <strong>Ellie home/away</strong> on the Home card below.</div>
+            <div>4 · Drop your <strong>Oura sleep score</strong> into Health → Body metrics.</div>
+            <div>5 · Watch it all come together on the <strong>Dash</strong> tab.</div>
+          </div>
+        </div>
+      )}
+
       {/* Phase / week banner */}
       <div className="phase-banner">
         <div className="ph">
