@@ -15,7 +15,7 @@ import {
   downswingSeverity,
 } from '../engine/analytics'
 import { computeBankroll, recommendStake } from '../engine/bankroll'
-import { weightProgress, DEFAULT_GOAL_LOSS_LB, studyCadence } from '../engine/health'
+import { weightProgress, DEFAULT_GOAL_LOSS_LB, studyCadence, metricTrend } from '../engine/health'
 import { uid, todayISO, fmtDate, isThisWeek, moneyK } from '../engine/format'
 import { DOWNSWING_PROTOCOL } from '../db/protocol'
 import { NutritionView } from './NutritionView'
@@ -227,6 +227,30 @@ function BodyMetrics({
             </div>
           </div>
         )
+      })()}
+
+      {(() => {
+        const sleep = metricTrend(metrics, (m) => m.sleepScore)
+        const rhr = metricTrend(metrics, (m) => m.rhr)
+        const row = (label: string, t: ReturnType<typeof metricTrend>, lowerIsBetter = false) => {
+          if (t.recent == null) return null
+          const good = t.delta == null ? null : lowerIsBetter ? t.delta <= 0 : t.delta >= 0
+          return (
+            <div className="hl-row" style={{ padding: '4px 0', borderBottom: 'none' }}>
+              <span className="muted">{label} · {t.n}-day avg</span>
+              <span className="mono">
+                {Math.round(t.recent)}
+                {t.delta != null && Math.abs(t.delta) >= 0.5 && (
+                  <span className={good ? 'pos' : 'neg'} style={{ marginLeft: 6 }}>
+                    {t.delta >= 0 ? '▲' : '▼'} {Math.abs(t.delta).toFixed(0)}
+                  </span>
+                )}
+              </span>
+            </div>
+          )
+        }
+        const rows = [row('Sleep score', sleep), row('Resting HR', rhr, true)].filter(Boolean)
+        return rows.length ? <div style={{ marginBottom: 12 }}>{rows}</div> : null
       })()}
 
       <div className="field" style={{ maxWidth: 200 }}>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { weightProgress, studyCadence } from './health'
+import { weightProgress, studyCadence, metricTrend } from './health'
 import { localDate } from './format'
 import type { HealthMetric, StudyLog } from '../db/types'
 
@@ -83,5 +83,22 @@ describe('studyCadence', () => {
   it('thisWeek uses the injected now consistently with the streak', () => {
     const c = studyCadence([study(off(0)), study(off(0)), study(off(-7))], now)
     expect(c.thisWeek).toBe(2) // both off(0) logs, not the prior-week one
+  })
+})
+
+describe('metricTrend', () => {
+  it('averages the recent window vs the prior window (date-desc)', () => {
+    const ms = [
+      m('2026-08-01', 0), m('2026-08-02', 0), m('2026-08-03', 0), m('2026-08-04', 0),
+    ].map((x, i) => ({ ...x, sleepScore: [70, 80, 90, 100][i], weight: undefined as number | undefined }))
+    const t = metricTrend(ms, (x) => x.sleepScore, 2)
+    expect(t.recent).toBe(95) // (100+90)/2
+    expect(t.prior).toBe(75) // (80+70)/2
+    expect(t.delta).toBe(20)
+    expect(t.n).toBe(2)
+  })
+  it('null delta when prior window is empty', () => {
+    const ms = [{ ...m('2026-08-01', 0), sleepScore: 80 }]
+    expect(metricTrend(ms, (x) => x.sleepScore, 7).delta).toBeNull()
   })
 })

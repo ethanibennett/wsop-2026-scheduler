@@ -201,6 +201,27 @@ export function ReviewScreen() {
         )}
       </div>
 
+      {/* Mental game — what tilted you (the review's mental-game line) */}
+      {(() => {
+        const tilts = sessions.filter((s) => s.tiltNote?.trim()).slice(0, 4)
+        if (tilts.length === 0) return null
+        return (
+          <div className="card">
+            <div className="card-head">
+              <span className="card-label">Mental game</span>
+              {week.avgMood != null && <span className="mono muted">mood {week.avgMood.toFixed(1)}/5 this wk</span>}
+            </div>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>What pulled you off A-game lately:</div>
+            {tilts.map((s) => (
+              <div key={s.id} className="hl-row" style={{ alignItems: 'flex-start', padding: '5px 0' }}>
+                <span className="muted mono" style={{ fontSize: 11, marginRight: 8, flex: '0 0 auto' }}>{fmtDate(s.date)}</span>
+                <span style={{ fontSize: 13 }}>{s.tiltNote}</span>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
       {/* The three prompts */}
       <div className="card">
         <div className="field">

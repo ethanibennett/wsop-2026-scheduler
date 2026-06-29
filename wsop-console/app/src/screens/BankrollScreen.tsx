@@ -90,10 +90,18 @@ export function BankrollScreen() {
           <div className="card-label">Playing roll</div>
           <div className="stat-big">{moneyK(state.playingRoll)}</div>
           <div className="sess-meta">
-            <span className={state.sessionPnl >= 0 ? 'pos' : 'neg'}>
-              {money(state.sessionPnl, { sign: true })}
-            </span>{' '}
-            from play
+            {(() => {
+              const wk = state.playingRoll - prevRoll
+              return Math.abs(wk) >= 1 ? (
+                <>
+                  <span className={wk >= 0 ? 'pos' : 'neg'}>{money(wk, { sign: true })}</span> this wk
+                </>
+              ) : (
+                <>
+                  <span className={state.sessionPnl >= 0 ? 'pos' : 'neg'}>{money(state.sessionPnl, { sign: true })}</span> from play
+                </>
+              )
+            })()}
           </div>
         </div>
         <div className="card">

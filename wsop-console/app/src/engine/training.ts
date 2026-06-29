@@ -4,6 +4,13 @@
 // (nutrition.md / health-plan), so trend matters more than any single number.
 
 import type { LiftEntry } from '../db/types'
+import { weekCadence } from './health'
+
+/** Lifting consistency — distinct lifting days this week + the week streak. */
+export function trainingConsistency(entries: LiftEntry[], now: Date = new Date()) {
+  const days = [...new Set(entries.map((e) => e.date))] // a lifting "session" = a day
+  return weekCadence(days, now)
+}
 
 /** Epley estimated 1-rep max. A single rep IS the 1RM (Epley overshoots at r=1). */
 export function e1rm(weight?: number, reps?: number): number {

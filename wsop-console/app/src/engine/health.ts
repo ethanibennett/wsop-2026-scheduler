@@ -69,12 +69,13 @@ export interface StudyCadence {
   total: number
 }
 
-export function studyCadence(logs: StudyLog[], now: Date = new Date()): StudyCadence {
+// Generic weekly cadence from a list of dates — count this week + the streak of
+// consecutive weeks (ending now) with at least one. Shared by study + training.
+export function weekCadence(dates: string[], now: Date = new Date()): StudyCadence {
   const weekKey = (iso: string) => localDate(weekStart(new Date(iso + 'T00:00:00')))
-  const weeks = new Set(logs.map((l) => weekKey(l.date)))
-  // Count "this week" against the SAME now used for the streak, not the wall clock.
+  const weeks = new Set(dates.map(weekKey))
   const nowWeek = localDate(weekStart(now))
-  const thisWeek = logs.filter((l) => weekKey(l.date) === nowWeek).length
+  const thisWeek = dates.filter((d) => weekKey(d) === nowWeek).length
 
   let weekStreak = 0
   let allowSkip = true // current week may be empty without breaking the streak
@@ -92,5 +93,33 @@ export function studyCadence(logs: StudyLog[], now: Date = new Date()): StudyCad
     if (weekStreak > 300) break
   }
 
-  return { thisWeek, weekStreak, total: logs.length }
+  return { thisWeek, weekStreak, total: dates.length }
+}
+
+export function studyCadence(logs: StudyLog[], now: Date = new Date()): StudyCadence {
+  return weekCadence(logs.map((l) => l.date), now)
+}
+
+// ── Metric trend — recent vs prior window average (sleep score, RHR, …) ──
+export interface MetricTrend {
+  recent: number | null
+  prior: number | null
+  delta: number | null // recent − prior
+  n: number // points in the recent window
+}
+
+export function metricTrend(
+  metrics: HealthMetric[],
+  pick: (m: HealthMetric) => number | undefined,
+  window = 7,
+): MetricTrend {
+  const vals = metrics
+    .filter((m) => pick(m) != null)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map((m) => pick(m) as number)
+  const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null)
+  const recentArr = vals.slice(0, window)
+  const recent = avg(recentArr)
+  const prior = avg(vals.slice(window, window * 2))
+  return { recent, prior, delta: recent != null && prior != null ? recent - prior : null, n: recentArr.length }
 }

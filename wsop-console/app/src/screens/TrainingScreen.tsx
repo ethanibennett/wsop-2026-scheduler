@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getAll, putRecord } from '../db/idb'
 import type { LiftEntry, Benchmark, PrehabTick } from '../db/types'
 import { uid, todayISO, fmtDate } from '../engine/format'
-import { liftStats, type LiftStats } from '../engine/training'
+import { liftStats, trainingConsistency, type LiftStats } from '../engine/training'
 import { useToast } from '../components/Toast'
 
 type DayKey = 'mon' | 'wed' | 'fri'
@@ -122,7 +122,17 @@ export function TrainingScreen() {
   return (
     <div className="screen">
       <h1 className="screen-title">Training</h1>
-      <div className="screen-sub">Phase 1 · strength log</div>
+      {(() => {
+        const c = trainingConsistency(lifts)
+        return (
+          <div className="screen-sub">
+            Phase 1 · strength log
+            {lifts.length > 0 && (
+              <span className="mono muted"> · {c.thisWeek} this wk{c.weekStreak >= 2 ? ` · ${c.weekStreak}-wk streak` : ''}</span>
+            )}
+          </div>
+        )
+      })()}
 
       <div className="pill-row" style={{ marginBottom: 12 }}>
         <span className="card-label" style={{ alignSelf: 'center', marginRight: 2 }}>

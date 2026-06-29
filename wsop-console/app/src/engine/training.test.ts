@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { e1rm, liftStats } from './training'
+import { e1rm, liftStats, trainingConsistency } from './training'
+import { localDate } from './format'
 import type { LiftEntry } from '../db/types'
 
 let n = 0
@@ -43,5 +44,22 @@ describe('liftStats', () => {
   })
   it('unknown slug → empty', () => {
     expect(liftStats([], 'none').best).toBeNull()
+  })
+})
+
+describe('trainingConsistency', () => {
+  const now = new Date('2026-08-12T12:00:00')
+  const off = (d: number) => {
+    const x = new Date(now)
+    x.setDate(x.getDate() + d)
+    return localDate(x)
+  }
+  it('counts distinct lifting days this week + the week streak', () => {
+    const c = trainingConsistency(
+      [lift(off(0), 'squat', 225, 5), lift(off(0), 'bench', 185, 5), lift(off(-7), 'dl', 315, 3)],
+      now,
+    )
+    expect(c.thisWeek).toBe(1) // two lifts on one day = one lifting day
+    expect(c.weekStreak).toBe(2)
   })
 })
