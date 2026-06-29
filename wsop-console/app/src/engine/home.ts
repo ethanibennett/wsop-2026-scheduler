@@ -7,6 +7,7 @@ import {
   MENTAL_PROMPTS,
   type HomeTask,
   type HomeCategory,
+  type HomeCadence,
 } from '../db/home'
 
 export interface HomeSuggestion extends HomeTask {
@@ -48,6 +49,26 @@ export function todaysHome(opts: TodaysHomeOpts): HomeSuggestion[] {
 /** How many distinct contributions are done in the given week's done-set. */
 export function homeContribution(doneThisWeek: Set<string>): number {
   return doneThisWeek.size
+}
+
+// User-defined recurring tasks (the "Regular" list) — folded into the daily
+// suggestions alongside the built-in library.
+export interface CustomRegular {
+  id: string
+  title: string
+  cadence: HomeCadence
+  category?: HomeCategory
+}
+
+export function customRegularsToTasks(list: CustomRegular[]): HomeTask[] {
+  return list.map((c) => ({
+    id: `custom-${c.id}`,
+    title: c.title,
+    detail: 'Your regular task.',
+    category: c.category ?? 'load',
+    cadence: c.cadence,
+    mode: 'any',
+  }))
 }
 
 /** Deterministic mental-load prompt for a given local date. */

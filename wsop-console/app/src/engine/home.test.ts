@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { todaysHome, homeContribution, mentalPromptFor } from './home'
+import { todaysHome, homeContribution, mentalPromptFor, customRegularsToTasks } from './home'
 import { HOME_LIBRARY, MENTAL_PROMPTS } from '../db/home'
 
 const empty = new Set<string>()
@@ -61,6 +61,27 @@ describe('mentalPromptFor', () => {
   it('differs across consecutive days (cycles)', () => {
     const days = ['2026-08-12', '2026-08-13', '2026-08-14', '2026-08-15'].map(mentalPromptFor)
     expect(new Set(days).size).toBeGreaterThan(1)
+  })
+})
+
+describe('customRegularsToTasks', () => {
+  it('maps custom regulars into HomeTasks that flow through todaysHome', () => {
+    const tasks = customRegularsToTasks([
+      { id: 'abc', title: 'Water the plants', cadence: 'daily' },
+      { id: 'def', title: 'Deep clean', cadence: 'weekly', category: 'load' },
+    ])
+    expect(tasks[0].id).toBe('custom-abc')
+    expect(tasks[0].mode).toBe('any')
+    expect(tasks[0].category).toBe('load') // default
+
+    const list = todaysHome({
+      away: false,
+      doneToday: new Set(['custom-abc']),
+      doneThisWeek: empty,
+      library: [...HOME_LIBRARY, ...tasks],
+    })
+    expect(list.find((t) => t.id === 'custom-abc')?.done).toBe(true)
+    expect(list.some((t) => t.id === 'custom-def')).toBe(true)
   })
 })
 
