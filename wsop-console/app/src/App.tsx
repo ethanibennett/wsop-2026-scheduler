@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BottomNav, type TabId } from './components/BottomNav'
 import { useStore } from './store'
 import { TodayScreen } from './screens/TodayScreen'
+import { DashboardScreen } from './screens/DashboardScreen'
 import { SessionsScreen } from './screens/SessionsScreen'
 import { BankrollScreen } from './screens/BankrollScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
@@ -28,6 +29,7 @@ export function App() {
   return (
     <div className="app">
       {tab === 'today' && <TodayScreen />}
+      {tab === 'dash' && <DashboardScreen />}
       {tab === 'sessions' && <SessionsScreen />}
       {tab === 'bankroll' && <BankrollScreen />}
       {tab === 'training' && <TrainingScreen />}

@@ -266,7 +266,7 @@ textarea {
 }
 
 .nav-tab {
-  flex: 1 1 25%; /* 4 per row; the second row's 3 grow to fill */
+  flex: 1 1 20%; /* 5 per row; the second row's 4 grow to fill (9 tabs) */
   background: none;
   border: none;
   color: var(--muted);
@@ -282,8 +282,8 @@ textarea {
   padding: 0;
 }
 
-.nav-tab:nth-child(-n + 4) {
-  border-bottom: 1px solid var(--line); /* divider between the two rows */
+.nav-tab:nth-child(-n + 5) {
+  border-bottom: 1px solid var(--line); /* divider between the two rows (5 + 4) */
 }
 
 .nav-tab .ic {

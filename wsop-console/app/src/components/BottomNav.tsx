@@ -1,5 +1,6 @@
 export type TabId =
   | 'today'
+  | 'dash'
   | 'sessions'
   | 'bankroll'
   | 'training'
@@ -10,6 +11,7 @@ export type TabId =
 
 const TABS: { id: TabId; label: string; ic: string }[] = [
   { id: 'today', label: 'Today', ic: '◎' },
+  { id: 'dash', label: 'Dash', ic: '▦' },
   { id: 'sessions', label: 'Sessions', ic: '▤' },
   { id: 'bankroll', label: 'Bankroll', ic: '◆' },
   { id: 'training', label: 'Train', ic: '⬓' },

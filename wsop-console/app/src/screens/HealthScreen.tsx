@@ -147,6 +147,7 @@ function BodyMetrics({
   const [weight, setWeight] = useState('')
   const [waist, setWaist] = useState('')
   const [sleep, setSleep] = useState('')
+  const [score, setScore] = useState('')
   const [rhr, setRhr] = useState('')
 
   const latest = metrics[0]
@@ -155,7 +156,7 @@ function BodyMetrics({
     latest?.weight != null && prevWeight != null ? latest.weight - prevWeight : null
 
   const save = async () => {
-    if (!weight && !waist && !sleep && !rhr) {
+    if (!weight && !waist && !sleep && !score && !rhr) {
       toast('Nothing entered yet')
       return
     }
@@ -165,12 +166,14 @@ function BodyMetrics({
       weight: weight ? Number(weight) : undefined,
       waist: waist ? Number(waist) : undefined,
       sleepHours: sleep ? Number(sleep) : undefined,
+      sleepScore: score ? Number(score) : undefined,
       rhr: rhr ? Number(rhr) : undefined,
     }
     await putRecord('health', m)
     setWeight('')
     setWaist('')
     setSleep('')
+    setScore('')
     setRhr('')
     await onSaved()
     toast('Logged ✓')
@@ -244,6 +247,10 @@ function BodyMetrics({
         <div className="field">
           <label>Sleep (hrs)</label>
           <input className="input" inputMode="decimal" value={sleep} onChange={(e) => setSleep(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Sleep score (Oura)</label>
+          <input className="input" inputMode="numeric" placeholder="0–100" value={score} onChange={(e) => setScore(e.target.value)} />
         </div>
         <div className="field">
           <label>Resting HR</label>

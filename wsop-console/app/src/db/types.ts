@@ -103,6 +103,7 @@ export interface HealthMetric {
   waist?: number
   sleepHours?: number
   sleepQuality?: MoodRating
+  sleepScore?: number // Oura sleep score (0–100)
   rhr?: number
   note?: string
 }
