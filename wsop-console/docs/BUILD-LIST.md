@@ -84,3 +84,10 @@ The "I can't remember everything I could be doing" problem: the app surfaces con
 - [x] **Weekly review summary** — 'Home this week' card (count + per-category) folds household contribution into the Sunday ritual.
 - [x] **Daily push nudge** — 11:00 ET 'home check' (`HOME_NUDGES`, separate cron, not in the rhythm checklist).
 - All engines unit-tested — **102 tests** total.
+
+## Visual + overnight polish batch
+- [x] **Dashboard** (new Dash tab) — overlay every series (cash/MTT P&L, Oura sleep score, sleep hrs, weight, RHR, mood, hours, anchor), each normalized; toggle on/off; **Pearson correlation** readout for any 2; 30/90/all date filter. Oura sleep-score field added to Health.
+- [x] **Sessions** — by-venue + by-night ($/hr) breakdowns; search + week/month date filter; quick-log presets (Parx 5/5/10, WSOP.com 1/2 PLO, Phenom 5/10) + online stakes.
+- [x] **Bankroll** — online stakes ladder + benchmarks; week-over-week roll delta; delete adjustments.
+- [x] **Training** consistency (days/wk + streak) · **Health** sleep-score/RHR 7-day trends · **Review** mental-game card (tilt notes) · **Settings** data summary · weekly backup push nudge · Today first-run card.
+- Engines: `series.ts` (+correlate), `byVenue`/`byWeekday`, `weekCadence`/`trainingConsistency`/`metricTrend` — all unit-tested (**120+ tests**).
