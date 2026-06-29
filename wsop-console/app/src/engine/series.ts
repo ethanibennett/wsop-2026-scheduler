@@ -3,7 +3,7 @@
 // pounds, bpm) → the chart normalizes each line to its own range, so the SHAPES
 // overlay and you can eyeball correlation (does P&L track sleep?).
 
-import type { Session, HealthMetric } from '../db/types'
+import type { Session, HealthMetric, RoutineLog } from '../db/types'
 
 export interface SeriesPoint {
   date: string
@@ -54,10 +54,19 @@ function moodByDay(sessions: Session[]): SeriesPoint[] {
 
 const last = (p: SeriesPoint[]) => (p.length ? p[p.length - 1].value : null)
 
-export function buildSeries(opts: { sessions: Session[]; metrics: HealthMetric[] }): Series[] {
-  const { sessions, metrics } = opts
+// Total hours played per day.
+function hoursByDay(sessions: Session[]): SeriesPoint[] {
+  const byDate = new Map<string, number>()
+  for (const s of sessions) byDate.set(s.date, (byDate.get(s.date) ?? 0) + s.hours)
+  return [...byDate.entries()].map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date))
+}
+
+export function buildSeries(opts: { sessions: Session[]; metrics: HealthMetric[]; routine?: RoutineLog[] }): Series[] {
+  const { sessions, metrics, routine = [] } = opts
   const cash = sessions.filter((s) => !s.isMTT && !s.isWsopFund)
   const mtt = sessions.filter((s) => s.isMTT)
+  const anchorPts = sortByDate(routine)
+    .map((r) => ({ date: r.date, value: r.wakeAnchor ? 1 : 0 }))
 
   const defs: Series[] = [
     { key: 'cash', label: 'Cash P&L', color: '#5a9e7a', unit: '$', cumulative: true, points: runningTotal(cash), latest: null },
@@ -67,6 +76,8 @@ export function buildSeries(opts: { sessions: Session[]; metrics: HealthMetric[]
     { key: 'weight', label: 'Weight', color: '#c97f7f', unit: 'lb', cumulative: false, points: metricSeries(metrics, (m) => m.weight), latest: null },
     { key: 'rhr', label: 'Resting HR', color: '#cf8a5a', unit: 'bpm', cumulative: false, points: metricSeries(metrics, (m) => m.rhr), latest: null },
     { key: 'mood', label: 'Mood', color: '#9aa0a6', unit: '/5', cumulative: false, points: moodByDay(sessions), latest: null },
+    { key: 'hours', label: 'Hours/day', color: '#b07cc6', unit: 'h', cumulative: false, points: hoursByDay(sessions), latest: null },
+    { key: 'anchor', label: 'Wake anchor', color: '#7a9e5a', unit: '', cumulative: false, points: anchorPts, latest: null },
   ]
   for (const s of defs) s.latest = last(s.points)
   // Only surface series that actually have data.
@@ -81,6 +92,68 @@ export function normalize(points: SeriesPoint[]): { date: string; t: number }[] 
   const max = Math.max(...vals)
   const span = max - min
   return points.map((p) => ({ date: p.date, t: span === 0 ? 0.5 : (p.value - min) / span }))
+}
+
+// ── Correlation between two series (the "do they move together?" number) ──
+// Cumulative series (P&L) are first-differenced to their daily change, so we
+// correlate "up days" with the metric — not the monotonic running total.
+function signal(s: Series): Map<string, number> {
+  const m = new Map<string, number>()
+  if (s.cumulative) {
+    let prev = 0
+    for (const p of s.points) {
+      m.set(p.date, p.value - prev)
+      prev = p.value
+    }
+  } else {
+    for (const p of s.points) m.set(p.date, p.value)
+  }
+  return m
+}
+
+export interface Correlation {
+  r: number // Pearson, −1..1
+  n: number // overlapping days
+}
+
+/** Pearson r over the days both series share. null if < 3 shared days. */
+export function correlate(a: Series, b: Series): Correlation | null {
+  const ma = signal(a)
+  const mb = signal(b)
+  const xs: number[] = []
+  const ys: number[] = []
+  for (const [date, va] of ma) {
+    const vb = mb.get(date)
+    if (vb != null) {
+      xs.push(va)
+      ys.push(vb)
+    }
+  }
+  const n = xs.length
+  if (n < 3) return null
+  const mean = (arr: number[]) => arr.reduce((p, c) => p + c, 0) / arr.length
+  const mx = mean(xs)
+  const my = mean(ys)
+  let cov = 0
+  let vx = 0
+  let vy = 0
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx
+    const dy = ys[i] - my
+    cov += dx * dy
+    vx += dx * dx
+    vy += dy * dy
+  }
+  if (vx === 0 || vy === 0) return { r: 0, n }
+  return { r: cov / Math.sqrt(vx * vy), n }
+}
+
+/** Plain-English read of a correlation coefficient. */
+export function correlationWord(r: number): string {
+  const a = Math.abs(r)
+  const strength = a < 0.2 ? 'no real' : a < 0.4 ? 'a weak' : a < 0.6 ? 'a moderate' : 'a strong'
+  if (a < 0.2) return 'no real link'
+  return `${strength} ${r > 0 ? 'positive' : 'negative'} link`
 }
 
 // Overall date domain (ms) across the given series, for a shared x-axis.

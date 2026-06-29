@@ -12,6 +12,8 @@ import {
   cumulativePnl,
   monthlyBreakdown,
   mttStats,
+  byVenue,
+  byWeekday,
   rhythmEdge,
   moodEdge,
   type EdgeSplit,
@@ -121,6 +123,8 @@ export function SessionsScreen() {
   const pnl = useMemo(() => cumulativePnl(sessions), [sessions])
   const months = useMemo(() => monthlyBreakdown(sessions), [sessions])
   const mtt = useMemo(() => mttStats(sessions), [sessions])
+  const venues = useMemo(() => byVenue(sessions), [sessions])
+  const weekdays = useMemo(() => byWeekday(sessions).filter((d) => d.sessions > 0), [sessions])
   const anchorEdge = useMemo(() => rhythmEdge(sessions, routine), [sessions, routine])
   const moodSplit = useMemo(() => moodEdge(sessions), [sessions])
   const showEdge = anchorEdge.delta != null || moodSplit.delta != null
@@ -263,6 +267,46 @@ export function SessionsScreen() {
               </div>
               <div className={`mono ${m.result >= 0 ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
                 {money(m.result, { sign: true })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* By venue — game selection by room */}
+      {venues.length > 1 && (
+        <div className="card">
+          <div className="card-head">
+            <span className="card-label">By venue</span>
+          </div>
+          {venues.map((v) => (
+            <div key={v.venue} className="ladder-step" style={{ padding: '8px 0' }}>
+              <div className="ladder-meta">
+                <div className="ladder-name">{v.venue}</div>
+                <div className="sess-meta">{fmtHours(v.hours)} · {v.sessions} sess</div>
+              </div>
+              <div className={`mono ${v.perHour >= 0 ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
+                {money(v.perHour, { sign: true })}/h
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* By weekday — which nights run best */}
+      {weekdays.length > 1 && (
+        <div className="card">
+          <div className="card-head">
+            <span className="card-label">By night</span>
+          </div>
+          {weekdays.map((d) => (
+            <div key={d.weekday} className="ladder-step" style={{ padding: '7px 0' }}>
+              <div className="ladder-meta">
+                <div className="ladder-name">{d.label}</div>
+                <div className="sess-meta">{fmtHours(d.hours)} · {d.sessions} sess</div>
+              </div>
+              <div className={`mono ${d.perHour >= 0 ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
+                {money(d.perHour, { sign: true })}/h
               </div>
             </div>
           ))}

@@ -7,8 +7,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
 import { getAll } from '../db/idb'
 import type { HealthMetric } from '../db/types'
-import { buildSeries, normalize, dateDomain, type Series } from '../engine/series'
-import { fmtDate, money } from '../engine/format'
+import { buildSeries, normalize, dateDomain, correlate, correlationWord, type Series } from '../engine/series'
+import { fmtDate, money, localDate } from '../engine/format'
+
+type Range = '30' | '90' | 'all'
 
 function MultiLineChart({ series, domain, height = 190 }: { series: Series[]; domain: [number, number]; height?: number }) {
   const W = 340
@@ -42,13 +44,27 @@ function fmtLatest(s: Series): string {
 }
 
 export function DashboardScreen() {
-  const { sessions } = useStore()
+  const { sessions, routine } = useStore()
   const [metrics, setMetrics] = useState<HealthMetric[]>([])
+  const [range, setRange] = useState<Range>('90')
   useEffect(() => {
     void getAll<HealthMetric>('health').then(setMetrics)
   }, [])
 
-  const series = useMemo(() => buildSeries({ sessions, metrics }), [sessions, metrics])
+  const series = useMemo(() => {
+    const full = buildSeries({ sessions, metrics, routine })
+    if (range === 'all') return full
+    const days = range === '30' ? 30 : 90
+    const cut = new Date()
+    cut.setDate(cut.getDate() - days)
+    const cutISO = localDate(cut)
+    return full
+      .map((s) => {
+        const points = s.points.filter((p) => p.date >= cutISO)
+        return { ...s, points, latest: points.length ? points[points.length - 1].value : null }
+      })
+      .filter((s) => s.points.length > 0)
+  }, [sessions, metrics, routine, range])
 
   // Default a couple of complementary lines on (the question this answers:
   // does the roll move with sleep?).
@@ -66,6 +82,7 @@ export function DashboardScreen() {
 
   const shown = series.filter((s) => enabled.has(s.key))
   const domain = useMemo(() => dateDomain(shown), [shown])
+  const corr = shown.length === 2 ? correlate(shown[0], shown[1]) : null
 
   const toggle = (key: string) =>
     setEnabled((cur) => {
@@ -90,6 +107,13 @@ export function DashboardScreen() {
         <>
           {/* The overlay chart */}
           <div className="card">
+            <div className="pill-row" style={{ marginBottom: 10 }}>
+              {(['30', '90', 'all'] as Range[]).map((r) => (
+                <button key={r} className={`pill${range === r ? ' on' : ''}`} onClick={() => setRange(r)}>
+                  {r === 'all' ? 'All' : `${r}d`}
+                </button>
+              ))}
+            </div>
             {domain && shown.length > 0 ? (
               <>
                 <MultiLineChart series={shown} domain={domain} />
@@ -107,6 +131,24 @@ export function DashboardScreen() {
               Each line is scaled to its own range — compare the <strong>shapes</strong>, not the values.
               Tap a series to overlay or hide it.
             </div>
+            {shown.length === 2 && (
+              <div
+                style={{
+                  marginTop: 10, padding: '9px 11px', borderRadius: 8,
+                  border: `1px solid ${corr && Math.abs(corr.r) >= 0.4 ? 'var(--chip)' : 'var(--line)'}`,
+                  fontSize: 13,
+                }}
+              >
+                {corr ? (
+                  <>
+                    <strong>{shown[0].label} ↔ {shown[1].label}:</strong> {correlationWord(corr.r)}{' '}
+                    <span className="mono muted">(r={corr.r >= 0 ? '+' : ''}{corr.r.toFixed(2)}, {corr.n} days)</span>
+                  </>
+                ) : (
+                  <span className="muted">Not enough overlapping days yet to measure a link.</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Legend / toggles */}

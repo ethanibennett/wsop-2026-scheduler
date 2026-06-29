@@ -86,6 +86,57 @@ export function winRateByGroup(sessions: Session[]): GroupStat[] {
   return out.sort((a, b) => b.hours - a.hours)
 }
 
+// ── Venue breakdown — game selection by room (Parx / Delaware / online) ──
+export interface VenueStat {
+  venue: string
+  sessions: number
+  hours: number
+  result: number
+  perHour: number
+}
+
+export function byVenue(sessions: Session[]): VenueStat[] {
+  const map = new Map<string, VenueStat>()
+  for (const s of sessions) {
+    if (s.isWsopFund) continue
+    const venue = s.venue?.trim() || s.channel
+    const v = map.get(venue) ?? { venue, sessions: 0, hours: 0, result: 0, perHour: 0 }
+    v.sessions += 1
+    v.hours += s.hours
+    v.result += s.result
+    map.set(venue, v)
+  }
+  const out = [...map.values()]
+  for (const v of out) v.perHour = v.hours > 0 ? v.result / v.hours : 0
+  return out.sort((a, b) => b.hours - a.hours)
+}
+
+// ── Day-of-week — which nights actually run best (Mon-first) ──
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+export interface WeekdayStat {
+  weekday: number // 0 = Mon
+  label: string
+  sessions: number
+  hours: number
+  result: number
+  perHour: number
+}
+
+export function byWeekday(sessions: Session[]): WeekdayStat[] {
+  const out: WeekdayStat[] = WEEKDAYS.map((label, weekday) => ({
+    weekday, label, sessions: 0, hours: 0, result: 0, perHour: 0,
+  }))
+  for (const s of sessions) {
+    if (s.isWsopFund) continue
+    const dow = (new Date(s.date + 'T00:00:00').getDay() + 6) % 7 // 0 = Mon
+    out[dow].sessions += 1
+    out[dow].hours += s.hours
+    out[dow].result += s.result
+  }
+  for (const d of out) d.perHour = d.hours > 0 ? d.result / d.hours : 0
+  return out
+}
+
 // ── Cumulative P&L (the graph) ──
 export interface PnlPoint {
   date: string

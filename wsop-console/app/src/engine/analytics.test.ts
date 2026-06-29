@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   bigBlind,
   winRateByGroup,
+  byVenue,
+  byWeekday,
   cumulativePnl,
   monthlyBreakdown,
   mttStats,
@@ -81,6 +83,35 @@ describe('winRateByGroup', () => {
   it('flags small samples under 20h', () => {
     const g = winRateByGroup([sess({ hours: 3, result: 50 })])
     expect(g[0].smallSample).toBe(true)
+  })
+})
+
+describe('byVenue', () => {
+  it('groups $/hr by room and sorts by hours', () => {
+    const v = byVenue([
+      sess({ venue: 'Parx', hours: 10, result: 1000 }),
+      sess({ venue: 'Parx', hours: 5, result: -200 }),
+      sess({ venue: 'Delaware Park', hours: 4, result: 800 }),
+      sess({ venue: '', channel: 'online', hours: 2, result: 100 }),
+    ])
+    expect(v[0].venue).toBe('Parx')
+    expect(v[0].hours).toBe(15)
+    expect(v[0].perHour).toBeCloseTo(800 / 15, 5)
+    expect(v.find((x) => x.venue === 'online')?.sessions).toBe(1) // blank venue → channel
+  })
+})
+
+describe('byWeekday', () => {
+  it('buckets by Mon-first weekday', () => {
+    // 2026-08-03 is a Monday; 2026-08-08 a Saturday
+    const w = byWeekday([
+      sess({ date: '2026-08-03', hours: 5, result: 500 }),
+      sess({ date: '2026-08-08', hours: 5, result: -100 }),
+    ])
+    expect(w[0].label).toBe('Mon')
+    expect(w[0].result).toBe(500)
+    expect(w[5].label).toBe('Sat')
+    expect(w[5].result).toBe(-100)
   })
 })
 
