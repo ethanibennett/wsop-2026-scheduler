@@ -4,7 +4,7 @@ import { useToast } from '../components/Toast'
 import { Sheet } from '../components/Sheet'
 import { SessionForm } from '../components/SessionForm'
 import type { Session } from '../db/types'
-import { money, fmtDate, fmtHours } from '../engine/format'
+import { money, fmtDate, fmtHours, isThisWeek, todayISO } from '../engine/format'
 import {
   winRateByGroup,
   totals,
@@ -107,16 +107,26 @@ export function SessionsScreen() {
   const [editing, setEditing] = useState<Session | null>(null)
   const [adding, setAdding] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
+  const [search, setSearch] = useState('')
+  const [dateRange, setDateRange] = useState<'all' | 'week' | 'month'>('all')
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const month = todayISO().slice(0, 7)
     return sessions.filter((s) => {
-      if (filter === 'live') return s.channel === 'live'
-      if (filter === 'online') return s.channel === 'online'
-      if (filter === 'cash') return !s.isMTT
-      if (filter === 'mtt') return s.isMTT
+      if (filter === 'live' && s.channel !== 'live') return false
+      if (filter === 'online' && s.channel !== 'online') return false
+      if (filter === 'cash' && s.isMTT) return false
+      if (filter === 'mtt' && !s.isMTT) return false
+      if (dateRange === 'week' && !isThisWeek(s.date)) return false
+      if (dateRange === 'month' && s.date.slice(0, 7) !== month) return false
+      if (q) {
+        const hay = `${s.venue} ${s.gameLabel} ${s.stakeLevel ?? ''} ${s.format}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
       return true
     })
-  }, [sessions, filter])
+  }, [sessions, filter, search, dateRange])
 
   const groups = useMemo(() => winRateByGroup(sessions), [sessions])
   const all = useMemo(() => totals(sessions), [sessions])
@@ -358,6 +368,13 @@ export function SessionsScreen() {
       )}
 
       {/* Filters */}
+      <input
+        className="input"
+        placeholder="Search venue / game / stake…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ marginBottom: 8 }}
+      />
       <div className="pill-row">
         {(['all', 'live', 'online', 'cash', 'mtt'] as Filter[]).map((f) => (
           <button
@@ -366,6 +383,13 @@ export function SessionsScreen() {
             onClick={() => setFilter(f)}
           >
             {f}
+          </button>
+        ))}
+      </div>
+      <div className="pill-row">
+        {(['all', 'week', 'month'] as const).map((r) => (
+          <button key={r} className={`pill${dateRange === r ? ' on' : ''}`} onClick={() => setDateRange(r)}>
+            {r === 'all' ? 'all dates' : `this ${r}`}
           </button>
         ))}
       </div>

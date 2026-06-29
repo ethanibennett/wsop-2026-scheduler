@@ -13,7 +13,14 @@ const FORMATS: Format[] = [
   'BigO',
   'other',
 ]
-const STAKES = ['1/2', '2/2/5', '5/5/10', '5/10/30', '10/20/40']
+const STAKES = ['1/2', '2/2/5', '5/5/10', '5/10/30', '5/10', '10/20', '10/20/40']
+
+// One-tap presets for the games actually played most.
+const PRESETS: { label: string; patch: Partial<Session> }[] = [
+  { label: 'Parx 5/5/10', patch: { channel: 'live', isMTT: false, format: 'PLO', stakeLevel: '5/5/10', venue: 'Parx', gameLabel: '5/5/10 PLO' } },
+  { label: 'WSOP.com 1/2 PLO', patch: { channel: 'online', isMTT: false, format: 'PLO', stakeLevel: '1/2', venue: 'WSOP.com', gameLabel: '1/2 PLO' } },
+  { label: 'Phenom 5/10 mix', patch: { channel: 'online', isMTT: false, format: 'mixed', stakeLevel: '5/10', venue: 'Phenom', gameLabel: '5/10 mixed' } },
+]
 
 const blank = (): Session => ({
   id: uid(),
@@ -59,6 +66,15 @@ export function SessionForm({ initial, onSave, onCancel, onDelete }: Props) {
 
   return (
     <form onSubmit={submit}>
+      {!initial && (
+        <div className="pill-row" style={{ marginBottom: 12 }}>
+          {PRESETS.map((p) => (
+            <button type="button" key={p.label} className="pill" onClick={() => setS((cur) => ({ ...cur, ...p.patch }))}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="field-row">
         <div className="field">
           <label>Date</label>

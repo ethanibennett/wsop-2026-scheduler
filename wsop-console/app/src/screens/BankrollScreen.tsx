@@ -29,7 +29,7 @@ const ADJ_TYPES: { v: AdjustmentType; label: string }[] = [
 ]
 
 export function BankrollScreen() {
-  const { sessions, adjustments, settings, put } = useStore()
+  const { sessions, adjustments, settings, put, remove } = useStore()
   const toast = useToast()
   const [adjOpen, setAdjOpen] = useState(false)
   const [view, setView] = useState<'roll' | 'admin' | 'risk'>('roll')
@@ -313,7 +313,17 @@ export function BankrollScreen() {
           </div>
         ) : (
           adjustments.slice(0, 8).map((a) => (
-            <div className="session-item" key={a.id} style={{ cursor: 'default' }}>
+            <button
+              className="session-item"
+              key={a.id}
+              title="Tap to delete"
+              onClick={async () => {
+                if (confirm(`Delete this ${a.type.replace(/-/g, ' ')} (${money(a.amount, { sign: true })})?`)) {
+                  await remove('adjustments', a.id)
+                  toast('Adjustment deleted')
+                }
+              }}
+            >
               <div className="sess-main">
                 <div className="sess-label">{a.type.replace(/-/g, ' ')}</div>
                 <div className="sess-meta">
@@ -324,7 +334,7 @@ export function BankrollScreen() {
               <div className={`sess-result ${a.amount >= 0 ? 'pos' : 'neg'}`}>
                 {money(a.amount, { sign: true })}
               </div>
-            </div>
+            </button>
           ))
         )}
       </div>
