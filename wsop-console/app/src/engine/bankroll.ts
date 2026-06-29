@@ -84,6 +84,77 @@ export const MOVEDOWN_BI = 20 // drop below this many bi of current stake → mo
 export const SHOT_BI_MIN = 3 // earmark 3–5 bi of the higher stake for a shot
 export const SHOT_BI_MAX = 5
 
+// ── Online stakes + benchmarks ──
+// "Online is pure rate" — the framework's most underused lever. Online PLO runs
+// a touch more (~50 bi) for the higher hands/hour variance; mixed (limit) games
+// are ~300–400 big bets PER game in the rotation.
+export const ONLINE_PLO_BI = 50
+export const ONLINE_LIMIT_BB = 350
+
+export interface OnlineStake {
+  key: string
+  site: string
+  game: string
+  kind: 'PLO' | 'mixed'
+  unit: number // PLO buy-in ($) or limit big bet ($)
+  rollToSit: number // 50 bi (PLO) / 350 big bets (limit)
+  winRateTarget: string // soft-game benchmark
+  volume: string // weekly target
+  tier: 'start' | 'next'
+  note: string
+}
+
+export const ONLINE_STAKES: OnlineStake[] = [
+  {
+    key: 'wsop-1-2-plo',
+    site: 'WSOP.com',
+    game: '1/2 PLO · 2 tables',
+    kind: 'PLO',
+    unit: 200,
+    rollToSit: 200 * ONLINE_PLO_BI, // ~$10k
+    winRateTarget: '+5 bb/100',
+    volume: '2–3 sessions/wk',
+    tier: 'start',
+    note: 'PA/NJ/NV, supremely soft. The volume lever — log hands so bb/100 + “is your edge real?” work.',
+  },
+  {
+    key: 'phenom-5-10-mix',
+    site: 'Phenom',
+    game: '5/10 mixed (limit)',
+    kind: 'mixed',
+    unit: 10,
+    rollToSit: 10 * ONLINE_LIMIT_BB, // ~$3.5k
+    winRateTarget: '+1 BB/100',
+    volume: '1–2 sessions/wk',
+    tier: 'start',
+    note: 'Reps across the rotation cheaply — builds the $10k-championship muscle. Needs the USDT wallet.',
+  },
+  {
+    key: 'wsop-2-5-plo',
+    site: 'WSOP.com',
+    game: '2/5 PLO',
+    kind: 'PLO',
+    unit: 500,
+    rollToSit: 500 * ONLINE_PLO_BI, // ~$25k
+    winRateTarget: 'hold the edge',
+    volume: 'after 1/2',
+    tier: 'next',
+    note: 'Move up once 1/2 is a significant winner over a real sample — not a small upswing.',
+  },
+  {
+    key: 'phenom-10-20-mix',
+    site: 'Phenom',
+    game: '10/20 mixed (limit)',
+    kind: 'mixed',
+    unit: 20,
+    rollToSit: 20 * ONLINE_LIMIT_BB, // ~$7k
+    winRateTarget: 'hold the edge',
+    volume: 'after 5/10',
+    tier: 'next',
+    note: 'Move up once the rotation feels automatic.',
+  },
+]
+
 export interface StakeRecommendation {
   sit: StakeRung | null // highest stake with ≥ SIT_BI buy-ins
   buyInsAtSit: number

@@ -24,6 +24,7 @@ export const ADMIN_CHECKLIST: AdminPhaseGroup[] = [
       { id: 'retirement', label: 'Open a retirement vehicle', detail: 'SEP-IRA or Solo 401(k) — tax-advantaged, built for self-employment, and reduces taxable income. A fee-only advisor for the non-poker base.' },
       { id: 'cpa', label: 'Book the proactive CPA session', detail: 'The leverage is using the specialist before WSOP, not at filing: the 90% rule against your volume, quarterly-estimate sizing, multi-state, the retirement vehicle.' },
       { id: 'surgery', label: 'Confirm surgery coverage before booking', detail: 'Check the hernia repair + colonoscopy are in-network; know the deductible and out-of-pocket max. A phone call, not a project.' },
+      { id: 'phenom-wallet', label: 'Set up the Phenom USDT (Tether) wallet', detail: 'The unlock for the mixed-game reps on Phenom — get the Tether wallet working on their network so deposits/withdrawals are painless, then start the 5/10 rotation.' },
     ],
   },
   {

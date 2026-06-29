@@ -10,6 +10,7 @@ import {
   recommendStake,
   fundProjection,
   LADDER,
+  ONLINE_STAKES,
   WSOP_FUND_TARGET,
   WSOP_FUND_OPEN_AT,
 } from '../engine/bankroll'
@@ -242,6 +243,40 @@ export function BankrollScreen() {
             Set your starting roll in Settings to get the call.
           </div>
         )}
+      </div>
+
+      {/* Online games + benchmarks — the underused rate lever */}
+      <div className="card">
+        <div className="card-head">
+          <span className="card-label">Online games</span>
+          <span className="mono muted" style={{ fontSize: 12 }}>build the volume</span>
+        </div>
+        {(['start', 'next'] as const).map((tier) => (
+          <div key={tier}>
+            <div className="card-label" style={{ fontSize: 11, margin: '6px 0 2px' }}>
+              {tier === 'start' ? 'Play now' : 'Move up to'}
+            </div>
+            {ONLINE_STAKES.filter((s) => s.tier === tier).map((s) => (
+              <div key={s.key} className="ladder-step" style={{ padding: '9px 0', alignItems: 'flex-start' }}>
+                <div className="ladder-meta">
+                  <div className="ladder-name">
+                    {s.game} <span className="muted">· {s.site}</span>
+                  </div>
+                  <div className="sess-meta">{s.note}</div>
+                </div>
+                <div className="mono muted" style={{ fontSize: 11, textAlign: 'right', flex: '0 0 auto', marginLeft: 8 }}>
+                  sit {moneyK(s.rollToSit)}
+                  <br />{s.winRateTarget}
+                  {tier === 'start' ? <><br />{s.volume}</> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+        <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          Online is pure rate — the framework’s most underused lever. Log hands on WSOP.com so bb/100 and
+          the edge-significance read actually work.
+        </div>
       </div>
 
       {/* Volume ramp */}
