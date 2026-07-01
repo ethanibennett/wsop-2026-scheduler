@@ -1,5 +1,18 @@
 # Continuous training on a dedicated machine
 
+> **Note on `--workers > 1`:** the data-parallel merge now **averages** the
+> per-round worker tables (`mergeAverage` in `engine/parallel.js`) — a
+> DCFR-correct merge, verified on Kuhn (W=4 → exploitability 0.0012, W=8 →
+> 0.0008, ≤ single-thread's 0.0016). The *original* additive delta-merge was
+> broken (it over-applied DCFR's regret discount W times and flipped negative
+> regrets, making strategies *more* exploitable with training — it corrupted a
+> td27 retrain from ~2.6 to ~7.9 before it was caught). One semantic change from
+> the fix: **parallelism now buys variance reduction at the same iteration rate,
+> not W× more iterations** — the extra cores make each iteration lower-variance
+> (better convergence), they don't multiply the iteration count. A blueprint
+> trained at workers>1 carries genuinely fewer-but-better iterations than the
+> old (bogus) iteration counts implied.
+
 This is the plug-and-play setup for grinding the three solvers 24/7 on an
 always-on box. Training is pure local compute (zero API tokens), so there's no
 reason to leave cores idle. Two pieces:

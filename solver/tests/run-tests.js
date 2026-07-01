@@ -221,5 +221,58 @@ test('exact Kuhn: a uniform strategy is clearly exploitable', () => {
   assert(e.exploitability > 0.1, `uniform exploitability ${e.exploitability}`);
 });
 
+console.log('— Particle-filter draw LBR —');
+{
+  const { drawLBR } = require('../lbr-draw');
+  const fs = require('fs');
+  const path = require('path');
+  // Use the trained blueprints if present; these are big files, so skip cleanly
+  // if a pruned clone lacks them.
+  const have = id => fs.existsSync(path.join(__dirname, '..', 'strategies', id + '.json'));
+  const load = id => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'strategies', id + '.json'), 'utf8')).strategy;
+
+  test('draw LBR: a uniform-random opponent is FAR more exploitable than the blueprint', () => {
+    // Core validity gate (3), shrunk for speed: uniform must dwarf the blueprint.
+    if (!have('badugi')) { console.log('      (skip — no badugi.json)'); return; }
+    const game = GAMES.badugi, sigma = load('badugi');
+    const bp = drawLBR(game, sigma, { particles: 60, hands: 250, seed: 3 }).exploitability;
+    const uni = drawLBR(game, {}, { particles: 60, hands: 250, margin: 0, seed: 3 }).exploitability;
+    assert(uni > bp + 1.5, `uniform ${uni.toFixed(2)} should be >> blueprint ${bp.toFixed(2)}`);
+  });
+
+  test('draw LBR: the shipped number is a non-negative lower bound, ≤ a broken strategy', () => {
+    if (!have('td27')) { console.log('      (skip — no td27.json)'); return; }
+    const game = GAMES.td27, sigma = load('td27');
+    const r = drawLBR(game, sigma, { particles: 60, hands: 250, seed: 5 });
+    assert(r.exploitability >= 0, 'lower bound is clamped non-negative');
+    const uni = drawLBR(game, {}, { particles: 60, hands: 250, margin: 0, seed: 5 }).exploitability;
+    assert(uni >= r.exploitability, 'a broken (uniform) strategy is at least as exploitable');
+  });
+
+  test('draw LBR belief: after the opponent 3-bets under the blueprint, mass shifts to deuce-draws', () => {
+    // Directly exercises the particle reweighting: bucket -> infoset key -> σ.
+    if (!have('td27')) { console.log('      (skip — no td27.json)'); return; }
+    const game = GAMES.td27, cfg = game.cfg, sigma = load('td27');
+    const probs = (key, acts) => {
+      const n = sigma[key];
+      return (n && n.a.length === acts.length && n.a.every((a, i) => a === acts[i])) ? n.p : acts.map(() => 1 / acts.length);
+    };
+    const rng = makeRng(123);
+    let s = game.newHand(rng);
+    s = game.applyAction(s, 'r'); // SB raises; BB now faces the raise
+    const acts = game.legalActions(s); const ai = acts.indexOf('r');
+    const seen = new Set(s.hands[0]); const pool = [];
+    for (let c = 0; c < 52; c++) if (!seen.has(c)) pool.push(c);
+    const draw5 = () => { const a = pool.slice(), out = []; for (let i = 0; i < 5; i++) { const j = Math.floor(rng() * a.length); out.push(a[j]); a[j] = a[a.length - 1]; a.pop(); } return out; };
+    const keyOf = hnd => { const sv = s.hands[1]; s.hands[1] = hnd; const k = game.infosetKey(s); s.hands[1] = sv; return k; };
+    let priorDeuce = 0, postDeuce = 0, z = 0; const parts = [];
+    for (let i = 0; i < 3000; i++) parts.push({ hand: draw5(), w: 1 });
+    for (const p of parts) { if (cfg.bucket(p.hand).includes('d')) priorDeuce++; const pr = probs(keyOf(p.hand), acts)[ai]; p.w *= pr; z += p.w; }
+    for (const p of parts) { p.w /= z; if (cfg.bucket(p.hand).includes('d')) postDeuce += p.w; }
+    assert(postDeuce > priorDeuce / parts.length + 0.05,
+      `posterior deuce mass ${postDeuce.toFixed(3)} should exceed prior ${(priorDeuce / parts.length).toFixed(3)}`);
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

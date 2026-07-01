@@ -35,6 +35,11 @@ const saveCheckpoint = arg('checkpoint', '1') !== '0'; // --checkpoint 0 skips t
 const saveEverySec = parseInt(arg('save-every', '1200'), 10); // periodic strategy save (crash safety)
 const ckptEverySec = parseInt(arg('ckpt-every', '0'), 10); // periodic full-state checkpoint (0 = only at end)
 const workers = parseInt(arg('workers', '1'), 10); // >1 => data-parallel across cores
+// NOTE: the parallel path (engine/parallel.js) AVERAGES the per-round worker
+// tables (a DCFR-correct merge; the old additive delta-merge was broken — see
+// that file). Averaging advances iterations at the SAME rate as single-thread
+// and spends the extra cores on variance reduction (better convergence per
+// iteration), NOT on W× more iterations. Verified on Kuhn (W=4/8 -> ~0).
 const mergeEvery = parseInt(arg('merge-every', '50000'), 10); // iters/worker between parallel merges
 const workerHeapMB = parseInt(arg('worker-heap', '0'), 10); // per-worker-thread V8 old-space cap (MB)
 

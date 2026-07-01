@@ -21,7 +21,7 @@ bash solver/setup-local.sh                          # installs, restores checkpo
 npm run supervise -- --heap 16384 --meter-min 20    # training runs 24/7 (no API, no tokens)
 ```
 Then, in the same folder, start a local Claude Code session (`claude`) and paste:
-> Read `solver/HANDOFF.md` and `CLAUDE.md`, confirm the state, then start the next priority: Stud 8 neural Milestone A (`solver/neural/resolve.py`).
+> Read `solver/HANDOFF.md` and `CLAUDE.md`, confirm the state, then start the next priority: Stud 8 neural Milestone C — wire `solver/neural/resolve.py` (Milestone A, done) into `datagen.py`/`train.py` to fit `value_net.py`.
 
 That's it. Training (above) and the Claude session are independent; only the
 Claude session uses your Anthropic plan. Details below.
@@ -151,8 +151,17 @@ solver/
   strategies/         <game>.json (committed) + .meta.json + .ckpt.json (gitignored).
   tests/              32 tests incl. Kuhn convergence + meter validation.
   RESEARCH.md ROADMAP.md PARALLEL.md README.md HANDOFF.md
-  neural/             Stud 8 DeepStack/ReBeL plan; value_net.py implemented;
-                      resolve.py (Milestone A) is the critical-path stub.
+  neural/             Stud 8 DeepStack/ReBeL solver. DONE & self-tested (pure
+                      Python, `bash neural/run_tests.sh`, ~55s): resolve.py
+                      (Milestone A re-solver + BR gauge + sparse `holdings=` +
+                      bucketed `share_matrix=`), solve_spot.py (on-demand
+                      node-locked STUDY solver — usable now), bucket_resolve.py +
+                      datagen_bucketed.py + datagen-24-7.sh (fast bucketed solver
+                      + parallel 24/7 data grind), datagen.py (exact CFV shards),
+                      bucket.py (B-v0: 25 hi×lo buckets), net_leaf.py, train.py
+                      (featurize ok; loop needs torch), eval_stud8.py, pbs.py.
+                      value_net.py = the net (torch). Next: run the torch fit on
+                      the grind's data; true-B EMD clustering; Milestone D.
 ```
 
 Frontend (in `vite-app/src/` and `public/index.html`): `SolverPlayView.jsx`,
@@ -221,9 +230,19 @@ response / LBR is a future milestone (`ROADMAP.md` Phase 1).
    the lower bound) — the gate for trusting further abstraction changes.
 5. **Study-system features** (`ROADMAP.md` Phase 3): spot drilling, range/frequency
    explorer, **leak detection** (import your hands vs the solver), node-locking.
-6. **Neural Stud 8** (`neural/`, Phase 4): implement **Milestone A `resolve.py`**
-   (tabular range-CFR subgame re-solver producing per-holding counterfactual
-   values) — the critical path; the value net (`value_net.py`) is already done.
+6. **Neural Stud 8** (`neural/`, Phase 4): **Milestones A + C (data pipeline) +
+   B-v0 are DONE** (pure Python, all self-tested via `neural/run_tests.sh`):
+   `resolve.py` (range-CFR+ re-solver + exact best-response gauge; 7000-case
+   cross-check vs the JS engine), `datagen.py` (PBS/range sampling → solve →
+   JSONL CFV shards), `bucket.py` (fixed 25-bucket hi×lo featurization with
+   value-preserving aggregation), `net_leaf.py` (net↔resolver leaf adapter), and
+   `train.py` (featurize + Huber/Adam loop). **Remaining:** (a) run the actual
+   `train.py` fit on a **PyTorch** box (7th-street first, then bootstrap earlier
+   streets with the trained net as `leaf_value_fn`, `depth_limit=1`); (b) **true
+   Milestone B** — swap `bucket.py`'s feature buckets for EMD/potential
+   clustering (~1000 buckets; also the path to scaling the O(#holdings²)
+   re-solver); (c) **Milestone D** continual re-solving at the table. See
+   `neural/README.md`.
 7. Optional: wire `analyst.js` into the supervisor to auto-emit a report each
    metering cycle.
 

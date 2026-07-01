@@ -190,6 +190,49 @@ function makeDrawGame(cfg) {
       return n;
     },
 
+    // ── Explicit-discard draw apply (FULL DISCARD CONTROL) ──────────────────
+    // The draw-trainer hero may discard ANY specific cards, not just the
+    // abstraction's chooseKeep set. Given a DRAW-phase state `s` (toAct = the
+    // drawer) and an EXPLICIT `keep` set (the cards the drawer KEEPS — a subset
+    // of s.hands[toAct]), produce EXACTLY the state applyAction('d'+k) produces
+    // for k = handSize − keep.length, but with the explicit keep instead of
+    // cfg.chooseKeep(k). The result is the same kind of node: a CHANCE node
+    // (pendingDraw set, deck untouched) when k>0 — so a subsequent sampleChance
+    // pops k replacements off the seeded deck identically — or the next bet/draw
+    // node when k===0 (pat). This is the apply primitive shared by play.js's
+    // explicit-discard replay AND grade.js's per-discard EV. It does NOT special-
+    // case the game (works for td27 AND badugi); the ONLY difference from the
+    // abstraction path is WHICH cards are kept.
+    applyDraw(s, keep) {
+      const n = clone(s);
+      const p = n.toAct;
+      const keepSet = new Set(keep);
+      // keep MUST be a subset of the drawer's current hand (caller's contract).
+      const k = n.hands[p].length - keep.length;
+      n.drawCounts[p].push(k);
+      if (k > 0) {
+        const discarded = n.hands[p].filter(c => !keepSet.has(c));
+        n.discards[p] = n.discards[p].concat(discarded);
+        n.hands[p] = n.hands[p].filter(c => keepSet.has(c)); // preserve order, exact subset
+        n.pendingDraw = { player: p, count: k };
+        n.phase = 'chance';
+      } else if (p === 1) {
+        n.phase = 'draw';
+        n.toAct = 0;
+      } else {
+        n.street++;
+        n.phase = 'bet';
+        n.toAct = 1;
+        n.bets = 0;
+        n.acted = [false, false];
+        n.hist += '/';
+        n.curSeq = '';
+      }
+      n.hist += 'd' + k;
+      n.log.push({ p, a: k === 0 ? 'stands pat' : `draws ${k}` });
+      return n;
+    },
+
     // Abstraction: exact action sequence for the current street only;
     // earlier streets are summarized by a quantized pot size plus the
     // public draw counts (opponent's full draw history, own most

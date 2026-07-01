@@ -274,7 +274,9 @@ const game = {
     if (a === 'f') return 'Fold';
     if (a === 'k') return 'Check';
     if (a === 'c') return `Call ${s.contrib[1 - s.toAct] - s.contrib[s.toAct]}`;
-    if (s.bets === 0) return `Complete to ${betSize(s.street)}`;
+    // Opening voluntary full bet: on 3rd street this completes the bring-in;
+    // on 4th–7th it is just a bet.
+    if (s.bets === 0) return s.street === 0 ? `Complete to ${betSize(s.street)}` : `Bet ${betSize(s.street)}`;
     return `Raise to ${s.contrib[1 - s.toAct] + betSize(s.street) - s.base}`;
   },
 

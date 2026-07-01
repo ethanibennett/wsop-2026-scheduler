@@ -231,6 +231,83 @@ function studHasOpenPairOn4th(hand) {
   return false;
 }
 
+// ── "Solve this spot" → Solver handoff ──────────────────────
+// gameType → solver engine id. The live Solver supports only the
+// fixed-limit stud games it has trees for: Stud 8 and Razz. Hold'em /
+// Omaha / draw games (and the NL/PL stud variants, Stud Hi, 2-7 Razz)
+// are NOT supported and disable the button.
+const SOLVER_GAME_MAP = { 'Stud 8': 'stud8', 'Razz': 'razz' };
+function solverGameFor(gameType) { return SOLVER_GAME_MAP[gameType] || null; }
+
+// Stud card-string layout (cards accumulated across streets, in deal
+// order). For the HERO the full 7-card string is: index 0,1 = the two
+// DOWN hole cards (3rd street), index 2 = the door card (first UP card,
+// 3rd), indices 3,4,5 = UP cards (4th, 5th, 6th), index 6 = the final
+// DOWN card (7th). For an OPPONENT the replay only ever records the
+// VISIBLE up cards (door + 4th/5th/6th) — their hole cards and 7th-
+// street down card are face-down and never entered — so every card in
+// an opponent string is an up card. Pass isHero=false for opponents so
+// their door/4th cards (string indices 0,1) aren't mistaken for hole
+// cards and dropped. Returns { up, down } as concatenated two-char
+// tokens, dropping unknown ('x') cards.
+const STUD_DOWN_IDX = new Set([0, 1, 6]);
+function splitStudUpDown(cardStr, isHero = true) {
+  const cards = parseCardNotation(cardStr || '');
+  let up = '', down = '';
+  cards.forEach((c, i) => {
+    if (c.suit === 'x') return; // unknown card — can't place it in the solver
+    const tok = c.rank + c.suit;
+    if (isHero && STUD_DOWN_IDX.has(i)) down += tok; else up += tok;
+  });
+  return { up, down };
+}
+
+// Build the Solver pre-fill object from the current frozen replay spot.
+// hero/opponentCards are the accumulated-per-street strings the replay
+// view already computes; opponentCards is seat-indexed (null at hero).
+// Best-effort: pick the most relevant single opponent for up1 (a live,
+// non-folded seat with the most visible up cards), default their range
+// to 'all', and surface any down/up ambiguity in `notes`.
+function buildSolverSpot({ hand, game, streetIdx, heroCards, opponentCards, replayHeroIdx, folded, pot }) {
+  const hero = splitStudUpDown(heroCards);
+  const notes = [];
+
+  // Choose the opponent seat for up1: prefer live (not folded) seats,
+  // then the one showing the most up cards (most informative board).
+  let bestOpp = null, bestScore = -1;
+  (opponentCards || []).forEach((cards, pi) => {
+    if (pi === replayHeroIdx || !cards) return;
+    const isFolded = folded && folded.has && folded.has(pi);
+    const split = splitStudUpDown(cards, false); // opponent string is all up cards
+    const upCount = (split.up.match(/.{2}/g) || []).length;
+    // Live seats outrank folded; within that, more up cards wins.
+    const score = (isFolded ? 0 : 1000) + upCount;
+    if (score > bestScore && (split.up || split.down)) { bestScore = score; bestOpp = { pi, split, isFolded }; }
+  });
+
+  const oppUp = bestOpp ? bestOpp.split.up : '';
+  const liveOpps = (opponentCards || []).filter((c, pi) => pi !== replayHeroIdx && c && !(folded && folded.has && folded.has(pi))).length;
+  if (liveOpps > 1) notes.push(`Spot is ${liveOpps + 1}-way; the solver is heads-up. Pre-filled opp upcards from one live seat — adjust as needed.`);
+  if (bestOpp && bestOpp.isFolded && liveOpps === 0) notes.push('All opponents have folded in this spot; pre-filled upcards from a folded seat.');
+  if (!hero.down) notes.push("Hero's down cards are unknown in this hand — fill them in before solving node-locked.");
+  notes.push('Opponent is modeled as a full range by default — narrow the range (node-locked) or switch to range-vs-range as needed.');
+
+  // Street: replay street 0 = 3rd street, so solver street = idx + 3.
+  const street = Math.min(7, Math.max(3, streetIdx + 3));
+
+  return {
+    game,
+    street,
+    up0: hero.up,        // hero up cards
+    up1: oppUp,          // opponent up cards (best-effort, one seat)
+    me: hero.down,       // hero down (hole) cards
+    pot: String(Math.round(pot || 0)),
+    oppRange: 'all',     // default opponent to a full range
+    notes,
+    source: `${hand.gameType} hand, ${STREET_DEFS.stud.streets[streetIdx] || (street + 'th street')}`,
+  };
+}
+
 // ── Formatting helpers ──
 function formatChipAmount(val) {
   if (!val && val !== 0) return '';
@@ -2706,7 +2783,7 @@ class ReplayErrorBoundary extends React.Component {
 // ══════════════════════════════════════════════════════════
 // ── Main Hand Replayer View ──────────────────────────────
 // ══════════════════════════════════════════════════════════
-export default function HandReplayerView({ token, heroName, cardSplay, initialHand, onClearInitialHand }) {
+export default function HandReplayerView({ token, heroName, cardSplay, initialHand, onClearInitialHand, onSolveSpot }) {
   const toast = useToast();
   const [mode, setMode] = useState(initialHand ? 'replay' : 'list');
   const [entryMode, setEntryMode] = useState('gto');
@@ -3076,6 +3153,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
             onEdit={() => setMode('entry')}
             onBack={() => { setMode('list'); fetchHands(); }}
             cardSplay={cardSplay}
+            onSolveSpot={onSolveSpot}
           />
         </ReplayErrorBoundary>
       </div>
@@ -3336,7 +3414,7 @@ export default function HandReplayerView({ token, heroName, cardSplay, initialHa
 // ══════════════════════════════════════════════════════════
 // ── Replay View Sub-component ────────────────────────────
 // ══════════════════════════════════════════════════════════
-function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
+function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay, onSolveSpot }) {
   const [streetIdx, setStreetIdx] = useState(0);
   const [actionIdx, setActionIdx] = useState(-1);
   const [playing, setPlaying] = useState(false);
@@ -3564,6 +3642,18 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
   // Pot and stacks
   const { stacks, pot, folded } = useMemo(() => calcPotsAndStacks(hand, streetIdx, actionIdx), [hand, streetIdx, actionIdx]);
   const displayPot = useMemo(() => calcPotsAndStacks(hand, streetIdx, -1).pot, [hand, streetIdx]);
+
+  // "Solve this spot" → Solver handoff. Enabled only when the hand's
+  // game maps to a solver-supported stud game (Stud 8 / Razz).
+  const solverGame = solverGameFor(hand.gameType);
+  const canSolveSpot = !!onSolveSpot && !!solverGame;
+  const handleSolveSpot = useCallback(() => {
+    if (!canSolveSpot) return;
+    haptic();
+    onSolveSpot(buildSolverSpot({
+      hand, game: solverGame, streetIdx, heroCards, opponentCards, replayHeroIdx, folded, pot,
+    }));
+  }, [canSolveSpot, onSolveSpot, hand, solverGame, streetIdx, heroCards, opponentCards, replayHeroIdx, folded, pot]);
 
   // Player last action
   const playerLastAction = useMemo(() => {
@@ -4408,6 +4498,16 @@ function HandReplayerReplayView({ hand, onEdit, onBack, cardSplay }) {
         <div style={{display:'flex',gap:'6px',justifyContent:'center'}}>
           <button className="btn btn-ghost btn-sm" onClick={onBack}>Back</button>
           <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>
+          {onSolveSpot && (
+            <button className="btn btn-sm" onClick={handleSolveSpot} disabled={!canSolveSpot}
+              title={canSolveSpot ? 'Open this spot in the Solver' : 'Solver supports stud8 / razz spots'}
+              style={canSolveSpot
+                ? { border: '1px solid var(--accent)', background: 'var(--accent)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: '5px' }
+                : { border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Solve this spot
+            </button>
+          )}
           <button className="btn btn-ghost btn-sm" onClick={copyShareLink} title="Copy share link">
             {shareLinkCopied ? 'Copied!' : 'Link'}
           </button>

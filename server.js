@@ -2447,6 +2447,26 @@ async function initDatabase() {
     )
   `);
 
+  // ── Trainer graded hands (durable per-hand record for the mixed-games
+  // trainer). The localStorage scoreboard stays the per-device session
+  // aggregate; this table is the durable, cross-device record of every
+  // graded hand so it can be reviewed later. per_round_json/hand_json hold
+  // the per-street EV-loss array and the full graded-hand object the /step
+  // route already produces (enough to re-display the hand). ──
+  db.run(`
+    CREATE TABLE IF NOT EXISTS trainer_hands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      game TEXT NOT NULL,
+      played_at INTEGER NOT NULL,
+      ev_loss_total REAL NOT NULL,
+      per_round_json TEXT,
+      hand_json TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_trainer_hands_user_game ON trainer_hands(user_id, game, played_at)');
+
   // Auto-seed WSOP 2026 schedule if tournaments table is empty
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM tournaments');
   countStmt.step();
@@ -6988,6 +7008,432 @@ const solverRng = makeSolverRng(Date.now() & 0x7fffffff);
 const solverStrategies = {}; // gameId -> { strategy, iterations, trainedAt } | null
 const solverMeta = {};       // gameId -> { iterations, infosets } | null
 
+// ── Stud trainer wiring (razz + stud8) ───────────────────────────────────
+// Stateless, seeded-deterministic heads-up stud trainer, game-parameterized.
+// The hand is REPLAYED from `seed` on every request: makeRng(seed) drives the
+// deal + the opponent's blueprint σ-sampling + chance; the hero's actions are
+// injected from the request body. Same seed + same heroActions ⇒ byte-identical
+// replay. The grading engine (solver/razz-trainer/{play,grade}.js) is itself
+// game-parameterized — pass it the right game module + blueprint.
+const razzPlay = require('./solver/razz-trainer/play');
+const razzGrade = require('./solver/razz-trainer/grade');
+const { makeRng: makeRazzRng } = require('./solver/engine/cards');
+const razzGame = solverGames['razz'];
+
+// The DRAW games run on a SEPARATE trainer engine (solver/draw-trainer/{play,
+// grade}.js) — the opponent draws fresh hidden cards three times, so its hidden
+// hand is a belief reshaped by every draw, not a fixed combo. The stud trainer's
+// fixed-hidden-card reach-weighting has no draw analogue.
+const drawPlay = require('./solver/draw-trainer/play');
+const drawGrade = require('./solver/draw-trainer/grade');
+
+// The set of games the trainer serves. :game in the route must be one of these.
+// Stud games (razz/stud8) replay via the razz-trainer; draw games (td27) replay
+// via the draw-trainer. DRAW_TRAINER_GAMES is the category gate used to branch
+// the shared :game route.
+const TRAINER_GAMES = {
+  razz: solverGames['razz'],
+  stud8: solverGames['stud8'],
+  td27: solverGames['td27'],
+  badugi: solverGames['badugi'],
+  a5td: solverGames['a5td'],
+};
+const DRAW_TRAINER_GAMES = { td27: true, badugi: true, a5td: true };
+function isDrawTrainerGame(gameId) { return !!DRAW_TRAINER_GAMES[gameId]; }
+
+// Per-game blueprint cache. Training may be actively rewriting the file, so we
+// read a single consistent snapshot at first use rather than risk a half-written
+// parse mid-session. `undefined` = not yet loaded; `null` = load failed.
+const _trainerBp = {}; // gameId -> blueprint | null
+function getTrainerBp(gameId) {
+  if (!(gameId in _trainerBp)) {
+    try { _trainerBp[gameId] = loadSolverStrategy(gameId) || null; }
+    catch (e) { console.error(`${gameId} blueprint load failed:`, e.message); _trainerBp[gameId] = null; }
+  }
+  return _trainerBp[gameId] || {};
+}
+// Back-compat alias used by the legacy razz step route below.
+function getRazzBp() { return getTrainerBp('razz'); }
+// heroSeat is a deterministic function of the seed so /step can recompute it
+// from {seed} alone (the contract's /step body has no heroSeat). /deal returns
+// it for the client to display.
+function razzHeroSeat(seed) { return seed & 1; }
+
+// Convert a live engine snapshot to the contract `state`. Cards are engine ints;
+// the API speaks 2-char strings. The opponent's DOWN cards are never serialized
+// here (hidden until showdown) — only oppUp. `decisionsSoFar` are the recorded
+// decision nodes (both seats) used to build the contract log.
+function razzToState(s, heroSeat, decisionsSoFar, game = razzGame, deadCards = []) {
+  const opp = 1 - heroSeat;
+  return {
+    street: s.street,
+    pot: s.contrib[0] + s.contrib[1],
+    heroUp: s.up[heroSeat].map(razzPlay.cardStr),
+    heroDown: s.down[heroSeat].map(razzPlay.cardStr),
+    oppUp: s.up[opp].map(razzPlay.cardStr),
+    // Folded opponents' exposed door cards (2-char strings). Shown to the hero,
+    // excluded from the opponent range + future rollout deck by the grader. The
+    // SAME list every street (fixed for the hand). [] when there are none.
+    deadCards: (deadCards || []).map(razzPlay.cardStr),
+    toAct: s.toAct,
+    bringInSeat: s.bringIn,
+    log: decisionsSoFar.map(d => ({
+      seat: d.actor,
+      street: d.street,
+      actionId: d.chosen,
+      label: game.actionLabel(d.chosen, d.state),
+    })),
+  };
+}
+
+// Replay a razz hand deterministically from `seed`, injecting `heroActions` at
+// the hero's decision nodes and letting the opponent sample the blueprint σ. A
+// thin reimplementation of play.runHand's loop (play.js:81-115) so we can stop
+// at the FIRST un-supplied hero node and return the decisions recorded SO FAR
+// (the opponent's actions before it) — runHand only returns decisions for a
+// fully completed hand, which loses the pre-hero opponent line we need for the
+// log/state. Returns either a pending hero node or a completed handRecord.
+// DEAD CARDS for a stud trainer hand. Folded opponents' exposed door cards,
+// modeled by play.makeDeadCards (drawn from the post-3rd-street deck tail,
+// biased high for razz / mildly for stud8, never a hero/bot card). Two
+// requirements drive how the rng is sourced:
+//   - DETERMINISTIC from the seed (so /deal and every /step for the same seed
+//     produce the SAME dead cards, fixed for the whole hand), and
+//   - it must NOT consume from the hand's own rng, or it would shift every
+//     subsequent opponent-σ sample / chance deal and change the heads-up line
+//     (regression). So we pull a SEPARATE seed-derived stream.
+// Draw games have no dead cards; this is only called on the stud path.
+function razzDeadCards(seed, game, freshState) {
+  const deadRng = makeRazzRng(((seed >>> 0) ^ 0x9e3779b9) >>> 0);
+  // freshState is the post-3rd-street deal (deck still full); makeDeadCards
+  // reserves the last 8 deck entries (future live cards) and draws from the
+  // front. Returns card INTS; [] semantics preserved when dead:false.
+  return razzPlay.makeDeadCards(game, freshState, deadRng, { dead: true });
+}
+
+function replayRazz(seed, heroActions, game = razzGame) {
+  const strategyMap = razzPlay.strategyMapOf(getTrainerBp(game.id));
+  const heroSeat = razzHeroSeat(seed);
+  const rng = makeRazzRng(seed >>> 0);
+  let state = game.newHand(rng);
+  // Dead cards are computed ONCE from the fresh post-deal state, off a separate
+  // seed-derived rng, so they are fixed for the hand and don't perturb the line.
+  const deadCards = razzDeadCards(seed, game, state);
+  const decisions = []; // every decision node (both seats), in order
+  let idx = 0;          // index into heroActions
+  let guard = 0;
+
+  while (!game.isTerminal(state)) {
+    if (++guard > 500) break;
+    if (game.isChance(state)) { state = game.sampleChance(state, rng); continue; }
+    const acts = game.legalActions(state);
+    if (acts.length <= 1) { state = game.applyAction(state, acts[0]); continue; }
+
+    const actor = game.currentPlayer(state);
+    const key = game.infosetKey(state);
+    const strat = razzPlay.strategyFor(strategyMap, key, acts);
+    const snap = razzPlay.snapshotState(state);
+
+    let chosen;
+    if (actor === heroSeat) {
+      if (idx >= heroActions.length) {
+        // Hero's turn but no action supplied: stop here. This is a decision node.
+        return {
+          done: false, heroSeat, state: snap, acts: acts.slice(), decisions, deadCards,
+        };
+      }
+      chosen = heroActions[idx++];
+      if (acts.indexOf(chosen) < 0) {
+        const err = new Error(`illegal hero action '${chosen}' (legal: ${acts.join(',')})`);
+        err.illegal = true;
+        throw err;
+      }
+    } else {
+      chosen = acts[razzPlay.sampleIndex(strat.probs, rng)];
+    }
+
+    decisions.push({
+      actor,
+      isHero: actor === heroSeat,
+      street: state.street,
+      key,
+      acts: acts.slice(),
+      chosen,
+      gtoProbs: strat.probs.slice(),
+      gtoTrained: strat.trained,
+      state: snap,
+    });
+    state = game.applyAction(state, chosen);
+  }
+
+  // Terminal: assemble a handRecord identical in shape to play.runHand's output.
+  const handRecord = {
+    game: game.id,
+    heroSeat,
+    decisions,
+    deadCards, // folded opponents' exposed door cards (card ints); grade.js reads these
+    terminal: razzPlay.snapshotState(state),
+    utility: game.utility(state),
+    result: game.result(state),
+  };
+  return { done: true, heroSeat, terminal: state, decisions, handRecord, deadCards };
+}
+
+// ── DRAW trainer (td27) ────────────────────────────────────────────────────
+// The draw analogue of razzToState/replayRazz/trainerResultPayload, running on
+// the SEPARATE draw engine (draw-game.js) via solver/draw-trainer/{play,grade}.
+// The opponent's cards are ENTIRELY hidden until showdown (no upcards/bring-in
+// in draw poker), so drawToState NEVER serializes them; the draw result reveals
+// them only on an actual showdown, mirroring the stud fold-leak guard.
+
+// For a DRAW node, the contract wants one entry per legal draw COUNT with the
+// indices (into the player's CURRENT five cards) of the cards that would be
+// THROWN for that count — the complement of cfg.chooseKeep's keep set — so the
+// UI can highlight keep vs throw.
+function drawDiscardIdx(game, hand, count) {
+  if (count <= 0) return []; // stand pat: throw nothing
+  const keep = game.cfg.chooseKeep(hand, count); // engine-int cards kept
+  const idx = [];
+  const used = []; // guard against duplicate-rank collisions in indexOf
+  for (let i = 0; i < hand.length; i++) {
+    // a card is thrown iff it is NOT in the keep set (match by identity, and
+    // mark matched keep slots so two equal ints don't both "keep")
+    let kept = false;
+    for (let k = 0; k < keep.length; k++) {
+      if (!used[k] && keep[k] === hand[i]) { used[k] = true; kept = true; break; }
+    }
+    if (!kept) idx.push(i);
+  }
+  return idx;
+}
+
+// Build the contract legalActions array for the live node `snap` (a draw-engine
+// snapshot, toAct === hero). Betting node -> [{id,label}]; draw node -> one
+// {id,label,discardIdx} per legal draw count.
+//
+// FULL DISCARD CONTROL: at a draw node these abstraction options are the
+// RECOMMENDED hints (what the blueprint models — stand pat / draw-to-best). The
+// hero is NOT limited to them: the GUI lets the hero CLICK any cards to throw and
+// submits an explicit 'd:<thrown>' action (composed client-side from the hero's
+// cards). See drawDecisionMeta for the draw marker + hero hand the GUI needs.
+function drawLegalActions(game, snap, acts) {
+  if (snap.phase === 'draw') {
+    const hand = snap.hands[snap.toAct];
+    return acts.map(id => {
+      const count = parseInt(id.slice(1), 10);
+      return {
+        id,                                          // abstraction 'dK' (the recommended hint)
+        label: game.actionLabel(id, snap),
+        discardIdx: drawDiscardIdx(game, hand, count), // indices into heroCards thrown by this option
+      };
+    });
+  }
+  return acts.map(id => ({ id, label: game.actionLabel(id, snap) }));
+}
+
+// Draw-decision metadata for the GUI's card-click selector. At a DRAW node the
+// hero composes an explicit 'd:<thrown>' action by clicking specific cards to
+// throw — this returns the marker + the hero's CURRENT cards (2-char strings, in
+// the same order as state.heroCards) so the client can build the encoded action.
+// `discardEncoding` documents the round-trip: 'd:' + the thrown cards' 2-char
+// strings concatenated in card-INTEGER-sorted order (matching play.encodeDiscard
+// / grade.parseDiscard); 'd:' = stand pat. handSize bounds the draw count.
+// Returns null at a betting node (no draw decision).
+function drawDecisionMeta(game, snap) {
+  if (snap.phase !== 'draw') return null;
+  const hand = snap.hands[snap.toAct];
+  return {
+    isDraw: true,
+    heroCards: hand.map(drawPlay.cardStr), // click any subset of these to throw
+    handSize: game.cfg.handSize,
+    // The client composes 'd:' + sorted(thrown).join('') and submits it as the
+    // hero action; 'd:' (no cards) = stand pat. The server applies the explicit
+    // keep (hand minus thrown) deterministically off the seeded deck.
+    discardEncoding: "d:<thrown cards concatenated, sorted by card int> (e.g. 'd:9sKc'); 'd:' = stand pat",
+  };
+}
+
+// Convert a live draw-engine snapshot to the contract DRAW `state`. Cards are
+// engine ints; the API speaks 2-char strings. NO upcards/bring-in; the opponent
+// is hidden. `decisionsSoFar` are the recorded decision nodes (both seats).
+//   myLastDiscards = hero's discards from the MOST RECENT draw (or []).
+//   oppDrawCounts  = how many the opponent drew on each COMPLETED draw round.
+function drawToState(s, heroSeat, decisionsSoFar, game) {
+  const opp = 1 - heroSeat;
+  // hero's most-recent-draw discards: discards[] accumulates ALL dead cards, so
+  // slice off the cards thrown on the latest draw = last drawCounts[hero] entry.
+  const heroDraws = s.drawCounts[heroSeat];
+  const lastCount = heroDraws.length ? heroDraws[heroDraws.length - 1] : 0;
+  const heroDisc = s.discards[heroSeat];
+  const myLastDiscards = lastCount > 0
+    ? heroDisc.slice(heroDisc.length - lastCount).map(drawPlay.cardStr)
+    : [];
+  return {
+    game: game.id,
+    street: s.street,
+    phase: s.phase,
+    pot: s.contrib[0] + s.contrib[1],
+    heroCards: s.hands[heroSeat].map(drawPlay.cardStr),
+    myLastDiscards,
+    oppDrawCounts: s.drawCounts[opp].slice(),
+    toAct: s.toAct,
+    log: decisionsSoFar.map(d => ({
+      seat: d.actor,
+      street: d.street,
+      phase: d.phase,
+      actionId: d.chosen,
+      label: game.actionLabel(d.chosen, d.state),
+    })),
+  };
+}
+
+// Replay a draw hand deterministically from `seed`, injecting `heroActions` at
+// the hero's decision nodes and letting the opponent sample the blueprint σ.
+// Parallel to replayRazz, but driven through the draw engine and recording the
+// `phase` field (so grade.js can tell a draw node from a bet node) plus the
+// draw-grade-compatible decision shape. Stops at the FIRST un-supplied hero node.
+function replayDraw(seed, heroActions, game) {
+  const strategyMap = drawPlay.strategyMapOf(getTrainerBp(game.id));
+  const heroSeat = razzHeroSeat(seed);
+  const rng = makeRazzRng(seed >>> 0);
+  let state = game.newHand(rng);
+  const decisions = [];
+  let idx = 0;
+  let guard = 0;
+
+  while (!game.isTerminal(state)) {
+    if (++guard > 500) break;
+    if (game.isChance(state)) { state = game.sampleChance(state, rng); continue; }
+    const acts = game.legalActions(state);
+    if (acts.length <= 1) { state = game.applyAction(state, acts[0]); continue; }
+
+    const actor = game.currentPlayer(state);
+    const key = game.infosetKey(state);
+    const strat = drawPlay.strategyFor(strategyMap, key, acts);
+    const snap = drawPlay.snapshotState(state);
+    const phase = state.phase; // 'bet' | 'draw'
+
+    let chosen;
+    if (actor === heroSeat) {
+      if (idx >= heroActions.length) {
+        return { done: false, heroSeat, state: snap, acts: acts.slice(), decisions };
+      }
+      chosen = heroActions[idx++];
+      // FULL DISCARD CONTROL: at a DRAW node the hero may submit an EXPLICIT
+      // discard 'd:<thrown cards>' (any specific cards), which is NOT one of the
+      // abstraction's 'dK' options. Validate it's a legal draw-node discard (the
+      // thrown cards must be in-hand); the opponent's draws stay on 'dK'.
+      if (drawPlay.isExplicitDiscard(chosen)) {
+        if (phase !== 'draw') {
+          const err = new Error(`explicit discard '${chosen}' at a non-draw node (legal: ${acts.join(',')})`);
+          err.illegal = true;
+          throw err;
+        }
+        try {
+          drawPlay.keepForDiscard(state.hands[actor], chosen); // throws if a thrown card isn't in-hand
+        } catch (e) {
+          const err = new Error(e.message);
+          err.illegal = true;
+          throw err;
+        }
+      } else if (acts.indexOf(chosen) < 0) {
+        const err = new Error(`illegal hero action '${chosen}' (legal: ${acts.join(',')})`);
+        err.illegal = true;
+        throw err;
+      }
+    } else {
+      chosen = acts[drawPlay.sampleIndex(strat.probs, rng)];
+    }
+
+    decisions.push({
+      actor,
+      isHero: actor === heroSeat,
+      kind: phase === 'draw' ? 'draw' : 'bet',
+      street: state.street,
+      phase,
+      key,
+      acts: acts.slice(),
+      chosen,               // may be an explicit-discard 'd:...' at a hero draw node
+      gtoProbs: strat.probs.slice(),
+      gtoTrained: strat.trained,
+      state: snap,
+    });
+    // Apply: an explicit hero discard goes through game.applyDraw with the
+    // explicit keep (same chance/deck mechanics as 'dK', explicit keep instead
+    // of cfg.chooseKeep); everything else (abstraction 'dK' / betting) through
+    // the normal applyAction. The opponent's 'dK' draws stay on applyAction.
+    if (drawPlay.isExplicitDiscard(chosen)) {
+      state = game.applyDraw(state, drawPlay.keepForDiscard(state.hands[actor], chosen));
+    } else {
+      state = game.applyAction(state, chosen);
+    }
+  }
+
+  const handRecord = {
+    game: game.id,
+    heroSeat,
+    decisions,
+    terminal: drawPlay.snapshotState(state),
+    utility: game.utility(state),
+    result: game.result(state),
+  };
+  return { done: true, heroSeat, terminal: state, decisions, handRecord };
+}
+
+// Build the per-hand `result` payload for a DRAW terminal — single-low whole-pot
+// (no hi/lo split), revealing the opponent's hand ONLY on showdown (mucked/null
+// on a fold, mirroring the stud fold-leak guard).
+function drawResultPayload(game, term, heroDelta, heroSeat) {
+  const resu = game.result(term); // {type:'fold'|'showdown', winner:seat|-1, players:[{cards,label,...}]}
+  const opp = 1 - heroSeat;
+  let winner;
+  if (heroDelta > 0) winner = 'hero';
+  else if (heroDelta < 0) winner = 'opp';
+  else winner = 'split';
+  const showdown = resu.type === 'showdown'
+    ? {
+        heroHand: resu.players[heroSeat].label,
+        oppHand: resu.players[opp].label,
+        oppCards: resu.players[opp].cards, // already strings; revealed only here
+      }
+    : null;
+  return { heroDelta, winner, endType: resu.type, showdown };
+}
+
+// Map a drawGrade.gradeHand grade to the contract grade shape.
+//
+// FULL DISCARD CONTROL fields (set when the hero used an explicit 'd:<thrown>'
+// discard at a draw node): perActionEV carries the hero's actual-discard EV as an
+// EXTRA key (the explicit 'd:...' id) alongside the abstraction options; the note
+// + confidence + offBookCount surface whether the discard was the recommended
+// natural draw or a non-standard / off-book keep (an estimate). The bet-grade and
+// abstraction-draw path are unchanged (additive).
+function drawGradeToContract(g) {
+  return {
+    street: g.street,
+    phase: g.phase,
+    kind: g.kind,                       // 'bet' | 'draw'
+    heroActionId: g.heroActionId,       // may be an explicit 'd:...' discard
+    heroActionLabel: g.heroActionLabel,
+    explicitDiscard: g.explicitDiscard, // true → hero used FULL DISCARD CONTROL
+    heroDrawCount: g.heroDrawCount,     // # cards the hero threw (explicit only)
+    offBookCount: g.offBookCount,       // draw count not in cfg.drawOptions(hand)
+    discardNote: g.discardNote,         // human note (explicit hero only)
+    gtoMix: {
+      actions: g.gtoMix.actions,        // abstraction options (the recommended hints)
+      labels: g.gtoMix.labels,
+      probs: g.gtoMix.probs,
+    },
+    perActionEV: g.perActionEV,         // {abstraction ids... + hero 'd:...'} → chips
+    bestActionId: g.bestActionId,       // EV-best ABSTRACTION option (the benchmark)
+    bestActionLabel: g.bestActionLabel,
+    evLoss: g.evLoss,                   // bestEV − hero-discard EV, clamped >= 0
+    evLossSE: g.evLossSE,
+    rangeDegraded: g.rangeDegraded,     // posterior collapsed OR off-book count
+    confidence: g.confidence,           // 'low' when rangeDegraded / ESS-degraded
+  };
+}
+
 // Lightweight metadata for the games list. Reads a tiny <id>.meta.json
 // sidecar so we never parse the multi-MB strategy files just to show
 // iteration/infoset counts (parsing all of them at once OOMs small
@@ -7067,6 +7513,430 @@ app.get('/api/solver/playout/:gameId', authenticateToken, (req, res) => {
     res.status(500).json({ error: 'Failed to generate playout' });
   }
 });
+
+// ── Stud trainer (stateless, seeded deterministic replay; razz + stud8) ──
+// Admin-authed exactly like the other /api/solver/* routes (plain
+// authenticateToken — the Hands tab is admin-gated client-side). Cards in the
+// API are 2-char strings; the engine's internal ints are converted via cardStr.
+
+// Build the per-hand `result` payload from a terminal state. Game-aware:
+//  - winner: a coarse hero/opp/split label. For stud8 (hi/lo split) it reflects
+//    the actual chip outcome — scoop / quarter / split / lost — since a single
+//    'winner' word can't carry the hi/lo breakdown.
+//  - showdown: revealed ONLY on an actual showdown (mucked on fold, mirroring
+//    the razz fold-leak fix — never leak the opponent's hole cards otherwise).
+//    For stud8 it carries the hi winner+hand AND the lo winner+qualifying low
+//    so the GUI can render the split; for razz it carries the single low.
+function trainerResultPayload(game, term, heroDelta, heroSeat) {
+  const resu = game.result(term);
+  const opp = 1 - heroSeat;
+  const isStud8 = game.id === 'stud8';
+
+  // Coarse winner label.
+  let winner;
+  if (resu.type === 'fold') {
+    winner = resu.hiWinner === heroSeat ? 'hero' : 'opp';
+  } else if (isStud8) {
+    // hi/lo split: derive the hero's share from the chip delta.
+    if (heroDelta > 0) winner = resu.scoop && resu.hiWinner === heroSeat ? 'hero-scoop' : 'hero';
+    else if (heroDelta < 0) winner = resu.scoop && resu.hiWinner === opp ? 'opp-scoop' : 'opp';
+    else winner = 'split';
+  } else {
+    winner = resu.hiWinner === heroSeat ? 'hero'
+      : (resu.hiWinner === -1 ? 'split' : 'opp');
+  }
+
+  let showdown = null;
+  if (resu.type === 'showdown') {
+    if (isStud8) {
+      // hi/lo detail. hiWinner/loWinner are seats (or -1 split, or null no-low);
+      // map to 'hero'/'opp'/'split'/null relative to the hero seat for the GUI.
+      const seatLabel = w => (w == null ? null : w === -1 ? 'split' : (w === heroSeat ? 'hero' : 'opp'));
+      showdown = {
+        hi: {
+          winner: seatLabel(resu.hiWinner),
+          heroHand: resu.players[heroSeat].hi,
+          oppHand: resu.players[opp].hi,
+        },
+        lo: {
+          // loWinner === null => nobody qualified for low; the pot played as hi-only.
+          winner: seatLabel(resu.loWinner),
+          qualified: resu.loWinner !== null,
+          heroLow: resu.players[heroSeat].lo, // 'no qualifying low' if none
+          oppLow: resu.players[opp].lo,
+        },
+        scoop: resu.scoop,
+        oppDown: resu.players[opp].down, // already strings
+      };
+    } else {
+      showdown = {
+        heroLow: resu.players[heroSeat].lo,
+        oppLow: resu.players[opp].lo,
+        oppDown: resu.players[opp].down, // already strings
+      };
+    }
+  }
+
+  return {
+    heroDelta,
+    winner,
+    endType: resu.type, // 'fold' | 'showdown'
+    showdown,
+  };
+}
+
+// Shared deal handler for any trainer game. body: {} -> { seed, heroSeat, state }
+//   (state stops at the hero's first decision, or terminal if the hero never
+//   gets to act in this deal)
+function trainerDeal(game, req, res) {
+  if (isDrawTrainerGame(game.id)) return drawTrainerDeal(game, req, res);
+  try {
+    const seed = (Math.random() * 0x7fffffff) | 0;
+    const heroSeat = razzHeroSeat(seed);
+    const r = replayRazz(seed, [], game); // no hero actions -> stop at hero's first node
+    const snap = r.done ? r.terminal : r.state;
+    const state = razzToState(snap, heroSeat, r.decisions, game, r.deadCards);
+    res.json({ seed, heroSeat, game: game.id, state });
+  } catch (error) {
+    console.error(`${game.id} trainer deal error:`, error);
+    res.status(500).json({ error: `Failed to deal ${game.id} hand` });
+  }
+}
+
+// DRAW-game deal: same contract ({ seed, heroSeat, state }) but the state is the
+// DRAW shape (heroCards/phase/oppDrawCounts, opponent hidden).
+function drawTrainerDeal(game, req, res) {
+  try {
+    const seed = (Math.random() * 0x7fffffff) | 0;
+    const heroSeat = razzHeroSeat(seed);
+    const r = replayDraw(seed, [], game);
+    const snap = r.done ? r.terminal : r.state;
+    const state = drawToState(snap, heroSeat, r.decisions, game);
+    res.json({ seed, heroSeat, game: game.id, state });
+  } catch (error) {
+    console.error(`${game.id} draw trainer deal error:`, error);
+    res.status(500).json({ error: `Failed to deal ${game.id} hand` });
+  }
+}
+
+// Shared step handler. body: { seed, heroActions:[actionId,...] }
+//   Replays the hand from `seed`, applies `heroActions` in order at the hero's
+//   decision nodes, advances (opponent samples σ; chance deals) to the NEXT
+//   hero decision OR terminal.
+//   -> on hero turn:  { state, legalActions:[{id,label}], handOver:false }
+//   -> on terminal:   { state, legalActions:null, handOver:true, result, grades }
+function trainerStep(game, req, res) {
+  if (isDrawTrainerGame(game.id)) return drawTrainerStep(game, req, res);
+  try {
+    const body = req.body || {};
+    const seed = body.seed | 0;
+    const heroActions = Array.isArray(body.heroActions) ? body.heroActions : [];
+    if (body.seed == null) return res.status(400).json({ error: 'seed is required' });
+
+    let r;
+    try {
+      r = replayRazz(seed, heroActions, game);
+    } catch (e) {
+      if (e.illegal) return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    const heroSeat = r.heroSeat;
+
+    if (!r.done) {
+      // Hero's turn: return the legal actions, no grades yet.
+      const legalActions = r.acts.map(id => ({ id, label: game.actionLabel(id, r.state) }));
+      return res.json({
+        state: razzToState(r.state, heroSeat, r.decisions, game, r.deadCards),
+        legalActions,
+        handOver: false,
+      });
+    }
+
+    // Terminal: build result + grades.
+    const hr = r.handRecord;
+    const term = r.terminal;
+    const result = trainerResultPayload(game, term, hr.utility[heroSeat], heroSeat);
+
+    const graded = razzGrade.gradeHand(hr, getTrainerBp(game.id), { seed, samples: 2000, game });
+    const grades = graded.grades.map(g => {
+      const dec = hr.decisions[g.gradeIdx];
+      return {
+        street: g.street,
+        heroActionId: g.chosen,
+        heroActionLabel: game.actionLabel(g.chosen, dec.state),
+        gtoMix: {
+          actions: g.gtoMix.actions,
+          labels: g.gtoMix.actions.map(id => game.actionLabel(id, dec.state)),
+          probs: g.gtoMix.probs,
+        },
+        perActionEV: g.perActionEV,
+        bestActionId: g.bestAction,
+        evLoss: g.evLoss,
+        evLossSE: g.evLossSE,
+      };
+    });
+
+    res.json({
+      state: razzToState(term, heroSeat, hr.decisions, game, hr.deadCards),
+      legalActions: null,
+      handOver: true,
+      result,
+      grades,
+    });
+  } catch (error) {
+    console.error(`${game.id} trainer step error:`, error);
+    res.status(500).json({ error: `Failed to step ${game.id} hand` });
+  }
+}
+
+// DRAW-game step. Same contract as trainerStep but routed through the draw
+// engine + draw-trainer grader. legalActions carry discardIdx at draw nodes; the
+// terminal reveals the opponent only on showdown and emits both 'bet' and 'draw'
+// kind grades.
+function drawTrainerStep(game, req, res) {
+  try {
+    const body = req.body || {};
+    const seed = body.seed | 0;
+    const heroActions = Array.isArray(body.heroActions) ? body.heroActions : [];
+    if (body.seed == null) return res.status(400).json({ error: 'seed is required' });
+
+    let r;
+    try {
+      r = replayDraw(seed, heroActions, game);
+    } catch (e) {
+      if (e.illegal) return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    const heroSeat = r.heroSeat;
+
+    if (!r.done) {
+      // Hero's turn: bet OR draw legalActions (draw entries carry discardIdx).
+      // At a DRAW node, drawDecision signals a draw decision + carries the hero's
+      // current cards so the GUI does card-click discard selection; the hero
+      // submits an explicit 'd:<thrown>' action (the abstraction options in
+      // legalActions are the RECOMMENDED hint). Null at a betting node.
+      const legalActions = drawLegalActions(game, r.state, r.acts);
+      const drawDecision = drawDecisionMeta(game, r.state);
+      return res.json({
+        state: drawToState(r.state, heroSeat, r.decisions, game),
+        legalActions,
+        drawDecision,
+        handOver: false,
+      });
+    }
+
+    // Terminal: build result + grades via the draw grader.
+    const hr = r.handRecord;
+    const term = r.terminal;
+    const result = drawResultPayload(game, term, hr.utility[heroSeat], heroSeat);
+
+    // ADAPTIVE post-hand grading — early-street draw/bet decisions roll out through
+    // chance nodes, so a fixed small sample count leaves their paired evLoss SE at
+    // ±1.5–2 chips (noisy/untrustworthy grades). targetSE drives each noisy
+    // (mc-forward) node's SE down to ~0.3 chips by averaging more independent
+    // rollouts per particle (gradeHand doubles evRepeats up to maxRepeats), while
+    // leaving the trusted EXACT-FORWARD (post-last-draw) grades byte-identical.
+    // Tuning: targetSE 0.3 + maxRepeats 16 → early-street SE p90 ~2.0 → ~0.8 chips,
+    // per-hand wall-time ~0.15–0.2s (well under any interactive budget).
+    const graded = drawGrade.gradeHand(hr, getTrainerBp(game.id),
+      { seed, samples: 60, targetSE: 0.3, maxRepeats: 16, game });
+    const grades = graded.grades.map(drawGradeToContract);
+
+    res.json({
+      state: drawToState(term, heroSeat, hr.decisions, game),
+      legalActions: null,
+      handOver: true,
+      result,
+      grades,
+    });
+  } catch (error) {
+    console.error(`${game.id} draw trainer step error:`, error);
+    res.status(500).json({ error: `Failed to step ${game.id} hand` });
+  }
+}
+
+// Resolve :game to a registered trainer game module, or 404. The legacy
+// /razz-trainer/* routes pin razz directly (no :game param).
+function resolveTrainerGame(req, res) {
+  const game = TRAINER_GAMES[req.params.game];
+  if (!game) { res.status(404).json({ error: `Unknown trainer game '${req.params.game}'` }); return null; }
+  return game;
+}
+
+// New game-parameterized routes: :game in {razz, stud8}. Each loads its own
+// cached blueprint (solver/strategies/<game>.json) and threads the right game
+// module + card<->string + actionLabel through the shared handlers.
+//   POST /api/solver/trainer/:game/deal
+//   POST /api/solver/trainer/:game/step
+app.post('/api/solver/trainer/:game/deal', authenticateToken, (req, res) => {
+  const game = resolveTrainerGame(req, res); if (!game) return;
+  trainerDeal(game, req, res);
+});
+app.post('/api/solver/trainer/:game/step', authenticateToken, (req, res) => {
+  const game = resolveTrainerGame(req, res); if (!game) return;
+  trainerStep(game, req, res);
+});
+
+// Legacy razz-only routes — kept working as aliases (game=razz) so existing
+// clients don't break.
+app.post('/api/solver/razz-trainer/deal', authenticateToken, (req, res) => {
+  trainerDeal(razzGame, req, res);
+});
+app.post('/api/solver/razz-trainer/step', authenticateToken, (req, res) => {
+  trainerStep(razzGame, req, res);
+});
+
+// ── Trainer graded-hand persistence (durable per-hand history) ───────────────
+// These mirror the auth + style of the /api/solver/trainer/:game/(deal|step)
+// routes above. The frontend posts the graded-hand object it already gets back
+// from /step; we derive ev_loss_total + a per-round EV-loss array (so history
+// rows are self-describing) and store the full object for later re-display.
+//   POST /api/solver/trainer/:game/save-hand   -> { ok, id }
+//   GET  /api/solver/trainer/:game/history?limit=50 -> [{ id, played_at, ev_loss_total, per_round }]
+//   GET  /api/solver/trainer/:game/hand/:id    -> the full stored hand_json
+
+// Sum positive per-decision EV-loss, and bucket it by street index (0-based),
+// matching the scoreboard's byStreet semantics. Returns { total, perRound }.
+function summarizeTrainerGrades(grades) {
+  const perRound = [];
+  let total = 0;
+  for (const g of (Array.isArray(grades) ? grades : [])) {
+    const loss = Math.max(0, +(g && g.evLoss) || 0);
+    total += loss;
+    const st = Math.max(0, g && g.street | 0);
+    perRound[st] = (perRound[st] || 0) + loss;
+  }
+  for (let i = 0; i < perRound.length; i++) if (perRound[i] == null) perRound[i] = 0;
+  return { total, perRound };
+}
+
+app.post('/api/solver/trainer/:game/save-hand', authenticateToken, async (req, res) => {
+  const game = resolveTrainerGame(req, res); if (!game) return;
+  try {
+    const hand = req.body || {};
+    const grades = Array.isArray(hand.grades) ? hand.grades : [];
+    const { total, perRound } = summarizeTrainerGrades(grades);
+    const playedAt = Date.now();
+
+    db.run(
+      `INSERT INTO trainer_hands (user_id, game, played_at, ev_loss_total, per_round_json, hand_json)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.user.id, game.id, playedAt, total, JSON.stringify(perRound), JSON.stringify(hand)]
+    );
+    // Read the new rowid BEFORE saveDatabase() — persisting reloads the in-memory
+    // db, after which last_insert_rowid() resets to 0 (sql.js quirk).
+    const idStmt = db.prepare('SELECT last_insert_rowid() as id');
+    idStmt.step();
+    const { id } = idStmt.getAsObject();
+    idStmt.free();
+    await saveDatabase();
+    res.json({ ok: true, id });
+  } catch (error) {
+    console.error(`${game.id} trainer save-hand error:`, error);
+    res.status(500).json({ error: `Failed to save ${game.id} hand` });
+  }
+});
+
+app.get('/api/solver/trainer/:game/history', authenticateToken, (req, res) => {
+  const game = resolveTrainerGame(req, res); if (!game) return;
+  try {
+    let limit = parseInt(req.query.limit, 10);
+    if (!Number.isFinite(limit) || limit <= 0) limit = 50;
+    limit = Math.min(limit, 200);
+
+    const stmt = db.prepare(`
+      SELECT id, played_at, ev_loss_total, per_round_json
+      FROM trainer_hands
+      WHERE user_id = ? AND game = ?
+      ORDER BY played_at DESC, id DESC
+      LIMIT ?
+    `);
+    stmt.bind([req.user.id, game.id, limit]);
+    const hands = [];
+    while (stmt.step()) {
+      const row = stmt.getAsObject();
+      let perRound = [];
+      try { perRound = JSON.parse(row.per_round_json || '[]'); } catch { perRound = []; }
+      hands.push({
+        id: row.id,
+        played_at: row.played_at,
+        ev_loss_total: row.ev_loss_total,
+        per_round: perRound,
+      });
+    }
+    stmt.free();
+    res.json(hands);
+  } catch (error) {
+    console.error(`${game.id} trainer history error:`, error);
+    res.status(500).json({ error: `Failed to load ${game.id} history` });
+  }
+});
+
+app.get('/api/solver/trainer/:game/hand/:id', authenticateToken, (req, res) => {
+  const game = resolveTrainerGame(req, res); if (!game) return;
+  try {
+    const stmt = db.prepare(`
+      SELECT id, played_at, ev_loss_total, per_round_json, hand_json
+      FROM trainer_hands
+      WHERE id = ? AND user_id = ? AND game = ?
+    `);
+    stmt.bind([req.params.id, req.user.id, game.id]);
+    if (!stmt.step()) {
+      stmt.free();
+      return res.status(404).json({ error: 'Hand not found' });
+    }
+    const row = stmt.getAsObject();
+    stmt.free();
+    let hand = null, perRound = [];
+    try { hand = JSON.parse(row.hand_json || 'null'); } catch { hand = null; }
+    try { perRound = JSON.parse(row.per_round_json || '[]'); } catch { perRound = []; }
+    res.json({
+      id: row.id,
+      played_at: row.played_at,
+      ev_loss_total: row.ev_loss_total,
+      per_round: perRound,
+      hand,
+    });
+  } catch (error) {
+    console.error(`${game.id} trainer hand error:`, error);
+    res.status(500).json({ error: `Failed to load ${game.id} hand` });
+  }
+});
+
+// ── Neural solver bridge (proxy to the Python solve_server) ──────────────────
+// The Stud8/razz neural solver runs as a separate local Python HTTP service
+// (solver/neural/solve_server.py, default 127.0.0.1:8000). These proxies let the
+// React app reach it WITH the app's own auth (authenticateToken) and WITHOUT
+// CORS — the browser only ever talks to this Express origin. Set SOLVER_URL to
+// point at a non-default host/port. Node 18+ provides a global fetch().
+const SOLVER_URL = process.env.SOLVER_URL || 'http://localhost:8000';
+
+async function proxyToSolver(solverPath, req, res) {
+  let upstream;
+  try {
+    upstream = await fetch(`${SOLVER_URL}${solverPath}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body || {}),
+    });
+  } catch (err) {
+    // Connection refused / DNS / network -> the Python service isn't running.
+    console.error(`Solver proxy (${solverPath}) unreachable:`, err.message);
+    return res.status(503).json({ error: 'solver offline — start solve_server.py' });
+  }
+  // Forward the solver's status + JSON verbatim (it already returns
+  // {error} on 400/500 and the solve JSON on 200).
+  const text = await upstream.text();
+  res.status(upstream.status).type('application/json').send(text);
+}
+
+// EXACT node-locked spot -> solve_server /solve
+app.post('/api/solver/exact', authenticateToken, (req, res) =>
+  proxyToSolver('/solve', req, res));
+
+// Range-vs-range equilibrium -> solve_server /solve/range
+app.post('/api/solver/range', authenticateToken, (req, res) =>
+  proxyToSolver('/solve/range', req, res));
 
 // Admin: list users (secret key protected)
 app.get('/api/admin/users', adminLimiter, (req, res) => {

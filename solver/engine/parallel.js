@@ -1,11 +1,22 @@
 // ── Data-parallel MCCFR coordinator ─────────────────────────
-// Drives W cfr-worker threads to multiply single-game throughput on a
-// multi-core box. Each round:
+// Drives W cfr-worker threads to share a single game's work across cores.
+// Each round:
 //   1. snapshot the authoritative table (checkpoint blob),
-//   2. broadcast it to every worker and have each run `mergeEvery`
-//      iterations on an independent RNG stream,
-//   3. merge: authoritative += Σ_w (worker_w − snapshot)  (additive deltas),
-//   4. advance the global iteration count by mergeEvery * W.
+//   2. broadcast it to every worker and have each run `iters` iterations on an
+//      independent RNG stream (each a valid DCFR step from the same snapshot),
+//   3. merge: authoritative = mean_w(worker_w)  (see mergeAverage),
+//   4. advance the iteration count by `iters` (NOT iters*W).
+//
+// History: the original merge was `authoritative += Σ_w (worker − snapshot)`,
+// which is only valid for purely-additive accumulators. DCFR's regret update is
+// multiplicative-then-additive (decays existing regret each iteration), so the
+// additive merge applied that decay W times and flipped negative regrets,
+// making strategies MORE exploitable with training (proven on Kuhn: W=4 = 0.142
+// vs 0.002 single-thread). Averaging fixes it — each worker applies the discount
+// once, the mean keeps it once, and the extra cores buy variance reduction.
+// Re-verified on Kuhn: W=4 -> 0.0012, W=8 -> 0.0008 (≤ single-thread).
+//
+// Memory: each round transiently holds the snapshot plus W worker tables.
 //
 // Returns a real MCCFRTrainer so train.js's export/checkpoint code is
 // unchanged. workers=1 should use the in-process trainer instead (see
@@ -21,24 +32,38 @@ const { Worker } = require('worker_threads');
 const { MCCFRTrainer } = require('./mccfr');
 const { GAMES } = require('../games');
 
-// authoritative += Σ_w (worker_w − snapshot), creating nodes workers
-// discovered. `snapNodes` is the broadcast table (plain checkpoint object)
-// used as the per-round zero reference; `base` is the live MCCFRTrainer.
-function mergeDeltas(base, snapNodes, workerCkpts) {
-  for (const ck of workerCkpts) {
-    const nodes = ck.nodes;
-    for (const key in nodes) {
-      const wn = nodes[key];
-      const snap = snapNodes[key];
-      let node = base.nodes.get(key);
-      if (!node) {
-        node = { acts: wn.a, regret: new Float64Array(wn.a.length), strat: new Float64Array(wn.a.length) };
-        base.nodes.set(key, node);
+// authoritative = mean of the W worker tables. Each worker is a valid DCFR
+// step from the broadcast snapshot, so averaging applies DCFR's regret discount
+// exactly ONCE and reduces variance — the fix for the old additive delta-merge,
+// which applied the discount W times (and flipped negative regrets). A node a
+// worker never visited implicitly holds the snapshot's value there, so absent
+// workers contribute the snapshot (newly-discovered nodes: 0). Iterations then
+// advance by `iters` per round (not iters*W): the parallelism buys variance
+// reduction at the same iteration rate, not W× more iterations. Verified on
+// Kuhn (exact BR): W=4/8 converge to ~0, matching single-thread.
+function mergeAverage(base, snapNodes, workerCkpts) {
+  const W = workerCkpts.length;
+  const keys = new Set();
+  for (const ck of workerCkpts) for (const key in ck.nodes) keys.add(key);
+  for (const key of keys) {
+    let tmpl = null;
+    for (const ck of workerCkpts) if (ck.nodes[key]) { tmpl = ck.nodes[key]; break; }
+    const len = tmpl.a.length;
+    const snap = snapNodes[key];
+    let node = base.nodes.get(key);
+    if (!node) {
+      node = { acts: tmpl.a, regret: new Float64Array(len), strat: new Float64Array(len) };
+      base.nodes.set(key, node);
+    }
+    for (let i = 0; i < len; i++) {
+      let sr = 0, ss = 0;
+      for (const ck of workerCkpts) {
+        const wn = ck.nodes[key];
+        sr += wn ? wn.r[i] : (snap ? snap.r[i] : 0);
+        ss += wn ? wn.s[i] : (snap ? snap.s[i] : 0);
       }
-      for (let i = 0; i < wn.a.length; i++) {
-        node.regret[i] += wn.r[i] - (snap ? snap.r[i] : 0);
-        node.strat[i] += wn.s[i] - (snap ? snap.s[i] : 0);
-      }
+      node.regret[i] = sr / W;
+      node.strat[i] = ss / W;
     }
   }
 }
@@ -93,13 +118,13 @@ async function trainParallel(gameId, {
   try {
     while (trainer.iterations < targetIters && Date.now() < deadline) {
       const remaining = targetIters - trainer.iterations;
-      const iters = Math.max(1, Math.min(mergeEvery, Math.ceil(remaining / workers)));
-      const snapshot = trainer.toCheckpoint(); // per-round zero reference + broadcast payload
+      const iters = Math.max(1, Math.min(mergeEvery, remaining));
+      const snapshot = trainer.toCheckpoint(); // broadcast payload + per-node base for absent workers
       const results = await Promise.all(pool.map((wk, i) =>
         runRound(wk, { type: 'run', base: snapshot, iters, seed: (seed + round * 100003 + i * 7919) >>> 0 })
       ));
-      mergeDeltas(trainer, snapshot.nodes, results.map(r => r.ckpt));
-      trainer.iterations = snapshot.iterations + iters * workers;
+      mergeAverage(trainer, snapshot.nodes, results.map(r => r.ckpt));
+      trainer.iterations = snapshot.iterations + iters; // averaging => same iteration rate, not iters*W
       round++;
       if (onMerge) onMerge(trainer);
     }

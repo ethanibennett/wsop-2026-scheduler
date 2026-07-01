@@ -39,6 +39,8 @@ import MilestoneCelebration from './components/MilestoneCelebration.jsx';
 const HandReplayerView = lazy(() => import('./components/HandReplayerView.jsx'));
 const SolverTrainerView = lazy(() => import('./components/SolverTrainerView.jsx'));
 const SolverPlayView = lazy(() => import('./components/SolverPlayView.jsx'));
+const SolverView = lazy(() => import('./components/SolverView.jsx'));
+const RazzTrainerView = lazy(() => import('./components/RazzTrainerView.jsx'));
 const StakingView = lazy(() => import('./components/StakingView.jsx'));
 const AdminView = lazy(() => import('./components/AdminView.jsx'));
 
@@ -129,6 +131,12 @@ export default function App() {
 
   // Hands tab tool: hand replayer or CFR solver trainer
   const [handsTool, setHandsTool] = useState('replayer');
+
+  // "Solve this spot" handoff: a frozen replayer spot, mapped to
+  // SolverView's inputs. Set by the replayer's Solve-this-spot button
+  // (which also flips handsTool → 'solver'); consumed + cleared by
+  // SolverView on mount/update.
+  const [pendingSolverSpot, setPendingSolverSpot] = useState(null);
 
   // Shared hand from URL hash
   const [sharedHandData, setSharedHandData] = useState(() => {
@@ -1341,7 +1349,7 @@ export default function App() {
             ? <div style={{height:'100%',display:'flex',flexDirection:'column'}}>
                 {isAdmin && (
                   <div style={{display:'flex',gap:6,padding:'8px 14px 0',fontFamily:"'Univers Condensed','Univers',sans-serif",flexWrap:'wrap'}}>
-                    {[['replayer','Replayer'],['trainer','Solver Trainer'],['watch','Watch Solver']].map(([id,lbl]) => (
+                    {[['replayer','Replayer'],['solver','Solver'],['trainer','Solver Trainer'],['razz-trainer','Trainer']].map(([id,lbl]) => (
                       <button key={id} onClick={() => setHandsTool(id)}
                         style={{padding:'4px 12px',borderRadius:12,fontFamily:'inherit',fontSize:'0.7rem',fontWeight:600,cursor:'pointer',
                           border:'1px solid ' + (handsTool === id ? 'var(--accent)' : 'var(--border)'),
@@ -1353,11 +1361,15 @@ export default function App() {
                   </div>
                 )}
                 <div style={{flex:1,minHeight:0}}>
-                  {handsTool === 'trainer' && isAdmin
+                  {handsTool === 'solver' && isAdmin
+                    ? <Suspense fallback={<LazyFallback />}><SolverView pendingSpot={pendingSolverSpot} onConsumeSpot={() => setPendingSolverSpot(null)} /></Suspense>
+                    : handsTool === 'trainer' && isAdmin
                     ? <Suspense fallback={<LazyFallback />}><SolverTrainerView /></Suspense>
                     : handsTool === 'watch' && isAdmin
                     ? <Suspense fallback={<LazyFallback />}><SolverPlayView /></Suspense>
-                    : <Suspense fallback={<LazyFallback />}><HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} /></Suspense>}
+                    : handsTool === 'razz-trainer' && isAdmin
+                    ? <Suspense fallback={<LazyFallback />}><RazzTrainerView /></Suspense>
+                    : <Suspense fallback={<LazyFallback />}><HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} onSolveSpot={isAdmin ? (spot => { setPendingSolverSpot(spot); setHandsTool('solver'); }) : undefined} /></Suspense>}
                 </div>
               </div>
             : <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
