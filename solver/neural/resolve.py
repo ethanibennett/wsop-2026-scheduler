@@ -263,6 +263,21 @@ class _Resolver:
                     toAct=actor, acted=[False, False], folded=None,
                     phase='bet', bringIn=bring, starter=actor, curSeq='')
 
+    # ── betting-tree seams (the ONLY game-shape hooks the CFR/BR core uses) ──
+    # The core (`_cfr`/`_eval_avg`/`_br`/`strategy_report`) reaches the tree ONLY
+    # through these three, so a different game family (e.g. the DRAW resolver in
+    # resolve_draw.py) plugs in by overriding them — the CFR+/exact-BR machinery
+    # is shared verbatim. Default = the module-level stud betting state machine,
+    # so stud/razz behaviour is byte-identical (these just forward).
+    def _is_leaf(self, node: dict) -> bool:
+        return is_leaf(node)
+
+    def _legal_actions(self, node: dict) -> List[str]:
+        return legal_actions(node)
+
+    def _apply_action(self, node: dict, a: str) -> dict:
+        return apply_action(node, a)
+
     def _share(self, i: int, j: int) -> float:
         """Seat-0 pot share for (seat0 holding i, seat1 holding j)."""
         if self.share_matrix is not None:
@@ -411,11 +426,11 @@ class _Resolver:
 
     # ── CFR+ traversal (one iteration; mutates regret/strategy sums) ──
     def _cfr(self, node: dict, reach: List[List[float]]):
-        if is_leaf(node):
+        if self._is_leaf(node):
             return self._leaf_value(node, reach)
         p = node['toAct']
         opp = 1 - p
-        acts = legal_actions(node)
+        acts = self._legal_actions(node)
         A = len(acts)
         key = node['curSeq']
         reg = self.regret.get(key)
@@ -433,7 +448,7 @@ class _Resolver:
             child_reach = [None, None]
             child_reach[p] = [reach[p][i] * sigma[i][ai] for i in range(self.H)]
             child_reach[opp] = reach[opp]
-            c0, c1 = self._cfr(apply_action(node, a), child_reach)
+            c0, c1 = self._cfr(self._apply_action(node, a), child_reach)
             cs = c0 if p == 0 else c1
             co = c1 if p == 0 else c0
             child_self[ai] = cs
@@ -464,11 +479,11 @@ class _Resolver:
 
     def _eval_avg(self, node: dict, reach: List[List[float]]):
         """CFVs under the average strategy (no updates) — the net's target."""
-        if is_leaf(node):
+        if self._is_leaf(node):
             return self._leaf_value(node, reach)
         p = node['toAct']
         opp = 1 - p
-        acts = legal_actions(node)
+        acts = self._legal_actions(node)
         A = len(acts)
         key = node['curSeq']
         cfv_self = [0.0] * self.H
@@ -478,7 +493,7 @@ class _Resolver:
             child_reach = [None, None]
             child_reach[p] = [reach[p][i] * sig[i] for i in range(self.H)]
             child_reach[opp] = reach[opp]
-            c0, c1 = self._eval_avg(apply_action(node, a), child_reach)
+            c0, c1 = self._eval_avg(self._apply_action(node, a), child_reach)
             cs = c0 if p == 0 else c1
             co = c1 if p == 0 else c0
             for i in range(self.H):
@@ -523,20 +538,20 @@ class _Resolver:
         return out
 
     def _br(self, node: dict, reach_fixed: List[float], brp: int) -> List[float]:
-        if is_leaf(node):
+        if self._is_leaf(node):
             return self._br_leaf(node, reach_fixed, brp)
         p = node['toAct']
-        acts = legal_actions(node)
+        acts = self._legal_actions(node)
         A = len(acts)
         key = node['curSeq']
         if p == brp:                               # BR player maximizes per holding
-            children = [self._br(apply_action(node, a), reach_fixed, brp)
+            children = [self._br(self._apply_action(node, a), reach_fixed, brp)
                         for a in acts]
             return [max(children[ai][i] for ai in range(A)) for i in range(self.H)]
         out = [0.0] * self.H                       # fixed player plays avg strategy
         for ai, a in enumerate(acts):
             sig = [self._avg_sigma_row(key, i, A)[ai] for i in range(self.H)]
-            child = self._br(apply_action(node, a),
+            child = self._br(self._apply_action(node, a),
                              [reach_fixed[i] * sig[i] for i in range(self.H)], brp)
             for i in range(self.H):
                 out[i] += child[i]
@@ -558,10 +573,10 @@ class _Resolver:
         rep: Dict[str, dict] = {}
 
         def rec(node: dict, reach: List[List[float]]):
-            if is_leaf(node):
+            if self._is_leaf(node):
                 return
             p = node['toAct']
-            acts = legal_actions(node)
+            acts = self._legal_actions(node)
             A = len(acts)
             key = node['curSeq']
             tot = sum(reach[p])
@@ -581,7 +596,7 @@ class _Resolver:
                 child_reach = [None, None]
                 child_reach[p] = [reach[p][i] * sig[i] for i in range(self.H)]
                 child_reach[1 - p] = reach[1 - p]
-                rec(apply_action(node, a), child_reach)
+                rec(self._apply_action(node, a), child_reach)
 
         rec(self.root, [self.range[0][:], self.range[1][:]])
         return rep
