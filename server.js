@@ -7746,7 +7746,7 @@ function drawTrainerDeal(game, req, res) {
 //   hero decision OR terminal.
 //   -> on hero turn:  { state, legalActions:[{id,label}], handOver:false }
 //   -> on terminal:   { state, legalActions:null, handOver:true, result, grades }
-function trainerStep(game, req, res) {
+async function trainerStep(game, req, res) {
   if (isDrawTrainerGame(game.id)) return drawTrainerStep(game, req, res);
   try {
     const body = req.body || {};
@@ -7778,7 +7778,16 @@ function trainerStep(game, req, res) {
     const term = r.terminal;
     const result = trainerResultPayload(game, term, hr.utility[heroSeat], heroSeat);
 
-    const graded = razzGrade.gradeHand(hr, getTrainerBp(game.id), { seed, samples: 2000, game });
+    // Oracle grading is OPT-IN (body.oracle === true): for 7th-street hero
+    // decisions the grade is sourced from the TRUE-GTO neural re-solver instead
+    // of the bucketed blueprint. gradeHandWithOracle runs the blueprint grade
+    // first and overlays the oracle per eligible decision, gracefully falling
+    // back to the blueprint grade on any oracle failure/timeout. Default stays
+    // the pure-JS blueprint grader.
+    const useOracle = body.oracle === true;
+    const graded = useOracle
+      ? await razzGrade.gradeHandWithOracle(hr, getTrainerBp(game.id), { seed, samples: 2000, game })
+      : razzGrade.gradeHand(hr, getTrainerBp(game.id), { seed, samples: 2000, game });
     const grades = graded.grades.map(g => {
       const dec = hr.decisions[g.gradeIdx];
       return {
@@ -7794,6 +7803,21 @@ function trainerStep(game, req, res) {
         bestActionId: g.bestAction,
         evLoss: g.evLoss,
         evLossSE: g.evLossSE,
+        // oracle metadata (present only when oracle grading is on)
+        gradeSource: g.gradeSource,
+        blueprintEvLoss: g.blueprintEvLoss,
+        // HONEST self-consistency gauge (Fix 2): the grade is trusted on
+        // EV-CONVERGENCE, not on the resolver's own <0.06 exploitability bar. At
+        // the trainer default (300 iters) the resolver's self-play gap is ~0.33 —
+        // that is NOT a "grade broken / not fully solved" signal, so we surface it
+        // under an honest name and publish an EV-convergence trust flag instead.
+        oracleGradeTrusted: g.oracleGradeTrusted,
+        oracleGradeTrust: g.oracleGradeTrust,
+        oracleResolveExploitability: g.oracleResolveExploitability,
+        oracleFullySolved: g.oracleFullySolved,
+        oracleIters: g.oracleIters,
+        // BACK-COMPAT alias (unchanged key; no client thresholds on it).
+        oracleExploitability: g.oracleExploitability,
       };
     });
 
@@ -7895,7 +7919,10 @@ app.post('/api/solver/trainer/:game/deal', authenticateToken, (req, res) => {
 });
 app.post('/api/solver/trainer/:game/step', authenticateToken, (req, res) => {
   const game = resolveTrainerGame(req, res); if (!game) return;
-  trainerStep(game, req, res);
+  Promise.resolve(trainerStep(game, req, res)).catch(err => {
+    console.error(`${game.id} trainer step (async) error:`, err);
+    if (!res.headersSent) res.status(500).json({ error: `Failed to step ${game.id} hand` });
+  });
 });
 
 // Legacy razz-only routes — kept working as aliases (game=razz) so existing
@@ -7904,7 +7931,10 @@ app.post('/api/solver/razz-trainer/deal', authenticateToken, (req, res) => {
   trainerDeal(razzGame, req, res);
 });
 app.post('/api/solver/razz-trainer/step', authenticateToken, (req, res) => {
-  trainerStep(razzGame, req, res);
+  Promise.resolve(trainerStep(razzGame, req, res)).catch(err => {
+    console.error('razz trainer step (async) error:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Failed to step razz hand' });
+  });
 });
 
 // ── Trainer graded-hand persistence (durable per-hand history) ───────────────

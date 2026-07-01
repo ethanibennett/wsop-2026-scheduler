@@ -640,6 +640,131 @@ def resolve_subgame(pbs, iters: int = 1000, depth_limit: Optional[int] = None,
     return out
 
 
+def root_action_ev(pbs, hero_holding, hero_reach=None, game: Optional['GameSpec'] = None,
+                   iters: int = 2000, opp_range=None, return_meta: bool = False) -> dict:
+    """The TRUE-GTO grading ORACLE primitive.
+
+    Solve the subgame rooted at `pbs` to equilibrium, then for EACH legal root
+    action report the hero's EV (chips) for the FIXED hero holding under the
+    equilibrium continuation: hero best-responds ONLY at the root and both sides
+    play the average strategy everywhere after. This is the exact analog of
+    grade.js's per-action EV, and the loop lifted (verbatim in spirit) from
+    _xcheck_solve.py / _xcheck_stud8_solve.py — now first-class.
+
+    Args:
+        pbs: a pbs.PBS whose `.ranges[1]` is the reach-weighted OPPONENT range
+            aligned to `pbs.holdings` (or `opp_range`, below). `.ranges[0]` is
+            unused here — the hero's reach is supplied by `hero_holding`/
+            `hero_reach` (a point mass on the hero's actual hand).
+        hero_holding: the hero's exact down cards (tuple/list of card strings).
+            Must be present in the union of holdings solved.
+        hero_reach: optional explicit hero reach vector over the union holdings.
+            Defaults to an indicator on `hero_holding` (a specific hand grade).
+        opp_range: optional {holding_tuple: weight} opponent range. If given, the
+            union of holdings is built from (hero_holding ∪ opp_range) and the
+            solve is restricted to it (exact + fast for narrow node-locked ranges,
+            the study case). If None, `pbs.holdings`/`pbs.ranges[1]` are used.
+        game: GameSpec (RAZZ / STUD8). Defaults to STUD8.
+        iters: CFR+ iterations.
+        return_meta: also return holdings/reach/value for debugging.
+
+    Returns:
+        {
+          'per_action_ev': {action: ev_chips},   # hero EV per root action
+          'gtoMix':        {'actions':[...], 'freq':[...]},  # root GTO mix
+          'exploitability': float,               # solve self-validation (7th only)
+          'pot':           float,
+        }
+        (+ holdings/r0/r1/me_idx/value when return_meta).
+    """
+    g = game if game is not None else STUD8
+    street = pbs.street
+    up = pbs.up
+    dead = pbs.dead
+    pot = float(pbs.pot)
+    me = _sort_holding(hero_holding)
+
+    # Build the union of holdings + reach vectors. Two modes:
+    #  (a) opp_range given  -> node-locked: union = hero ∪ opp support (narrow).
+    #  (b) opp_range None   -> use the PBS's own holdings/ranges (dense).
+    if opp_range is not None:
+        opp = {}
+        for h, w in (opp_range.items() if hasattr(opp_range, 'items') else opp_range):
+            opp[_sort_holding(h)] = opp.get(_sort_holding(h), 0.0) + w
+        union = sorted(set([me]) | set(opp),
+                       key=lambda h: tuple(_deck_index(c) for c in h))
+        idx = {h: i for i, h in enumerate(union)}
+        H = len(union)
+        r1 = [0.0] * H
+        for h, w in opp.items():
+            r1[idx[h]] += w
+        s1 = sum(r1)
+        r1 = [x / s1 for x in r1] if s1 else r1
+        holdings = union
+    else:
+        holdings = getattr(pbs, 'holdings', None)
+        holdings = list(holdings) if holdings is not None else \
+            enumerate_holdings(up[0] + up[1] + dead, down_count(street))
+        idx = {h: i for i, h in enumerate(holdings)}
+        H = len(holdings)
+        r1 = list(pbs.ranges[1])
+        s1 = sum(r1)
+        r1 = [x / s1 for x in r1] if s1 else r1
+
+    if me not in idx:
+        raise ValueError("hero_holding is not in the solved holding union")
+    me_idx = idx[me]
+
+    # hero reach: point mass on the actual hand (a specific-hand grade), unless
+    # an explicit reach vector is supplied.
+    if hero_reach is None:
+        r0 = [0.0] * H
+        r0[me_idx] = 1.0
+    else:
+        r0 = list(hero_reach)
+        s0 = sum(r0)
+        r0 = [x / s0 for x in r0] if s0 else r0
+
+    R = _Resolver(street, up, dead, pot, r0, r1, None, iters=iters,
+                  depth_limit=None, holdings=holdings, game=g)
+    cfv0, cfv1 = R.solve()
+
+    root = R.root
+    if root['toAct'] != 0:
+        raise ValueError("oracle expects hero (seat 0) to act first at the root")
+    racts = legal_actions(root)
+
+    # Per-action hero EV: hero plays action a at the root, then both play the
+    # equilibrium average strategy; opp reach entering the child is unchanged
+    # (hero acts at the root, so opp hasn't acted between root and child).
+    per_action_ev = {}
+    hero_pt = [0.0] * H
+    hero_pt[me_idx] = 1.0
+    for a in racts:
+        child = apply_action(root, a)
+        c0, _c1 = R._eval_avg(child, [hero_pt, R.range[1][:]])
+        per_action_ev[a] = c0[me_idx]
+
+    # Root GTO mix (reach-weighted aggregate over the hero range at the root).
+    rep = R.strategy_report()
+    root_rep = rep.get(root['curSeq'], {'actions': racts, 'freq': [1.0 / len(racts)] * len(racts)})
+
+    out = {
+        'per_action_ev': {a: per_action_ev[a] for a in racts},
+        'gtoMix': {'actions': root_rep['actions'], 'freq': list(root_rep['freq'])},
+        'exploitability': R.exploitability() if R.st0 == 4 else None,
+        'pot': root['contrib'][0] + root['contrib'][1],
+    }
+    if return_meta:
+        out['holdings'] = [list(h) for h in holdings]
+        out['r0'] = r0
+        out['r1'] = r1
+        out['me_idx'] = me_idx
+        out['value'] = {'me': sum(r0[i] * cfv0[i] for i in range(H)),
+                        'opp': sum(r1[i] * cfv1[i] for i in range(H))}
+    return out
+
+
 # ── self-tests (run: python3 resolve.py) ──
 def _tiny_board(up0, up1, live):
     """A board whose unseen pool is exactly `live` (rest dead) for fast tests."""

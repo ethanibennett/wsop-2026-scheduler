@@ -609,6 +609,336 @@ function finalizeEV(acts, parts, util, ev, se) {
   }
 }
 
+// ── TRUE-GTO 7th-street ORACLE grading (opt-in, behind a flag) ──────────
+// The blueprint grader charges evLoss vs its own bucketed self. On 7th street
+// (a real showdown — EXACT, no value net) we can instead source the grade from
+// the neural re-solver's TRUE-GTO per-action EV. This is 7th-STREET ONLY and
+// only at the START of the betting round (equal contributions), where the
+// oracle's root reconstruction faithfully matches the decision node; early
+// streets are blocked until the net-leaf-vs-exact check passes.
+
+// Which blueprint grades are eligible for an oracle override?
+//   - 7th street (snap.street === 4), the deal-free real showdown,
+//   - the hero opens the round (equal contributions => the oracle's start-of-
+//     street root reconstruction matches this exact decision node),
+//   - a 2-action k/b decision (the resolver's root has the hero to act first).
+function oracleEligible(handRecord, gradeIdx) {
+  const d = handRecord.decisions[gradeIdx];
+  const snap = d.state;
+  if (!snap || snap.street !== 4) return false;             // 7th street only
+  const c = snap.contrib;
+  if (!c || Math.abs(c[0] - c[1]) > 1e-9) return false;     // start-of-street only
+  if (snap.toAct !== d.actor) return false;
+  return true;
+}
+
+// Build the oracle spot dict (what oracle_worker.py expects) from a blueprint
+// grade's already-computed reach-weighted opponent range. `blueprintGrade` is a
+// gradeDecision result; `candidates` is its normalized [{hand:[int],w}] range.
+function buildOracleSpot(game, handRecord, gradeIdx, candidates, iters) {
+  const d = handRecord.decisions[gradeIdx];
+  const snap = d.state;
+  const heroSeat = d.actor;
+  const oppSeat = 1 - heroSeat;
+  return {
+    game: game.id,
+    up0: snap.up[heroSeat].map(cardStr),
+    up1: snap.up[oppSeat].map(cardStr),
+    dead: (handRecord.deadCards || []).map(cardStr),
+    pot: snap.contrib[0] + snap.contrib[1],
+    me: snap.down[heroSeat].map(cardStr),
+    opp_range: candidates.map(c => [c.hand.map(cardStr), c.w]),
+    iters: iters || 2000,
+  };
+}
+
+// Recompute the candidate opp range for a decision (same reach-weighting the
+// blueprint grader uses), so the oracle sees the same range — then PRUNE to the
+// top-`oppCap` reach-weighted holdings. The blueprint grader enumerates the full
+// ~C(40,3)≈8.4k opp combos and rolls each cheaply per-candidate; the exact CFR
+// re-solver instead builds an O(H²)-showdown tree over the union, so a full
+// enumeration is intractable/times out. Capping to the top-mass holdings keeps
+// the solve node-locked (<~1s) while covering the bulk of the opponent's reach.
+// Returns normalized [{hand,w}] over the retained holdings (renormalized).
+function oracleCandidates(game, strategyMap, handRecord, gradeIdx, opts) {
+  const d = handRecord.decisions[gradeIdx];
+  const snap = d.state;
+  const heroSeat = d.actor;
+  const oppSeat = 1 - heroSeat;
+  const k = oppDownCount(snap);
+  const pool = unseenForOpp(snap, heroSeat, handRecord.deadCards || []);
+  const budget = opts.exactRangeBudget == null ? 20000 : opts.exactRangeBudget;
+  const oppCap = opts.oppCap == null ? 40 : opts.oppCap; // resolver union cap
+  const candidates = [];
+  for (const combo of combos(pool, k, 0, [])) {
+    const w = reachWeight(game, strategyMap, handRecord, gradeIdx, oppSeat, combo);
+    if (w > 0) candidates.push({ hand: combo, w });
+    if (candidates.length > budget) break;
+  }
+  let wsum = 0; for (const c of candidates) wsum += c.w;
+  if (wsum <= 0) return null;                 // no consistent opp hand -> no oracle
+  // Down-select to `oppCap` holdings so the O(union²) re-solve stays fast. The
+  // budget is a LATENCY cap (union size), not a coverage target: on stud/razz 7th
+  // the opponent's consistent range is ~8.4k combos and reach-weighting is very
+  // FLAT (top weight ≈ 2x uniform), so the old "top-oppCap by mass" head captured
+  // <1% of reach AND — because the flat head is an arbitrary, unrepresentative
+  // slice — biased the solved subgame: it over-charged strong-hero spots by
+  // ~10 chips (an ARTIFACT), while leaving crushed-hero spots unchanged. Instead
+  // we take a SYSTEMATIC (evenly-strided) sample across the reach-sorted range:
+  // for a flat range this is a representative miniature of the WHOLE range, so its
+  // showdown-equity distribution — hence the per-action EV — matches the full
+  // range at the SAME union size / latency. (Verified: on a strong-hero razz spot
+  // systematic-30 → 2.8 chips vs top-20's 11.6, matching the K=250 reference 2.1;
+  // on crushed-hero spots both agree.) Weights are the retained holdings' own
+  // reach, renormalized. `coverage` (reach-mass retained) is kept for diagnostics
+  // but is intentionally small — representativeness, not mass, is what matters for
+  // a flat range.
+  let kept = candidates;
+  let coverage = 1;
+  if (oppCap > 0 && candidates.length > oppCap) {
+    candidates.sort((a, b) => b.w - a.w);     // reach-sorted (desc)
+    const stride = candidates.length / oppCap; // fractional stride across the range
+    kept = [];
+    for (let i = 0; kept.length < oppCap && Math.floor(i) < candidates.length; i += stride) {
+      kept.push(candidates[Math.floor(i)]);
+    }
+    let keptSum = 0; for (const c of kept) keptSum += c.w;
+    coverage = keptSum / wsum;                // fraction of opp reach retained (small — by design)
+    wsum = keptSum;
+  }
+  for (const c of kept) c.w /= wsum;
+  kept.coverage = coverage;                   // stashed for diagnostics
+  return kept;
+}
+
+// ── oracle self-consistency gauge (HONEST at the grade setting) ─────────
+// The resolver returns res.exploitability = its OWN best-response gap after
+// `iters` CFR+ iterations. At the trainer default (oracleIters=300) that gauge
+// reads ~0.33 chips: the CFR SELF-PLAY hasn't fully converged its own mixed
+// strategy (reaching <0.06 needs ~5000 iters / ~69s). BUT the quantity the GRADE
+// depends on — the PER-ACTION EV / evLoss at the root — is already CONVERGED at
+// 300 iters (stable to <=0.2 chips out to 5000 iters). So the resolver's own
+// <0.06 exploitability bar is the WRONG trust signal for a 300-iter grade:
+// gating on exploitability>0.1 would falsely flag a good, EV-converged grade as
+// broken. We therefore:
+//   (1) surface the raw gauge under an HONEST name (oracleResolveExploitability)
+//       that says what it is — the resolver's self-play gap at these iters, NOT a
+//       claim that the grade is "<0.06 exploitable / fully solved";
+//   (2) publish oracleGradeTrusted based on EV-CONVERGENCE (guaranteed by
+//       iters >= EV_CONVERGED_ITERS), not on the exploitability bar. A 300-iter
+//       grade is trusted because its per-action EV has converged, full-strategy
+//       exploitability notwithstanding.
+// This changes only LABELS/metadata — the grade (evLoss) is untouched.
+const EV_CONVERGED_ITERS = 300; // per-action EV is stable to <=0.2 chips at/above this
+const RESOLVE_FULLY_SOLVED_ITERS = 5000; // iters needed for the resolver's OWN <0.06 gauge
+
+// Overlay a true-GTO oracle grade onto a blueprint grade. Returns a NEW grade
+// object with per-action EV / evLoss / gtoMix / bestAction sourced from the
+// oracle, tagged gradeSource:'oracle'. On ANY failure (worker down, range empty,
+// ineligible, action mismatch) returns the BLUEPRINT grade (tagged
+// gradeSource:'blueprint') so the trainer never breaks.
+//
+// `g` may be EITHER a full blueprint gradeDecision result OR a light stub
+// {gradeIdx} (see gradeHandWithOracle's short-circuit): on oracle-eligible
+// 7th-street decisions we must NOT pay the ~10s blueprint Monte-Carlo up front —
+// it is redundant with the oracle grade and only needed as a fallback. When the
+// oracle SUCCEEDS the blueprint grade is never computed; when it FAILS we compute
+// the blueprint grade LAZILY via opts.blueprintGrade() so the fallback is intact.
+async function overlayOracleGrade(oracle, game, strategyMap, handRecord, g, opts) {
+  const gradeIdx = g.gradeIdx;
+  const d = handRecord.decisions[gradeIdx];
+  // Lazily materialise the blueprint grade only when we actually need it (fallback
+  // or non-eligible). `g` already IS the blueprint grade unless it's the light
+  // stub used by the short-circuit path, in which case opts.blueprintGrade()
+  // computes it on demand. blueprintEvLoss is a diagnostic COMPARISON field; in
+  // pro-mode it must not force the ~10s MC, so it is populated only when the
+  // blueprint grade exists (fallback) or a debug flag asks for it.
+  const materializeBlueprint = () =>
+    (g && g.perActionEV) ? g : (opts.blueprintGrade ? opts.blueprintGrade() : g);
+  const asBlueprintGrade = () => {
+    const bp = materializeBlueprint();
+    return Object.assign({}, bp, {
+      gradeSource: 'blueprint',
+      blueprintEvLoss: bp.evLoss,
+    });
+  };
+  try {
+    if (!oracleEligible(handRecord, gradeIdx)) return asBlueprintGrade();
+    const candidates = oracleCandidates(game, strategyMap, handRecord, gradeIdx, opts);
+    if (!candidates || !candidates.length) return asBlueprintGrade();
+    const iters = opts.oracleIters || 2000;
+    const spot = buildOracleSpot(game, handRecord, gradeIdx, candidates, iters);
+    const res = await oracle.perActionEV(spot);
+    if (!res || !res.per_action_ev) return asBlueprintGrade();
+
+    // The oracle must cover exactly the hero's legal actions.
+    const acts = d.acts;
+    for (const a of acts) {
+      if (!(a in res.per_action_ev)) return asBlueprintGrade();
+    }
+
+    const perActionEV = {};
+    for (const a of acts) perActionEV[a] = res.per_action_ev[a];
+    let bestA = acts[0], bestEV = -Infinity;
+    for (const a of acts) if (perActionEV[a] > bestEV) { bestEV = perActionEV[a]; bestA = a; }
+    const evLoss = Math.max(0, bestEV - perActionEV[d.chosen]);
+
+    const gtoMix = res.gtoMix && res.gtoMix.actions
+      ? { actions: res.gtoMix.actions.slice(), probs: res.gtoMix.freq.slice(),
+          trained: true }
+      : materializeBlueprint().gtoMix;
+
+    // HONEST self-consistency gauge (Fix 2): the grade is trusted on EV-CONVERGENCE
+    // (iters >= EV_CONVERGED_ITERS), NOT on the resolver's own <0.06 exploitability
+    // bar. Surface the raw gauge under a name that says what it is.
+    const evConverged = iters >= EV_CONVERGED_ITERS;
+    // blueprintEvLoss only if the blueprint grade is already in hand (never forces
+    // the ~10s MC on the eligible short-circuit path) or a debug flag requests it.
+    const blueprintEvLoss = (g && g.perActionEV) ? g.evLoss
+      : (opts.debugBlueprintEvLoss && opts.blueprintGrade ? opts.blueprintGrade().evLoss : undefined);
+
+    const out = Object.assign({}, materializeBlueprintShell(g, d, gtoMix), {
+      gradeIdx,
+      gradeSource: 'oracle',
+      perActionEV,
+      perActionSE: acts.reduce((o, a) => (o[a] = 0, o), {}), // exact showdown
+      bestAction: bestA,
+      evLoss,
+      evLossSE: 0,
+      gtoMix,
+      forwardMode: 'oracle-exact',
+      // HONEST gauge fields:
+      oracleResolveExploitability: res.exploitability, // resolver self-play gap AT these iters (NOT a grade-quality claim)
+      oracleGradeTrusted: evConverged,                 // trust = per-action EV converged
+      oracleGradeTrust: evConverged ? 'ev-converged' : 'ev-unconverged',
+      oracleIters: iters,
+      oracleFullySolved: iters >= RESOLVE_FULLY_SOLVED_ITERS, // only THEN is the <0.06 bar met
+      // BACK-COMPAT: keep the old key but point it at the honestly-labelled value.
+      // (No code THRESHOLDS on it; the server just passes it through to the client.)
+      oracleExploitability: res.exploitability,
+      oppCoverage: candidates.coverage == null ? 1 : candidates.coverage,
+      oppCombos: candidates.length,
+    });
+    if (blueprintEvLoss !== undefined) out.blueprintEvLoss = blueprintEvLoss;
+    return out;
+  } catch (e) {
+    // never let the oracle break a grade
+    return asBlueprintGrade();
+  }
+}
+
+// Build the display/passthrough shell an oracle grade inherits (seat/street/
+// heroCards/etc.). If `g` is a full blueprint grade we reuse it as the base; if
+// it's the light {gradeIdx} stub we synthesize the shell from the decision so the
+// oracle grade carries the same descriptive fields WITHOUT a blueprint MC.
+function materializeBlueprintShell(g, d, gtoMix) {
+  if (g && g.perActionEV) return g;
+  const snap = d.state;
+  const heroSeat = d.actor;
+  const oppSeat = 1 - heroSeat;
+  return {
+    seat: heroSeat,
+    street: snap.street,
+    streetName: ['3rd', '4th', '5th', '6th', '7th'][snap.street],
+    infosetKey: d.key,
+    trained: gtoMix ? gtoMix.trained : false,
+    heroCards: { down: snap.down[heroSeat].map(cardStr), up: snap.up[heroSeat].map(cardStr) },
+    oppUp: snap.up[oppSeat].map(cardStr),
+    chosen: d.chosen,
+    rangeMode: 'oracle',
+    rangeCombos: 0,
+    samplesUsed: 0,
+  };
+}
+
+// Async oracle-enhanced gradeHand. Grades every non-eligible hero decision with
+// the blueprint (byte-identical to gradeHand) and every ORACLE-ELIGIBLE 7th-
+// street decision with the true-GTO re-solver — WITHOUT paying the redundant
+// ~10s blueprint Monte-Carlo for those eligible decisions (Fix 1: the blueprint
+// grade is computed only on oracle fallback). Any oracle failure falls back to
+// the blueprint grade per-decision. Opt-in: callers use this instead of gradeHand
+// only when the "oracle grading" option is on; the default gradeHand path is
+// untouched.
+async function gradeHandWithOracle(handRecord, blueprint, opts = {}) {
+  const game = opts.game || DEFAULT_GAME;
+  const strategyMap = strategyMapOf(blueprint);
+  const { getOracle } = require('./oracle-bridge');
+  const oracle = opts.oracle || getOracle();
+  // Trainer defaults balance latency vs precision: the exact 7th-street re-solve
+  // is O(iters · union²), so cap the opponent range to a fixed union size (oppCap)
+  // and run enough CFR+ to converge the PER-ACTION EV (which stabilizes well
+  // before full exploitability does). oppCap is a SYSTEMATIC sample across the
+  // (flat) reach-sorted range, not a top-mass head — see oracleCandidates — so a
+  // small union is representative of the whole ~8.4k-combo range. The PER-ACTION
+  // EV (what the grade needs) converges FAST — within ~0.2 chips by ~300 iters,
+  // long before full exploitability does — so the default is 300 iters, which
+  // lands ~30 combos at ≈4-5 s/decision warm. Callers can raise oppCap/oracleIters
+  // for research-grade precision (systematic-K converges to the full range as K
+  // grows; more iters tightens the CFR self-play but barely moves per-action EV).
+  // HONESTY NOTE (Fix 2): at 300 iters the resolver's OWN exploitability gauge
+  // still reads ~0.33 (its mixed strategy needs ~5000 iters / ~69s to reach
+  // <0.06) — but the GRADE is trusted on EV-CONVERGENCE, not on that <0.06 bar.
+  // The overlay surfaces the raw gauge as oracleResolveExploitability (labelled as
+  // the resolver's self-play gap, NOT a "fully solved" claim) and sets
+  // oracleGradeTrusted from EV-convergence. See overlayOracleGrade.
+  const o = { exactRangeBudget: opts.exactRangeBudget == null ? 20000 : opts.exactRangeBudget,
+              oppCap: opts.oppCap == null ? 30 : opts.oppCap,
+              oracleIters: opts.oracleIters || 300,
+              debugBlueprintEvLoss: opts.debugBlueprintEvLoss === true };
+
+  // Per-hand blueprint grading OPTS (the same config gradeHand builds) — used
+  // only to compute a blueprint grade LAZILY for the decisions that need one
+  // (non-eligible decisions, or eligible decisions where the oracle falls back).
+  const bpOpts = {
+    game,
+    samples: opts.samples || 2000,
+    crn: opts.crn !== false,
+    crnSeed: (opts.seed == null ? 0xC0FFEE : opts.seed) >>> 0,
+    rangeSeed: (opts.rangeSeed == null ? 0xBEEF : opts.rangeSeed) >>> 0,
+    rangeSamples: opts.rangeSamples || 600,
+    exactRangeBudget: opts.exactRangeBudget == null ? 20000 : opts.exactRangeBudget,
+    targetSE: opts.targetSE || 0,
+    maxSamples: opts.maxSamples || 64000,
+  };
+  // A blueprint gradeDecision for `i` is byte-identical to gradeHand's per-decision
+  // output (same opts, same code path) — so the non-eligible decisions are graded
+  // EXACTLY as before, and an eligible-decision fallback matches the pre-fix grade.
+  const blueprintDecision = (i) => gradeDecision(strategyMap, handRecord, i, bpOpts);
+
+  // LATENCY SHORT-CIRCUIT (Fix 1): the pre-fix path ran the full synchronous
+  // blueprint Monte-Carlo grade for EVERY decision (incl. the ~10s 7th-street
+  // eligible one) and THEN overlaid the oracle — so an eligible decision paid
+  // ~14s (blueprint MC + oracle). Here we grade each hero decision at most once:
+  //   • ORACLE-ELIGIBLE 7th-street decision  -> go STRAIGHT to the oracle with a
+  //     light {gradeIdx} stub; the ~10s blueprint MC is NOT computed unless the
+  //     oracle FALLS BACK (overlayOracleGrade calls opts.blueprintGrade() then).
+  //   • every other decision (3rd–6th, non-hero-to-act) -> blueprint grade,
+  //     UNCHANGED from gradeHand.
+  const grades = [];
+  for (let i = 0; i < handRecord.decisions.length; i++) {
+    const dec = handRecord.decisions[i];
+    if (!dec.isHero) continue;
+    if (oracleEligible(handRecord, i)) {
+      // Eligible: skip the blueprint MC; oracle grades directly. The blueprint
+      // grade is available ONLY on fallback, computed lazily inside the overlay.
+      const stub = { gradeIdx: i };
+      grades.push(await overlayOracleGrade(oracle, game, strategyMap, handRecord,
+        stub, Object.assign({}, o, { blueprintGrade: () => blueprintDecision(i) })));
+    } else {
+      // Non-eligible: blueprint grade, byte-identical to the default gradeHand path.
+      const bp = blueprintDecision(i);
+      grades.push(await overlayOracleGrade(oracle, game, strategyMap, handRecord, bp, o));
+    }
+  }
+  return {
+    game: game.id,
+    heroSeat: handRecord.heroSeat,
+    utility: handRecord.utility,
+    grades,
+    oracleGraded: true,
+  };
+}
+
 // ── public entry ───────────────────────────────────────────────────────
 function gradeHand(handRecord, blueprint, opts = {}) {
   const strategyMap = strategyMapOf(blueprint);
@@ -643,6 +973,11 @@ function gradeHand(handRecord, blueprint, opts = {}) {
 
 module.exports = {
   gradeHand,
+  gradeHandWithOracle,
+  overlayOracleGrade,
+  buildOracleSpot,
+  oracleCandidates,
+  oracleEligible,
   gradeDecision,
   reachWeight,
   unseenForOpp,
