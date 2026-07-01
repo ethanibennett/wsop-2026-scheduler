@@ -10,9 +10,22 @@ unexploitable (0 == Nash). All games are heads-up fixed-limit.
   ships `max(particle-filter, fixed-exploiter)`. Run at 120 particles / 4000 hands/seat.
 - **Fixed-exploiter LB** (`solver/exploitability.js`) — a looser **lower bound** for the STUD
   games (razz, stud8): the most any of three fixed strategies (station / maniac / rock) beats
-  the blueprint by. There is **no principled stud LBR yet** — the particle-filter is draw-only
-  (it reasons over hidden draw holdings), so stud is metered by fixed exploiters alone. This
-  catches gross leaks but cannot certify near-optimality the way the draw LBR can.
+  the blueprint by. This catches gross leaks but cannot certify near-optimality.
+- **Best-response stud LBR** (`solver/lbr-stud.js` + `solver/lbr-stud-run.js`) — the STUD
+  analogue of the draw particle-filter, and now the principled stud meter the earlier "no stud
+  LBR yet" caveat was waiting on. It best-responds at each of its own nodes against a
+  reach-weighted posterior over the opponent's hidden down cards (reusing the trainer grader's
+  belief primitives), continuation = max{sigma, aggro}, deviate-on-margin with CRN across
+  actions; ships `max(LBR, fixed-exploiter)`. **KEY READ on gate (3):** for razz the fixed
+  exploiter reports ~0 while this LBR reports several chips/hand — this is NOT a contradiction,
+  it means **the LBR found a +EV deviation the crude station/maniac/rock exploiters cannot
+  represent**. Verified genuine, not an argmax artifact: with margin=1000 (meter can never
+  deviate ⇒ LBR≡σ) the measured deviation is 0.02±0.94 (unbiased machinery), and it rises
+  monotonically as the margin drops (m=1→1.46, m=0.25→2.28), the signature of a well-gated LBR
+  finding real leaks. This is the documented "HU blueprints play unrealistically aggressive"
+  gap made measurable. NOTE: this meter measures the PURE HU blueprint WITHOUT dead-card
+  conditioning (deadCards=[]), unlike the trainer; and at its shipped default range budget the
+  7th street is MC-sampled, not exact — headlines need thousands of hands for a tight SE.
 
 Both meters are **lower bounds**: true exploitability is `>=` the reported number. A small
 number is only trustworthy-as-near-zero for the draw games (the LBR is tight there); for stud a

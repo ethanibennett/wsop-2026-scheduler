@@ -274,5 +274,74 @@ console.log('— Particle-filter draw LBR —');
   });
 }
 
+console.log('— Best-response stud LBR —');
+{
+  const { studLBR, beliefEV } = require('../lbr-stud');
+  const play = require('../razz-trainer/play');
+  const grade = require('../razz-trainer/grade');
+  const fs = require('fs');
+  const path = require('path');
+  const have = id => fs.existsSync(path.join(__dirname, '..', 'strategies', id + '.json'));
+  const load = id => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'strategies', id + '.json'), 'utf8')).strategy;
+  // Light settings: the point is the INEQUALITIES (uniform >> blueprint, meter ≥ 0),
+  // not a precise headline number — so a handful of hands suffices in CI.
+  const OPT = { hands: 40, samples: 120, rangeSamples: 250, exactRangeBudget: 400, seed: 7 };
+
+  test('stud LBR: a uniform-random opponent is FAR more exploitable than the razz blueprint', () => {
+    if (!have('razz')) { console.log('      (skip — no razz.json)'); return; }
+    const bp = studLBR('razz', load('razz'), OPT).exploitability;
+    const uni = studLBR('razz', {}, Object.assign({}, OPT, { margin: 0 })).exploitability;
+    assert(uni > bp + 1.0, `uniform ${uni.toFixed(2)} should be >> blueprint ${bp.toFixed(2)}`);
+  });
+
+  test('stud LBR: the meter is a non-negative bound, ≤ a uniform (broken) opponent', () => {
+    if (!have('razz')) { console.log('      (skip — no razz.json)'); return; }
+    const r = studLBR('razz', load('razz'), OPT);
+    assert(r.exploitability >= 0, 'meter is clamped non-negative');
+    const uni = studLBR('razz', {}, Object.assign({}, OPT, { margin: 0 })).exploitability;
+    assert(uni >= r.exploitability, 'a broken (uniform) opponent is at least as exploitable');
+  });
+
+  test('stud LBR: an empty strategy map reweights the belief UNIFORMLY (grade.lookup fallback)', () => {
+    // Gate (1) correctness relies on grade.lookup returning uniform for BOTH the
+    // opponent's play and the belief reweight when strategyMap={} (shape mismatch
+    // → uniform). Assert reachWeight is CONSTANT across candidate opp combos under
+    // {} (so the belief is genuinely uniform, not accidentally σ-shaped).
+    const razz = GAMES.razz;
+    const st = razz.newHand(makeRng(99));
+    // advance to a node where the opponent has acted at least once so reachWeight
+    // has a betting line to replay (else every weight is trivially 1).
+    let s = st;
+    while (!razz.isTerminal(s) && razz.isChance(s)) s = razz.sampleChance(s, makeRng(1));
+    const acts = razz.legalActions(s);
+    const heroSeat = s.toAct, oppSeat = 1 - heroSeat;
+    const snap = play.snapshotState(s);
+    const rec = { game: 'razz', heroSeat, deadCards: [],
+      decisions: [{ actor: heroSeat, isHero: true, street: 0, key: razz.infosetKey(s),
+        acts: acts.slice(), chosen: acts[0], state: snap }] };
+    const pool = grade.unseenForOpp(snap, heroSeat, []);
+    const combos = [];
+    for (let i = 0; i < pool.length && combos.length < 8; i++)
+      for (let j = i + 1; j < pool.length && combos.length < 8; j++) combos.push([pool[i], pool[j]]);
+    const ws = combos.map(c => grade.reachWeight(razz, {}, rec, 0, oppSeat, c));
+    for (const w of ws) assert(Math.abs(w - ws[0]) < 1e-12, `uniform reachWeight expected, got ${ws.join(',')}`);
+  });
+
+  test('stud LBR belief: reach-weighted per-action EV is defined at a 3rd-street node', () => {
+    // Exercises the grade.js belief reuse: build a 1-node live record and confirm
+    // beliefEV returns a finite EV for every legal action.
+    if (!have('razz')) { console.log('      (skip — no razz.json)'); return; }
+    const razz = GAMES.razz, sigma = load('razz');
+    const st = razz.newHand(makeRng(42));
+    const acts = razz.legalActions(st);
+    const snap = play.snapshotState(st);
+    const rec = { game: 'razz', heroSeat: st.toAct, deadCards: [],
+      decisions: [{ actor: st.toAct, isHero: true, street: 0, key: razz.infosetKey(st),
+        acts: acts.slice(), chosen: acts[0], state: snap }] };
+    const r = beliefEV('razz', sigma, rec, 0, 'sigma', { samples: 120, rangeSamples: 250, exactRangeBudget: 400, rangeSeed: 1, crnSeed: 2 });
+    for (const a of acts) assert(Number.isFinite(r.ev[a]), `EV for ${a} should be finite`);
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
