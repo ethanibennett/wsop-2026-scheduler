@@ -244,9 +244,46 @@ function rolloutAfterAction(game, strategyMap, st0, heroSeat, a, oppDown, shuffl
 }
 
 // Is the forward tree past this node deal-free? (7th-street decisions: no more
-// cards are dealt, so the rollout is deterministic given oppDown -> exact.)
+// cards are dealt, so the continuation is a finite BETTING tree — we take the
+// exact σ-expectation over it rather than sampling.)
 function dealFreeForward(snap) {
   return snap.street === 4; // 7th street: only betting remains
+}
+
+// Exact σ-expected hero utility of a deal-free continuation. No cards remain, so
+// the betting subtree is finite: take the EXACT expectation over every betting
+// decision (both seats play the blueprint σ) instead of SAMPLING it. Deterministic
+// → a 7th-street "exact-forward" grade is genuinely seed-independent (real SE=0).
+// (Previously the exact path sampled this via rolloutAfterAction and only LOOKED
+// exact, so the grade silently carried opponent-betting Monte-Carlo noise.)
+function exactForwardValue(game, strategyMap, st, heroSeat) {
+  if (game.isTerminal(st)) return game.utility(st)[heroSeat];
+  if (game.isChance(st)) {
+    // Deal-free invariant: 7th continuations have no chance. If one ever appears,
+    // advance it DETERMINISTICALLY (fixed rng) so the value stays seed-independent.
+    return exactForwardValue(game, strategyMap, game.sampleChance(st, makeRng(0x7)), heroSeat);
+  }
+  const acts = game.legalActions(st);
+  if (acts.length === 1) return exactForwardValue(game, strategyMap, game.applyAction(st, acts[0]), heroSeat);
+  const { probs } = lookup(strategyMap, game.infosetKey(st), acts);
+  let v = 0, wsum = 0;
+  for (let i = 0; i < acts.length; i++) {
+    const p = probs[i];
+    if (!(p > 0)) continue;
+    v += p * exactForwardValue(game, strategyMap, game.applyAction(st, acts[i]), heroSeat);
+    wsum += p;
+  }
+  return wsum > 0 ? v / wsum : game.utility(st)[heroSeat];
+}
+
+// Exact σ-expected hero utility after the hero takes `a` vs a specific opp hand
+// (deal-free / 7th street). The deterministic analogue of rolloutAfterAction.
+function exactValueAfterAction(game, strategyMap, st0, heroSeat, a, oppDown) {
+  const oppSeat = 1 - heroSeat;
+  let st = cloneState(st0);
+  st.down[oppSeat] = oppDown.slice();
+  st = game.applyAction(st, a);
+  return exactForwardValue(game, strategyMap, st, heroSeat);
 }
 
 // ── grade a single hero decision ───────────────────────────────────────
@@ -441,19 +478,20 @@ function computePerActionEV(args) {
   // and evLoss SE from paired diffs of the realised best vs chosen.
 
   if (useExactForward) {
-    // deal-free: one deterministic rollout per (action, candidate). No rng noise
-    // except CRN is irrelevant (no draws). EV is EXACT given the range.
+    // deal-free 7th street: take the EXACT σ-expectation over the finite betting
+    // continuation per (action, candidate) — genuinely deterministic (no betting
+    // SAMPLING), so EV is exact given the range and SE is truly 0. (Previously this
+    // called rolloutAfterAction, which sampled the betting via sigmaAction, so the
+    // "exact-forward" grade actually carried opponent-betting Monte-Carlo noise.)
     const util = {}; // util[a] = array aligned with candidates
     for (const a of acts) {
       util[a] = new Array(candidates.length);
       for (let i = 0; i < candidates.length; i++) {
-        const u = rolloutAfterAction(game, strategyMap, st0, heroSeat, a, candidates[i].hand,
-          sharedPool, makeRng(crnSeed)); // rng unused (no deals) but harmless
-        util[a][i] = u[heroSeat];
+        util[a][i] = exactValueAfterAction(game, strategyMap, st0, heroSeat, a, candidates[i].hand);
       }
     }
     finalizeEV(acts, candidates, util, ev, se);
-    // exact-forward: EV is deterministic given the enumerated range -> SE = 0.
+    // exact-forward: EV is the exact expectation given the enumerated range -> SE = 0.
     return { ev, se, util: null, parts: candidates, maxPairSE: 0 };
   }
 

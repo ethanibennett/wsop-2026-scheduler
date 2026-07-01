@@ -373,10 +373,11 @@ function gradeDecision(game, strategyMap, handRecord, gradeIdx, opts) {
     let bestA = acts[0], bestEV = -Infinity;
     for (const a of acts) if (res.ev[a] > bestEV) { bestEV = res.ev[a]; bestA = a; }
     const chosenEV = res.ev[d.chosen];
-    // evLoss = max(bestEV, 0-clamp) − heroEV, clamped >= 0. The 0-clamp guards the
-    // (rare) case where every abstraction option is itself −EV: the hero is never
-    // charged for "failing" to find a negative-EV line.
-    const evLoss = Math.max(0, Math.max(bestEV, 0) - chosenEV);
+    // evLoss = how much worse the chosen action is than the best legal option,
+    // clamped >= 0. NO benchmark clamp: when every option is itself −EV (hero in a
+    // losing spot), playing the BEST option is still 0 loss — we grade DECISION
+    // quality, not the spot. Matches the stud grader (razz-trainer/grade.js).
+    const evLoss = Math.max(0, bestEV - chosenEV);
     const evLossSE = pairedSE(res, bestA, d.chosen, res.used);
     return { res, bestA, bestEV, evLoss, evLossSE };
   }
