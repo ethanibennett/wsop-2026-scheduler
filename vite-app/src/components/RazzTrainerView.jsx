@@ -65,11 +65,10 @@ function streetName(game, street, phase) {
 // Selectable games. `id` is the backend path segment; the legacy razz path
 // (game=razz) keeps working exactly as before. Stud games render StudTable;
 // DRAW games (td27) render DrawTable.
-// stud8's blueprint is retraining (the frozen one was 23.4 chips/hand exploitable).
-// Hide it from the game selector until the retrain beats the trust bar; flip
-// STUD8_READY to true (and ship the converged stud8.json) to re-enable it.
+// stud8 retrained from 23.4 → ~1.9 chips/hand exploitable (on par with td27), so
+// it's re-enabled. (Was hidden from the selector while undertrained.)
 // See solver/strategies/BLUEPRINT_TRUST.md / CLAUDE.md.
-const STUD8_READY = false;
+const STUD8_READY = true;
 const GAMES = [['razz', 'Razz'], ['stud8', 'Stud 8'], ['td27', '2-7 TD'], ['badugi', 'Badugi'], ['a5td', 'A-5 TD']]
   .filter(([id]) => STUD8_READY || id !== 'stud8');
 const GAME_LABEL = { razz: 'Razz', stud8: 'Stud 8', td27: '2-7 Triple Draw', badugi: 'Badugi', a5td: 'A-5 Triple Draw' };
@@ -83,7 +82,7 @@ function catOf(game) { return DRAW_GAMES.has(game) ? 'draw' : 'stud'; }
 // stud8 is a known undertrained bot (being retrained) → grades are approximate.
 const GAME_TRUST = {
   razz:   { expl: 0.0,  ok: true },
-  stud8:  { expl: 23.4, ok: false, note: 'undertrained and currently being retrained' },
+  stud8:  { expl: 2.0,  ok: true },
   td27:   { expl: 2.84, ok: true },
   badugi: { expl: 0.0,  ok: true },
   a5td:   { expl: 0.0,  ok: true },
