@@ -7,9 +7,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 for f in eval_stud8.py eval_razz.py eval_badugi.py pbs.py bucket.py train.py net_leaf.py \
-         resolve.py razz_game.py resolve_draw.py bucket_razz.py bucket_resolve_razz.py \
-         datagen_razz.py datagen.py bucket_resolve.py datagen_bucketed.py \
-         solve_spot.py validate.py; do
+         resolve.py razz_game.py resolve_draw.py resolve_draw2.py bucket_razz.py \
+         bucket_resolve_razz.py datagen_razz.py datagen.py bucket_resolve.py \
+         datagen_bucketed.py solve_spot.py validate.py; do
   echo "── $f ──"
   python3 "$f"
 done
