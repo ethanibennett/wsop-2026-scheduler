@@ -76,6 +76,20 @@ const DRAW_GAMES = new Set(['td27', 'badugi', 'a5td']);
 // Game category: 'stud' (razz, stud8 → StudTable, upcards) vs 'draw' (td27 →
 // DrawTable, hidden opponent, draw decisions). Everything keyed off this.
 function catOf(game) { return DRAW_GAMES.has(game) ? 'draw' : 'stud'; }
+
+// ── Pro mode (true-GTO / exact-resolve grading) ───────────────────────────
+// Opt-in oracle grading: when ON, /step is POSTed with { oracle:true } and the
+// backend routes 7th-street STUD decisions through the neural exact re-solver
+// (gradeHandWithOracle) instead of the bucketed blueprint. The oracle covers
+// ONLY 7th street for the stud games — earlier streets and all draw games keep
+// the blueprint grade regardless. So the toggle is only offered for razz/stud8;
+// for every other game it isn't shown and `oracle` is never sent.
+const PRO_MODE_GAMES = new Set(['razz', 'stud8']);
+function proModeAvailable(game) { return PRO_MODE_GAMES.has(game); }
+// 7th street is the only oracle-eligible street (snap.street === 4). Used to
+// tell an honest "oracle fell back to blueprint" 7th-street grade apart from a
+// normal earlier-street blueprint grade.
+const SEVENTH_STREET = 4;
 // Per-game blueprint trust, from the LBR / fixed-exploiter meter (chips/hand a
 // strong opponent could win — lower is better). Surfaced so users know how far
 // to trust the EV-loss grades. Source: solver/strategies/BLUEPRINT_TRUST.md.
@@ -187,6 +201,9 @@ export default function RazzTrainerView() {
   const [loading, setLoading] = useState(false);
   const [stepping, setStepping] = useState(false);
   const [error, setError] = useState(null); // { offline, message }
+  // Pro mode = opt-in true-GTO oracle grading (7th-street stud only). OFF by
+  // default so the blueprint path stays byte-identical to today.
+  const [proMode, setProMode] = useState(false);
   // scoreboard is keyed per-game so Razz and Stud 8 stats stay separate.
   const [session, setSession] = useState(() => loadSession('razz'));
 
@@ -231,7 +248,12 @@ export default function RazzTrainerView() {
   const advance = useCallback(async (sd, actions, g = game) => {
     setStepping(true); setError(null);
     try {
-      const res = await fetchApi(`/solver/trainer/${g}/step`, { method: 'POST', body: { seed: sd, heroActions: actions } });
+      // Pro mode → route eligible (7th-street stud) decisions through the true-GTO
+      // oracle. Only send oracle:true when the toggle is on AND the game actually
+      // has an oracle (razz/stud8); otherwise the body is byte-identical to today.
+      const body = { seed: sd, heroActions: actions };
+      if (proMode && proModeAvailable(g)) body.oracle = true;
+      const res = await fetchApi(`/solver/trainer/${g}/step`, { method: 'POST', body });
       let data = null; try { data = await res.json(); } catch { /* non-JSON */ }
       if (!res.ok) {
         setError({ offline: res.status === 503, message: (data && data.error) || `server returned ${res.status}` });
@@ -254,7 +276,7 @@ export default function RazzTrainerView() {
     } finally {
       setStepping(false);
     }
-  }, [game]);
+  }, [game, proMode]);
 
   // first deal on mount
   useEffect(() => { deal(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -358,6 +380,13 @@ export default function RazzTrainerView() {
         </div>
       ))}
 
+      {/* Pro mode toggle — opt-in true-GTO oracle grading. Only meaningful for
+          the stud games (razz/stud8), where 7th-street decisions can be graded
+          by the exact re-solver; hidden for the draw games. OFF by default. */}
+      {proModeAvailable(game) && (
+        <ProModeToggle on={proMode} onToggle={() => setProMode((v) => !v)} disabled={loading || stepping} />
+      )}
+
       {error && (
         <div style={{
           ...panel, marginBottom: 12, color: 'var(--neg, #ef4444)',
@@ -413,6 +442,11 @@ export default function RazzTrainerView() {
       {state && !handOver && !heroOnTurn && (
         <div style={{ ...panel, marginTop: 10, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
           {stepping ? 'Advancing the hand…' : 'Opponent to act…'}
+          {stepping && proMode && proModeAvailable(game) && (
+            <span style={{ display: 'block', marginTop: 4, fontSize: '0.68rem' }}>
+              Pro mode — if the hand ends, each 7th-street decision runs an exact GTO re-solve (~4–5s).
+            </span>
+          )}
         </div>
       )}
 
@@ -423,8 +457,23 @@ export default function RazzTrainerView() {
 
       {handOver && grades && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ ...label, letterSpacing: '0.14em', fontWeight: 700 }}>Grading report</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
+            <span style={{ ...label, letterSpacing: '0.14em', fontWeight: 700 }}>
+              Grading report
+              {/* Pro-mode provenance: shown when at least one decision in this
+                  hand was graded by the true-GTO oracle. Per-decision badges on
+                  each card below say exactly which. */}
+              {grades.some((g) => g.gradeSource === 'oracle') && (
+                <span title="Pro mode — 7th-street decisions in this hand were graded by the exact GTO re-solve (oracle); earlier streets by the blueprint. Each card is tagged with its grade source."
+                  style={{
+                    marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.54rem', fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                    border: '1px solid var(--accent)', color: 'var(--accent)',
+                  }}>
+                  pro · true-GTO 7th
+                </span>
+              )}
+            </span>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
               total EV-loss <b style={{ color: totalEvLoss > 0.5 ? 'var(--neg, #ef4444)' : 'var(--pos, #22c55e)', fontVariantNumeric: 'tabular-nums' }}>
                 {totalEvLoss.toFixed(2)}
@@ -459,6 +508,64 @@ const primaryBtn = {
   // touch polish: no double-tap zoom / text-select / tap-highlight during rapid play
   touchAction: 'manipulation', userSelect: 'none', WebkitTapHighlightColor: 'transparent',
 };
+
+// ── Pro mode toggle (true-GTO / exact-resolve grading) ────────────────────
+// A clearly-labelled opt-in switch. When ON, 7th-street stud decisions are
+// graded by the exact re-solver (true GTO) instead of the bucketed blueprint —
+// far more accurate, but each eligible decision runs an exact solve (~4-5s), so
+// finishing a hand is slower. OFF by default. Matches the app's surface/border/
+// accent tokens and the existing switch look.
+function ProModeToggle({ on, onToggle, disabled }) {
+  return (
+    <div style={{
+      ...panel, margin: '0 0 12px', padding: '10px 12px',
+      display: 'flex', alignItems: 'center', gap: 12,
+      borderColor: on ? 'var(--accent)' : 'var(--border)',
+      background: on ? 'color-mix(in srgb, var(--accent) 8%, var(--surface))' : 'var(--surface)',
+      transition: 'border-color .2s ease, background .2s ease',
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text)' }}>Pro mode</span>
+          <span style={{
+            padding: '1px 6px', borderRadius: 999, fontSize: '0.54rem', fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+            border: '1px solid var(--accent)', color: 'var(--accent)',
+          }}>
+            true GTO
+          </span>
+        </div>
+        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: 1.45, marginTop: 3 }}>
+          Grade 7th-street decisions against an <b style={{ color: 'var(--text)' }}>exact GTO re-solve</b> instead
+          of the blueprint bot. Much more accurate — but each 7th-street decision runs a full solve (~4–5s), so
+          finishing a hand is slower. Earlier streets stay on the blueprint grade.
+        </div>
+      </div>
+      {/* switch */}
+      <button
+        onClick={disabled ? undefined : onToggle}
+        disabled={disabled}
+        role="switch"
+        aria-checked={on}
+        aria-label="Pro mode — true-GTO grading"
+        title={on ? 'Pro mode ON — 7th-street decisions graded by exact GTO re-solve' : 'Pro mode OFF — blueprint grading (fast)'}
+        style={{
+          flex: '0 0 auto', position: 'relative', width: 44, height: 24, borderRadius: 999,
+          border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'),
+          background: on ? 'var(--accent)' : 'var(--surface2)',
+          cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+          padding: 0, transition: 'background .18s ease, border-color .18s ease',
+          touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
+        }}>
+        <span style={{
+          position: 'absolute', top: 2, left: on ? 22 : 2, width: 18, height: 18, borderRadius: '50%',
+          background: '#fff', transition: 'left .18s cubic-bezier(.4,0,.2,1)',
+          boxShadow: '0 1px 2px rgba(0,0,0,.3)',
+        }} />
+      </button>
+    </div>
+  );
+}
 
 // pill matching SolverView's game pills (filled when active).
 const gamePill = (active, disabled) => ({
@@ -990,6 +1097,20 @@ function GradeCard({ g, game }) {
   const kind = g.kind || (g.phase === 'draw' ? 'draw' : 'bet');
   const lowConf = g.confidence === 'low';
 
+  // ── Pro mode grade provenance ───────────────────────────────────────────
+  // gradeSource is present ONLY when the hand was graded with the oracle on
+  // (Pro mode). 'oracle' = this decision was graded by the exact true-GTO
+  // re-solve; 'blueprint' = it used the bucketed blueprint. undefined = the
+  // default (blueprint) grader ran and never tagged provenance → show nothing.
+  const gradeSource = g.gradeSource; // 'oracle' | 'blueprint' | undefined
+  const isOracleGrade = gradeSource === 'oracle';
+  // A 7th-street decision (the ONLY oracle-eligible street) that still came back
+  // as 'blueprint' under Pro mode means the oracle was unavailable and it fell
+  // back — surface that honestly rather than passing it off as true-GTO.
+  const oracleFellBack = gradeSource === 'blueprint' && g.street === SEVENTH_STREET;
+  // trust flag from the oracle (Fix 2): grade is trusted on EV-convergence.
+  const oracleUnconverged = isOracleGrade && g.oracleGradeTrust && g.oracleGradeTrust !== 'ev-converged';
+
   // FULL DISCARD CONTROL — was this a hero DRAW decision made by explicit card
   // selection ('d:...')? Show which cards they actually threw, the EV of that
   // discard, and the solver note. Tolerant of older grade shapes: an action id
@@ -1026,6 +1147,48 @@ function GradeCard({ g, game }) {
                 border: '1px solid var(--accent2, #eab308)', color: 'var(--accent2, #eab308)',
               }}>
               range-degraded · low confidence
+            </span>
+          )}
+          {/* ── Pro-mode grade-source badges (only when gradeSource is tagged,
+              i.e. the hand was graded with the oracle on) ── */}
+          {isOracleGrade && (
+            <span title={`Graded by the exact GTO re-solve (true GTO), not the blueprint bot.${g.oracleIters ? ` ${g.oracleIters} CFR+ iters` : ''}${g.oracleResolveExploitability != null ? ` · resolver self-play gap ${Number(g.oracleResolveExploitability).toFixed(2)} chips` : ''}`}
+              style={{
+                marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                border: '1px solid var(--accent)', color: 'var(--accent)',
+              }}>
+              true GTO
+            </span>
+          )}
+          {oracleFellBack && (
+            <span title="Pro mode was on, but the exact re-solver was unavailable for this 7th-street decision — this grade fell back to the blueprint bot. Treat it as an ordinary blueprint grade, not true GTO."
+              style={{
+                marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                border: '1px solid var(--warn, #f59e0b)', color: 'var(--warn, #f59e0b)',
+              }}>
+              oracle unavailable · blueprint grade
+            </span>
+          )}
+          {gradeSource === 'blueprint' && !oracleFellBack && (
+            <span title="Graded by the blueprint bot — the Pro-mode oracle covers only 7th-street decisions."
+              style={{
+                marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                border: '1px solid var(--border)', color: 'var(--text-muted)',
+              }}>
+              blueprint
+            </span>
+          )}
+          {oracleUnconverged && (
+            <span title={`The oracle's per-action EV had not converged at ${g.oracleIters || '?'} iters — treat this grade as approximate.`}
+              style={{
+                marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                border: '1px solid var(--warn, #f59e0b)', color: 'var(--warn, #f59e0b)',
+              }}>
+              unconverged
             </span>
           )}
         </span>
@@ -1094,6 +1257,32 @@ function GradeCard({ g, game }) {
               {g.discardNote}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Pro-mode oracle provenance footer ── only on oracle-graded decisions.
+          States the oracle EV-loss explicitly (the headline number above IS the
+          oracle's — exact showdown, SE 0), the EV-convergence trust flag, and the
+          blueprint's EV-loss for comparison when it was actually computed (it is
+          skipped on the fast path, so it's usually present only on fallback/debug). */}
+      {isOracleGrade && (
+        <div style={{
+          marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)',
+          fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: 1.5,
+        }}>
+          <span style={{ ...label, marginRight: 6 }}>Oracle</span>
+          exact GTO re-solve · EV-loss{' '}
+          <b style={{ color: lossColor(evLoss), fontVariantNumeric: 'tabular-nums' }}>
+            {evLoss <= 0.01 ? '0.00' : `−${evLoss.toFixed(2)}`}
+          </b> chips (exact showdown)
+          {g.blueprintEvLoss != null && (
+            <span> · blueprint would grade <span style={{ fontVariantNumeric: 'tabular-nums' }}>−{Math.max(0, +g.blueprintEvLoss).toFixed(2)}</span></span>
+          )}
+          {oracleUnconverged
+            ? <span style={{ color: 'var(--warn, #f59e0b)' }}> · EV not fully converged — approximate</span>
+            : g.oracleGradeTrust === 'ev-converged'
+            ? <span style={{ color: 'var(--pos, #22c55e)' }}> · EV-converged</span>
+            : null}
         </div>
       )}
     </div>
