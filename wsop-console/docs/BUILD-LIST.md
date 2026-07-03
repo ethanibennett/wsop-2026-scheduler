@@ -91,3 +91,12 @@ The "I can't remember everything I could be doing" problem: the app surfaces con
 - [x] **Bankroll** — online stakes ladder + benchmarks; week-over-week roll delta; delete adjustments.
 - [x] **Training** consistency (days/wk + streak) · **Health** sleep-score/RHR 7-day trends · **Review** mental-game card (tilt notes) · **Settings** data summary · weekly backup push nudge · Today first-run card.
 - Engines: `series.ts` (+correlate), `byVenue`/`byWeekday`, `weekCadence`/`trainingConsistency`/`metricTrend` — all unit-tested (**120+ tests**).
+
+## Gap-fill arc (2026-07-03) — the "what's missing" pass
+- [x] **Review loop closed** — the Sunday review's "one thing to tighten" sits on Today as a focus chip for 9 days.
+- [x] **Expense log** (Schedule C) — IDB `expenses` store (**DB v2**, oldVersion-guarded migration), log + YTD by-category on Bankroll → Admin, in backups/data summary. `expenseTotals` tested.
+- [x] **Balance reconciliation** ("Where's the money", Bankroll → Roll) — actual per-location balances vs the derived roll+fund, drift readout + plain-English read. `reconcileBalances` tested.
+- [x] **Pre/post-session ritual** (playbook W1) — pre-session intention on Today's Tonight card (`db/intention.ts`), post-session two-line journal on the session form (shows the day's intention; in the CPA CSV).
+- [x] **Live session mode** — ▶ Start on Today: persistent clock (30s tick), editable stop-loss line, "hand to review" capture → study log on end, ■ End pre-fills hours (half-hour rounding, tested in `db/liveSession.ts`).
+- [x] **Backer settlements** — deals carry a backer; Settle: prize → backers' share → one-tap `backer-settlement` adjustment + settled tag. **Model fix:** backer settlements move the WSOP-FUND bucket, not the roll (tested).
+- **128 tests.** Remaining (need Ethan's call): cross-device sync (data is per-device local-first today), Oura auto-sync, cookie/JWT auth swap.
