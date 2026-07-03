@@ -27,7 +27,7 @@ const ROUTINE_MAP: Record<string, keyof RoutineLog> = {
 }
 
 export function TodayScreen() {
-  const { sessions, adjustments, settings, routine, checklist, reloadAll } = useStore()
+  const { sessions, adjustments, settings, routine, checklist, reviews, reloadAll } = useStore()
   const toast = useToast()
   const [logOpen, setLogOpen] = useState(false)
   const today = todayISO()
@@ -63,6 +63,15 @@ export function TodayScreen() {
   // Backup reminder: local-first data has no safety net but a manual export.
   const backupDays = daysSince(settings.lastBackupAt)
   const backupOverdue = sessions.length > 0 && (backupDays == null || backupDays >= 14)
+
+  // Close the review loop: the Sunday review's "one thing to tighten" sits here
+  // all week instead of being written once and never seen again.
+  const focus = useMemo(() => {
+    const r = reviews[0] // store keeps reviews date-desc
+    if (!r?.oneThing) return null
+    const days = daysSince(r.date)
+    return days != null && days <= 9 ? r.oneThing : null
+  }, [reviews])
 
   const toggle = (id: string) =>
     enqueue(async () => {
@@ -170,6 +179,22 @@ export function TodayScreen() {
           </div>
         </div>
       </div>
+
+      {/* This week's focus — the Sunday review's "one thing to tighten" */}
+      {focus && (
+        <div
+          style={{
+            fontSize: 13,
+            margin: '0 0 14px',
+            padding: '9px 11px',
+            borderRadius: 8,
+            border: '1px solid var(--chip)',
+          }}
+        >
+          <span className="card-label" style={{ marginRight: 8 }}>This week</span>
+          {focus}
+        </div>
+      )}
 
       {/* Downswing circuit-breaker */}
       {swingLevel !== 'none' && (

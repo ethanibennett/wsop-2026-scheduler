@@ -3,10 +3,12 @@
 // landscape. Checks + staking deals persist in localStorage (setup state, not
 // daily logs). Content from db/admin.ts. NOT tax/legal/financial advice.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
-import { money, uid } from '../engine/format'
-import { taxEstimate } from '../engine/analytics'
+import { getAll, putRecord, deleteRecord } from '../db/idb'
+import type { Expense, ExpenseCategory } from '../db/types'
+import { money, uid, todayISO, fmtDate } from '../engine/format'
+import { taxEstimate, expenseTotals } from '../engine/analytics'
 import {
   ADMIN_CHECKLIST,
   ADMIN_REFERENCE,
@@ -162,6 +164,9 @@ export function AdminView() {
         ))}
       </div>
 
+      {/* Business expenses — the deduction half of the tax picture */}
+      <ExpenseLog year={year} />
+
       {/* Staking calculator */}
       <StakingCalculator deals={deals} onChange={saveDeals} />
 
@@ -280,6 +285,115 @@ function StakingCalculator({
           <div className="hl-row"><span className="muted">Total face</span><span className="mono">{money(totals.face)}</span></div>
           <div className="hl-row"><span className="muted">Backers cover</span><span className="mono">{money(totals.backerPays)}</span></div>
           <div className="hl-row"><span style={{ fontWeight: 600 }}>Your net cost</span><span className="mono" style={{ fontWeight: 700 }}>{money(totals.yourCost)}</span></div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const EXPENSE_CATEGORIES: { v: ExpenseCategory; label: string }[] = [
+  { v: 'travel', label: 'Travel' },
+  { v: 'lodging', label: 'Lodging' },
+  { v: 'meals', label: 'Meals' },
+  { v: 'coaching', label: 'Coaching / study' },
+  { v: 'equipment', label: 'Equipment' },
+  { v: 'fees', label: 'Fees' },
+  { v: 'other', label: 'Other' },
+]
+
+// Schedule C expense log — clean records for the CPA. Whether/how each deducts
+// under the 90% rule is exactly the CPA-session agenda, so this tracks, it
+// doesn't compute tax.
+function ExpenseLog({ year }: { year: number }) {
+  const [expenses, setExpenses] = useState<Expense[]>([])
+  const reload = async () =>
+    setExpenses((await getAll<Expense>('expenses')).sort((a, b) => b.date.localeCompare(a.date)))
+  useEffect(() => {
+    void reload()
+  }, [])
+
+  const [date, setDate] = useState(todayISO())
+  const [category, setCategory] = useState<ExpenseCategory>('travel')
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
+
+  const totals = expenseTotals(expenses, year)
+
+  const add = async () => {
+    const n = Number(amount) || 0
+    if (n <= 0) return
+    await putRecord('expenses', {
+      id: uid(), date, category, amount: n, note: note.trim() || undefined,
+    } satisfies Expense)
+    setAmount('')
+    setNote('')
+    await reload()
+  }
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <span className="card-label">Business expenses · {year}</span>
+        <span className="mono" style={{ fontWeight: 700 }}>{money(totals.total)}</span>
+      </div>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+        The deduction half of the tax picture — log as you go, hand the CPA clean records.
+      </div>
+
+      {totals.count > 0 && (
+        <div className="pill-row" style={{ marginBottom: 10 }}>
+          {EXPENSE_CATEGORIES.filter((c) => totals.byCategory[c.v]).map((c) => (
+            <span key={c.v} className="tag">
+              {c.label} · {money(totals.byCategory[c.v]!)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="field-row">
+        <div className="field">
+          <label>Date</label>
+          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Category</label>
+          <select className="select" value={category} onChange={(e) => setCategory(e.target.value as ExpenseCategory)}>
+            {EXPENSE_CATEGORIES.map((c) => (
+              <option key={c.v} value={c.v}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field" style={{ flex: '0 0 100px' }}>
+          <label>Amount</label>
+          <input className="input" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+      </div>
+      <div className="field">
+        <input className="input" placeholder="Note (what / who / why)" value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <button className="btn btn-block" onClick={add}>+ Log expense</button>
+
+      {expenses.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          {expenses.slice(0, 6).map((e) => (
+            <button
+              key={e.id}
+              className="session-item"
+              title="Tap to delete"
+              onClick={async () => {
+                if (confirm(`Delete ${money(e.amount)} ${e.category}?`)) {
+                  await deleteRecord('expenses', e.id)
+                  await reload()
+                }
+              }}
+            >
+              <div className="sess-main">
+                <div className="sess-label">{EXPENSE_CATEGORIES.find((c) => c.v === e.category)?.label ?? e.category}</div>
+                <div className="sess-meta">{fmtDate(e.date)}{e.note ? ` · ${e.note}` : ''}</div>
+              </div>
+              <div className="sess-result neg">−{money(e.amount)}</div>
+            </button>
+          ))}
         </div>
       )}
     </div>

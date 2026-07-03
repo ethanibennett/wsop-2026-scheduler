@@ -25,7 +25,7 @@ export function SettingsScreen() {
   const [counts, setCounts] = useState<{ label: string; n: number }[]>([])
   useEffect(() => {
     const stores = [
-      ['sessions', 'Sessions'], ['adjustments', 'Adjustments'], ['health', 'Health logs'],
+      ['sessions', 'Sessions'], ['adjustments', 'Adjustments'], ['expenses', 'Expenses'], ['health', 'Health logs'],
       ['lifts', 'Lifts'], ['benchmarks', 'Benchmarks'], ['study', 'Study logs'],
       ['reviews', 'Reviews'], ['routine', 'Routine days'],
     ] as const

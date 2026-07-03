@@ -12,15 +12,17 @@ import type {
   StudyLog,
   ReviewEntry,
   ChecklistTick,
+  Expense,
   Settings,
 } from './types'
 
 export const DB_NAME = 'wsop-console'
-export const DB_VERSION = 1
+export const DB_VERSION = 2 // v2: + expenses (Schedule C)
 
 interface ConsoleDB extends DBSchema {
   sessions: { key: string; value: Session; indexes: { date: string } }
   adjustments: { key: string; value: BankrollAdjustment; indexes: { date: string } }
+  expenses: { key: string; value: Expense; indexes: { date: string } }
   lifts: { key: string; value: LiftEntry; indexes: { date: string } }
   benchmarks: { key: string; value: Benchmark; indexes: { date: string } }
   prehab: { key: string; value: PrehabTick }
@@ -37,26 +39,34 @@ let _db: Promise<IDBPDatabase<ConsoleDB>> | null = null
 export function getDB(): Promise<IDBPDatabase<ConsoleDB>> {
   if (!_db) {
     _db = openDB<ConsoleDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      // Guard each version's stores on oldVersion — an unconditional create
+      // would throw ConstraintError when an existing (v1) device upgrades.
+      upgrade(db, oldVersion) {
         const byDate = { keyPath: 'id' as const }
-        const s = db.createObjectStore('sessions', byDate)
-        s.createIndex('date', 'date')
-        const a = db.createObjectStore('adjustments', byDate)
-        a.createIndex('date', 'date')
-        const l = db.createObjectStore('lifts', byDate)
-        l.createIndex('date', 'date')
-        const b = db.createObjectStore('benchmarks', byDate)
-        b.createIndex('date', 'date')
-        db.createObjectStore('prehab', { keyPath: 'date' })
-        db.createObjectStore('routine', { keyPath: 'date' })
-        const h = db.createObjectStore('health', byDate)
-        h.createIndex('date', 'date')
-        const st = db.createObjectStore('study', byDate)
-        st.createIndex('date', 'date')
-        const r = db.createObjectStore('reviews', byDate)
-        r.createIndex('date', 'date')
-        db.createObjectStore('checklist', { keyPath: 'date' })
-        db.createObjectStore('settings', { keyPath: 'id' })
+        if (oldVersion < 1) {
+          const s = db.createObjectStore('sessions', byDate)
+          s.createIndex('date', 'date')
+          const a = db.createObjectStore('adjustments', byDate)
+          a.createIndex('date', 'date')
+          const l = db.createObjectStore('lifts', byDate)
+          l.createIndex('date', 'date')
+          const b = db.createObjectStore('benchmarks', byDate)
+          b.createIndex('date', 'date')
+          db.createObjectStore('prehab', { keyPath: 'date' })
+          db.createObjectStore('routine', { keyPath: 'date' })
+          const h = db.createObjectStore('health', byDate)
+          h.createIndex('date', 'date')
+          const st = db.createObjectStore('study', byDate)
+          st.createIndex('date', 'date')
+          const r = db.createObjectStore('reviews', byDate)
+          r.createIndex('date', 'date')
+          db.createObjectStore('checklist', { keyPath: 'date' })
+          db.createObjectStore('settings', { keyPath: 'id' })
+        }
+        if (oldVersion < 2) {
+          const e = db.createObjectStore('expenses', byDate)
+          e.createIndex('date', 'date')
+        }
       },
     })
   }
@@ -67,6 +77,7 @@ export function getDB(): Promise<IDBPDatabase<ConsoleDB>> {
 export type ListStore =
   | 'sessions'
   | 'adjustments'
+  | 'expenses'
   | 'lifts'
   | 'benchmarks'
   | 'health'
@@ -119,6 +130,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 type StoreName =
   | 'sessions'
   | 'adjustments'
+  | 'expenses'
   | 'lifts'
   | 'benchmarks'
   | 'prehab'
@@ -131,6 +143,7 @@ type StoreName =
 const ALL_STORES: StoreName[] = [
   'sessions',
   'adjustments',
+  'expenses',
   'lifts',
   'benchmarks',
   'prehab',

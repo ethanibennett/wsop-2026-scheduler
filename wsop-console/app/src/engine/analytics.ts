@@ -1,7 +1,7 @@
 // Win-rate + volume + streak analytics — the "where's my edge actually" read
 // that feeds game selection and the Sunday review.
 
-import type { Session, RoutineLog } from '../db/types'
+import type { Session, RoutineLog, Expense, ExpenseCategory } from '../db/types'
 import { isThisWeek, localDate, money, fmtHours } from './format'
 
 /**
@@ -460,6 +460,27 @@ export function taxEstimate(
     // losing year you pocketed nothing positive, so there's no phantom income.
     phantom: Math.max(0, taxable - Math.max(0, net)),
   }
+}
+
+// ── Business expenses (Schedule C) — the deduction half of the tax layer ──
+export interface ExpenseSummary {
+  year: number
+  total: number
+  byCategory: Partial<Record<ExpenseCategory, number>>
+  count: number
+}
+
+export function expenseTotals(expenses: Expense[], year: number): ExpenseSummary {
+  const byCategory: Partial<Record<ExpenseCategory, number>> = {}
+  let total = 0
+  let count = 0
+  for (const e of expenses) {
+    if (Number(e.date.slice(0, 4)) !== year) continue
+    total += e.amount
+    count += 1
+    byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount
+  }
+  return { year, total, byCategory, count }
 }
 
 // ── Streaks (RoutineLog) — wake anchor is the headline metric ──

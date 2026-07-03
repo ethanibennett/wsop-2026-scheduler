@@ -14,7 +14,9 @@ import {
   downswingState,
   downswingSeverity,
   weeklyReadout,
+  expenseTotals,
 } from './analytics'
+import type { Expense } from '../db/types'
 import { localDate } from './format'
 import type { Session, RoutineLog } from '../db/types'
 
@@ -232,6 +234,27 @@ describe('moodEdge', () => {
     expect(s.a.perHour).toBe(100)
     expect(s.b.perHour).toBe(-50)
     expect(s.delta).toBe(150)
+  })
+})
+
+describe('expenseTotals', () => {
+  const exp = (date: string, category: Expense['category'], amount: number): Expense => ({
+    id: Math.random().toString(36).slice(2), date, category, amount,
+  })
+  it('sums the year and groups by category', () => {
+    const t = expenseTotals(
+      [exp('2026-08-01', 'travel', 300), exp('2026-09-01', 'travel', 200), exp('2026-09-02', 'coaching', 500)],
+      2026,
+    )
+    expect(t.total).toBe(1000)
+    expect(t.count).toBe(3)
+    expect(t.byCategory.travel).toBe(500)
+    expect(t.byCategory.coaching).toBe(500)
+  })
+  it('excludes other years', () => {
+    const t = expenseTotals([exp('2025-12-31', 'meals', 999)], 2026)
+    expect(t.total).toBe(0)
+    expect(t.count).toBe(0)
   })
 })
 

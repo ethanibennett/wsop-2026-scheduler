@@ -59,6 +59,24 @@ export interface BankrollAdjustment {
   note?: string
 }
 
+// ── Business expenses (Schedule C — the deduction half of the tax layer) ──
+export type ExpenseCategory =
+  | 'travel'
+  | 'lodging'
+  | 'meals'
+  | 'coaching' // coaching / courses / study material
+  | 'equipment'
+  | 'fees' // platform / banking / staking-paperwork fees
+  | 'other'
+
+export interface Expense {
+  id: string
+  date: string
+  category: ExpenseCategory
+  amount: number
+  note?: string
+}
+
 // ── Training (port from lift-log) ──
 export interface LiftEntry {
   id: string
