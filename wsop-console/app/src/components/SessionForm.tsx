@@ -40,13 +40,14 @@ const blank = (): Session => ({
 
 interface Props {
   initial?: Session
+  draft?: Partial<Session> // pre-fill for a NEW session (e.g. live-mode end: hours from the clock)
   onSave: (s: Session) => void
   onCancel: () => void
   onDelete?: (id: string) => void
 }
 
-export function SessionForm({ initial, onSave, onCancel, onDelete }: Props) {
-  const [s, setS] = useState<Session>(initial ?? blank())
+export function SessionForm({ initial, draft, onSave, onCancel, onDelete }: Props) {
+  const [s, setS] = useState<Session>(initial ?? { ...blank(), ...draft })
   const set = <K extends keyof Session>(k: K, v: Session[K]) =>
     setS((cur) => ({ ...cur, [k]: v }))
 
