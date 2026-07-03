@@ -7587,7 +7587,19 @@ function loadSolverStrategy(gameId) {
   try {
     const fsSync = require('fs'); // top-level fs is the promises API
     const file = path.join(__dirname, 'solver', 'strategies', `${gameId}.json`);
-    if (fsSync.existsSync(file)) loaded = JSON.parse(fsSync.readFileSync(file, 'utf8'));
+    if (fsSync.existsSync(file)) {
+      // Memory guard: JSON.parse of a big blueprint inflates ~10x in V8 and
+      // OOM-kills small instances (Render starter = 512MB; stud8.json alone
+      // is 61MB on disk). BP_MAX_BYTES caps what this process will load;
+      // unset = no cap (local dev).
+      const cap = Number(process.env.BP_MAX_BYTES || 0);
+      const sz = fsSync.statSync(file).size;
+      if (cap > 0 && sz > cap) {
+        console.error(`${gameId} blueprint is ${Math.round(sz / 1e6)}MB > BP_MAX_BYTES=${Math.round(cap / 1e6)}MB — refusing to load (memory guard)`);
+        return null;
+      }
+      loaded = JSON.parse(fsSync.readFileSync(file, 'utf8'));
+    }
   } catch (e) {
     console.error(`Failed to load solver strategy for ${gameId}:`, e.message);
   }
@@ -7913,12 +7925,22 @@ function resolveTrainerGame(req, res) {
 // module + card<->string + actionLabel through the shared handlers.
 //   POST /api/solver/trainer/:game/deal
 //   POST /api/solver/trainer/:game/step
+// A game whose blueprint the memory guard refused (BP_MAX_BYTES) must fail
+// with an honest 503, not silently play a uniform-random bot.
+function requireTrainerBp(game, res) {
+  const bp = getTrainerBp(game.id);
+  for (const k in bp) return true; // O(1) non-empty check (bp can be 788k keys)
+  res.status(503).json({ error: `${game.id} trainer is temporarily unavailable on this server (blueprint too large for this instance)` });
+  return false;
+}
 app.post('/api/solver/trainer/:game/deal', authenticateToken, (req, res) => {
   const game = resolveTrainerGame(req, res); if (!game) return;
+  if (!requireTrainerBp(game, res)) return;
   trainerDeal(game, req, res);
 });
 app.post('/api/solver/trainer/:game/step', authenticateToken, (req, res) => {
   const game = resolveTrainerGame(req, res); if (!game) return;
+  if (!requireTrainerBp(game, res)) return;
   Promise.resolve(trainerStep(game, req, res)).catch(err => {
     console.error(`${game.id} trainer step (async) error:`, err);
     if (!res.headersSent) res.status(500).json({ error: `Failed to step ${game.id} hand` });
