@@ -40,6 +40,7 @@ export interface Session {
   // mental-game capture (feeds the Sunday review)
   moodRating?: MoodRating
   tiltNote?: string
+  journal?: string // the post-session two-line journal (playbook W1 ritual)
   tags?: string[]
 }
 

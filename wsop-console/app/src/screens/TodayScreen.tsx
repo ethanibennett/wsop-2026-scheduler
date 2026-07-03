@@ -5,6 +5,7 @@ import { Sheet } from '../components/Sheet'
 import { SessionForm } from '../components/SessionForm'
 import { HomeCard } from './HomeCard'
 import { getRecord, putRecord } from '../db/idb'
+import { readIntention, saveIntention } from '../db/intention'
 import type { Session, RoutineLog, ChecklistTick } from '../db/types'
 import { todayISO, moneyK, fmtHours, daysSince } from '../engine/format'
 import { phaseState, getNudges } from '../engine/phase'
@@ -216,7 +217,8 @@ export function TodayScreen() {
         </div>
       )}
 
-      {/* Tonight's game — one-line read of the bankroll rules */}
+      {/* Tonight's game — one-line read of the bankroll rules + the pre-session
+          intention (playbook W1: set it BEFORE you sit, not at log time) */}
       {rec.sit && rec.belowFloor !== 'hard' && (
         <div className="card" style={{ marginBottom: 14, padding: '10px 12px' }}>
           <div className="row-split" style={{ alignItems: 'baseline' }}>
@@ -227,6 +229,7 @@ export function TodayScreen() {
               {rec.belowFloor === 'soft' ? ' · ▼ rebuild' : ''}
             </span>
           </div>
+          <IntentionInput date={today} />
         </div>
       )}
 
@@ -270,5 +273,24 @@ export function TodayScreen() {
         <SessionForm onSave={save} onCancel={() => setLogOpen(false)} />
       </Sheet>
     </div>
+  )
+}
+
+// The pre-session intention — one line, set before you sit. The post-session
+// two-line journal (SessionForm) closes the loop against it.
+function IntentionInput({ date }: { date: string }) {
+  const [text, setText] = useState(() => readIntention(date))
+  const save = (v: string) => {
+    setText(v)
+    saveIntention(date, v)
+  }
+  return (
+    <input
+      className="input"
+      style={{ marginTop: 8, fontSize: 13 }}
+      placeholder="Tonight’s intention — one line, before you sit…"
+      value={text}
+      onChange={(e) => save(e.target.value)}
+    />
   )
 }

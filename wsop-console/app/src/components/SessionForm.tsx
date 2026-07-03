@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Session, Channel, Format, MoodRating } from '../db/types'
+import { readIntention } from '../db/intention'
 import { uid, todayISO, money } from '../engine/format'
 
 const FORMATS: Format[] = [
@@ -287,6 +288,25 @@ export function SessionForm({ initial, onSave, onCancel, onDelete }: Props) {
           placeholder="Anything that pulled you off A-game?"
           value={s.tiltNote || ''}
           onChange={(e) => set('tiltNote', e.target.value)}
+        />
+      </div>
+
+      {/* The post-session two-line journal (playbook W1) — closes the loop on
+          the pre-session intention set on Today. */}
+      <div className="field">
+        <label>
+          Post-session journal
+          {(() => {
+            const intent = readIntention(s.date)
+            return intent ? <span className="muted"> — intention was: “{intent}”</span> : null
+          })()}
+        </label>
+        <textarea
+          className="textarea"
+          rows={2}
+          placeholder="Two lines: how it went · one takeaway."
+          value={s.journal || ''}
+          onChange={(e) => set('journal', e.target.value)}
         />
       </div>
 

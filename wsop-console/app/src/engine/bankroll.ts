@@ -309,6 +309,28 @@ export function fundProjection(
   }
 }
 
+// ── Balance reconciliation: "where's the money" ──
+// The roll is DERIVED (start + P&L + adjustments). Reality is money sitting in
+// locations — bank, cash, the Parx front, WSOP.com, Phenom USDT. Reconciling
+// the two catches drift: an unlogged session, a forgotten withdrawal, money
+// quietly parked somewhere.
+export interface BalanceEntry {
+  id: string
+  name: string
+  amount: number
+}
+
+export interface Reconciliation {
+  actual: number // sum of location balances
+  derived: number // playingRoll + wsopFund (all tracked money)
+  drift: number // actual − derived (+ = found money, − = missing/unlogged)
+}
+
+export function reconcileBalances(entries: BalanceEntry[], derived: number): Reconciliation {
+  const actual = entries.reduce((a, e) => a + (Number(e.amount) || 0), 0)
+  return { actual, derived, drift: actual - derived }
+}
+
 /** Highest rung at or below `roll`. */
 export function ladderLookup(roll: number): Checkpoint | null {
   let hit: Checkpoint | null = null
