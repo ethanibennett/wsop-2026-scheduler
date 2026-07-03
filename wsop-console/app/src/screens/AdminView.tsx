@@ -34,6 +34,8 @@ interface StakeDeal {
   buyIn: number
   pctSold: number
   markup: number
+  backer?: string // who owns the sold piece (the per-entry ledger)
+  settled?: boolean // cashed + backers paid (settlement adjustment logged)
 }
 
 export function AdminView() {
@@ -191,10 +193,14 @@ function StakingCalculator({
   deals: StakeDeal[]
   onChange: (next: StakeDeal[]) => void
 }) {
+  const { put } = useStore()
   const [event, setEvent] = useState('')
   const [buyIn, setBuyIn] = useState('')
   const [pctSold, setPctSold] = useState('60')
   const [markup, setMarkup] = useState('1.15')
+  const [backer, setBacker] = useState('')
+  const [settlingId, setSettlingId] = useState<string | null>(null)
+  const [prize, setPrize] = useState('')
 
   const calc = (d: StakeDeal) => {
     const faceSold = d.buyIn * (d.pctSold / 100)
@@ -226,12 +232,32 @@ function StakingCalculator({
         buyIn: bi,
         pctSold: Number(pctSold) || 0,
         markup: Number(markup) || 1,
+        backer: backer.trim() || undefined,
       },
     ])
     setEvent('')
     setBuyIn('')
+    setBacker('')
   }
   const remove = (id: string) => onChange(deals.filter((d) => d.id !== id))
+
+  // Event cashed → pay backers their sold % of the prize, as a real
+  // backer-settlement adjustment (comes out of the WSOP-fund bucket).
+  const settle = async (d: StakeDeal) => {
+    const p = Number(prize) || 0
+    if (p <= 0) return
+    const share = Math.round(p * (d.pctSold / 100))
+    await put('adjustments', {
+      id: uid(),
+      date: todayISO(),
+      amount: -share,
+      type: 'backer-settlement' as const,
+      note: `${d.event}: backers' ${d.pctSold}% of ${money(p)}${d.backer ? ` → ${d.backer}` : ''}`,
+    })
+    onChange(deals.map((x) => (x.id === d.id ? { ...x, settled: true } : x)))
+    setSettlingId(null)
+    setPrize('')
+  }
 
   // Live preview of the row being entered.
   const previewBi = Number(buyIn) || 0
@@ -258,6 +284,10 @@ function StakingCalculator({
         <div className="field" style={{ flex: '0 0 90px' }}><label>Markup</label>
           <input className="input" type="number" inputMode="decimal" step="0.05" value={markup} onChange={(e) => setMarkup(e.target.value)} /></div>
       </div>
+      <div className="field">
+        <label>Backer(s) — the per-entry ledger of who owns what</label>
+        <input className="input" placeholder="e.g. J.R. 40%, platform 20%" value={backer} onChange={(e) => setBacker(e.target.value)} />
+      </div>
       {preview && (
         <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
           Backers pay {money(preview.backerPays)} · your net cost {money(preview.yourCost)} · you keep {preview.retainedPct}% of the action
@@ -269,15 +299,63 @@ function StakingCalculator({
         <div style={{ marginTop: 12 }}>
           {deals.map((d) => {
             const c = calc(d)
+            const settling = settlingId === d.id
+            const share = Math.round((Number(prize) || 0) * (d.pctSold / 100))
             return (
-              <div className="session-item" key={d.id} onClick={() => remove(d.id)} style={{ cursor: 'pointer' }} title="Tap to remove">
-                <div className="sess-main">
-                  <div className="sess-label">{d.event}</div>
-                  <div className="sess-meta">
-                    {money(d.buyIn)} · {d.pctSold}% @ {d.markup}× · keep {c.retainedPct}%
+              <div key={d.id} style={{ opacity: d.settled ? 0.55 : 1 }}>
+                <div className="session-item" style={{ cursor: 'default' }}>
+                  <div className="sess-main">
+                    <div className="sess-label">
+                      {d.event}
+                      {d.settled && <span className="tag pos" style={{ marginLeft: 6 }}>settled</span>}
+                    </div>
+                    <div className="sess-meta">
+                      {money(d.buyIn)} · {d.pctSold}% @ {d.markup}× · keep {c.retainedPct}%
+                      {d.backer ? ` · ${d.backer}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: '0 0 auto' }}>
+                    {!d.settled && (
+                      <button
+                        className="btn btn-ghost"
+                        style={{ padding: '4px 8px', fontSize: 12 }}
+                        onClick={() => {
+                          setSettlingId(settling ? null : d.id)
+                          setPrize('')
+                        }}
+                      >
+                        {settling ? 'Cancel' : 'Settle'}
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-ghost"
+                      style={{ padding: '4px 8px', color: 'var(--muted)' }}
+                      onClick={() => remove(d.id)}
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
-                <div className="sess-result">{money(c.yourCost)}</div>
+                {settling && (
+                  <div className="field-row" style={{ padding: '6px 0 10px', alignItems: 'center' }}>
+                    <input
+                      className="input"
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="Cashed for ($ prize)"
+                      value={prize}
+                      onChange={(e) => setPrize(e.target.value)}
+                    />
+                    <button
+                      className="btn"
+                      style={{ flex: '0 0 auto' }}
+                      disabled={share <= 0}
+                      onClick={() => void settle(d)}
+                    >
+                      Pay backers {share > 0 ? money(share) : ''}
+                    </button>
+                  </div>
+                )}
               </div>
             )
           })}

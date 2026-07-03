@@ -228,15 +228,20 @@ export function computeBankroll(
     .reduce((a, s) => a + s.result, 0)
 
   const transfers = adjustments.filter((a) => a.type === 'wsop-fund-transfer')
+  // Backer settlements pay backers their share of a slate cash — that money
+  // lives in the WSOP-fund bucket (where the prize landed), not the roll.
+  const backerSettle = adjustments
+    .filter((a) => a.type === 'backer-settlement')
+    .reduce((a, x) => a + x.amount, 0)
   const rollAdj = adjustments
-    .filter((a) => a.type !== 'wsop-fund-transfer')
+    .filter((a) => a.type !== 'wsop-fund-transfer' && a.type !== 'backer-settlement')
     .reduce((a, x) => a + x.amount, 0)
   const transferTotal = transfers.reduce((a, x) => a + x.amount, 0)
 
   const wsopSessionPnl = sessions.filter(isWsop).reduce((a, s) => a + s.result, 0)
 
   const playingRoll = startingRoll + sessionPnl + rollAdj - transferTotal
-  const wsopFund = transferTotal + wsopSessionPnl
+  const wsopFund = transferTotal + wsopSessionPnl + backerSettle
 
   const current = ladderLookup(playingRoll)
   const next = nextCheckpoint(playingRoll)

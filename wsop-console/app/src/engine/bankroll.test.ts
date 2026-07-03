@@ -62,6 +62,16 @@ describe('computeBankroll', () => {
     expect(b.playingRoll).toBe(50000)
     expect(b.wsopFund).toBe(8000)
   })
+  it('backer settlements come out of the fund bucket, not the roll', () => {
+    // Slate cash $50k into the fund; backers' 60% share paid out.
+    const b = computeBankroll(
+      [sess(50000, { isWsopFund: true })],
+      [{ id: '1', date: '2027-06-01', amount: -30000, type: 'backer-settlement' }],
+      50000,
+    )
+    expect(b.playingRoll).toBe(50000) // untouched
+    expect(b.wsopFund).toBe(20000) // 50k cash − 30k to backers
+  })
 })
 
 describe('recommendStake', () => {

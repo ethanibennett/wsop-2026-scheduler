@@ -385,9 +385,11 @@ function AdjustmentForm({
   const hint =
     type === 'wsop-fund-transfer'
       ? 'Positive = move this much from playing roll into the WSOP fund.'
-      : type === 'withdrawal'
-        ? 'Use a negative amount to reduce the roll.'
-        : 'Positive adds to the roll, negative subtracts.'
+      : type === 'backer-settlement'
+        ? 'Negative = pay backers their share of a slate cash (comes out of the WSOP-fund bucket, not the roll). The Admin tab’s slate can log these for you.'
+        : type === 'withdrawal'
+          ? 'Use a negative amount to reduce the roll.'
+          : 'Positive adds to the roll, negative subtracts.'
 
   return (
     <form onSubmit={submit}>
