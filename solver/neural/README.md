@@ -9,6 +9,24 @@
 > Phase 4 for sequencing. Nothing here runs end-to-end yet — this is the
 > specified starting point.
 
+> **2026-07-02 — M1a deal-leaf distribution fix: pre-fix net-leaf validation
+> numbers are VOID.** The original `net_leaf.py` glue evaluated the value net
+> at the PRE-deal street boundary (current street's board + street index,
+> reaches without next-card removal, unnormalized), while `datagen.py` trains
+> the nets exclusively on POST-deal street-root PBSs — a public-state shape the
+> net never saw in training. Every net-as-leaf fidelity/validation number
+> produced before 2026-07-02 (e.g. earlier `leaf_fidelity` runs) is therefore
+> **void**; do not cite them. Net TRAINING metrics (val MAE / R² on 7th-street
+> data) are unaffected — the mismatch was only in how the trained net was
+> *queried* as a leaf. The **shipped exact 7th-street grading oracle is
+> untainted** (it uses no nets — pure exact resolves). The fixed glue
+> (`net_leaf.py`, mode `post_deal`, the default) queries the net only on
+> post-deal street-(s+1) PBSs: sampled joint upcard deals with card-removal
+> reweighting + CRN at up-card boundaries (3rd→4th…5th→6th), and a single
+> street-7 call through the exact private-draw lift at the 6th→7th down-card
+> boundary. Gate: `validate.py --ab-gate` (old-vs-fixed leaf vs the exact
+> 6th→7th recursion; results below in "M1a gate results").
+
 ## Why Stud 8 (and why a neural solver at all)
 
 The JS blueprint solver gives fixed, abstracted strategies. A DeepStack/ReBeL
