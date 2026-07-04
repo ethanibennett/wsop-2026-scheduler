@@ -15,7 +15,10 @@ import {
   downswingSeverity,
   weeklyReadout,
   expenseTotals,
+  lifetimeStats,
+  longestStreak,
 } from './analytics'
+import { daysUntil } from './format'
 import type { Expense } from '../db/types'
 import { localDate } from './format'
 import type { Session, RoutineLog } from '../db/types'
@@ -234,6 +237,55 @@ describe('moodEdge', () => {
     expect(s.a.perHour).toBe(100)
     expect(s.b.perHour).toBe(-50)
     expect(s.delta).toBe(150)
+  })
+})
+
+describe('lifetimeStats', () => {
+  it('totals + biggest win/loss + best month, excluding WSOP-fund sessions', () => {
+    const t = lifetimeStats([
+      sess({ date: '2026-08-01', hours: 5, result: 2000 }),
+      sess({ date: '2026-08-15', hours: 5, result: -800 }),
+      sess({ date: '2026-09-01', hours: 5, result: 300 }),
+      sess({ date: '2026-09-02', hours: 5, result: 99999, isWsopFund: true }), // excluded
+    ])
+    expect(t.sessions).toBe(3)
+    expect(t.hours).toBe(15)
+    expect(t.net).toBe(1500)
+    expect(t.biggestWin?.result).toBe(2000)
+    expect(t.biggestLoss?.result).toBe(-800)
+    expect(t.bestMonth?.month).toBe('2026-08') // +1200 beats +300
+  })
+  it('empty → nulls and zeros', () => {
+    const t = lifetimeStats([])
+    expect(t.biggestWin).toBeNull()
+    expect(t.bestMonth).toBeNull()
+    expect(t.net).toBe(0)
+  })
+})
+
+describe('longestStreak', () => {
+  it('finds the longest consecutive-day run, not just the current one', () => {
+    const logs: RoutineLog[] = [
+      { date: '2026-08-01', wakeAnchor: true },
+      { date: '2026-08-02', wakeAnchor: true },
+      { date: '2026-08-03', wakeAnchor: true }, // run of 3
+      { date: '2026-08-05', wakeAnchor: true },
+      { date: '2026-08-06', wakeAnchor: true }, // run of 2
+      { date: '2026-08-08', wakeAnchor: false }, // not picked
+    ]
+    expect(longestStreak(logs, (l) => l.wakeAnchor)).toBe(3)
+  })
+  it('empty → 0', () => {
+    expect(longestStreak([], (l) => l.wakeAnchor)).toBe(0)
+  })
+})
+
+describe('daysUntil', () => {
+  it('counts calendar days, negative when past', () => {
+    const from = new Date('2026-08-01T22:00:00')
+    expect(daysUntil('2026-08-04', from)).toBe(3)
+    expect(daysUntil('2026-08-01', from)).toBe(0)
+    expect(daysUntil('2026-07-30', from)).toBe(-2)
   })
 })
 

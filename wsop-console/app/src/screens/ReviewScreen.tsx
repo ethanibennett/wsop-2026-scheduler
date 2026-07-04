@@ -8,12 +8,19 @@ import { useStore } from '../store'
 import { getAll } from '../db/idb'
 import type { ReviewEntry, HealthMetric } from '../db/types'
 import { phaseState } from '../engine/phase'
-import { hoursThisWeek, cashHoursThisWeek, wakeAnchorStreak, weeklyReadout } from '../engine/analytics'
+import {
+  hoursThisWeek,
+  cashHoursThisWeek,
+  wakeAnchorStreak,
+  weeklyReadout,
+  lifetimeStats,
+  longestStreak,
+} from '../engine/analytics'
 import { computeBankroll } from '../engine/bankroll'
 import { weightProgress } from '../engine/health'
 import { milestones } from '../engine/milestones'
 import { HOME_LIBRARY, CATEGORY_META, type HomeCategory } from '../db/home'
-import { isThisWeek, todayISO, uid, fmtDate, fmtHours } from '../engine/format'
+import { isThisWeek, todayISO, uid, fmtDate, fmtHours, money } from '../engine/format'
 
 export function ReviewScreen() {
   const { sessions, adjustments, routine, reviews, settings, put } = useStore()
@@ -155,6 +162,37 @@ export function ReviewScreen() {
           </div>
         )}
       </div>
+
+      {/* The long game — lifetime miles, for the rebuild's impatient days */}
+      {(() => {
+        const lt = lifetimeStats(sessions)
+        if (lt.sessions < 3) return null
+        const bestAnchor = longestStreak(routine, (r) => r.wakeAnchor)
+        return (
+          <div className="card">
+            <div className="card-head">
+              <span className="card-label">The long game</span>
+              <span className={`mono ${lt.net >= 0 ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
+                {money(lt.net, { sign: true })}
+              </span>
+            </div>
+            <div className="hl-row"><span className="muted">Career volume</span>
+              <span className="mono">{fmtHours(lt.hours)} · {lt.sessions} sessions</span></div>
+            {lt.biggestWin && (
+              <div className="hl-row"><span className="muted">Biggest win</span>
+                <span className="mono pos">{money(lt.biggestWin.result, { sign: true })} · {fmtDate(lt.biggestWin.date)}</span></div>
+            )}
+            {lt.bestMonth && (
+              <div className="hl-row"><span className="muted">Best month</span>
+                <span className="mono pos">{money(lt.bestMonth.result, { sign: true })}</span></div>
+            )}
+            {bestAnchor >= 3 && (
+              <div className="hl-row"><span className="muted">Longest anchor streak</span>
+                <span className="mono">{bestAnchor}d</span></div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Auto-readout — the week, half-written for you */}
       <div className="card">

@@ -61,6 +61,13 @@ export function weekStart(d = new Date()): Date {
   return x
 }
 
+/** Whole calendar days from `from` until `iso` (negative if past). Local-date based. */
+export function daysUntil(iso: string, from: Date = new Date()): number {
+  const a = new Date(localDate(from) + 'T00:00:00').getTime()
+  const b = new Date(iso + 'T00:00:00').getTime()
+  return Math.round((b - a) / 86_400_000)
+}
+
 /** Whole days between `iso` and now (0 = today). Returns null for missing/bad input. */
 export function daysSince(iso?: string): number | null {
   if (!iso) return null

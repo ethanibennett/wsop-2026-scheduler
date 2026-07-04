@@ -462,6 +462,55 @@ export function taxEstimate(
   }
 }
 
+// ── Lifetime stats — "the long game" (the year is a marathon; show the miles) ──
+export interface LifetimeStats {
+  sessions: number
+  hours: number
+  net: number
+  biggestWin: Session | null
+  biggestLoss: Session | null
+  bestMonth: MonthStat | null
+}
+
+export function lifetimeStats(sessions: Session[]): LifetimeStats {
+  const real = sessions.filter((s) => !s.isWsopFund)
+  const t = totals(real)
+  let biggestWin: Session | null = null
+  let biggestLoss: Session | null = null
+  for (const s of real) {
+    if (s.result > 0 && (!biggestWin || s.result > biggestWin.result)) biggestWin = s
+    if (s.result < 0 && (!biggestLoss || s.result < biggestLoss.result)) biggestLoss = s
+  }
+  const months = monthlyBreakdown(real)
+  const bestMonth = months.length
+    ? months.reduce((a, b) => (b.result > a.result ? b : a))
+    : null
+  return { sessions: t.sessions, hours: t.hours, net: t.result, biggestWin, biggestLoss, bestMonth }
+}
+
+/** Longest-ever run of consecutive days where `pick` is true (vs the current streak). */
+export function longestStreak(
+  logs: RoutineLog[],
+  pick: (l: RoutineLog) => boolean | undefined,
+): number {
+  const days = [...new Set(logs.filter((l) => pick(l)).map((l) => l.date))].sort()
+  let best = 0
+  let cur = 0
+  let prev: string | null = null
+  for (const d of days) {
+    if (prev) {
+      const next = new Date(prev + 'T00:00:00')
+      next.setDate(next.getDate() + 1)
+      cur = localDate(next) === d ? cur + 1 : 1
+    } else {
+      cur = 1
+    }
+    if (cur > best) best = cur
+    prev = d
+  }
+  return best
+}
+
 // ── Business expenses (Schedule C) — the deduction half of the tax layer ──
 export interface ExpenseSummary {
   year: number

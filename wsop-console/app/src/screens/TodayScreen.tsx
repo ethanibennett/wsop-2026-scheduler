@@ -16,7 +16,8 @@ import {
 } from '../db/liveSession'
 import type { StudyLog } from '../db/types'
 import type { Session, RoutineLog, ChecklistTick } from '../db/types'
-import { todayISO, moneyK, money, fmtHours, daysSince, uid } from '../engine/format'
+import { todayISO, moneyK, money, fmtHours, daysSince, daysUntil, uid } from '../engine/format'
+import { PHASES } from '../db/seed'
 import { phaseState, getNudges } from '../engine/phase'
 import { computeBankroll, recommendStake } from '../engine/bankroll'
 import {
@@ -204,6 +205,24 @@ export function TodayScreen() {
         <div className="ph-theme">
           {ps.phase?.theme ?? 'Set a phase override in Settings to preview the plan.'}
         </div>
+        {(() => {
+          // The countdown line — the marathon, made visible.
+          const wsop = PHASES.find((p) => p.id === 5)
+          const wsopDays = wsop ? daysUntil(wsop.start) : -1
+          const bits: string[] = []
+          if (wsopDays > 0) bits.push(`WSOP 2027 in ${wsopDays}d`)
+          if (ps.prePhase) {
+            const d = daysUntil(PHASES[0].start)
+            if (d > 0) bits.push(`Phase 1 in ${d}d`)
+          } else if (ps.phase && ps.phase.id < 6) {
+            const next = PHASES.find((p) => p.id === ps.phase!.id + 1)
+            const d = next ? daysUntil(next.start) : 0
+            if (d > 0) bits.push(`${next!.name} in ${d}d`)
+          }
+          return bits.length ? (
+            <div className="mono muted" style={{ fontSize: 11, marginTop: 8 }}>{bits.join(' · ')}</div>
+          ) : null
+        })()}
       </div>
 
       {/* Quick stats */}
