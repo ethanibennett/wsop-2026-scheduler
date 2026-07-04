@@ -8,6 +8,7 @@ import { useStore } from '../store'
 import { getAll } from '../db/idb'
 import type { HealthMetric } from '../db/types'
 import { buildSeries, normalize, dateDomain, correlate, correlationWord, type Series } from '../engine/series'
+import { dayGrid } from '../engine/analytics'
 import { fmtDate, money, localDate } from '../engine/format'
 
 type Range = '30' | '90' | 'all'
@@ -150,6 +151,43 @@ export function DashboardScreen() {
               </div>
             )}
           </div>
+
+          {/* Rhythm heatmap — 12 weeks of grind + anchor at a glance */}
+          {(() => {
+            const grid = dayGrid(sessions, routine, 12)
+            const any = grid.some((w) => w.some((d) => d.hours > 0 || d.anchor))
+            if (!any) return null
+            return (
+              <div className="card">
+                <div className="card-head">
+                  <span className="card-label">Last 12 weeks</span>
+                  <span className="mono muted" style={{ fontSize: 11 }}>fill = hours · ring = anchor</span>
+                </div>
+                <div style={{ display: 'flex', gap: 3, justifyContent: 'space-between' }}>
+                  {grid.map((week, wi) => (
+                    <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+                      {week.map((d) => (
+                        <div
+                          key={d.date}
+                          title={`${d.date}: ${d.hours ? `${d.hours}h` : '—'}${d.anchor ? ' · anchor' : ''}`}
+                          style={{
+                            aspectRatio: '1',
+                            borderRadius: 3,
+                            background:
+                              d.hours > 0
+                                ? `rgba(160,160,160,${Math.min(1, 0.25 + d.hours / 8)})`
+                                : 'var(--surface-2)',
+                            border: d.anchor ? '1px solid var(--good)' : '1px solid transparent',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Legend / toggles */}
           <div className="card">

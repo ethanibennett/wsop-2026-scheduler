@@ -1495,3 +1495,13 @@ textarea {
 .hl-row:first-child {
   border-top: none;
 }
+
+/* ── Milestone celebration (the climb) ── */
+@keyframes climb-pulse {
+  0% { background: rgba(160, 160, 160, 0.28); }
+  100% { background: transparent; }
+}
+.climb-new {
+  animation: climb-pulse 1.4s ease-out 3;
+  border-radius: 6px;
+}

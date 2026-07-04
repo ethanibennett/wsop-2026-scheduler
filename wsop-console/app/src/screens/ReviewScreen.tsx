@@ -85,6 +85,25 @@ export function ReviewScreen() {
     return milestones({ roll, anchorStreak: wakeAnchorStreak(routine), lbsLost })
   }, [sessions, adjustments, settings.startingRoll, metrics, routine])
 
+  // Celebrate freshly-cleared milestones: anything achieved since the last
+  // visit pulses (climb-new). Seen-set lives in localStorage.
+  const [newClears, setNewClears] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    const doneIds = climb.list.filter((m) => m.done).map((m) => m.id)
+    if (!doneIds.length) return
+    let seen: string[] = []
+    try {
+      seen = JSON.parse(localStorage.getItem('wsop-climb-seen') || '[]')
+    } catch {
+      seen = []
+    }
+    const fresh = doneIds.filter((id) => !seen.includes(id))
+    if (fresh.length) {
+      localStorage.setItem('wsop-climb-seen', JSON.stringify(doneIds))
+      setNewClears(new Set(fresh))
+    }
+  }, [climb])
+
   const week = useMemo(() => {
     const wk = sessions.filter((s) => isThisWeek(s.date))
     const moods = wk
@@ -181,9 +200,16 @@ export function ReviewScreen() {
           .slice(-4)
           .reverse()
           .map((m) => (
-            <div key={m.id} className="hl-row" style={{ padding: '4px 0', borderBottom: 'none' }}>
+            <div
+              key={m.id}
+              className={`hl-row${newClears.has(m.id) ? ' climb-new' : ''}`}
+              style={{ padding: '4px 0', borderBottom: 'none' }}
+            >
               <span className="pos" style={{ marginRight: 8 }}>✓</span>
-              <span style={{ fontSize: 13 }}>{m.label}</span>
+              <span style={{ fontSize: 13 }}>
+                {m.label}
+                {newClears.has(m.id) && <span className="tag pos" style={{ marginLeft: 6 }}>cleared!</span>}
+              </span>
             </div>
           ))}
         {climb.next && (

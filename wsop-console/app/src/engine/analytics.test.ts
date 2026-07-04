@@ -17,6 +17,8 @@ import {
   expenseTotals,
   lifetimeStats,
   longestStreak,
+  resultHistogram,
+  dayGrid,
 } from './analytics'
 import { daysUntil } from './format'
 import type { Expense } from '../db/types'
@@ -237,6 +239,44 @@ describe('moodEdge', () => {
     expect(s.a.perHour).toBe(100)
     expect(s.b.perHour).toBe(-50)
     expect(s.delta).toBe(150)
+  })
+})
+
+describe('resultHistogram', () => {
+  it('buckets around zero with a sane width and counts every session', () => {
+    const h = resultHistogram([
+      sess({ result: 450 }), sess({ result: -300 }), sess({ result: 1200 }),
+      sess({ result: 200 }), sess({ result: -900 }),
+    ])
+    expect(h.length).toBeGreaterThan(2)
+    expect(h.reduce((a, b) => a + b.count, 0)).toBe(5)
+    // edges align to the bucket width (abs: -1000 % 250 is -0, and Object.is(-0, 0) is false)
+    expect(Math.abs(h[0].lo % (h[0].hi - h[0].lo))).toBe(0)
+  })
+  it('excludes WSOP-fund sessions; <3 sessions → empty', () => {
+    expect(resultHistogram([sess({ result: 100 }), sess({ result: 200 })])).toEqual([])
+    const h = resultHistogram([
+      sess({ result: 100 }), sess({ result: 200 }), sess({ result: 300 }),
+      sess({ result: 99999, isWsopFund: true }),
+    ])
+    expect(h.reduce((a, b) => a + b.count, 0)).toBe(3)
+  })
+})
+
+describe('dayGrid', () => {
+  it('builds weeks × 7 Mon-first days with hours + anchor flags', () => {
+    const now = new Date('2026-08-12T12:00:00') // Wednesday
+    const g = dayGrid(
+      [sess({ date: '2026-08-10', hours: 5 }), sess({ date: '2026-08-10', hours: 2 })],
+      [{ date: '2026-08-11', wakeAnchor: true }],
+      2,
+      now,
+    )
+    expect(g).toHaveLength(2)
+    expect(g[1][0].date).toBe('2026-08-10') // Monday of the current week
+    expect(g[1][0].hours).toBe(7)
+    expect(g[1][1].anchor).toBe(true)
+    expect(g[0]).toHaveLength(7)
   })
 })
 
