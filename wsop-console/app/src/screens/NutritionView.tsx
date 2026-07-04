@@ -3,6 +3,7 @@
 // ephemeral state — no DB migration needed). Content from db/nutrition.ts.
 
 import { useState } from 'react'
+import { useToast } from '../components/Toast'
 import {
   PROTEIN_TARGET,
   PRINCIPLES,
@@ -26,11 +27,36 @@ function loadChecks(): Record<string, boolean> {
 }
 
 export function NutritionView() {
+  const toast = useToast()
   const [checks, setChecks] = useState<Record<string, boolean>>(loadChecks)
   const [showPrinciples, setShowPrinciples] = useState(false)
 
   const allItems = SHOPPING_LIST.flatMap((c) => c.items)
   const checkedCount = allItems.filter((i) => checks[i]).length
+
+  // Send the ticked items (the cart) to the share sheet — text Ellie the list.
+  const shareList = async () => {
+    const lines: string[] = []
+    for (const cat of SHOPPING_LIST) {
+      const picked = cat.items.filter((i) => checks[i])
+      if (picked.length) lines.push(`${cat.category.split(' (')[0]}: ${picked.join(', ')}`)
+    }
+    if (!lines.length) {
+      toast('Tick what you need first')
+      return
+    }
+    const text = `Groceries —\n${lines.join('\n')}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        toast('List copied')
+      }
+    } catch {
+      /* share sheet dismissed */
+    }
+  }
 
   const toggle = (item: string) => {
     setChecks((cur) => {
@@ -135,9 +161,14 @@ export function NutritionView() {
           </div>
         ))}
         {checkedCount > 0 && (
-          <button className="btn btn-ghost btn-block" onClick={clearChecks} style={{ marginTop: 4 }}>
-            Clear checks
-          </button>
+          <div className="field-row" style={{ marginTop: 4 }}>
+            <button className="btn btn-block" onClick={() => void shareList()}>
+              ↗ Share list ({checkedCount})
+            </button>
+            <button className="btn btn-ghost" style={{ flex: '0 0 auto' }} onClick={clearChecks}>
+              Clear
+            </button>
+          </div>
         )}
         <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>{SHOP_TIMING}</div>
       </div>
