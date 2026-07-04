@@ -15,7 +15,9 @@ import {
   weeklyReadout,
   lifetimeStats,
   longestStreak,
+  winRateByGroup,
 } from '../engine/analytics'
+import { useToast } from '../components/Toast'
 import { computeBankroll } from '../engine/bankroll'
 import { weightProgress } from '../engine/health'
 import { milestones } from '../engine/milestones'
@@ -25,6 +27,7 @@ import { isThisWeek, todayISO, uid, fmtDate, fmtHours, money } from '../engine/f
 export function ReviewScreen() {
   const { sessions, adjustments, routine, reviews, settings, put } = useStore()
   const ps = phaseState(new Date(), settings.phaseOverride)
+  const toast = useToast()
 
   const [metrics, setMetrics] = useState<HealthMetric[]>([])
   useEffect(() => {
@@ -50,6 +53,31 @@ export function ReviewScreen() {
     }
     return { total: ids.size, byCat }
   }, [sessions]) // recompute when the screen re-renders on data change
+
+  // The weekly recap, as a shareable line — Wrapped for the grind week.
+  const shareRecap = async () => {
+    const wk = sessions.filter((s) => isThisWeek(s.date))
+    const anchorDays = routine.filter((r) => isThisWeek(r.date) && r.wakeAnchor).length
+    const best = winRateByGroup(wk).filter((g) => g.hours >= 2)[0]
+    const bits = [
+      `${week.count} session${week.count === 1 ? '' : 's'} · ${fmtHours(week.hours)}`,
+      `${week.pnl >= 0 ? '+' : '−'}$${Math.abs(Math.round(week.pnl)).toLocaleString('en-US')}`,
+      `anchor ${anchorDays}/7`,
+    ]
+    if (homeWeek.total > 0) bits.push(`${homeWeek.total} home contribution${homeWeek.total === 1 ? '' : 's'}`)
+    if (best) bits.push(`best: ${best.key} ${money(best.perHour, { sign: true })}/h`)
+    const text = `The week — ${bits.join(' · ')}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        toast('Recap copied')
+      }
+    } catch {
+      /* share sheet dismissed */
+    }
+  }
 
   const climb = useMemo(() => {
     const roll = computeBankroll(sessions, adjustments, settings.startingRoll).playingRoll
@@ -106,8 +134,11 @@ export function ReviewScreen() {
 
       {/* Week at a glance */}
       <div className="card">
-        <div className="card-label" style={{ marginBottom: 12 }}>
-          This week
+        <div className="card-head">
+          <span className="card-label">This week</span>
+          <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => void shareRecap()}>
+            ↗ Share recap
+          </button>
         </div>
         <div className="rv-stats">
           <div>
