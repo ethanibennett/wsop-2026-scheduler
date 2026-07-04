@@ -37,6 +37,12 @@ function MultiLineChart({ series, domain, height = 190 }: { series: Series[]; do
   )
 }
 
+function fmtVal(v: number, unit: string): string {
+  if (unit === '$' || unit === '$/h') return money(v, { sign: v < 0 })
+  if (unit === '/5') return `${v.toFixed(1)}/5`
+  return `${Math.round(v * 10) / 10}${unit}`
+}
+
 function fmtLatest(s: Series): string {
   if (s.latest == null) return '—'
   if (s.unit === '$') return money(s.latest, { sign: true })
@@ -122,6 +128,19 @@ export function DashboardScreen() {
                   <span className="mono muted" style={{ fontSize: 11 }}>{fmtDate(new Date(domain[0]).toISOString().slice(0, 10))}</span>
                   <span className="mono muted" style={{ fontSize: 11 }}>{fmtDate(new Date(domain[1]).toISOString().slice(0, 10))}</span>
                 </div>
+                {/* True-value axes: with ≤2 lines, show each one's real range —
+                    the honest dual-axis (each line is scaled to its own range). */}
+                {shown.length <= 2 &&
+                  shown.map((s) => {
+                    const vals = s.points.map((p) => p.value)
+                    const lo = Math.min(...vals)
+                    const hi = Math.max(...vals)
+                    return (
+                      <div key={s.key} className="mono" style={{ fontSize: 11, marginTop: 4, color: s.color }}>
+                        {s.label}: {fmtVal(lo, s.unit)} → {fmtVal(hi, s.unit)}
+                      </div>
+                    )
+                  })}
               </>
             ) : (
               <div className="muted" style={{ fontSize: 13, padding: '20px 0', textAlign: 'center' }}>

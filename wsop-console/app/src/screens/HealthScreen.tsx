@@ -4,7 +4,7 @@
 // context (`routine`). Sources: health-plan-wsop-2027.md, mental-health-and-game.md.
 
 import { useEffect, useMemo, useState } from 'react'
-import { getAll, putRecord } from '../db/idb'
+import { getAll, putRecord, getRecord } from '../db/idb'
 import type { HealthMetric, StudyLog, RoutineLog, Session, BankrollAdjustment } from '../db/types'
 import { useStore } from '../store'
 import { useToast } from '../components/Toast'
@@ -16,7 +16,7 @@ import {
 } from '../engine/analytics'
 import { computeBankroll, recommendStake } from '../engine/bankroll'
 import { weightProgress, DEFAULT_GOAL_LOSS_LB, studyCadence, metricTrend } from '../engine/health'
-import { uid, todayISO, fmtDate, isThisWeek, moneyK } from '../engine/format'
+import { uid, todayISO, fmtDate, isThisWeek, moneyK, localDate } from '../engine/format'
 import { DOWNSWING_PROTOCOL } from '../db/protocol'
 import { NutritionView } from './NutritionView'
 
@@ -123,6 +123,7 @@ export function HealthScreen() {
           <span className="box">{medToday ? '✓' : ''}</span>
           <span className="ctext">Meditation floor — today</span>
         </button>
+        <EditPastDay routine={routine} putByDate={putByDate} />
       </div>
 
       <BodyMetrics metrics={metrics} onSaved={reload} toast={toast} />
@@ -429,6 +430,73 @@ function DownswingCard({
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+const ROUTINE_FIELDS: { key: keyof RoutineLog; label: string }[] = [
+  { key: 'wakeAnchor', label: 'Wake anchor' },
+  { key: 'windDown', label: 'Wind-down' },
+  { key: 'movement', label: 'Movement' },
+  { key: 'meditation', label: 'Meditation' },
+]
+
+// Backfill a missed day — a real tick that never got logged shouldn't break a
+// streak. Reads the freshest record before merging (no stale-closure clobber).
+function EditPastDay({
+  routine,
+  putByDate,
+}: {
+  routine: RoutineLog[]
+  putByDate: (store: 'routine', value: RoutineLog) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 1)
+    return localDate(d)
+  })
+  const day = routine.find((r) => r.date === date)
+
+  const toggleField = async (key: keyof RoutineLog) => {
+    const fresh = (await getRecord<RoutineLog>('routine', date)) ?? { date }
+    await putByDate('routine', { ...fresh, [key]: !fresh[key] })
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <button
+        className="row-split"
+        onClick={() => setOpen((v) => !v)}
+        style={{ width: '100%', background: 'none', border: 'none', color: 'inherit', textAlign: 'left', padding: 0, cursor: 'pointer' }}
+      >
+        <span className="card-label">Edit a past day</span>
+        <span className="mono muted">{open ? '−' : '+'}</span>
+      </button>
+      {open && (
+        <>
+          <div className="field" style={{ maxWidth: 200, marginTop: 8 }}>
+            <input
+              className="input"
+              type="date"
+              max={todayISO()}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+          <div className="pill-row" style={{ marginBottom: 0 }}>
+            {ROUTINE_FIELDS.map((f) => (
+              <button
+                key={f.key}
+                className={`pill${day?.[f.key] ? ' on' : ''}`}
+                onClick={() => void toggleField(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
