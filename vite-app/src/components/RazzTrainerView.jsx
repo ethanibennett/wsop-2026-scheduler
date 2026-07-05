@@ -93,9 +93,13 @@ const SEVENTH_STREET = 4;
 // Per-game blueprint trust, from the LBR / fixed-exploiter meter (chips/hand a
 // strong opponent could win — lower is better). Surfaced so users know how far
 // to trust the EV-loss grades. Source: solver/strategies/BLUEPRINT_TRUST.md.
-// stud8 is a known undertrained bot (being retrained) → grades are approximate.
+// All numbers are best-response LOWER BOUNDS (true exploitability >= shown).
+// razz = the v2 hole-aware blueprint (shipped 2026-07-05): best-response stud
+// LBR 1.42 ± 0.24 chips/hand at 3000 hands/seat. Its old badge said 0.0, but
+// that was the weaker fixed-exploiter bound — the frozen v1 measured 3.51 by
+// this same LBR meter, so the honest number ROSE while the bot got BETTER.
 const GAME_TRUST = {
-  razz:   { expl: 0.0,  ok: true },
+  razz:   { expl: 1.42, ok: true },
   stud8:  { expl: 2.0,  ok: true },
   td27:   { expl: 2.84, ok: true },
   badugi: { expl: 0.0,  ok: true },
@@ -366,7 +370,7 @@ export default function RazzTrainerView() {
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <span style={{ color: 'var(--pos, #22c55e)' }}>✓</span>
-          Trustworthy bot — {GAME_TRUST[game].expl < 0.5 ? '≈0' : `±${GAME_TRUST[game].expl}`} chips/hand exploitable (LBR)
+          Trustworthy bot — {GAME_TRUST[game].expl < 0.5 ? '≈0' : `≥${GAME_TRUST[game].expl}`} chips/hand exploitable (best-response LBR, lower bound)
         </div>
       ) : (
         <div style={{

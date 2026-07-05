@@ -111,6 +111,46 @@ function ownBucket(s, p) {
   return `${pairCls}${L}${aceFlag}${lowFlag}`;
 }
 
+// ── v2 bucket (hole-aware early streets) — the SHIPPED default ───────
+// The v1 bucket above is HOLE-BLIND on 3rd/4th street: `L` counts
+// DISTINCT ranks (not low ones) and lowFlag is a constant 'Ls' below 5
+// cards (bestLowRazz's <5-card score never reaches the 15^4 digit, so
+// hiRank decodes to 0), so 2-3-4 and J-Q-K both read '-3Ls' and the
+// v1 blueprint completed ~flat across hole strength. v2 appends a
+// COARSE low-strength tier on 3rd/4th street only (streets where the
+// v1 made-low flag is dead); from 5th street on v2 == v1 byte-for-byte.
+//
+//   n8 = # DISTINCT ace-low ranks <= 8 (cards that play toward a low)
+//   tier 0: n8 >= 4                       (4th st only: four to an 8)
+//   tier 1: n8 == 3, 3rd-lowest rank <= 5 (three wheel-range cards)
+//   tier 2: n8 == 3                       (three to an 8-low)
+//   tier 3: n8 == 2                       (two low + brick/pair)
+//   tier 4: n8 == 1
+//   tier 5: n8 == 0                       (e.g. J-Q-K)
+//
+// Monotone: a strictly lower holding never gets a higher tier. <= 6
+// values on <= 3,300 early-street keys keeps the infoset blowup tiny.
+// SHIPPED 2026-07-05: the DEFAULT export now uses this bucket, paired
+// with strategies/razz.json retrained on v2 keys (2M iters, 80,404
+// infosets, best-response LBR 1.424 ± 0.241 vs v1's 3.509 ± 0.304 by
+// the same lbr-stud meter/seed). The old hole-blind variant survives as
+// `module.exports.v1` + strategies/razz.frozen-v1.json for provenance.
+function earlyLowTier(cards) {
+  const seen = {};
+  for (const c of cards) seen[lowRankOf(c)] = 1;
+  const ranks = Object.keys(seen).map(Number).sort((a, b) => a - b);
+  const n8 = ranks.filter(r => r <= 8).length;
+  if (n8 >= 4) return 0;
+  if (n8 === 3) return ranks[2] <= 5 ? 1 : 2;
+  return 5 - n8; // 3 / 4 / 5 for n8 = 2 / 1 / 0
+}
+
+function ownBucketV2(s, p) {
+  const base = ownBucket(s, p);
+  if (s.street > 1) return base; // 5th st on: identical to v1
+  return `${base}H${earlyLowTier(allCards(s, p))}`;
+}
+
 // Opponent visible-board bucket
 function oppBucket(s, p) {
   const up = s.up[1 - p];
@@ -293,12 +333,15 @@ const game = {
 
   // Abstraction: exact action sequence for the current street only;
   // earlier streets are summarized by a quantized pot size. Cumulative
-  // hand/board information lives in the buckets.
+  // hand/board information lives in the buckets. Own-bucket is the v2
+  // hole-aware bucket (H-tier on 3rd/4th street) — MUST match the keys
+  // in strategies/razz.json (v2-trained). The frozen v1 key lives on
+  // `gameV1` below.
   infosetKey(s) {
     const p = s.toAct;
     const potBin = Math.min(12, Math.round((s.contrib[0] + s.contrib[1]) / (2 * SMALL)));
     const first = s.starter === p ? 1 : 0;
-    return `${s.street}|p${potBin}|${s.curSeq}|f${first}|${ownBucket(s, p)}|o${oppBucket(s, p)}|b${s.bringIn === p ? 1 : 0}`;
+    return `${s.street}|p${potBin}|${s.curSeq}|f${first}|${ownBucketV2(s, p)}|o${oppBucket(s, p)}|b${s.bringIn === p ? 1 : 0}`;
   },
 
   actionLabel(a, s) {
@@ -378,6 +421,42 @@ const game = {
   },
 };
 
+// ── Variant bindings ────────────────────────────────────────────────
+// The DEFAULT export (`game`, id 'razz') carries the SHIPPED v2
+// hole-aware infosetKey and pairs with strategies/razz.json. Both must
+// always flip together: a blueprint's keys and the module that
+// generates lookup keys for the trainer/grader/playout are one unit.
+//
+// `gameV1` (id 'razzv1') keeps the pre-2026-07-05 hole-blind key,
+// byte-identical to what strategies/razz.frozen-v1.json was trained
+// on — for LBR re-verification / A-B comparisons only, never the app.
+//
+// `gameV2` (id 'razzv2') is the same v2 key under the opt-in training
+// id that produced the blueprint (strategies/razzv2.json provenance);
+// kept so `--game razzv2` meter/training runs keep resolving.
+const gameV1 = Object.assign({}, game, {
+  id: 'razzv1',
+  name: 'Razz (v1 hole-blind bucket, frozen)',
+  infosetKey(s) {
+    const p = s.toAct;
+    const potBin = Math.min(12, Math.round((s.contrib[0] + s.contrib[1]) / (2 * SMALL)));
+    const first = s.starter === p ? 1 : 0;
+    return `${s.street}|p${potBin}|${s.curSeq}|f${first}|${ownBucket(s, p)}|o${oppBucket(s, p)}|b${s.bringIn === p ? 1 : 0}`;
+  },
+});
+
+const gameV2 = Object.assign({}, game, {
+  id: 'razzv2',
+  name: 'Razz (v2 hole-aware bucket)',
+  // infosetKey inherited from `game` — the default IS the v2 key now.
+});
+
 module.exports = game;
 module.exports.razzBoardValue = razzBoardValue;
 module.exports.firstActor = firstActor;
+module.exports.v1 = gameV1;
+module.exports.v2 = gameV2;
+// Exposed for bucket-abstraction tests/validation (not used by the engine).
+module.exports.ownBucket = ownBucket;
+module.exports.ownBucketV2 = ownBucketV2;
+module.exports.earlyLowTier = earlyLowTier;

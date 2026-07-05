@@ -1,7 +1,9 @@
 # Blueprint Trust / Exploitability Report
 
-Measured 2026-06-30. How exploitable is each trainer bot? Lower chips/hand = closer to
-unexploitable (0 == Nash). All games are heads-up fixed-limit.
+Measured 2026-06-30; razz row updated 2026-07-05 for the v2 hole-aware ship (`razz.json` is now
+the v2 blueprint; the previous one is frozen at `razz.frozen-v1.json`). How exploitable is each
+trainer bot? Lower chips/hand = closer to unexploitable (0 == Nash). All games are heads-up
+fixed-limit.
 
 ## Meters used
 - **Particle-filter LBR** (`solver/lbr-draw.js` + `solver/lbr-draw-run.js`) — the principled,
@@ -35,7 +37,7 @@ small fixed-exploiter number means "no gross leak found," not "proven near-optim
 
 | Game   | Exploitability (chips/hand) | Meter (bound)              | Iters     | Infosets | Iters/infoset | Trust verdict |
 |--------|-----------------------------|----------------------------|-----------|----------|---------------|---------------|
-| razz   | **0.000**                   | fixed-exploiter (LB, loose)| 1,000,000 | 69,177   | 14.5          | TRUST — beats all 3 fixed exploiters (maniac −8.2, station −4.4, rock −2.4); mature. Caveat: no stud LBR, so "no gross leak" not "proven Nash." |
+| razz   | **1.42** ± 0.24 (LB)        | best-response stud LBR (LB)| 2,000,000 | 80,404   | 24.9          | TRUST — v2 hole-aware bucket, shipped 2026-07-05. Best-response LBR 1.424 ± 0.241 chips/hand (lbr-stud, 3000 hands/seat, seed 12345); fixed-exploiter 0. The frozen v1 measured **3.509 ± 0.304 by the SAME meter** — the old headline "0.000" was the weaker fixed-exploiter bound, not a contradiction. v2 fixes the hole-blind 3rd/4th-street own-bucket (2-3-4 == J-Q-K, one infoset): hole-conditioned steal spread is now 69.2pp vs v1's flat 19.3pp (trash completes 17% vs 77%). |
 | stud8  | **23.4**  (LB)              | fixed-exploiter (LB, loose)| 431,000   | 230,693  | **1.9**       | DO NOT TRUST — massive over-folding leak vs maniac (+23.4). Severely undertrained: largest infoset space, fewest iters (~1.9 visits/infoset). Needs a long grind. |
 | td27   | **2.84**                    | combined (PF + fixed, LB)  | 1,885,000 | 136,359  | 13.8          | TRUST the number — re-confirmed 2.845 (known baseline ≈2.84). Real residual leak: maniac fixed-exploiter (2.84) still beats the PF bound (1.16); a few chips exploitable. Mature, usable. |
 | badugi | **0.000**  (<=~0.2)         | combined (PF + fixed, LB)  | 1,752,000 | 42,212   | 41.5          | TRUST — re-confirmed 0.000 (known baseline ≈0). PF best-seat dev negative, fixed-exploiter 0; near the noise floor (±0.135 s.e.). Most mature blueprint. |
@@ -45,7 +47,11 @@ small fixed-exploiter number means "no gross leak found," not "proven near-optim
 copied before metering to avoid a partial-read race; iters/infosets per its meta at snapshot time.)
 
 ## Headline findings
-- **razz, badugi, a5td: ~0 chips/hand — trustworthy bots.** Safe to ship as trainer opponents
+- **razz: 1.42 ± 0.24 chips/hand by the principled best-response LBR — trustworthy bot**
+  (v2 hole-aware bucket, 2026-07-05). Do not compare this number to the old "0.000": that was
+  the loose fixed-exploiter bound, under which v2 also reads 0.000. Same-meter comparison:
+  v2 1.424 vs v1 3.509 — the abstraction fix cut the proven exploitable gap ~2.5x.
+- **badugi, a5td: ~0 chips/hand — trustworthy bots.** Safe to ship as trainer opponents
   and as the EV/grade baseline.
 - **td27: ~2.84 chips/hand — trustworthy number, mildly exploitable.** Known and stable; a
   competent human can win a few chips/hand off it but it is a solid blueprint.
@@ -57,8 +63,9 @@ copied before metering to avoid a partial-read race; iters/infosets per its meta
 
 ## Caveats on the meters
 - All numbers are LOWER bounds; true exploitability is at least this large.
-- Stud games have **only** the fixed-exploiter meter — a principled per-public-state stud LBR is
-  still an open milestone. So stud's small razz number is "no gross leak found," and stud's large
-  stud8 number is a real proven leak (a fixed strategy that demonstrably beats it by 23/hand).
+- Stud games now have the **best-response stud LBR** (`lbr-stud.js`, see Meters above) in
+  addition to the fixed exploiters; razz's headline is that LBR (1.42 ± 0.24 at 3000 hands/seat).
+  The stud8 row still shows the older fixed-exploiter reading (a real proven leak at the time it
+  was measured; stud8 was since retrained — see the in-app GAME_TRUST for its current badge).
 - Draw LBR settings 120 particles / 4000 hands/seat give s.e. ≈ 0.12–0.17 chips/hand; the ~0
   numbers are statistically indistinguishable from zero, the 2.84 is well above noise.

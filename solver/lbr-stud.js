@@ -91,7 +91,9 @@ const grade = require('./razz-trainer/grade');
 const play = require('./razz-trainer/play');
 
 const STUD_GAMES = {
-  razz: require('./games/razz-game'),
+  razz: require('./games/razz-game'),         // shipped default = v2 hole-aware key (pairs with razz.json)
+  razzv1: require('./games/razz-game').v1,    // frozen hole-blind key (pairs with razz.frozen-v1.json)
+  razzv2: require('./games/razz-game').v2,    // v2 key under the opt-in training id (pairs with razzv2.json)
   stud8: require('./games/stud8-game'),
 };
 
