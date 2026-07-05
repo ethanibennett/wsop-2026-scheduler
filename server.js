@@ -7161,6 +7161,10 @@ const TRAINER_GAMES = {
 };
 const DRAW_TRAINER_GAMES = { td27: true, badugi: true, a5td: true };
 function isDrawTrainerGame(gameId) { return !!DRAW_TRAINER_GAMES[gameId]; }
+// Draw games that have an EXACT post-last-draw grading oracle (M2 resolver —
+// resolve_draw_final.DRAW_FINAL_GAMES). a5td is deliberately absent (no resolver),
+// so Pro mode is never offered for it and body.oracle is ignored server-side.
+const DRAW_ORACLE_GAMES = { td27: true, badugi: true };
 
 // Per-game blueprint cache. Training may be actively rewriting the file, so we
 // read a single consistent snapshot at first use rather than risk a half-written
@@ -7552,6 +7556,16 @@ function drawGradeToContract(g) {
     evLossSE: g.evLossSE,
     rangeDegraded: g.rangeDegraded,     // posterior collapsed OR off-book count
     confidence: g.confidence,           // 'low' when rangeDegraded / ESS-degraded
+    // ── Pro-mode oracle metadata (present only when oracle grading is on; the
+    // default blueprint path leaves these undefined so the payload is byte-
+    // identical to today). Mirrors the stud trainerStep mapping. ──
+    gradeSource: g.gradeSource,                         // 'oracle' | 'blueprint' | undefined
+    blueprintEvLoss: g.blueprintEvLoss,
+    oracleGradeTrusted: g.oracleGradeTrusted,
+    oracleGradeTrust: g.oracleGradeTrust,
+    oracleResolveExploitability: g.oracleResolveExploitability,
+    oracleIters: g.oracleIters,
+    oracleExploitability: g.oracleExploitability,       // back-compat alias
   };
 }
 
@@ -7850,7 +7864,7 @@ async function trainerStep(game, req, res) {
 // engine + draw-trainer grader. legalActions carry discardIdx at draw nodes; the
 // terminal reveals the opponent only on showdown and emits both 'bet' and 'draw'
 // kind grades.
-function drawTrainerStep(game, req, res) {
+async function drawTrainerStep(game, req, res) {
   try {
     const body = req.body || {};
     const seed = body.seed | 0;
@@ -7895,8 +7909,21 @@ function drawTrainerStep(game, req, res) {
     // leaving the trusted EXACT-FORWARD (post-last-draw) grades byte-identical.
     // Tuning: targetSE 0.3 + maxRepeats 16 → early-street SE p90 ~2.0 → ~0.8 chips,
     // per-hand wall-time ~0.15–0.2s (well under any interactive budget).
-    const graded = drawGrade.gradeHand(hr, getTrainerBp(game.id),
-      { seed, samples: 60, targetSE: 0.3, maxRepeats: 16, game });
+    //
+    // Oracle grading is OPT-IN (body.oracle === true): for POST-LAST-DRAW (street 3)
+    // hero BET decisions the grade is sourced from the TRUE-GTO exact draw
+    // re-solver (gradeHandWithOracle) instead of the bucketed blueprint. It is
+    // offered ONLY for the games with an M2 resolver (badugi/td27 — a5td has none);
+    // gradeHandWithOracle overlays the oracle per eligible decision and gracefully
+    // falls back to the blueprint grade on any oracle failure/timeout. Every other
+    // decision (earlier streets, all draw decisions) stays blueprint. When oracle
+    // is off the payload is byte-identical to the default draw path.
+    const bpOpts = { seed, samples: 60, targetSE: 0.3, maxRepeats: 16, game };
+    const useOracle = body.oracle === true && drawGrade.oracleEligible &&
+      DRAW_ORACLE_GAMES[game.id] === true;
+    const graded = useOracle
+      ? await drawGrade.gradeHandWithOracle(hr, getTrainerBp(game.id), bpOpts)
+      : drawGrade.gradeHand(hr, getTrainerBp(game.id), bpOpts);
     const grades = graded.grades.map(drawGradeToContract);
 
     res.json({

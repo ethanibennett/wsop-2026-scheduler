@@ -79,17 +79,35 @@ function catOf(game) { return DRAW_GAMES.has(game) ? 'draw' : 'stud'; }
 
 // ── Pro mode (true-GTO / exact-resolve grading) ───────────────────────────
 // Opt-in oracle grading: when ON, /step is POSTed with { oracle:true } and the
-// backend routes 7th-street STUD decisions through the neural exact re-solver
-// (gradeHandWithOracle) instead of the bucketed blueprint. The oracle covers
-// ONLY 7th street for the stud games — earlier streets and all draw games keep
-// the blueprint grade regardless. So the toggle is only offered for razz/stud8;
-// for every other game it isn't shown and `oracle` is never sent.
-const PRO_MODE_GAMES = new Set(['razz', 'stud8']);
+// backend routes eligible decisions through the neural exact re-solver
+// (gradeHandWithOracle) instead of the bucketed blueprint:
+//   • STUD (razz/stud8): 7th-street decisions (snap.street === 4).
+//   • DRAW (badugi/td27): POST-LAST-DRAW bet decisions (snap.street === 3, the
+//     final betting round) — the exact draw re-solver (M2). a5td has NO resolver,
+//     so it is NOT offered Pro mode.
+// Every other decision (earlier streets, all draw decisions) keeps the blueprint
+// grade regardless. The toggle is shown only for the games with an oracle; for
+// any other game it isn't shown and `oracle` is never sent.
+const PRO_MODE_GAMES = new Set(['razz', 'stud8', 'badugi', 'td27']);
 function proModeAvailable(game) { return PRO_MODE_GAMES.has(game); }
-// 7th street is the only oracle-eligible street (snap.street === 4). Used to
-// tell an honest "oracle fell back to blueprint" 7th-street grade apart from a
-// normal earlier-street blueprint grade.
-const SEVENTH_STREET = 4;
+// The oracle-eligible street differs by category: 7th street (index 4) for stud,
+// the post-last-draw final betting round (index 3) for draw. Used to tell an
+// honest "oracle fell back to blueprint" grade apart from a normal earlier-street
+// blueprint grade, and to word the toggle copy.
+const SEVENTH_STREET = 4;              // stud: 3rd..7th → 7th = index 4
+const DRAW_FINAL_STREET = 3;           // draw: post-3rd-draw final betting round
+function oracleStreet(game) { return catOf(game) === 'draw' ? DRAW_FINAL_STREET : SEVENTH_STREET; }
+// The human name of the oracle-eligible street, for toggle/badge copy.
+function oracleStreetLabel(game) { return catOf(game) === 'draw' ? 'post-last-draw' : '7th-street'; }
+// A grade is on the oracle-eligible street for its game (draw: must also be a BET,
+// not a draw decision — draw decisions are never oracle-graded).
+function onOracleStreet(game, g) {
+  if (catOf(game) === 'draw') {
+    const kind = g.kind || (g.phase === 'draw' ? 'draw' : 'bet');
+    return g.street === DRAW_FINAL_STREET && kind === 'bet';
+  }
+  return g.street === SEVENTH_STREET;
+}
 // Per-game blueprint trust, from the LBR / fixed-exploiter meter (chips/hand a
 // strong opponent could win — lower is better). Surfaced so users know how far
 // to trust the EV-loss grades. Source: solver/strategies/BLUEPRINT_TRUST.md.
@@ -388,7 +406,7 @@ export default function RazzTrainerView() {
           the stud games (razz/stud8), where 7th-street decisions can be graded
           by the exact re-solver; hidden for the draw games. OFF by default. */}
       {proModeAvailable(game) && (
-        <ProModeToggle on={proMode} onToggle={() => setProMode((v) => !v)} disabled={loading || stepping} />
+        <ProModeToggle on={proMode} onToggle={() => setProMode((v) => !v)} disabled={loading || stepping} game={game} />
       )}
 
       {error && (
@@ -448,7 +466,7 @@ export default function RazzTrainerView() {
           {stepping ? 'Advancing the hand…' : 'Opponent to act…'}
           {stepping && proMode && proModeAvailable(game) && (
             <span style={{ display: 'block', marginTop: 4, fontSize: '0.68rem' }}>
-              Pro mode — if the hand ends, each 7th-street decision runs an exact GTO re-solve (~4–5s).
+              Pro mode — if the hand ends, each {oracleStreetLabel(game)} decision runs an exact GTO re-solve (~1–5s).
             </span>
           )}
         </div>
@@ -468,13 +486,13 @@ export default function RazzTrainerView() {
                   hand was graded by the true-GTO oracle. Per-decision badges on
                   each card below say exactly which. */}
               {grades.some((g) => g.gradeSource === 'oracle') && (
-                <span title="Pro mode — 7th-street decisions in this hand were graded by the exact GTO re-solve (oracle); earlier streets by the blueprint. Each card is tagged with its grade source."
+                <span title={`Pro mode — ${oracleStreetLabel(game)} decisions in this hand were graded by the exact GTO re-solve (oracle); other streets by the blueprint. Each card is tagged with its grade source.`}
                   style={{
                     marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.54rem', fontWeight: 700,
                     textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
                     border: '1px solid var(--accent)', color: 'var(--accent)',
                   }}>
-                  pro · true-GTO 7th
+                  pro · true-GTO {catOf(game) === 'draw' ? 'final' : '7th'}
                 </span>
               )}
             </span>
@@ -519,7 +537,9 @@ const primaryBtn = {
 // far more accurate, but each eligible decision runs an exact solve (~4-5s), so
 // finishing a hand is slower. OFF by default. Matches the app's surface/border/
 // accent tokens and the existing switch look.
-function ProModeToggle({ on, onToggle, disabled }) {
+function ProModeToggle({ on, onToggle, disabled, game }) {
+  const streetLbl = oracleStreetLabel(game);
+  const isDraw = catOf(game) === 'draw';
   return (
     <div style={{
       ...panel, margin: '0 0 12px', padding: '10px 12px',
@@ -540,9 +560,9 @@ function ProModeToggle({ on, onToggle, disabled }) {
           </span>
         </div>
         <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: 1.45, marginTop: 3 }}>
-          Grade 7th-street decisions against an <b style={{ color: 'var(--text)' }}>exact GTO re-solve</b> instead
-          of the blueprint bot. Much more accurate — but each 7th-street decision runs a full solve (~4–5s), so
-          finishing a hand is slower. Earlier streets stay on the blueprint grade.
+          Grade {streetLbl} {isDraw ? 'bet' : ''} decisions against an <b style={{ color: 'var(--text)' }}>exact GTO re-solve</b> instead
+          of the blueprint bot. Much more accurate — but each {streetLbl} decision runs a full solve ({isDraw ? '~1–2s' : '~4–5s'}), so
+          finishing a hand is slower. {isDraw ? 'Earlier draws and every draw decision' : 'Earlier streets'} stay on the blueprint grade.
         </div>
       </div>
       {/* switch */}
@@ -552,7 +572,7 @@ function ProModeToggle({ on, onToggle, disabled }) {
         role="switch"
         aria-checked={on}
         aria-label="Pro mode — true-GTO grading"
-        title={on ? 'Pro mode ON — 7th-street decisions graded by exact GTO re-solve' : 'Pro mode OFF — blueprint grading (fast)'}
+        title={on ? `Pro mode ON — ${streetLbl} decisions graded by exact GTO re-solve` : 'Pro mode OFF — blueprint grading (fast)'}
         style={{
           flex: '0 0 auto', position: 'relative', width: 44, height: 24, borderRadius: 999,
           border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'),
@@ -1108,10 +1128,11 @@ function GradeCard({ g, game }) {
   // default (blueprint) grader ran and never tagged provenance → show nothing.
   const gradeSource = g.gradeSource; // 'oracle' | 'blueprint' | undefined
   const isOracleGrade = gradeSource === 'oracle';
-  // A 7th-street decision (the ONLY oracle-eligible street) that still came back
-  // as 'blueprint' under Pro mode means the oracle was unavailable and it fell
-  // back — surface that honestly rather than passing it off as true-GTO.
-  const oracleFellBack = gradeSource === 'blueprint' && g.street === SEVENTH_STREET;
+  // A decision on the oracle-eligible street (stud 7th / draw post-last-draw bet)
+  // that still came back as 'blueprint' under Pro mode means the oracle was
+  // unavailable and it fell back — surface that honestly rather than passing it off
+  // as true-GTO.
+  const oracleFellBack = gradeSource === 'blueprint' && onOracleStreet(game, g);
   // trust flag from the oracle (Fix 2): grade is trusted on EV-convergence.
   const oracleUnconverged = isOracleGrade && g.oracleGradeTrust && g.oracleGradeTrust !== 'ev-converged';
 
@@ -1166,7 +1187,7 @@ function GradeCard({ g, game }) {
             </span>
           )}
           {oracleFellBack && (
-            <span title="Pro mode was on, but the exact re-solver was unavailable for this 7th-street decision — this grade fell back to the blueprint bot. Treat it as an ordinary blueprint grade, not true GTO."
+            <span title={`Pro mode was on, but the exact re-solver was unavailable for this ${oracleStreetLabel(game)} decision — this grade fell back to the blueprint bot. Treat it as an ordinary blueprint grade, not true GTO.`}
               style={{
                 marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
@@ -1176,7 +1197,7 @@ function GradeCard({ g, game }) {
             </span>
           )}
           {gradeSource === 'blueprint' && !oracleFellBack && (
-            <span title="Graded by the blueprint bot — the Pro-mode oracle covers only 7th-street decisions."
+            <span title={`Graded by the blueprint bot — the Pro-mode oracle covers only ${oracleStreetLabel(game)} decisions.`}
               style={{
                 marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',

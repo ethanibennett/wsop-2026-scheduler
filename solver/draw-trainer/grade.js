@@ -491,6 +491,323 @@ function countOppBetNodes(handRecord, gradeIdx, heroSeat) {
   return n;
 }
 
+// ── TRUE-GTO POST-LAST-DRAW ORACLE grading (opt-in, behind a flag) ─────────────
+// The blueprint grader charges evLoss vs its own bucketed self. On the FINAL
+// betting round (street 3, after the 3rd/last draw — a real showdown, deal-free,
+// no chance ahead) we can instead source the grade from the neural exact draw
+// re-solver's TRUE-GTO per-action EV (solver/neural/resolve_draw_final.py via
+// oracle_worker.py, routed by oracle-bridge.js). This is the draw analogue of the
+// SHIPPED stud 7th-street oracle (solver/razz-trainer/grade.js) — the exact same
+// overlay-or-fall-back-to-blueprint shape.
+//
+// SCOPE: post-last-draw (street 3) hero BET decisions ONLY, for badugi + td27
+// (the two games with an M2 resolver — DRAW_FINAL_GAMES). Every OTHER hero
+// decision (earlier streets, every DRAW decision, the street-3 bet for a5td which
+// has no resolver) stays on the blueprint grade. Any oracle failure (worker down,
+// range empty, action-set mismatch, timeout) falls back to the blueprint grade
+// for that decision, tagged honestly (gradeSource:'blueprint').
+
+// The games that HAVE an exact post-last-draw resolver. a5td is deliberately
+// absent — it has no M2 resolver (see resolve_draw_final.DRAW_FINAL_GAMES), so it
+// is never offered the oracle and always grades via the blueprint.
+const ORACLE_DRAW_GAMES = new Set(['badugi', 'td27']);
+
+// Which blueprint grades are eligible for an oracle override?
+//   - street 3 (the post-3rd-draw final betting round), no draws remaining,
+//   - a BET decision (phase === 'bet') — the resolver's root is a betting node,
+//   - the hero is to act (snap.toAct === d.actor).
+// The exact-forward anchor the blueprint grader trusts is exactly this node
+// (snap.street === 3 && snap.phase === 'bet'); the oracle re-solves the SAME node
+// as a full equilibrium instead of a σ-expectation over the blueprint.
+function oracleEligible(game, handRecord, gradeIdx) {
+  if (!game || !ORACLE_DRAW_GAMES.has(game.id)) return false;
+  const d = handRecord.decisions[gradeIdx];
+  const snap = d.state;
+  if (!snap || snap.street !== 3 || snap.phase !== 'bet') return false; // post-last-draw bet only
+  if (snap.toAct !== d.actor) return false;                            // hero to act
+  return true;
+}
+
+// Deduplicate a particle set into [{hand:[ints], w}] and, when wider than `cap`,
+// take a SYSTEMATIC (evenly-strided) sample across the reach-sorted range — a
+// representative miniature of the whole posterior. This is the SAME sampler the
+// draw mis-grade study uses (solver/neural/draw_misgrade_study.js particlesToRange):
+// NOT a top-K-by-mass head, which the stud oracle proved biases the solve on a
+// flat range (the "flat-range top-K trap"). Weights are the retained holdings'
+// own reach, renormalized. Returns { range:[{hand,w}], distinct } (distinct = the
+// pre-cap combo count, for diagnostics).
+function particlesToRange(parts, cap) {
+  const acc = new Map();
+  for (const p of parts) {
+    if (!(p.w > 0)) continue;
+    const key = p.hand.slice().sort((a, b) => a - b).join(',');
+    const e = acc.get(key);
+    if (e) e.w += p.w;
+    else acc.set(key, { hand: p.hand.slice().sort((a, b) => a - b), w: p.w });
+  }
+  let cands = [...acc.values()];
+  cands.sort((a, b) => b.w - a.w);
+  const distinct = cands.length;
+  let kept = cands;
+  if (cap > 0 && cands.length > cap) {
+    const stride = cands.length / cap;
+    kept = [];
+    for (let i = 0; kept.length < cap && Math.floor(i) < cands.length; i += stride) {
+      kept.push(cands[Math.floor(i)]);
+    }
+  }
+  let z = 0; for (const c of kept) z += c.w;
+  if (z <= 0) return { range: [], distinct };
+  for (const c of kept) c.w /= z;
+  return { range: kept, distinct };
+}
+
+// Rebuild the opponent posterior EXACTLY as gradeDecision does (byte-identical
+// belief: same seed derivation), then systematic-sample it to `oppCap` holdings.
+// Returns { range:[{hand,w}], distinct } or null when the posterior is empty.
+function oracleDrawRange(game, strategyMap, handRecord, gradeIdx, heroSeat, opts) {
+  const N = opts.N || 200;
+  const instr = { fallbacks: 0, collapses: 0 };
+  const post = buildPosterior(
+    game, strategyMap, handRecord, gradeIdx, heroSeat, N,
+    makeRng((opts.seed ^ (gradeIdx * 0x9e3779b1)) >>> 0), instr);
+  const oppCap = opts.oppCap == null ? 40 : opts.oppCap;
+  const { range, distinct } = particlesToRange(post.parts, oppCap);
+  if (!range.length) return null;
+  return { range, distinct };
+}
+
+// Build the draw oracle spot dict (what oracle_worker._solve_draw expects — the
+// SAME shape draw_misgrade_study.js builds). Hero maps to SEAT 0 of contrib/acted
+// (the resolver treats the to-act player as seat 0; facing = contrib[1]-contrib[0]
+// must be >= 0, which holds at any genuine hero-to-act node). `range` is the
+// normalized [{hand,w}] systematic sample.
+function buildDrawOracleSpot(game, handRecord, gradeIdx, range, iters) {
+  const d = handRecord.decisions[gradeIdx];
+  const snap = d.state;
+  const heroSeat = d.actor;
+  const opp = 1 - heroSeat;
+  return {
+    game: game.id,
+    me: snap.hands[heroSeat].map(cardStr),
+    opp_range: range.map(c => [c.hand.map(cardStr), c.w]),
+    contrib: [snap.contrib[heroSeat], snap.contrib[opp]],
+    bets: snap.bets,
+    acted: [snap.acted[heroSeat], snap.acted[opp]],
+    street: 3,
+    draws_remaining: 0,
+    iters: iters || 800,
+  };
+}
+
+// ── oracle self-consistency gauge (HONEST at the grade setting) ─────────
+// The final draw round is DEAL-FREE, so the resolver's res.exploitability is an
+// EXACT best-response certificate (not a converging self-play gap like the stud
+// 7th-street case). At the trainer default (800 iters) it lands ~0.1 chips. We
+// still surface it HONESTLY (oracleResolveExploitability = the resolver's own BR
+// gap at these iters) and publish oracleGradeTrusted from EV-convergence, mirroring
+// the stud overlay's labelling so the client badges are identical.
+const EV_CONVERGED_ITERS = 300; // per-action EV is stable at/above this (draws converge fast)
+
+// Overlay a true-GTO oracle grade onto a blueprint grade for ONE post-last-draw
+// bet decision. Returns a NEW grade object with per-action EV / evLoss / gtoMix /
+// bestAction sourced from the oracle, tagged gradeSource:'oracle'. On ANY failure
+// (worker down, range empty, ineligible, action mismatch) returns the BLUEPRINT
+// grade (tagged gradeSource:'blueprint') so the trainer never breaks.
+//
+// `g` may be EITHER a full blueprint gradeDecision result OR a light stub
+// {gradeIdx}: on oracle-eligible decisions we must NOT pay the blueprint grade up
+// front (it's redundant with the oracle grade and only needed as a fallback). When
+// the oracle SUCCEEDS the blueprint grade is never computed; when it FAILS we
+// compute it LAZILY via opts.blueprintGrade().
+async function overlayDrawOracleGrade(oracle, game, strategyMap, handRecord, g, opts) {
+  const gradeIdx = g.gradeIdx;
+  const d = handRecord.decisions[gradeIdx];
+  const heroSeat = d.actor;
+  const materializeBlueprint = () =>
+    (g && g.perActionEV) ? g : (opts.blueprintGrade ? opts.blueprintGrade() : g);
+  const asBlueprintGrade = () => {
+    const bp = materializeBlueprint();
+    return Object.assign({}, bp, {
+      gradeSource: 'blueprint',
+      blueprintEvLoss: bp.evLoss,
+    });
+  };
+  try {
+    if (!oracleEligible(game, handRecord, gradeIdx)) return asBlueprintGrade();
+    const built = oracleDrawRange(game, strategyMap, handRecord, gradeIdx, heroSeat, opts);
+    if (!built || !built.range.length) return asBlueprintGrade();
+    const iters = opts.oracleIters || 800;
+    const spot = buildDrawOracleSpot(game, handRecord, gradeIdx, built.range, iters);
+    const res = await oracle.perActionEV(spot);
+    if (!res || !res.per_action_ev) return asBlueprintGrade();
+
+    // The oracle must cover exactly the hero's legal (betting) actions.
+    const acts = d.acts;
+    for (const a of acts) {
+      if (!(a in res.per_action_ev)) return asBlueprintGrade();
+    }
+
+    const perActionEV = {};
+    for (const a of acts) perActionEV[a] = res.per_action_ev[a];
+    let bestA = acts[0], bestEV = -Infinity;
+    for (const a of acts) if (perActionEV[a] > bestEV) { bestEV = perActionEV[a]; bestA = a; }
+    if (!Number.isFinite(bestEV)) return asBlueprintGrade();
+    const chosenEV = perActionEV[d.chosen];
+    if (chosenEV == null || !Number.isFinite(chosenEV)) return asBlueprintGrade();
+    const evLoss = Math.max(0, bestEV - chosenEV);
+
+    // GTO mix from the oracle when it covers the hero's actions positionally; else
+    // keep the blueprint mix (materialized lazily).
+    const snap = d.state;
+    let gtoMix;
+    if (res.gtoMix && Array.isArray(res.gtoMix.actions) && Array.isArray(res.gtoMix.freq)) {
+      gtoMix = {
+        actions: res.gtoMix.actions.slice(),
+        labels: res.gtoMix.actions.map(a => game.actionLabel(a, snap)),
+        probs: res.gtoMix.freq.slice(),
+        trained: true,
+      };
+    } else {
+      gtoMix = materializeBlueprint().gtoMix;
+    }
+
+    const evConverged = iters >= EV_CONVERGED_ITERS;
+    // blueprintEvLoss is a diagnostic COMPARISON; populate it only when the
+    // blueprint grade is already in hand (never forces it on the fast path) or a
+    // debug flag asks for it.
+    const blueprintEvLoss = (g && g.perActionEV) ? g.evLoss
+      : (opts.debugBlueprintEvLoss && opts.blueprintGrade ? opts.blueprintGrade().evLoss : undefined);
+
+    const out = Object.assign({}, materializeDrawShell(g, game, d, gtoMix), {
+      gradeIdx,
+      gradeSource: 'oracle',
+      perActionEV,
+      bestActionId: bestA,
+      bestActionLabel: game.actionLabel(bestA, snap),
+      evLoss,
+      evLossSE: 0,                          // exact, deal-free showdown → forward SE 0
+      gtoMix,
+      forwardMode: 'oracle-exact',
+      // HONEST gauge fields (mirror the stud overlay so the UI badges are shared):
+      oracleResolveExploitability: res.exploitability, // EXACT BR gap at these iters
+      oracleGradeTrusted: evConverged,
+      oracleGradeTrust: evConverged ? 'ev-converged' : 'ev-unconverged',
+      oracleIters: iters,
+      oracleExploitability: res.exploitability, // back-compat alias
+      oppCombos: built.range.length,
+      rangeDistinct: built.distinct,
+    });
+    if (blueprintEvLoss !== undefined) out.blueprintEvLoss = blueprintEvLoss;
+    return out;
+  } catch (e) {
+    return asBlueprintGrade(); // never let the oracle break a grade
+  }
+}
+
+// Build the display/passthrough shell an oracle grade inherits (seat/street/kind/
+// hero labels/etc.). If `g` is a full blueprint grade reuse it as the base; if it's
+// the light {gradeIdx} stub, synthesize the shell from the decision so the oracle
+// grade carries the same descriptive fields WITHOUT a blueprint MC. Fields match
+// gradeDecision's return shape (and drawGradeToContract's reads).
+function materializeDrawShell(g, game, d, gtoMix) {
+  if (g && g.perActionEV) return g;
+  const snap = d.state;
+  const heroSeat = d.actor;
+  const kind = snap.phase === 'draw' ? 'draw' : 'bet'; // 'bet' on any eligible node
+  return {
+    gradeIdx: undefined,
+    seat: heroSeat,
+    street: snap.street,
+    streetName: ['Pre-draw', 'After 1st draw', 'After 2nd draw', 'After 3rd draw'][snap.street],
+    phase: snap.phase,
+    kind,                                 // 'bet'
+    infosetKey: d.key,
+    trained: gtoMix ? !!gtoMix.trained : false,
+    heroActionId: d.chosen,
+    heroActionLabel: game.actionLabel(d.chosen, snap),
+    explicitDiscard: false,               // post-last-draw BET node → never a discard
+    heroDrawCount: null,
+    offBookCount: false,
+    discardNote: null,
+    gtoMix,
+    particlesUsed: 0,
+    repeatsUsed: 1,
+    sampleRounds: 1,
+    essAtNode: undefined,
+    essMin: undefined,
+    fallbackRate: 0,
+    rangeDegraded: false,
+    confidence: 'high',
+  };
+}
+
+// Async oracle-enhanced gradeHand. Grades every non-eligible hero decision with
+// the blueprint (byte-identical to gradeHand) and every ORACLE-ELIGIBLE post-last-
+// draw bet decision with the exact draw re-solver — WITHOUT paying the redundant
+// blueprint grade for those eligible decisions (computed only on oracle fallback).
+// Any oracle failure falls back to the blueprint grade per-decision. Opt-in:
+// callers use this instead of gradeHand only when Pro mode is on; the default
+// gradeHand path is untouched.
+async function gradeHandWithOracle(handRecord, blueprint, opts = {}) {
+  const game = opts.game || DEFAULT_GAME;
+  lbr.memoizeCfg(game); // patch the hot pure cfg hooks (idempotent) — as gradeHand does
+  const strategyMap = strategyMapOf(blueprint);
+  const { getOracle } = require('../razz-trainer/oracle-bridge');
+  const oracle = opts.oracle || getOracle();
+
+  const targetSE = opts.targetSE || null;
+  // Per-decision blueprint OPTS (the same config gradeHand builds) — used only to
+  // compute a blueprint grade LAZILY for the decisions that need one (non-eligible
+  // decisions, or eligible decisions where the oracle falls back).
+  const bpOpts = {
+    seed: (opts.seed == null ? 0xC0FFEE : opts.seed) >>> 0,
+    N: opts.N || 200,
+    evParticles: opts.samples || Math.min(60, opts.N || 200),
+    targetSE,
+    maxRepeats: targetSE ? (opts.maxRepeats || 16) : 1,
+  };
+  // A blueprint gradeDecision for `i` is byte-identical to gradeHand's per-decision
+  // output (same opts, same code path).
+  const blueprintDecision = (i) => gradeDecision(game, strategyMap, handRecord, i, bpOpts);
+
+  // Oracle OPTS: systematic-strided posterior cap + CFR iters. The final draw round
+  // is deal-free so the exploitability is an EXACT certificate; per-action EV
+  // converges fast → default 800 iters, oppCap 40 (systematic sample of the ~flat
+  // posterior — see particlesToRange).
+  const o = {
+    seed: bpOpts.seed,
+    N: bpOpts.N,
+    oppCap: opts.oppCap == null ? 40 : opts.oppCap,
+    oracleIters: opts.oracleIters || 800,
+    debugBlueprintEvLoss: opts.debugBlueprintEvLoss === true,
+  };
+
+  const grades = [];
+  for (let i = 0; i < handRecord.decisions.length; i++) {
+    const dec = handRecord.decisions[i];
+    if (!dec.isHero) continue;
+    if (oracleEligible(game, handRecord, i)) {
+      // Eligible: skip the blueprint grade; oracle grades directly. The blueprint
+      // grade is available ONLY on fallback, computed lazily inside the overlay.
+      const stub = { gradeIdx: i };
+      grades.push(await overlayDrawOracleGrade(oracle, game, strategyMap, handRecord,
+        stub, Object.assign({}, o, { blueprintGrade: () => blueprintDecision(i) })));
+    } else {
+      // Non-eligible: blueprint grade, byte-identical to the default gradeHand path.
+      const bp = blueprintDecision(i);
+      grades.push(await overlayDrawOracleGrade(oracle, game, strategyMap, handRecord, bp, o));
+    }
+  }
+  return {
+    game: game.id,
+    heroSeat: handRecord.heroSeat,
+    utility: handRecord.utility,
+    grades,
+    oracleGraded: true,
+  };
+}
+
 // ── public entry ──────────────────────────────────────────────────────────────
 function gradeHand(handRecord, blueprint, opts = {}) {
   const game = opts.game || DEFAULT_GAME;
@@ -530,6 +847,12 @@ function gradeHand(handRecord, blueprint, opts = {}) {
 
 module.exports = {
   gradeHand,
+  gradeHandWithOracle,     // opt-in: overlay the exact post-last-draw oracle
+  overlayDrawOracleGrade,
+  buildDrawOracleSpot,
+  oracleDrawRange,
+  oracleEligible,
+  particlesToRange,        // systematic-stride posterior sampler (shared w/ study)
   gradeDecision,
   buildPosterior,
   perActionEV,
