@@ -42,6 +42,10 @@ const DEFAULT_GAME = require('../games/triple-draw-27');
 const { makeRng, makeDeck, cardStr } = require('../engine/cards');
 const { strategyMapOf, isExplicitDiscard, keepForDiscard, parseDiscard } = require('./play');
 const lbr = require('../lbr-draw');
+// Shared, game-agnostic RANGE-SENSITIVE honesty flag (also used by the stud
+// grader razz-trainer/grade.js — the two share the "re-solve vs an assumed
+// opponent range" pattern).
+const { computeRangeSensitivity } = require('../razz-trainer/range-sensitivity');
 
 // Apply a hero action generically: route an EXPLICIT-discard 'd:...' through
 // game.applyDraw (explicit keep = hand minus the thrown cards) and everything
@@ -679,6 +683,45 @@ async function overlayDrawOracleGrade(oracle, game, strategyMap, handRecord, g, 
     const blueprintEvLoss = (g && g.perActionEV) ? g.evLoss
       : (opts.debugBlueprintEvLoss && opts.blueprintGrade ? opts.blueprintGrade().evLoss : undefined);
 
+    // ── RANGE-SENSITIVE honesty flag ──────────────────────────────────────────
+    // Re-solve this SAME spot under a small prior ensemble (posterior / uniform-
+    // over-support / strength-tilt) at reduced iters; flag when the best action
+    // FLIPS or the evLoss SPREAD exceeds ~2 chips (a thin value-bet / marginal
+    // call-vs-fold whose CHARGE depends on the assumed belief SHAPE). On a flagged
+    // spot the oracle grade is still SHOWN, but its charged evLoss is ZEROED. The
+    // strength-tilt is game-agnostic: score each opponent holding by how many
+    // OTHER support holdings it beats under the game's own showdown comparator
+    // (cfg.compare(h0,h1) → 1 if h0 wins), so stronger holdings get more weight.
+    let rs = null;
+    if (opts.rangeSensitive !== false) {
+      const support = built.range;
+      const strengthScore = (typeof game.cfg.compare === 'function')
+        ? (hand) => {
+            let wins = 0;
+            for (const c of support) {
+              try { if (game.cfg.compare(hand, c.hand) > 0) wins++; } catch (e) { /* skip */ }
+            }
+            return wins;
+          }
+        : undefined;
+      rs = await computeRangeSensitivity({
+        oracle,
+        buildSpot: (range, itr) => buildDrawOracleSpot(game, handRecord, gradeIdx, range, itr),
+        baseRange: built.range,
+        acts,
+        chosen: d.chosen,
+        strengthScore,
+        spreadThreshold: opts.rangeSensitiveThreshold,
+      });
+    }
+    // "shown, not charged": when flagged AND the charge-zeroing is active (default
+    // ON for the draw path — the ship target), the CHARGED evLoss is 0 while the
+    // display evLoss (headline) stays the oracle's. chargeZeroed records whether
+    // the score actually excluded it (so a caller can leave stud UN-zeroed while
+    // still surfacing the flag — see razz-trainer/grade.js STUD_RANGE_FLAG).
+    const flagged = !!(rs && rs.rangeSensitive);
+    const chargeZeroed = flagged && opts.rangeSensitiveCharge !== false;
+
     const out = Object.assign({}, materializeDrawShell(g, game, d, gtoMix), {
       gradeIdx,
       gradeSource: 'oracle',
@@ -698,6 +741,19 @@ async function overlayDrawOracleGrade(oracle, game, strategyMap, handRecord, g, 
       oppCombos: built.range.length,
       rangeDistinct: built.distinct,
     });
+    // ── range-sensitivity flag (display evLoss above is UNCHANGED). Attached ONLY
+    // when the ensemble was actually run (rs !== null); with rangeSensitive:false
+    // these keys are OMITTED so the payload is BYTE-IDENTICAL to the pre-flag
+    // oracle grade (toggle-off = no observable change). ──
+    if (rs) {
+      out.rangeSensitive = flagged;
+      out.rangeSensitiveSpread = rs.rangeSensitiveSpread;
+      out.rangeSensitiveFlip = rs.rangeSensitiveFlip;
+      out.rangeSensitiveEnsemble = rs.ensembleSize;
+      // chargedEvLoss = what the running scoreboard should count. Zeroed on a
+      // flagged+active spot ("shown, not charged"); otherwise == evLoss.
+      out.chargedEvLoss = chargeZeroed ? 0 : evLoss;
+    }
     if (blueprintEvLoss !== undefined) out.blueprintEvLoss = blueprintEvLoss;
     return out;
   } catch (e) {
@@ -781,6 +837,15 @@ async function gradeHandWithOracle(handRecord, blueprint, opts = {}) {
     oppCap: opts.oppCap == null ? 40 : opts.oppCap,
     oracleIters: opts.oracleIters || 800,
     debugBlueprintEvLoss: opts.debugBlueprintEvLoss === true,
+    // RANGE-SENSITIVE flag: compute it (default ON) and, when flagged, ZERO the
+    // charged evLoss ("shown, not charged"). For the DRAW path both default ON —
+    // this is the draw Pro-mode ship prerequisite. Callers can pass
+    // rangeSensitive:false to skip the ensemble entirely (byte-identical to the
+    // pre-flag oracle grade) or rangeSensitiveCharge:false to surface the flag
+    // without zeroing the charge.
+    rangeSensitive: opts.rangeSensitive !== false,
+    rangeSensitiveCharge: opts.rangeSensitiveCharge !== false,
+    rangeSensitiveThreshold: opts.rangeSensitiveThreshold,
   };
 
   const grades = [];

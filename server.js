@@ -7566,6 +7566,15 @@ function drawGradeToContract(g) {
     oracleResolveExploitability: g.oracleResolveExploitability,
     oracleIters: g.oracleIters,
     oracleExploitability: g.oracleExploitability,       // back-compat alias
+    // ── RANGE-SENSITIVE honesty flag (present only when oracle grading is on) ──
+    // rangeSensitive → the oracle best action flipped or the evLoss spread > ~2
+    // chips across a prior ensemble; the grade is SHOWN but chargedEvLoss is 0
+    // ("shown, not charged"). The client scoreboard counts chargedEvLoss (falls
+    // back to evLoss when the field is absent, i.e. the default blueprint path).
+    rangeSensitive: g.rangeSensitive,
+    rangeSensitiveSpread: g.rangeSensitiveSpread,
+    rangeSensitiveFlip: g.rangeSensitiveFlip,
+    chargedEvLoss: g.chargedEvLoss,
   };
 }
 
@@ -7844,6 +7853,15 @@ async function trainerStep(game, req, res) {
         oracleIters: g.oracleIters,
         // BACK-COMPAT alias (unchanged key; no client thresholds on it).
         oracleExploitability: g.oracleExploitability,
+        // ── RANGE-SENSITIVE honesty flag (present only when oracle grading is on) ──
+        // rangeSensitive → best action flipped / evLoss spread > ~2 chips across a
+        // prior ensemble; SHOWN but chargedEvLoss zeroed ("shown, not charged").
+        // For STUD, whether chargedEvLoss is actually zeroed is gated in the grader
+        // by STUD_RANGE_FLAG (parent's deploy decision); the flag is always shown.
+        rangeSensitive: g.rangeSensitive,
+        rangeSensitiveSpread: g.rangeSensitiveSpread,
+        rangeSensitiveFlip: g.rangeSensitiveFlip,
+        chargedEvLoss: g.chargedEvLoss,
       };
     });
 

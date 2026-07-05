@@ -126,6 +126,16 @@ const GAME_TRUST = {
 // Per-game scoreboard storage so each game's stats never mix.
 const ssKey = (game) => `studTrainer.session.${game}.v1`;
 
+// The evLoss the running SCOREBOARD should count for a grade. On a RANGE-SENSITIVE
+// oracle grade ("shown, not charged") the grader zeroes the charge and sends
+// chargedEvLoss:0 while keeping the display evLoss — so the scoreboard must count
+// chargedEvLoss when present, falling back to evLoss on the default (blueprint)
+// path where the field is absent.
+function chargedLossOf(g) {
+  const charged = g && g.chargedEvLoss != null ? +g.chargedEvLoss : +g.evLoss;
+  return Math.max(0, charged || 0);
+}
+
 // ── session scoreboard persistence ──────────────────────────────────────
 const emptySession = () => ({
   hands: 0,
@@ -165,12 +175,15 @@ function applyHandToSession(prev, grades, game) {
     leaks: { ...prev.leaks },
   };
   for (const g of grades || []) {
-    const loss = Math.max(0, +g.evLoss || 0);
+    // "shown, not charged": a range-sensitive oracle grade contributes 0 to the
+    // running score (chargedEvLoss is 0), even though its display evLoss is shown.
+    const loss = chargedLossOf(g);
     s.totalEvLoss += loss;
     s.decisions += 1;
     const st = Math.max(0, Math.min(4, g.street | 0));
     s.byStreet[st] = { loss: s.byStreet[st].loss + loss, n: s.byStreet[st].n + 1 };
-    // a leak = a decision where the hero's action wasn't the best one
+    // a leak = a decision where the hero's action wasn't the best one AND it was
+    // actually charged (a range-sensitive spot is not counted as a leak).
     if (g.bestActionId != null && g.heroActionId != null && g.bestActionId !== g.heroActionId && loss > 0.01) {
       const bestLabel = labelFor(g, g.bestActionId);
       const kindTag = catOf(game) === 'draw' ? (g.kind === 'draw' ? 'DRAW' : 'BET') + ' ' : '';
@@ -353,7 +366,8 @@ export default function RazzTrainerView() {
 
   // ── derived view data ──
   const heroOnTurn = !!(state && !handOver && legalActions && state.toAct === heroSeat);
-  const totalEvLoss = useMemo(() => (grades || []).reduce((a, g) => a + Math.max(0, +g.evLoss || 0), 0), [grades]);
+  // Per-hand total = what the scoreboard CHARGES (range-sensitive grades count 0).
+  const totalEvLoss = useMemo(() => (grades || []).reduce((a, g) => a + chargedLossOf(g), 0), [grades]);
   const cat = catOf(game);
   // A draw node = a draw game whose current phase is 'draw'. Its decision UI
   // (Stand pat / Draw K, with keep-vs-throw card highlighting) lives INSIDE the
@@ -1135,6 +1149,16 @@ function GradeCard({ g, game }) {
   const oracleFellBack = gradeSource === 'blueprint' && onOracleStreet(game, g);
   // trust flag from the oracle (Fix 2): grade is trusted on EV-convergence.
   const oracleUnconverged = isOracleGrade && g.oracleGradeTrust && g.oracleGradeTrust !== 'ev-converged';
+  // RANGE-SENSITIVE ("shown, not charged"): the oracle best action flipped or the
+  // evLoss spread exceeded ~2 chips across a prior ensemble, so the grade is shown
+  // but its evLoss is not charged to the running score. Distinct from the true-GTO
+  // badge. The spread is the [min,max] evLoss across the ensemble.
+  const rangeSensitive = !!g.rangeSensitive;
+  const rsSpread = Array.isArray(g.rangeSensitiveSpread) ? g.rangeSensitiveSpread : null;
+  // Whether the charge was actually zeroed (== the display loss differs from the
+  // charged loss). For draw this is always true when flagged; for stud it depends
+  // on the deploy gate — chargedEvLoss reflects the truth.
+  const notCharged = rangeSensitive && g.chargedEvLoss != null && +g.chargedEvLoss === 0 && evLoss > 0.01;
 
   // FULL DISCARD CONTROL — was this a hero DRAW decision made by explicit card
   // selection ('d:...')? Show which cards they actually threw, the EV of that
@@ -1214,6 +1238,16 @@ function GradeCard({ g, game }) {
                 border: '1px solid var(--warn, #f59e0b)', color: 'var(--warn, #f59e0b)',
               }}>
               unconverged
+            </span>
+          )}
+          {rangeSensitive && (
+            <span title={`This decision's grade depends on the ASSUMED opponent range: across a spread of plausible ranges the oracle's best action flips or the EV-loss swings by more than a small bet${rsSpread ? ` (EV-loss ranged ${rsSpread[0].toFixed(1)}–${rsSpread[1].toFixed(1)} chips)` : ''}. It is shown for study but ${notCharged ? 'NOT counted' : 'still counted'} in your session score.`}
+              style={{
+                marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                border: '1px dashed var(--accent2, #eab308)', color: 'var(--accent2, #eab308)',
+              }}>
+              range-sensitive · {notCharged ? 'shown, not charged' : 'shown'}
             </span>
           )}
         </span>
@@ -1308,6 +1342,12 @@ function GradeCard({ g, game }) {
             : g.oracleGradeTrust === 'ev-converged'
             ? <span style={{ color: 'var(--pos, #22c55e)' }}> · EV-converged</span>
             : null}
+          {rangeSensitive && (
+            <div style={{ marginTop: 4, color: 'var(--accent2, #eab308)' }}>
+              range-sensitive{rsSpread ? ` · EV-loss spans ${rsSpread[0].toFixed(2)}–${rsSpread[1].toFixed(2)} chips across plausible opponent ranges` : ''}
+              {notCharged ? ' · not charged to your score' : ' · counted in your score'}
+            </div>
+          )}
         </div>
       )}
     </div>

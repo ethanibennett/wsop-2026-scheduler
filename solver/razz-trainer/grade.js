@@ -37,6 +37,19 @@
 const DEFAULT_GAME = require('../games/razz-game');
 const { makeDeck, makeRng, cardStr } = require('../engine/cards');
 const { strategyMapOf } = require('./play');
+// Shared, game-agnostic RANGE-SENSITIVE honesty flag (also used by the draw
+// grader draw-trainer/grade.js — the two share the "re-solve vs an assumed
+// opponent range" pattern).
+const { computeRangeSensitivity } = require('./range-sensitivity');
+const { bestLowRazz } = require('../eval/razz');
+const { bestLo8, bestHi7 } = require('../eval/stud8');
+
+// STUD ACTIVATION GATE (parent's deploy decision). The range-sensitive flag is
+// COMPUTED + SURFACED for stud too (game-agnostic), but whether a flagged stud
+// grade gets its charge ZEROED changes SHIPPED stud grading — so it is gated
+// here on a one-line toggle. Defaults ON LOCALLY (env STUD_RANGE_FLAG=0 to force
+// off). The draw path is unconditionally charge-zeroed (its ship prerequisite).
+const STUD_RANGE_FLAG = process.env.STUD_RANGE_FLAG !== '0';
 
 // ── blueprint lookup (canonical contract) ──────────────────────────────
 function lookup(strategyMap, key, acts) {
@@ -652,6 +665,24 @@ function buildOracleSpot(game, handRecord, gradeIdx, candidates, iters) {
   };
 }
 
+// Game-agnostic-enough STRENGTH scorer for the range-sensitive strength-tilt: an
+// opponent DOWN-card combo → a scalar where HIGHER = a STRONGER opponent hand,
+// evaluated over the opponent's FULL board (their upcards + this down combo).
+// razz: ace-to-five low is LOWER=better, so negate. stud8: the hi rank is a valid
+// monotone strength axis (the tilt only needs to concentrate mass on one end of
+// the range; it does not need the exact showdown order). Returns null for an
+// unknown game so the ensemble falls back to posterior+uniform.
+function studStrengthScorer(game, oppUp) {
+  const up = oppUp || [];
+  if (game.id === 'razz' || game.id === 'razzv1' || game.id === 'razzv2') {
+    return (down) => -bestLowRazz(up.concat(down));
+  }
+  if (game.id === 'stud8') {
+    return (down) => bestHi7(up.concat(down));
+  }
+  return undefined;
+}
+
 // Recompute the candidate opp range for a decision (same reach-weighting the
 // blueprint grader uses), so the oracle sees the same range — then PRUNE to the
 // top-`oppCap` reach-weighted holdings. The blueprint grader enumerates the full
@@ -797,6 +828,38 @@ async function overlayOracleGrade(oracle, game, strategyMap, handRecord, g, opts
     const blueprintEvLoss = (g && g.perActionEV) ? g.evLoss
       : (opts.debugBlueprintEvLoss && opts.blueprintGrade ? opts.blueprintGrade().evLoss : undefined);
 
+    // ── RANGE-SENSITIVE honesty flag (same mechanism as the draw grader) ──────
+    // Re-solve this SAME 7th-street spot under a small prior ensemble (posterior /
+    // uniform-over-support / strength-tilt) at reduced iters; flag on a best-action
+    // FLIP or an evLoss SPREAD > ~2 chips. The strength-tilt scores each opponent
+    // DOWN-card combo by the strength of the opponent's FULL board (opp upcards +
+    // dead-free down combo): razz uses the ace-to-five low (lower=stronger→negate),
+    // stud8 uses the hi rank as a monotone strength axis. When flagged, the oracle
+    // grade is SHOWN but its charged evLoss is ZEROED — gated for STUD by
+    // STUD_RANGE_FLAG (parent's deploy decision), since it changes shipped stud
+    // grading (the draw path zeroes unconditionally).
+    let rs = null;
+    if (opts.rangeSensitive !== false) {
+      const snap0 = d.state;
+      const oppSeat0 = 1 - d.actor;
+      const oppUp = snap0.up[oppSeat0];
+      const strengthScore = studStrengthScorer(game, oppUp);
+      rs = await computeRangeSensitivity({
+        oracle,
+        buildSpot: (range, itr) => buildOracleSpot(game, handRecord, gradeIdx, range, itr),
+        baseRange: candidates,   // [{hand,w}] — the primary grade's opp range
+        acts,
+        chosen: d.chosen,
+        strengthScore,
+        spreadThreshold: opts.rangeSensitiveThreshold,
+      });
+    }
+    const flagged = !!(rs && rs.rangeSensitive);
+    // STUD charge-zeroing is gated (STUD_RANGE_FLAG) AND respects an explicit
+    // per-call override (rangeSensitiveCharge:false surfaces the flag without
+    // zeroing). Flag is always SURFACED; only the CHARGE is gated.
+    const chargeZeroed = flagged && STUD_RANGE_FLAG && opts.rangeSensitiveCharge !== false;
+
     const out = Object.assign({}, materializeBlueprintShell(g, d, gtoMix), {
       gradeIdx,
       gradeSource: 'oracle',
@@ -819,6 +882,19 @@ async function overlayOracleGrade(oracle, game, strategyMap, handRecord, g, opts
       oppCoverage: candidates.coverage == null ? 1 : candidates.coverage,
       oppCombos: candidates.length,
     });
+    // ── range-sensitivity flag (display evLoss above is UNCHANGED). Attached ONLY
+    // when the ensemble ran (rs !== null); with rangeSensitive:false these keys are
+    // OMITTED so the payload is BYTE-IDENTICAL to the pre-flag oracle grade. ──
+    if (rs) {
+      out.rangeSensitive = flagged;
+      out.rangeSensitiveSpread = rs.rangeSensitiveSpread;
+      out.rangeSensitiveFlip = rs.rangeSensitiveFlip;
+      out.rangeSensitiveEnsemble = rs.ensembleSize;
+      // chargedEvLoss = what the running scoreboard counts. Zeroed on a flagged +
+      // active spot ("shown, not charged"); == evLoss otherwise. When STUD_RANGE_FLAG
+      // is OFF a flagged stud spot is SHOWN but still CHARGED (chargedEvLoss==evLoss).
+      out.chargedEvLoss = chargeZeroed ? 0 : evLoss;
+    }
     if (blueprintEvLoss !== undefined) out.blueprintEvLoss = blueprintEvLoss;
     return out;
   } catch (e) {
@@ -884,7 +960,15 @@ async function gradeHandWithOracle(handRecord, blueprint, opts = {}) {
   const o = { exactRangeBudget: opts.exactRangeBudget == null ? 20000 : opts.exactRangeBudget,
               oppCap: opts.oppCap == null ? 30 : opts.oppCap,
               oracleIters: opts.oracleIters || 300,
-              debugBlueprintEvLoss: opts.debugBlueprintEvLoss === true };
+              debugBlueprintEvLoss: opts.debugBlueprintEvLoss === true,
+              // RANGE-SENSITIVE flag: computed + surfaced for stud too (default ON);
+              // whether a flagged stud grade's charge is ZEROED is additionally
+              // gated by STUD_RANGE_FLAG (env, parent's deploy decision) inside the
+              // overlay. rangeSensitive:false skips the ensemble (byte-identical to
+              // the pre-flag oracle grade).
+              rangeSensitive: opts.rangeSensitive !== false,
+              rangeSensitiveCharge: opts.rangeSensitiveCharge !== false,
+              rangeSensitiveThreshold: opts.rangeSensitiveThreshold };
 
   // Per-hand blueprint grading OPTS (the same config gradeHand builds) — used
   // only to compute a blueprint grade LAZILY for the decisions that need one
@@ -978,6 +1062,8 @@ module.exports = {
   buildOracleSpot,
   oracleCandidates,
   oracleEligible,
+  studStrengthScorer,
+  STUD_RANGE_FLAG,
   gradeDecision,
   reachWeight,
   unseenForOpp,
