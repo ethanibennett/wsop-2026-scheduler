@@ -1,8 +1,8 @@
 // Win-rate + volume + streak analytics — the "where's my edge actually" read
 // that feeds game selection and the Sunday review.
 
-import type { Session, RoutineLog } from '../db/types'
-import { isThisWeek, localDate, money, fmtHours } from './format'
+import type { Session, RoutineLog, Expense, ExpenseCategory } from '../db/types'
+import { isThisWeek, localDate, weekStart, money, fmtHours } from './format'
 
 /**
  * Big blind parsed from a stake level. These PLO notations are SB/BB/straddle,
@@ -460,6 +460,135 @@ export function taxEstimate(
     // losing year you pocketed nothing positive, so there's no phantom income.
     phantom: Math.max(0, taxable - Math.max(0, net)),
   }
+}
+
+// ── Session-result histogram — see the variance you're actually living in ──
+export interface HistBucket {
+  lo: number
+  hi: number
+  count: number
+}
+
+const BUCKET_WIDTHS = [100, 250, 500, 1000, 2500, 5000, 10000, 25000]
+
+export function resultHistogram(sessions: Session[], maxBuckets = 9): HistBucket[] {
+  const vals = sessions.filter((s) => !s.isWsopFund).map((s) => s.result)
+  if (vals.length < 3) return []
+  const min = Math.min(0, ...vals)
+  const max = Math.max(0, ...vals)
+  const span = max - min || 1
+  const width = BUCKET_WIDTHS.find((w) => span / w <= maxBuckets) ?? BUCKET_WIDTHS[BUCKET_WIDTHS.length - 1]
+  const loEdge = Math.floor(min / width) * width
+  const hiEdge = Math.ceil(max / width) * width || width
+  const buckets: HistBucket[] = []
+  for (let lo = loEdge; lo < hiEdge; lo += width) buckets.push({ lo, hi: lo + width, count: 0 })
+  for (const v of vals) {
+    const idx = Math.min(buckets.length - 1, Math.max(0, Math.floor((v - loEdge) / width)))
+    buckets[idx].count++
+  }
+  return buckets
+}
+
+// ── Calendar day-grid (heatmap): weeks × Mon..Sun, hours + anchor per day ──
+export interface GridDay {
+  date: string
+  hours: number
+  anchor: boolean
+}
+
+export function dayGrid(
+  sessions: Session[],
+  routine: RoutineLog[],
+  weeks = 12,
+  now: Date = new Date(),
+): GridDay[][] {
+  const hoursBy = new Map<string, number>()
+  for (const s of sessions) hoursBy.set(s.date, (hoursBy.get(s.date) ?? 0) + s.hours)
+  const anchorBy = new Set(routine.filter((r) => r.wakeAnchor).map((r) => r.date))
+
+  const d = weekStart(now)
+  d.setDate(d.getDate() - 7 * (weeks - 1))
+  const out: GridDay[][] = []
+  for (let w = 0; w < weeks; w++) {
+    const col: GridDay[] = []
+    for (let i = 0; i < 7; i++) {
+      const key = localDate(d)
+      col.push({ date: key, hours: hoursBy.get(key) ?? 0, anchor: anchorBy.has(key) })
+      d.setDate(d.getDate() + 1)
+    }
+    out.push(col)
+  }
+  return out
+}
+
+// ── Lifetime stats — "the long game" (the year is a marathon; show the miles) ──
+export interface LifetimeStats {
+  sessions: number
+  hours: number
+  net: number
+  biggestWin: Session | null
+  biggestLoss: Session | null
+  bestMonth: MonthStat | null
+}
+
+export function lifetimeStats(sessions: Session[]): LifetimeStats {
+  const real = sessions.filter((s) => !s.isWsopFund)
+  const t = totals(real)
+  let biggestWin: Session | null = null
+  let biggestLoss: Session | null = null
+  for (const s of real) {
+    if (s.result > 0 && (!biggestWin || s.result > biggestWin.result)) biggestWin = s
+    if (s.result < 0 && (!biggestLoss || s.result < biggestLoss.result)) biggestLoss = s
+  }
+  const months = monthlyBreakdown(real)
+  const bestMonth = months.length
+    ? months.reduce((a, b) => (b.result > a.result ? b : a))
+    : null
+  return { sessions: t.sessions, hours: t.hours, net: t.result, biggestWin, biggestLoss, bestMonth }
+}
+
+/** Longest-ever run of consecutive days where `pick` is true (vs the current streak). */
+export function longestStreak(
+  logs: RoutineLog[],
+  pick: (l: RoutineLog) => boolean | undefined,
+): number {
+  const days = [...new Set(logs.filter((l) => pick(l)).map((l) => l.date))].sort()
+  let best = 0
+  let cur = 0
+  let prev: string | null = null
+  for (const d of days) {
+    if (prev) {
+      const next = new Date(prev + 'T00:00:00')
+      next.setDate(next.getDate() + 1)
+      cur = localDate(next) === d ? cur + 1 : 1
+    } else {
+      cur = 1
+    }
+    if (cur > best) best = cur
+    prev = d
+  }
+  return best
+}
+
+// ── Business expenses (Schedule C) — the deduction half of the tax layer ──
+export interface ExpenseSummary {
+  year: number
+  total: number
+  byCategory: Partial<Record<ExpenseCategory, number>>
+  count: number
+}
+
+export function expenseTotals(expenses: Expense[], year: number): ExpenseSummary {
+  const byCategory: Partial<Record<ExpenseCategory, number>> = {}
+  let total = 0
+  let count = 0
+  for (const e of expenses) {
+    if (Number(e.date.slice(0, 4)) !== year) continue
+    total += e.amount
+    count += 1
+    byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount
+  }
+  return { year, total, byCategory, count }
 }
 
 // ── Streaks (RoutineLog) — wake anchor is the headline metric ──

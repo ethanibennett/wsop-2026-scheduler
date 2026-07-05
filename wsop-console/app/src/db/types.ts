@@ -40,6 +40,7 @@ export interface Session {
   // mental-game capture (feeds the Sunday review)
   moodRating?: MoodRating
   tiltNote?: string
+  journal?: string // the post-session two-line journal (playbook W1 ritual)
   tags?: string[]
 }
 
@@ -56,6 +57,24 @@ export interface BankrollAdjustment {
   date: string
   amount: number // +/-
   type: AdjustmentType
+  note?: string
+}
+
+// ── Business expenses (Schedule C — the deduction half of the tax layer) ──
+export type ExpenseCategory =
+  | 'travel'
+  | 'lodging'
+  | 'meals'
+  | 'coaching' // coaching / courses / study material
+  | 'equipment'
+  | 'fees' // platform / banking / staking-paperwork fees
+  | 'other'
+
+export interface Expense {
+  id: string
+  date: string
+  category: ExpenseCategory
+  amount: number
   note?: string
 }
 

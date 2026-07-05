@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Session, Channel, Format, MoodRating } from '../db/types'
+import { readIntention } from '../db/intention'
 import { uid, todayISO, money } from '../engine/format'
 
 const FORMATS: Format[] = [
@@ -16,11 +17,28 @@ const FORMATS: Format[] = [
 const STAKES = ['1/2', '2/2/5', '5/5/10', '5/10/30', '5/10', '10/20', '10/20/40']
 
 // One-tap presets for the games actually played most.
-const PRESETS: { label: string; patch: Partial<Session> }[] = [
+interface Preset {
+  label: string
+  patch: Partial<Session>
+  custom?: boolean
+}
+
+const BUILTIN_PRESETS: Preset[] = [
   { label: 'Parx 5/5/10', patch: { channel: 'live', isMTT: false, format: 'PLO', stakeLevel: '5/5/10', venue: 'Parx', gameLabel: '5/5/10 PLO' } },
   { label: 'WSOP.com 1/2 PLO', patch: { channel: 'online', isMTT: false, format: 'PLO', stakeLevel: '1/2', venue: 'WSOP.com', gameLabel: '1/2 PLO' } },
   { label: 'Phenom 5/10 mix', patch: { channel: 'online', isMTT: false, format: 'mixed', stakeLevel: '5/10', venue: 'Phenom', gameLabel: '5/10 mixed' } },
 ]
+
+const PRESET_KEY = 'wsop-session-presets'
+
+function loadCustomPresets(): Preset[] {
+  try {
+    const raw = localStorage.getItem(PRESET_KEY)
+    return raw ? (JSON.parse(raw) as Preset[]).map((p) => ({ ...p, custom: true })) : []
+  } catch {
+    return []
+  }
+}
 
 const blank = (): Session => ({
   id: uid(),
@@ -39,13 +57,36 @@ const blank = (): Session => ({
 
 interface Props {
   initial?: Session
+  draft?: Partial<Session> // pre-fill for a NEW session (e.g. live-mode end: hours from the clock)
   onSave: (s: Session) => void
   onCancel: () => void
   onDelete?: (id: string) => void
 }
 
-export function SessionForm({ initial, onSave, onCancel, onDelete }: Props) {
-  const [s, setS] = useState<Session>(initial ?? blank())
+export function SessionForm({ initial, draft, onSave, onCancel, onDelete }: Props) {
+  const [s, setS] = useState<Session>(initial ?? { ...blank(), ...draft })
+  const [customs, setCustoms] = useState<Preset[]>(loadCustomPresets)
+
+  const persistCustoms = (next: Preset[]) => {
+    setCustoms(next)
+    localStorage.setItem(PRESET_KEY, JSON.stringify(next.map(({ custom: _c, ...p }) => p)))
+  }
+  // Save the current game setup (not the money/hours) as a one-tap preset.
+  const saveAsPreset = () => {
+    const label = (s.venue || s.gameLabel || `${s.format} ${s.stakeLevel ?? ''}`).trim().slice(0, 24)
+    if (!label || customs.some((p) => p.label === label) || BUILTIN_PRESETS.some((p) => p.label === label)) return
+    persistCustoms([
+      ...customs,
+      {
+        label,
+        patch: {
+          channel: s.channel, isMTT: s.isMTT, format: s.format,
+          stakeLevel: s.stakeLevel, venue: s.venue, gameLabel: s.gameLabel,
+        },
+        custom: true,
+      },
+    ])
+  }
   const set = <K extends keyof Session>(k: K, v: Session[K]) =>
     setS((cur) => ({ ...cur, [k]: v }))
 
@@ -68,11 +109,29 @@ export function SessionForm({ initial, onSave, onCancel, onDelete }: Props) {
     <form onSubmit={submit}>
       {!initial && (
         <div className="pill-row" style={{ marginBottom: 12 }}>
-          {PRESETS.map((p) => (
-            <button type="button" key={p.label} className="pill" onClick={() => setS((cur) => ({ ...cur, ...p.patch }))}>
-              {p.label}
-            </button>
+          {[...BUILTIN_PRESETS, ...customs].map((p) => (
+            <span key={p.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+              <button type="button" className="pill" onClick={() => setS((cur) => ({ ...cur, ...p.patch }))}>
+                {p.label}
+              </button>
+              {p.custom && (
+                <button
+                  type="button"
+                  className="pill"
+                  style={{ padding: '7px 8px', color: 'var(--muted)' }}
+                  title="Remove preset"
+                  onClick={() => persistCustoms(customs.filter((c) => c.label !== p.label))}
+                >
+                  ×
+                </button>
+              )}
+            </span>
           ))}
+          {(s.venue || s.gameLabel) && (
+            <button type="button" className="pill" style={{ borderStyle: 'dashed' }} onClick={saveAsPreset}>
+              ☆ save preset
+            </button>
+          )}
         </div>
       )}
       <div className="field-row">
@@ -287,6 +346,25 @@ export function SessionForm({ initial, onSave, onCancel, onDelete }: Props) {
           placeholder="Anything that pulled you off A-game?"
           value={s.tiltNote || ''}
           onChange={(e) => set('tiltNote', e.target.value)}
+        />
+      </div>
+
+      {/* The post-session two-line journal (playbook W1) — closes the loop on
+          the pre-session intention set on Today. */}
+      <div className="field">
+        <label>
+          Post-session journal
+          {(() => {
+            const intent = readIntention(s.date)
+            return intent ? <span className="muted"> — intention was: “{intent}”</span> : null
+          })()}
+        </label>
+        <textarea
+          className="textarea"
+          rows={2}
+          placeholder="Two lines: how it went · one takeaway."
+          value={s.journal || ''}
+          onChange={(e) => set('journal', e.target.value)}
         />
       </div>
 

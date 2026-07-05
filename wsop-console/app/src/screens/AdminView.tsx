@@ -3,10 +3,12 @@
 // landscape. Checks + staking deals persist in localStorage (setup state, not
 // daily logs). Content from db/admin.ts. NOT tax/legal/financial advice.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
-import { money, uid } from '../engine/format'
-import { taxEstimate } from '../engine/analytics'
+import { getAll, putRecord, deleteRecord } from '../db/idb'
+import type { Expense, ExpenseCategory } from '../db/types'
+import { money, uid, todayISO, fmtDate } from '../engine/format'
+import { taxEstimate, expenseTotals } from '../engine/analytics'
 import {
   ADMIN_CHECKLIST,
   ADMIN_REFERENCE,
@@ -32,6 +34,8 @@ interface StakeDeal {
   buyIn: number
   pctSold: number
   markup: number
+  backer?: string // who owns the sold piece (the per-entry ledger)
+  settled?: boolean // cashed + backers paid (settlement adjustment logged)
 }
 
 export function AdminView() {
@@ -162,6 +166,9 @@ export function AdminView() {
         ))}
       </div>
 
+      {/* Business expenses — the deduction half of the tax picture */}
+      <ExpenseLog year={year} />
+
       {/* Staking calculator */}
       <StakingCalculator deals={deals} onChange={saveDeals} />
 
@@ -186,10 +193,14 @@ function StakingCalculator({
   deals: StakeDeal[]
   onChange: (next: StakeDeal[]) => void
 }) {
+  const { put } = useStore()
   const [event, setEvent] = useState('')
   const [buyIn, setBuyIn] = useState('')
   const [pctSold, setPctSold] = useState('60')
   const [markup, setMarkup] = useState('1.15')
+  const [backer, setBacker] = useState('')
+  const [settlingId, setSettlingId] = useState<string | null>(null)
+  const [prize, setPrize] = useState('')
 
   const calc = (d: StakeDeal) => {
     const faceSold = d.buyIn * (d.pctSold / 100)
@@ -221,12 +232,32 @@ function StakingCalculator({
         buyIn: bi,
         pctSold: Number(pctSold) || 0,
         markup: Number(markup) || 1,
+        backer: backer.trim() || undefined,
       },
     ])
     setEvent('')
     setBuyIn('')
+    setBacker('')
   }
   const remove = (id: string) => onChange(deals.filter((d) => d.id !== id))
+
+  // Event cashed → pay backers their sold % of the prize, as a real
+  // backer-settlement adjustment (comes out of the WSOP-fund bucket).
+  const settle = async (d: StakeDeal) => {
+    const p = Number(prize) || 0
+    if (p <= 0) return
+    const share = Math.round(p * (d.pctSold / 100))
+    await put('adjustments', {
+      id: uid(),
+      date: todayISO(),
+      amount: -share,
+      type: 'backer-settlement' as const,
+      note: `${d.event}: backers' ${d.pctSold}% of ${money(p)}${d.backer ? ` → ${d.backer}` : ''}`,
+    })
+    onChange(deals.map((x) => (x.id === d.id ? { ...x, settled: true } : x)))
+    setSettlingId(null)
+    setPrize('')
+  }
 
   // Live preview of the row being entered.
   const previewBi = Number(buyIn) || 0
@@ -253,6 +284,10 @@ function StakingCalculator({
         <div className="field" style={{ flex: '0 0 90px' }}><label>Markup</label>
           <input className="input" type="number" inputMode="decimal" step="0.05" value={markup} onChange={(e) => setMarkup(e.target.value)} /></div>
       </div>
+      <div className="field">
+        <label>Backer(s) — the per-entry ledger of who owns what</label>
+        <input className="input" placeholder="e.g. J.R. 40%, platform 20%" value={backer} onChange={(e) => setBacker(e.target.value)} />
+      </div>
       {preview && (
         <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
           Backers pay {money(preview.backerPays)} · your net cost {money(preview.yourCost)} · you keep {preview.retainedPct}% of the action
@@ -264,15 +299,63 @@ function StakingCalculator({
         <div style={{ marginTop: 12 }}>
           {deals.map((d) => {
             const c = calc(d)
+            const settling = settlingId === d.id
+            const share = Math.round((Number(prize) || 0) * (d.pctSold / 100))
             return (
-              <div className="session-item" key={d.id} onClick={() => remove(d.id)} style={{ cursor: 'pointer' }} title="Tap to remove">
-                <div className="sess-main">
-                  <div className="sess-label">{d.event}</div>
-                  <div className="sess-meta">
-                    {money(d.buyIn)} · {d.pctSold}% @ {d.markup}× · keep {c.retainedPct}%
+              <div key={d.id} style={{ opacity: d.settled ? 0.55 : 1 }}>
+                <div className="session-item" style={{ cursor: 'default' }}>
+                  <div className="sess-main">
+                    <div className="sess-label">
+                      {d.event}
+                      {d.settled && <span className="tag pos" style={{ marginLeft: 6 }}>settled</span>}
+                    </div>
+                    <div className="sess-meta">
+                      {money(d.buyIn)} · {d.pctSold}% @ {d.markup}× · keep {c.retainedPct}%
+                      {d.backer ? ` · ${d.backer}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: '0 0 auto' }}>
+                    {!d.settled && (
+                      <button
+                        className="btn btn-ghost"
+                        style={{ padding: '4px 8px', fontSize: 12 }}
+                        onClick={() => {
+                          setSettlingId(settling ? null : d.id)
+                          setPrize('')
+                        }}
+                      >
+                        {settling ? 'Cancel' : 'Settle'}
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-ghost"
+                      style={{ padding: '4px 8px', color: 'var(--muted)' }}
+                      onClick={() => remove(d.id)}
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
-                <div className="sess-result">{money(c.yourCost)}</div>
+                {settling && (
+                  <div className="field-row" style={{ padding: '6px 0 10px', alignItems: 'center' }}>
+                    <input
+                      className="input"
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="Cashed for ($ prize)"
+                      value={prize}
+                      onChange={(e) => setPrize(e.target.value)}
+                    />
+                    <button
+                      className="btn"
+                      style={{ flex: '0 0 auto' }}
+                      disabled={share <= 0}
+                      onClick={() => void settle(d)}
+                    >
+                      Pay backers {share > 0 ? money(share) : ''}
+                    </button>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -280,6 +363,115 @@ function StakingCalculator({
           <div className="hl-row"><span className="muted">Total face</span><span className="mono">{money(totals.face)}</span></div>
           <div className="hl-row"><span className="muted">Backers cover</span><span className="mono">{money(totals.backerPays)}</span></div>
           <div className="hl-row"><span style={{ fontWeight: 600 }}>Your net cost</span><span className="mono" style={{ fontWeight: 700 }}>{money(totals.yourCost)}</span></div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const EXPENSE_CATEGORIES: { v: ExpenseCategory; label: string }[] = [
+  { v: 'travel', label: 'Travel' },
+  { v: 'lodging', label: 'Lodging' },
+  { v: 'meals', label: 'Meals' },
+  { v: 'coaching', label: 'Coaching / study' },
+  { v: 'equipment', label: 'Equipment' },
+  { v: 'fees', label: 'Fees' },
+  { v: 'other', label: 'Other' },
+]
+
+// Schedule C expense log — clean records for the CPA. Whether/how each deducts
+// under the 90% rule is exactly the CPA-session agenda, so this tracks, it
+// doesn't compute tax.
+function ExpenseLog({ year }: { year: number }) {
+  const [expenses, setExpenses] = useState<Expense[]>([])
+  const reload = async () =>
+    setExpenses((await getAll<Expense>('expenses')).sort((a, b) => b.date.localeCompare(a.date)))
+  useEffect(() => {
+    void reload()
+  }, [])
+
+  const [date, setDate] = useState(todayISO())
+  const [category, setCategory] = useState<ExpenseCategory>('travel')
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
+
+  const totals = expenseTotals(expenses, year)
+
+  const add = async () => {
+    const n = Number(amount) || 0
+    if (n <= 0) return
+    await putRecord('expenses', {
+      id: uid(), date, category, amount: n, note: note.trim() || undefined,
+    } satisfies Expense)
+    setAmount('')
+    setNote('')
+    await reload()
+  }
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <span className="card-label">Business expenses · {year}</span>
+        <span className="mono" style={{ fontWeight: 700 }}>{money(totals.total)}</span>
+      </div>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+        The deduction half of the tax picture — log as you go, hand the CPA clean records.
+      </div>
+
+      {totals.count > 0 && (
+        <div className="pill-row" style={{ marginBottom: 10 }}>
+          {EXPENSE_CATEGORIES.filter((c) => totals.byCategory[c.v]).map((c) => (
+            <span key={c.v} className="tag">
+              {c.label} · {money(totals.byCategory[c.v]!)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="field-row">
+        <div className="field">
+          <label>Date</label>
+          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Category</label>
+          <select className="select" value={category} onChange={(e) => setCategory(e.target.value as ExpenseCategory)}>
+            {EXPENSE_CATEGORIES.map((c) => (
+              <option key={c.v} value={c.v}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field" style={{ flex: '0 0 100px' }}>
+          <label>Amount</label>
+          <input className="input" type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+      </div>
+      <div className="field">
+        <input className="input" placeholder="Note (what / who / why)" value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <button className="btn btn-block" onClick={add}>+ Log expense</button>
+
+      {expenses.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          {expenses.slice(0, 6).map((e) => (
+            <button
+              key={e.id}
+              className="session-item"
+              title="Tap to delete"
+              onClick={async () => {
+                if (confirm(`Delete ${money(e.amount)} ${e.category}?`)) {
+                  await deleteRecord('expenses', e.id)
+                  await reload()
+                }
+              }}
+            >
+              <div className="sess-main">
+                <div className="sess-label">{EXPENSE_CATEGORIES.find((c) => c.v === e.category)?.label ?? e.category}</div>
+                <div className="sess-meta">{fmtDate(e.date)}{e.note ? ` · ${e.note}` : ''}</div>
+              </div>
+              <div className="sess-result neg">−{money(e.amount)}</div>
+            </button>
+          ))}
         </div>
       )}
     </div>

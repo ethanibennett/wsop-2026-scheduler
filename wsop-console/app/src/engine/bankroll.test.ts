@@ -6,6 +6,7 @@ import {
   bankrollAlerts,
   recommendStake,
   fundProjection,
+  reconcileBalances,
 } from './bankroll'
 import type { Session, BankrollAdjustment } from '../db/types'
 
@@ -60,6 +61,16 @@ describe('computeBankroll', () => {
     const b = computeBankroll([sess(8000, { isWsopFund: true })], [], 50000)
     expect(b.playingRoll).toBe(50000)
     expect(b.wsopFund).toBe(8000)
+  })
+  it('backer settlements come out of the fund bucket, not the roll', () => {
+    // Slate cash $50k into the fund; backers' 60% share paid out.
+    const b = computeBankroll(
+      [sess(50000, { isWsopFund: true })],
+      [{ id: '1', date: '2027-06-01', amount: -30000, type: 'backer-settlement' }],
+      50000,
+    )
+    expect(b.playingRoll).toBe(50000) // untouched
+    expect(b.wsopFund).toBe(20000) // 50k cash − 30k to backers
   })
 })
 
@@ -142,6 +153,26 @@ describe('fundProjection', () => {
     )
     expect(f.onTrack).toBe(true)
     expect(f.shortfall).toBe(0)
+  })
+})
+
+describe('reconcileBalances', () => {
+  it('sums locations and reports drift vs the derived total', () => {
+    const r = reconcileBalances(
+      [
+        { id: '1', name: 'Bank', amount: 30000 },
+        { id: '2', name: 'Parx front', amount: 15000 },
+        { id: '3', name: 'WSOP.com', amount: 4000 },
+      ],
+      50000,
+    )
+    expect(r.actual).toBe(49000)
+    expect(r.drift).toBe(-1000) // $1k unaccounted for
+  })
+  it('handles NaN amounts as 0', () => {
+    const r = reconcileBalances([{ id: '1', name: 'x', amount: NaN }], 0)
+    expect(r.actual).toBe(0)
+    expect(r.drift).toBe(0)
   })
 })
 

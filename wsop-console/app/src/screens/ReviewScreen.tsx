@@ -8,16 +8,26 @@ import { useStore } from '../store'
 import { getAll } from '../db/idb'
 import type { ReviewEntry, HealthMetric } from '../db/types'
 import { phaseState } from '../engine/phase'
-import { hoursThisWeek, cashHoursThisWeek, wakeAnchorStreak, weeklyReadout } from '../engine/analytics'
+import {
+  hoursThisWeek,
+  cashHoursThisWeek,
+  wakeAnchorStreak,
+  weeklyReadout,
+  lifetimeStats,
+  longestStreak,
+  winRateByGroup,
+} from '../engine/analytics'
+import { useToast } from '../components/Toast'
 import { computeBankroll } from '../engine/bankroll'
 import { weightProgress } from '../engine/health'
 import { milestones } from '../engine/milestones'
 import { HOME_LIBRARY, CATEGORY_META, type HomeCategory } from '../db/home'
-import { isThisWeek, todayISO, uid, fmtDate, fmtHours } from '../engine/format'
+import { isThisWeek, todayISO, uid, fmtDate, fmtHours, money } from '../engine/format'
 
 export function ReviewScreen() {
   const { sessions, adjustments, routine, reviews, settings, put } = useStore()
   const ps = phaseState(new Date(), settings.phaseOverride)
+  const toast = useToast()
 
   const [metrics, setMetrics] = useState<HealthMetric[]>([])
   useEffect(() => {
@@ -44,11 +54,55 @@ export function ReviewScreen() {
     return { total: ids.size, byCat }
   }, [sessions]) // recompute when the screen re-renders on data change
 
+  // The weekly recap, as a shareable line — Wrapped for the grind week.
+  const shareRecap = async () => {
+    const wk = sessions.filter((s) => isThisWeek(s.date))
+    const anchorDays = routine.filter((r) => isThisWeek(r.date) && r.wakeAnchor).length
+    const best = winRateByGroup(wk).filter((g) => g.hours >= 2)[0]
+    const bits = [
+      `${week.count} session${week.count === 1 ? '' : 's'} · ${fmtHours(week.hours)}`,
+      `${week.pnl >= 0 ? '+' : '−'}$${Math.abs(Math.round(week.pnl)).toLocaleString('en-US')}`,
+      `anchor ${anchorDays}/7`,
+    ]
+    if (homeWeek.total > 0) bits.push(`${homeWeek.total} home contribution${homeWeek.total === 1 ? '' : 's'}`)
+    if (best) bits.push(`best: ${best.key} ${money(best.perHour, { sign: true })}/h`)
+    const text = `The week — ${bits.join(' · ')}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        toast('Recap copied')
+      }
+    } catch {
+      /* share sheet dismissed */
+    }
+  }
+
   const climb = useMemo(() => {
     const roll = computeBankroll(sessions, adjustments, settings.startingRoll).playingRoll
     const lbsLost = Math.max(0, weightProgress(metrics).lost)
     return milestones({ roll, anchorStreak: wakeAnchorStreak(routine), lbsLost })
   }, [sessions, adjustments, settings.startingRoll, metrics, routine])
+
+  // Celebrate freshly-cleared milestones: anything achieved since the last
+  // visit pulses (climb-new). Seen-set lives in localStorage.
+  const [newClears, setNewClears] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    const doneIds = climb.list.filter((m) => m.done).map((m) => m.id)
+    if (!doneIds.length) return
+    let seen: string[] = []
+    try {
+      seen = JSON.parse(localStorage.getItem('wsop-climb-seen') || '[]')
+    } catch {
+      seen = []
+    }
+    const fresh = doneIds.filter((id) => !seen.includes(id))
+    if (fresh.length) {
+      localStorage.setItem('wsop-climb-seen', JSON.stringify(doneIds))
+      setNewClears(new Set(fresh))
+    }
+  }, [climb])
 
   const week = useMemo(() => {
     const wk = sessions.filter((s) => isThisWeek(s.date))
@@ -99,8 +153,11 @@ export function ReviewScreen() {
 
       {/* Week at a glance */}
       <div className="card">
-        <div className="card-label" style={{ marginBottom: 12 }}>
-          This week
+        <div className="card-head">
+          <span className="card-label">This week</span>
+          <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => void shareRecap()}>
+            ↗ Share recap
+          </button>
         </div>
         <div className="rv-stats">
           <div>
@@ -143,9 +200,16 @@ export function ReviewScreen() {
           .slice(-4)
           .reverse()
           .map((m) => (
-            <div key={m.id} className="hl-row" style={{ padding: '4px 0', borderBottom: 'none' }}>
+            <div
+              key={m.id}
+              className={`hl-row${newClears.has(m.id) ? ' climb-new' : ''}`}
+              style={{ padding: '4px 0', borderBottom: 'none' }}
+            >
               <span className="pos" style={{ marginRight: 8 }}>✓</span>
-              <span style={{ fontSize: 13 }}>{m.label}</span>
+              <span style={{ fontSize: 13 }}>
+                {m.label}
+                {newClears.has(m.id) && <span className="tag pos" style={{ marginLeft: 6 }}>cleared!</span>}
+              </span>
             </div>
           ))}
         {climb.next && (
@@ -155,6 +219,37 @@ export function ReviewScreen() {
           </div>
         )}
       </div>
+
+      {/* The long game — lifetime miles, for the rebuild's impatient days */}
+      {(() => {
+        const lt = lifetimeStats(sessions)
+        if (lt.sessions < 3) return null
+        const bestAnchor = longestStreak(routine, (r) => r.wakeAnchor)
+        return (
+          <div className="card">
+            <div className="card-head">
+              <span className="card-label">The long game</span>
+              <span className={`mono ${lt.net >= 0 ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
+                {money(lt.net, { sign: true })}
+              </span>
+            </div>
+            <div className="hl-row"><span className="muted">Career volume</span>
+              <span className="mono">{fmtHours(lt.hours)} · {lt.sessions} sessions</span></div>
+            {lt.biggestWin && (
+              <div className="hl-row"><span className="muted">Biggest win</span>
+                <span className="mono pos">{money(lt.biggestWin.result, { sign: true })} · {fmtDate(lt.biggestWin.date)}</span></div>
+            )}
+            {lt.bestMonth && (
+              <div className="hl-row"><span className="muted">Best month</span>
+                <span className="mono pos">{money(lt.bestMonth.result, { sign: true })}</span></div>
+            )}
+            {bestAnchor >= 3 && (
+              <div className="hl-row"><span className="muted">Longest anchor streak</span>
+                <span className="mono">{bestAnchor}d</span></div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Auto-readout — the week, half-written for you */}
       <div className="card">

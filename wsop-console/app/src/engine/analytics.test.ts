@@ -14,7 +14,14 @@ import {
   downswingState,
   downswingSeverity,
   weeklyReadout,
+  expenseTotals,
+  lifetimeStats,
+  longestStreak,
+  resultHistogram,
+  dayGrid,
 } from './analytics'
+import { daysUntil } from './format'
+import type { Expense } from '../db/types'
 import { localDate } from './format'
 import type { Session, RoutineLog } from '../db/types'
 
@@ -232,6 +239,114 @@ describe('moodEdge', () => {
     expect(s.a.perHour).toBe(100)
     expect(s.b.perHour).toBe(-50)
     expect(s.delta).toBe(150)
+  })
+})
+
+describe('resultHistogram', () => {
+  it('buckets around zero with a sane width and counts every session', () => {
+    const h = resultHistogram([
+      sess({ result: 450 }), sess({ result: -300 }), sess({ result: 1200 }),
+      sess({ result: 200 }), sess({ result: -900 }),
+    ])
+    expect(h.length).toBeGreaterThan(2)
+    expect(h.reduce((a, b) => a + b.count, 0)).toBe(5)
+    // edges align to the bucket width (abs: -1000 % 250 is -0, and Object.is(-0, 0) is false)
+    expect(Math.abs(h[0].lo % (h[0].hi - h[0].lo))).toBe(0)
+  })
+  it('excludes WSOP-fund sessions; <3 sessions → empty', () => {
+    expect(resultHistogram([sess({ result: 100 }), sess({ result: 200 })])).toEqual([])
+    const h = resultHistogram([
+      sess({ result: 100 }), sess({ result: 200 }), sess({ result: 300 }),
+      sess({ result: 99999, isWsopFund: true }),
+    ])
+    expect(h.reduce((a, b) => a + b.count, 0)).toBe(3)
+  })
+})
+
+describe('dayGrid', () => {
+  it('builds weeks × 7 Mon-first days with hours + anchor flags', () => {
+    const now = new Date('2026-08-12T12:00:00') // Wednesday
+    const g = dayGrid(
+      [sess({ date: '2026-08-10', hours: 5 }), sess({ date: '2026-08-10', hours: 2 })],
+      [{ date: '2026-08-11', wakeAnchor: true }],
+      2,
+      now,
+    )
+    expect(g).toHaveLength(2)
+    expect(g[1][0].date).toBe('2026-08-10') // Monday of the current week
+    expect(g[1][0].hours).toBe(7)
+    expect(g[1][1].anchor).toBe(true)
+    expect(g[0]).toHaveLength(7)
+  })
+})
+
+describe('lifetimeStats', () => {
+  it('totals + biggest win/loss + best month, excluding WSOP-fund sessions', () => {
+    const t = lifetimeStats([
+      sess({ date: '2026-08-01', hours: 5, result: 2000 }),
+      sess({ date: '2026-08-15', hours: 5, result: -800 }),
+      sess({ date: '2026-09-01', hours: 5, result: 300 }),
+      sess({ date: '2026-09-02', hours: 5, result: 99999, isWsopFund: true }), // excluded
+    ])
+    expect(t.sessions).toBe(3)
+    expect(t.hours).toBe(15)
+    expect(t.net).toBe(1500)
+    expect(t.biggestWin?.result).toBe(2000)
+    expect(t.biggestLoss?.result).toBe(-800)
+    expect(t.bestMonth?.month).toBe('2026-08') // +1200 beats +300
+  })
+  it('empty → nulls and zeros', () => {
+    const t = lifetimeStats([])
+    expect(t.biggestWin).toBeNull()
+    expect(t.bestMonth).toBeNull()
+    expect(t.net).toBe(0)
+  })
+})
+
+describe('longestStreak', () => {
+  it('finds the longest consecutive-day run, not just the current one', () => {
+    const logs: RoutineLog[] = [
+      { date: '2026-08-01', wakeAnchor: true },
+      { date: '2026-08-02', wakeAnchor: true },
+      { date: '2026-08-03', wakeAnchor: true }, // run of 3
+      { date: '2026-08-05', wakeAnchor: true },
+      { date: '2026-08-06', wakeAnchor: true }, // run of 2
+      { date: '2026-08-08', wakeAnchor: false }, // not picked
+    ]
+    expect(longestStreak(logs, (l) => l.wakeAnchor)).toBe(3)
+  })
+  it('empty → 0', () => {
+    expect(longestStreak([], (l) => l.wakeAnchor)).toBe(0)
+  })
+})
+
+describe('daysUntil', () => {
+  it('counts calendar days, negative when past', () => {
+    const from = new Date('2026-08-01T22:00:00')
+    expect(daysUntil('2026-08-04', from)).toBe(3)
+    expect(daysUntil('2026-08-01', from)).toBe(0)
+    expect(daysUntil('2026-07-30', from)).toBe(-2)
+  })
+})
+
+describe('expenseTotals', () => {
+  const exp = (date: string, category: Expense['category'], amount: number): Expense => ({
+    id: Math.random().toString(36).slice(2), date, category, amount,
+  })
+  it('sums the year and groups by category', () => {
+    const t = expenseTotals(
+      [exp('2026-08-01', 'travel', 300), exp('2026-09-01', 'travel', 200), exp('2026-09-02', 'coaching', 500)],
+      2026,
+    )
+    expect(t.total).toBe(1000)
+    expect(t.count).toBe(3)
+    expect(t.byCategory.travel).toBe(500)
+    expect(t.byCategory.coaching).toBe(500)
+  })
+  it('excludes other years', () => {
+    const t = expenseTotals([exp('2025-12-31', 'meals', 999)], 2026)
+    expect(t.total).toBe(0)
+    expect(t.count).toBe(0)
   })
 })
 

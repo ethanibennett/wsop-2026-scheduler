@@ -14,6 +14,7 @@ import {
   mttStats,
   byVenue,
   byWeekday,
+  resultHistogram,
   rhythmEdge,
   moodEdge,
   type EdgeSplit,
@@ -133,6 +134,7 @@ export function SessionsScreen() {
   const pnl = useMemo(() => cumulativePnl(sessions), [sessions])
   const months = useMemo(() => monthlyBreakdown(sessions), [sessions])
   const mtt = useMemo(() => mttStats(sessions), [sessions])
+  const hist = useMemo(() => resultHistogram(sessions), [sessions])
   const venues = useMemo(() => byVenue(sessions), [sessions])
   const weekdays = useMemo(() => byWeekday(sessions).filter((d) => d.sessions > 0), [sessions])
   const anchorEdge = useMemo(() => rhythmEdge(sessions, routine), [sessions, routine])
@@ -258,6 +260,39 @@ export function SessionsScreen() {
           <div className="sess-meta" style={{ marginTop: 4 }}>
             {fmtDate(pnl[0].date)} → {fmtDate(pnl[pnl.length - 1].date)} · excludes WSOP-fund
           </div>
+        </div>
+      )}
+
+      {/* Result distribution — the variance you're actually living in */}
+      {hist.length > 0 && (
+        <div className="card">
+          <div className="card-head">
+            <span className="card-label">Result distribution</span>
+            <span className="mono muted" style={{ fontSize: 12 }}>per session</span>
+          </div>
+          {(() => {
+            const maxN = Math.max(...hist.map((b) => b.count))
+            const k = (n: number) => (Math.abs(n) >= 1000 ? `${n / 1000}k` : `${n}`)
+            return hist.map((b) => (
+              <div key={b.lo} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
+                <span className="mono muted" style={{ fontSize: 10, flex: '0 0 84px', textAlign: 'right' }}>
+                  {k(b.lo)} … {k(b.hi)}
+                </span>
+                <div style={{ flex: 1, height: 10, background: 'var(--surface-2)', borderRadius: 3 }}>
+                  <div
+                    style={{
+                      width: `${maxN ? (b.count / maxN) * 100 : 0}%`,
+                      height: '100%',
+                      borderRadius: 3,
+                      background: b.hi <= 0 ? 'var(--bad)' : b.lo >= 0 ? 'var(--good)' : 'var(--chip)',
+                      opacity: 0.8,
+                    }}
+                  />
+                </div>
+                <span className="mono muted" style={{ fontSize: 10, flex: '0 0 18px' }}>{b.count || ''}</span>
+              </div>
+            ))
+          })()}
         </div>
       )}
 

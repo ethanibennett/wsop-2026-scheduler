@@ -15,6 +15,7 @@ import {
   type CustomRegular,
 } from '../engine/home'
 import { CATEGORY_META, HOME_LIBRARY, type HomeCadence, type HomeCategory } from '../db/home'
+import { updateAppBadge } from '../db/badge'
 import { todayISO, isThisWeek, uid } from '../engine/format'
 
 const DONE_KEY = 'wsop-home-done' // { [dateISO]: taskId[] }
@@ -106,6 +107,7 @@ export function HomeCard() {
   const persistBacklog = (next: BacklogItem[]) => {
     setBacklog(next)
     localStorage.setItem(BACKLOG_KEY, JSON.stringify(next))
+    updateAppBadge()
   }
 
   return (

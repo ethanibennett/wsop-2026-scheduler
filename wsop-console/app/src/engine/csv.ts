@@ -24,6 +24,7 @@ const COLUMNS: { header: string; get: (s: Session) => string | number }[] = [
   { header: 'Mood', get: (s) => s.moodRating ?? '' },
   { header: 'Tags', get: (s) => (s.tags ?? []).join('; ') },
   { header: 'TiltNote', get: (s) => s.tiltNote ?? '' },
+  { header: 'Journal', get: (s) => s.journal ?? '' },
 ]
 
 // RFC-4180-ish escaping: wrap in quotes if the value has a comma, quote, or

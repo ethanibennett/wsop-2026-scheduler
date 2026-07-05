@@ -3,12 +3,14 @@ import { useStore } from '../store'
 import { useToast } from '../components/Toast'
 import { Sheet } from '../components/Sheet'
 import type { BankrollAdjustment, AdjustmentType } from '../db/types'
-import { money, moneyK, fmtDate, uid, todayISO, isThisWeek } from '../engine/format'
+import { money, moneyK, fmtDate, uid, todayISO, isThisWeek, daysSince } from '../engine/format'
 import {
   computeBankroll,
   bankrollAlerts,
   recommendStake,
   fundProjection,
+  reconcileBalances,
+  type BalanceEntry,
   LADDER,
   ONLINE_STAKES,
   WSOP_FUND_TARGET,
@@ -253,6 +255,9 @@ export function BankrollScreen() {
         )}
       </div>
 
+      {/* Where's the money — actual balances vs the derived roll */}
+      <BalancesCard derived={state.playingRoll + state.wsopFund} />
+
       {/* Online games + benchmarks — the underused rate lever */}
       <div className="card">
         <div className="card-head">
@@ -380,9 +385,11 @@ function AdjustmentForm({
   const hint =
     type === 'wsop-fund-transfer'
       ? 'Positive = move this much from playing roll into the WSOP fund.'
-      : type === 'withdrawal'
-        ? 'Use a negative amount to reduce the roll.'
-        : 'Positive adds to the roll, negative subtracts.'
+      : type === 'backer-settlement'
+        ? 'Negative = pay backers their share of a slate cash (comes out of the WSOP-fund bucket, not the roll). The Admin tab’s slate can log these for you.'
+        : type === 'withdrawal'
+          ? 'Use a negative amount to reduce the roll.'
+          : 'Positive adds to the roll, negative subtracts.'
 
   return (
     <form onSubmit={submit}>
@@ -424,5 +431,123 @@ function AdjustmentForm({
         Cancel
       </button>
     </form>
+  )
+}
+
+const BAL_KEY = 'wsop-balances' // { entries, updatedAt }
+
+const DEFAULT_LOCATIONS = ['Bank', 'Cash on hand', 'Parx front', 'WSOP.com', 'Phenom (USDT)']
+
+// "Where's the money" — enter what's actually sitting in each location and
+// reconcile against the derived roll+fund. Drift = an unlogged session, a
+// forgotten withdrawal, or money quietly parked somewhere.
+function BalancesCard({ derived }: { derived: number }) {
+  const [saved] = useState<{ entries: BalanceEntry[]; updatedAt: string } | null>(() => {
+    try {
+      const raw = localStorage.getItem(BAL_KEY)
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })
+  const [entries, setEntries] = useState<BalanceEntry[]>(
+    () => saved?.entries ?? DEFAULT_LOCATIONS.map((name) => ({ id: name, name, amount: 0 })),
+  )
+  const [updatedAt, setUpdatedAt] = useState<string | null>(saved?.updatedAt ?? null)
+  const [newName, setNewName] = useState('')
+
+  const persist = (next: BalanceEntry[]) => {
+    const at = todayISO()
+    setEntries(next)
+    setUpdatedAt(at)
+    localStorage.setItem(BAL_KEY, JSON.stringify({ entries: next, updatedAt: at }))
+  }
+  const setAmount = (id: string, v: string) =>
+    persist(entries.map((e) => (e.id === id ? { ...e, amount: Number(v) || 0 } : e)))
+  const removeEntry = (id: string) => persist(entries.filter((e) => e.id !== id))
+  const addEntry = () => {
+    const name = newName.trim()
+    if (!name) return
+    persist([...entries, { id: uid(), name, amount: 0 }])
+    setNewName('')
+  }
+
+  const rec = reconcileBalances(entries, derived)
+  const touched = entries.some((e) => e.amount !== 0)
+  const days = updatedAt ? daysSince(updatedAt) : null
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <span className="card-label">Where’s the money</span>
+        {days != null && (
+          <span className="mono muted" style={{ fontSize: 11 }}>
+            updated {days === 0 ? 'today' : `${days}d ago`}
+          </span>
+        )}
+      </div>
+
+      {entries.map((e) => (
+        <div key={e.id} className="field-row" style={{ alignItems: 'center', marginBottom: 4 }}>
+          <span style={{ flex: 1, fontSize: 14 }}>{e.name}</span>
+          <input
+            className="input"
+            type="number"
+            inputMode="decimal"
+            style={{ flex: '0 0 110px' }}
+            value={e.amount || ''}
+            placeholder="0"
+            onChange={(ev) => setAmount(e.id, ev.target.value)}
+          />
+          <button
+            className="btn btn-ghost"
+            style={{ flex: '0 0 auto', color: 'var(--muted)', padding: '4px 8px' }}
+            onClick={() => removeEntry(e.id)}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <div className="field-row" style={{ marginTop: 6 }}>
+        <input
+          className="input"
+          placeholder="Add a location…"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addEntry()}
+        />
+        <button className="btn" style={{ flex: '0 0 auto' }} onClick={addEntry}>Add</button>
+      </div>
+
+      {touched && (
+        <>
+          <div className="divider" />
+          <div className="hl-row">
+            <span className="muted">Actual (counted)</span>
+            <span className="mono">{money(rec.actual)}</span>
+          </div>
+          <div className="hl-row">
+            <span className="muted">Derived (roll + fund)</span>
+            <span className="mono">{money(rec.derived)}</span>
+          </div>
+          <div className="hl-row">
+            <span style={{ fontWeight: 600 }}>Drift</span>
+            <span
+              className={`mono ${Math.abs(rec.drift) < 500 ? '' : rec.drift > 0 ? 'pos' : 'neg'}`}
+              style={{ fontWeight: 700 }}
+            >
+              {money(rec.drift, { sign: true })}
+            </span>
+          </div>
+          {Math.abs(rec.drift) >= 500 && (
+            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+              {rec.drift < 0
+                ? 'Money the tracker thinks you have but you can’t count — an unlogged loss, expense, or withdrawal somewhere.'
+                : 'More counted than tracked — an unlogged win or deposit. Log it so the roll stays honest.'}
+            </div>
+          )}
+        </>
+      )}
+    </div>
   )
 }

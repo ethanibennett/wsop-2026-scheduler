@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BottomNav, type TabId } from './components/BottomNav'
+import { updateAppBadge } from './db/badge'
 import { useStore } from './store'
 import { TodayScreen } from './screens/TodayScreen'
 import { DashboardScreen } from './screens/DashboardScreen'
@@ -14,6 +15,11 @@ import { ReviewScreen } from './screens/ReviewScreen'
 export function App() {
   const [tab, setTab] = useState<TabId>('today')
   const { ready } = useStore()
+
+  // Keep the icon badge (open needs-doing count) fresh on launch + tab moves.
+  useEffect(() => {
+    updateAppBadge()
+  }, [tab])
 
   if (!ready) {
     return (

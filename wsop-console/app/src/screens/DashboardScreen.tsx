@@ -8,6 +8,7 @@ import { useStore } from '../store'
 import { getAll } from '../db/idb'
 import type { HealthMetric } from '../db/types'
 import { buildSeries, normalize, dateDomain, correlate, correlationWord, type Series } from '../engine/series'
+import { dayGrid } from '../engine/analytics'
 import { fmtDate, money, localDate } from '../engine/format'
 
 type Range = '30' | '90' | 'all'
@@ -34,6 +35,12 @@ function MultiLineChart({ series, domain, height = 190 }: { series: Series[]; do
       })}
     </svg>
   )
+}
+
+function fmtVal(v: number, unit: string): string {
+  if (unit === '$' || unit === '$/h') return money(v, { sign: v < 0 })
+  if (unit === '/5') return `${v.toFixed(1)}/5`
+  return `${Math.round(v * 10) / 10}${unit}`
 }
 
 function fmtLatest(s: Series): string {
@@ -121,6 +128,19 @@ export function DashboardScreen() {
                   <span className="mono muted" style={{ fontSize: 11 }}>{fmtDate(new Date(domain[0]).toISOString().slice(0, 10))}</span>
                   <span className="mono muted" style={{ fontSize: 11 }}>{fmtDate(new Date(domain[1]).toISOString().slice(0, 10))}</span>
                 </div>
+                {/* True-value axes: with ≤2 lines, show each one's real range —
+                    the honest dual-axis (each line is scaled to its own range). */}
+                {shown.length <= 2 &&
+                  shown.map((s) => {
+                    const vals = s.points.map((p) => p.value)
+                    const lo = Math.min(...vals)
+                    const hi = Math.max(...vals)
+                    return (
+                      <div key={s.key} className="mono" style={{ fontSize: 11, marginTop: 4, color: s.color }}>
+                        {s.label}: {fmtVal(lo, s.unit)} → {fmtVal(hi, s.unit)}
+                      </div>
+                    )
+                  })}
               </>
             ) : (
               <div className="muted" style={{ fontSize: 13, padding: '20px 0', textAlign: 'center' }}>
@@ -150,6 +170,43 @@ export function DashboardScreen() {
               </div>
             )}
           </div>
+
+          {/* Rhythm heatmap — 12 weeks of grind + anchor at a glance */}
+          {(() => {
+            const grid = dayGrid(sessions, routine, 12)
+            const any = grid.some((w) => w.some((d) => d.hours > 0 || d.anchor))
+            if (!any) return null
+            return (
+              <div className="card">
+                <div className="card-head">
+                  <span className="card-label">Last 12 weeks</span>
+                  <span className="mono muted" style={{ fontSize: 11 }}>fill = hours · ring = anchor</span>
+                </div>
+                <div style={{ display: 'flex', gap: 3, justifyContent: 'space-between' }}>
+                  {grid.map((week, wi) => (
+                    <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+                      {week.map((d) => (
+                        <div
+                          key={d.date}
+                          title={`${d.date}: ${d.hours ? `${d.hours}h` : '—'}${d.anchor ? ' · anchor' : ''}`}
+                          style={{
+                            aspectRatio: '1',
+                            borderRadius: 3,
+                            background:
+                              d.hours > 0
+                                ? `rgba(160,160,160,${Math.min(1, 0.25 + d.hours / 8)})`
+                                : 'var(--surface-2)',
+                            border: d.anchor ? '1px solid var(--good)' : '1px solid transparent',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Legend / toggles */}
           <div className="card">

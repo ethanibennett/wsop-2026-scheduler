@@ -54,6 +54,28 @@ function moodByDay(sessions: Session[]): SeriesPoint[] {
 
 const last = (p: SeriesPoint[]) => (p.length ? p[p.length - 1].value : null)
 
+// Trailing-window win rate: at each cash-session date, $/hr over the prior
+// `windowDays`. Answers "is my rate improving?" without the cumulative fog.
+export function rollingRate(sessions: Session[], windowDays = 30): SeriesPoint[] {
+  const cash = sortByDate(sessions.filter((s) => !s.isMTT && !s.isWsopFund && s.hours > 0))
+  const dates = [...new Set(cash.map((s) => s.date))]
+  const out: SeriesPoint[] = []
+  for (const d of dates) {
+    const cutoff = new Date(d + 'T00:00:00')
+    cutoff.setDate(cutoff.getDate() - windowDays)
+    let hours = 0
+    let result = 0
+    for (const s of cash) {
+      if (s.date > d) break
+      if (new Date(s.date + 'T00:00:00') <= cutoff) continue
+      hours += s.hours
+      result += s.result
+    }
+    if (hours > 0) out.push({ date: d, value: result / hours })
+  }
+  return out
+}
+
 // Total hours played per day.
 function hoursByDay(sessions: Session[]): SeriesPoint[] {
   const byDate = new Map<string, number>()
@@ -78,6 +100,7 @@ export function buildSeries(opts: { sessions: Session[]; metrics: HealthMetric[]
     { key: 'mood', label: 'Mood', color: '#9aa0a6', unit: '/5', cumulative: false, points: moodByDay(sessions), latest: null },
     { key: 'hours', label: 'Hours/day', color: '#b07cc6', unit: 'h', cumulative: false, points: hoursByDay(sessions), latest: null },
     { key: 'anchor', label: 'Wake anchor', color: '#7a9e5a', unit: '', cumulative: false, points: anchorPts, latest: null },
+    { key: 'rate30', label: '30d $/hr', color: '#d1b36f', unit: '$/h', cumulative: false, points: rollingRate(sessions), latest: null },
   ]
   for (const s of defs) s.latest = last(s.points)
   // Only surface series that actually have data.

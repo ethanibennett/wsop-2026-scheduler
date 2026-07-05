@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSeries, normalize, dateDomain, correlate, correlationWord, type Series } from './series'
+import { buildSeries, normalize, dateDomain, correlate, correlationWord, rollingRate, type Series } from './series'
 import type { Session, HealthMetric } from '../db/types'
 
 function sess(p: Partial<Session>): Session {
@@ -64,6 +64,29 @@ describe('normalize', () => {
   })
   it('flat series → mid-line (no divide-by-zero)', () => {
     expect(normalize([{ date: 'a', value: 5 }, { date: 'b', value: 5 }]).every((p) => p.t === 0.5)).toBe(true)
+  })
+})
+
+describe('rollingRate', () => {
+  it('computes trailing-window $/hr at each cash date', () => {
+    const pts = rollingRate(
+      [
+        sess({ date: '2026-08-01', hours: 5, result: 500 }), // 100/h
+        sess({ date: '2026-08-10', hours: 5, result: 0 }), // window: 500/10 = 50/h
+        sess({ date: '2026-09-20', hours: 5, result: 250 }), // old ones aged out: 50/h
+      ],
+      30,
+    )
+    expect(pts.map((p) => p.value)).toEqual([100, 50, 50])
+  })
+  it('ignores MTT/WSOP-fund and zero-hour sessions', () => {
+    const pts = rollingRate([
+      sess({ date: '2026-08-01', hours: 5, result: 500 }),
+      sess({ date: '2026-08-01', hours: 5, result: 9999, isMTT: true }),
+      sess({ date: '2026-08-01', hours: 0, result: 9999 }),
+    ])
+    expect(pts).toHaveLength(1)
+    expect(pts[0].value).toBe(100)
   })
 })
 

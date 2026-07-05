@@ -228,15 +228,20 @@ export function computeBankroll(
     .reduce((a, s) => a + s.result, 0)
 
   const transfers = adjustments.filter((a) => a.type === 'wsop-fund-transfer')
+  // Backer settlements pay backers their share of a slate cash — that money
+  // lives in the WSOP-fund bucket (where the prize landed), not the roll.
+  const backerSettle = adjustments
+    .filter((a) => a.type === 'backer-settlement')
+    .reduce((a, x) => a + x.amount, 0)
   const rollAdj = adjustments
-    .filter((a) => a.type !== 'wsop-fund-transfer')
+    .filter((a) => a.type !== 'wsop-fund-transfer' && a.type !== 'backer-settlement')
     .reduce((a, x) => a + x.amount, 0)
   const transferTotal = transfers.reduce((a, x) => a + x.amount, 0)
 
   const wsopSessionPnl = sessions.filter(isWsop).reduce((a, s) => a + s.result, 0)
 
   const playingRoll = startingRoll + sessionPnl + rollAdj - transferTotal
-  const wsopFund = transferTotal + wsopSessionPnl
+  const wsopFund = transferTotal + wsopSessionPnl + backerSettle
 
   const current = ladderLookup(playingRoll)
   const next = nextCheckpoint(playingRoll)
@@ -307,6 +312,28 @@ export function fundProjection(
     shortfall: Math.max(0, target - projected),
     onTrack: projected >= target,
   }
+}
+
+// ── Balance reconciliation: "where's the money" ──
+// The roll is DERIVED (start + P&L + adjustments). Reality is money sitting in
+// locations — bank, cash, the Parx front, WSOP.com, Phenom USDT. Reconciling
+// the two catches drift: an unlogged session, a forgotten withdrawal, money
+// quietly parked somewhere.
+export interface BalanceEntry {
+  id: string
+  name: string
+  amount: number
+}
+
+export interface Reconciliation {
+  actual: number // sum of location balances
+  derived: number // playingRoll + wsopFund (all tracked money)
+  drift: number // actual − derived (+ = found money, − = missing/unlogged)
+}
+
+export function reconcileBalances(entries: BalanceEntry[], derived: number): Reconciliation {
+  const actual = entries.reduce((a, e) => a + (Number(e.amount) || 0), 0)
+  return { actual, derived, drift: actual - derived }
 }
 
 /** Highest rung at or below `roll`. */
