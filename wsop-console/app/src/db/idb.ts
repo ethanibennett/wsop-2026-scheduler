@@ -15,9 +15,17 @@ import type {
   Expense,
   Settings,
 } from './types'
+import { recKey, type SyncRecord } from './sync'
 
 export const DB_NAME = 'wsop-console'
-export const DB_VERSION = 2 // v2: + expenses (Schedule C)
+export const DB_VERSION = 3 // v2: expenses · v3: tombstones (cross-device sync)
+
+interface Tombstone {
+  key: string // recKey(store, id)
+  store: string
+  id: string
+  updatedAt: number
+}
 
 interface ConsoleDB extends DBSchema {
   sessions: { key: string; value: Session; indexes: { date: string } }
@@ -32,6 +40,7 @@ interface ConsoleDB extends DBSchema {
   reviews: { key: string; value: ReviewEntry; indexes: { date: string } }
   checklist: { key: string; value: ChecklistTick }
   settings: { key: string; value: Settings & { id: string } }
+  tombstones: { key: string; value: Tombstone }
 }
 
 let _db: Promise<IDBPDatabase<ConsoleDB>> | null = null
@@ -67,6 +76,9 @@ export function getDB(): Promise<IDBPDatabase<ConsoleDB>> {
           const e = db.createObjectStore('expenses', byDate)
           e.createIndex('date', 'date')
         }
+        if (oldVersion < 3) {
+          db.createObjectStore('tombstones', { keyPath: 'key' })
+        }
       },
     })
   }
@@ -92,9 +104,19 @@ export async function getAll<T>(store: ListStore | DateStore): Promise<T[]> {
   return (await db.getAll(store as never)) as T[]
 }
 
+function recId(v: unknown): string | undefined {
+  const o = v as { id?: string; date?: string }
+  return o.id ?? o.date
+}
+
+// App writes stamp `updatedAt` (drives last-write-wins sync) and clear any
+// tombstone for the key (a re-created record is alive again).
 export async function putRecord<T>(store: ListStore | DateStore, value: T): Promise<void> {
   const db = await getDB()
-  await db.put(store as never, value as never)
+  const stamped = { ...(value as object), updatedAt: Date.now() } as T
+  await db.put(store as never, stamped as never)
+  const id = recId(stamped)
+  if (id) await db.delete('tombstones', recKey(store, id))
 }
 
 /** Fetch a single record by key (used for race-free read-merge-write). */
@@ -106,12 +128,14 @@ export async function getRecord<T>(
   return (await db.get(store as never, key)) as T | undefined
 }
 
+// App deletes leave a tombstone so the delete propagates to other devices.
 export async function deleteRecord(
   store: ListStore | DateStore,
   key: string,
 ): Promise<void> {
   const db = await getDB()
   await db.delete(store as never, key)
+  await db.put('tombstones', { key: recKey(store, key), store, id: key, updatedAt: Date.now() })
 }
 
 export const SETTINGS_KEY = 'app'
@@ -123,7 +147,52 @@ export async function loadSettings(): Promise<(Settings & { id: string }) | unde
 
 export async function saveSettings(settings: Settings): Promise<void> {
   const db = await getDB()
-  await db.put('settings', { ...settings, id: SETTINGS_KEY })
+  await db.put('settings', { ...settings, id: SETTINGS_KEY, updatedAt: Date.now() } as never)
+}
+
+// ── Cross-device sync IO (raw = apply remote changes without re-stamping) ──
+const SYNC_STORES = [
+  'sessions', 'adjustments', 'expenses', 'lifts', 'benchmarks',
+  'prehab', 'routine', 'health', 'study', 'reviews', 'checklist', 'settings',
+] as const
+
+/** Gather every local record + tombstone as SyncRecords for a full-state push. */
+export async function collectSyncRecords(): Promise<SyncRecord[]> {
+  const db = await getDB()
+  const out: SyncRecord[] = []
+  for (const store of SYNC_STORES) {
+    const rows = (await db.getAll(store)) as unknown[]
+    for (const row of rows) {
+      const id = recId(row)
+      if (id == null) continue
+      const ts = Number((row as { updatedAt?: unknown }).updatedAt) || 0
+      out.push({ store, id, data: JSON.stringify(row), updatedAt: ts })
+    }
+  }
+  for (const t of await db.getAll('tombstones')) {
+    out.push({ store: t.store, id: t.id, data: null, updatedAt: t.updatedAt, deleted: true })
+  }
+  return out
+}
+
+/** Apply remote-winning records locally (no re-stamp; preserves their updatedAt). */
+export async function applySyncRecords(records: SyncRecord[]): Promise<void> {
+  const db = await getDB()
+  for (const r of records) {
+    const known = (SYNC_STORES as readonly string[]).includes(r.store)
+    if (!known) continue
+    if (r.deleted || r.data == null) {
+      await db.delete(r.store as never, r.id)
+      await db.put('tombstones', { key: recKey(r.store, r.id), store: r.store, id: r.id, updatedAt: r.updatedAt })
+    } else {
+      try {
+        await db.put(r.store as never, JSON.parse(r.data) as never)
+        await db.delete('tombstones', recKey(r.store, r.id))
+      } catch {
+        /* skip a malformed remote record rather than break the whole sync */
+      }
+    }
+  }
 }
 
 // ── Bulk export / import (the only safety net for local-only data) ──
@@ -165,7 +234,9 @@ export interface BackupBlob {
 // Derive the store list from the live DB so a newly-added store can never
 // silently drop out of backups (vs. a hand-maintained ALL_STORES that drifts).
 function storeNames(db: IDBPDatabase<ConsoleDB>): StoreName[] {
-  const live = Array.from(db.objectStoreNames) as StoreName[]
+  const live = (Array.from(db.objectStoreNames) as string[]).filter(
+    (s) => s !== 'tombstones', // sync plumbing, not user data — keep out of backups
+  ) as StoreName[]
   return live.length ? live : ALL_STORES
 }
 

@@ -294,6 +294,57 @@ if (require('fs').existsSync(consoleDist)) {
     }
   });
 
+  // Cross-device sync (M-sync). Full-state push: the client sends all its
+  // records + tombstones, the server last-write-wins merges (INSERT..ON
+  // CONFLICT with a newer-or-equal guard), and returns the whole merged set for
+  // the client to apply back. Single user (ham), so no per-user scoping.
+  app.post('/console/api/sync', async (req, res) => {
+    try {
+      const records = (req.body && req.body.records) || [];
+      if (!Array.isArray(records)) {
+        return res.status(400).json({ error: 'records must be an array' });
+      }
+      if (records.length > 50000) {
+        return res.status(413).json({ error: 'too many records' });
+      }
+      let changed = 0;
+      for (const r of records) {
+        if (!r || typeof r.store !== 'string' || typeof r.id !== 'string' || typeof r.updatedAt !== 'number') continue;
+        const del = r.deleted ? 1 : 0;
+        const data = del ? null : (typeof r.data === 'string' ? r.data : null);
+        db.run(
+          `INSERT INTO console_records (store, id, data, updated_at, deleted)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(store, id) DO UPDATE SET
+             data = excluded.data,
+             updated_at = excluded.updated_at,
+             deleted = excluded.deleted
+           WHERE excluded.updated_at >= console_records.updated_at`,
+          [r.store, r.id, data, r.updatedAt, del]
+        );
+        changed += db.getRowsModified(); // only real inserts/updates count
+      }
+      if (changed) await saveDatabase(); // don't rewrite the disk on a no-op sync
+      const stmt = db.prepare('SELECT store, id, data, updated_at, deleted FROM console_records');
+      const out = [];
+      while (stmt.step()) {
+        const row = stmt.getAsObject();
+        out.push({
+          store: row.store,
+          id: row.id,
+          data: row.deleted ? null : row.data,
+          updatedAt: row.updated_at,
+          deleted: !!row.deleted,
+        });
+      }
+      stmt.free();
+      res.json({ now: Date.now(), records: out });
+    } catch (err) {
+      console.error('Console sync error:', err);
+      res.status(500).json({ error: 'sync failed' });
+    }
+  });
+
   app.use('/console', express.static(consoleDist, {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) {
@@ -1775,6 +1826,23 @@ async function initDatabase() {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
         console.log('Created console_push_subscriptions table');
+      }
+    },
+    {
+      name: 'console-records-sync-2026-07',
+      fn: () => {
+        // Cross-device sync store for the single-user (ham) console. One generic
+        // table holds every client store's records + delete tombstones; the
+        // client full-state pushes and the server last-write-wins merges.
+        db.run(`CREATE TABLE IF NOT EXISTS console_records (
+          store TEXT NOT NULL,
+          id TEXT NOT NULL,
+          data TEXT,
+          updated_at INTEGER NOT NULL,
+          deleted INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (store, id)
+        )`);
+        console.log('Created console_records table');
       }
     },
     {
