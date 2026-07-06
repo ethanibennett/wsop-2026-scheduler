@@ -4,6 +4,7 @@ import {
   backerShare,
   cutsForSession,
   sessionGameLabel,
+  deliveryChannels,
   newToken,
   type Backer,
 } from './backers'
@@ -83,6 +84,16 @@ describe('sessionGameLabel', () => {
   it('labels an MTT', () => {
     expect(sessionGameLabel(sess({ isMTT: true, stakeLevel: undefined, gameLabel: 'Sunday Major' })))
       .toContain('MTT')
+  })
+})
+
+describe('deliveryChannels', () => {
+  it('always includes the link, adds text/email when set', () => {
+    expect(deliveryChannels(mk([]))).toEqual(['link'])
+    expect(deliveryChannels({ ...mk([]), delivery: { sms: '+1' } })).toEqual(['link', 'text'])
+    expect(deliveryChannels({ ...mk([]), delivery: { email: 'a@b.c' } })).toEqual(['link', 'email digest'])
+    expect(deliveryChannels({ ...mk([]), delivery: { sms: '+1', email: 'a@b.c' } }))
+      .toEqual(['link', 'text', 'email digest'])
   })
 })
 

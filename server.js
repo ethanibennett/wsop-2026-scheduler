@@ -479,7 +479,16 @@ if (require('fs').existsSync(consoleDist)) {
           `Your ${pct}% = ${fmtSignedCents(shareCents)}. Running: ${fmtSignedCents(cum)}.`;
         const out = await sendBackerPush(r.token, title, body, `/b/${r.token}`);
         if (out.changed) changed = true;
-        results.push({ token: r.token, name: r.name, sent: out.sent, subs: out.subs, cumulativeCents: cum, duplicate: !inserted });
+        // Per-session text (Twilio), if this backer has a phone on file.
+        let smsStatus = 'none';
+        if (r.sms && typeof r.sms === 'string') {
+          smsStatus = await sendBackerSms(
+            r.sms,
+            `${session.game} at ${session.venue}: session ${fmtSignedCents(session.resultCents)} over ${fmtHours(session.hours)}. ` +
+            `Your ${pct}% = ${fmtSignedCents(shareCents)}. Running ${fmtSignedCents(cum)}. futurega.me/b/${r.token}`
+          );
+        }
+        results.push({ token: r.token, name: r.name, sent: out.sent, subs: out.subs, cumulativeCents: cum, duplicate: !inserted, sms: smsStatus });
       }
       if (changed) await saveDatabase();
       res.json({ results });
@@ -8837,6 +8846,104 @@ function fmtSignedCents(cents) {
 function fmtHours(h) {
   return (Math.round((Number(h) || 0) * 10) / 10) + 'h';
 }
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Generic console email via the existing SMTP transporter (password resets use
+// the same one). Returns true on send, false if SMTP isn't configured.
+async function sendConsoleEmail(to, subject, html) {
+  if (!mailTransporter) {
+    console.log('[console] email skipped (SMTP unconfigured):', to, '·', subject);
+    return false;
+  }
+  try {
+    await mailTransporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, html });
+    return true;
+  } catch (err) {
+    console.error('Console email error:', err.message);
+    return false;
+  }
+}
+
+// Per-session backer text via Twilio's REST API (no SDK dependency). Inert
+// until TWILIO_* env vars are set — returns 'unconfigured' so the UI can say so.
+async function sendBackerSms(phone, body) {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM || process.env.TWILIO_FROM_NUMBER;
+  if (!sid || !token || !from) return 'unconfigured';
+  if (typeof fetch !== 'function') return 'error';
+  try {
+    const params = new URLSearchParams({ To: phone, From: from, Body: body });
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+    if (!res.ok) {
+      console.error('Twilio SMS failed:', res.status);
+      return 'error';
+    }
+    return 'sent';
+  } catch (err) {
+    console.error('Twilio SMS error:', err.message);
+    return 'error';
+  }
+}
+
+// Weekly email digest for backers with an email on file: the past 7 days of
+// their recorded sessions + their running total. Reads backer objects from the
+// synced console_records (store='backers'); events from backer_events.
+async function sendBackerWeeklyDigests() {
+  try {
+    const backers = [];
+    const s = db.prepare("SELECT data FROM console_records WHERE store = 'backers' AND deleted = 0");
+    while (s.step()) {
+      try {
+        const b = JSON.parse(s.getAsObject().data);
+        if (b && b.token && b.delivery && b.delivery.email) backers.push(b);
+      } catch (_) { /* skip malformed */ }
+    }
+    s.free();
+    if (!backers.length) return;
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    for (const b of backers) {
+      const evs = [];
+      const es = db.prepare(
+        'SELECT date, game, venue, hours, session_result_cents, pct, share_cents FROM backer_events WHERE token = ? AND ts >= ? ORDER BY ts DESC'
+      );
+      es.bind([b.token, weekAgo]);
+      while (es.step()) evs.push(es.getAsObject());
+      es.free();
+      if (!evs.length) continue; // nothing to report this week
+      const cum = backerCumulativeCents(b.token);
+      const weekShare = evs.reduce((a, e) => a + (e.share_cents || 0), 0);
+      const rows = evs.map((e) => {
+        const col = (e.share_cents || 0) >= 0 ? '#2c7a52' : '#c0544c';
+        return `<tr>
+          <td style="padding:6px 10px 6px 0;">${escapeHtml(e.game)}</td>
+          <td style="padding:6px 10px 6px 0;color:#888;">${escapeHtml(e.venue)} · ${fmtHours(e.hours)} · ${escapeHtml(e.date)}</td>
+          <td style="padding:6px 0;text-align:right;font-weight:600;color:${col};">${fmtSignedCents(e.share_cents)}</td>
+        </tr>`;
+      }).join('');
+      const html = `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#111;">
+        <h2 style="margin:0 0 2px;">Your week with Ethan</h2>
+        <p style="color:#888;margin:0 0 16px;">${evs.length} session${evs.length > 1 ? 's' : ''} · your week ${fmtSignedCents(weekShare)}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">${rows}</table>
+        <p style="margin:18px 0 4px;font-size:16px;"><strong>Running total: ${fmtSignedCents(cum)}</strong></p>
+        <p style="color:#888;font-size:12px;">Full detail anytime: <a href="https://futurega.me/b/${b.token}">your private page</a>.</p>
+      </div>`;
+      await sendConsoleEmail(b.delivery.email, 'Your weekly staking digest', html);
+    }
+  } catch (err) {
+    console.error('Backer weekly digest error:', err);
+  }
+}
 
 // The backer page — one self-contained shell for every token. Client JS reads
 // the token from the URL, fetches its own feed, and (opt-in) enables web push.
@@ -10710,6 +10817,12 @@ initDatabase().then(() => {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
     setupConsoleNudgeCron();
+    // Weekly backer email digest — Sunday 18:00 ET.
+    try {
+      cron.schedule('0 18 * * 0', () => { sendBackerWeeklyDigests(); }, { timezone: CONSOLE_TZ });
+    } catch (err) {
+      console.error('Backer digest cron setup error:', err.message);
+    }
   });
 
   const shutdown = () => {

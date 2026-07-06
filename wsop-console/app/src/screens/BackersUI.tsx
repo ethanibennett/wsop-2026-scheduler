@@ -18,6 +18,7 @@ import {
   newToken,
   backerLink,
   stakesSummary,
+  deliveryChannels,
   cutsForSession,
   sessionGameLabel,
   STAKE_FORMAT_OPTIONS,
@@ -91,6 +92,11 @@ export function BackersManager() {
                 <span className="pl-pdate">{open ? 'close' : 'edit'}</span>
               </div>
               <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{stakesSummary(b)}</div>
+              <div className="pill-row" style={{ marginTop: 6 }}>
+                {deliveryChannels(b).map((c) => (
+                  <span key={c} className="tag">{c}</span>
+                ))}
+              </div>
             </button>
             {open && (
               <div className="pl-bodyinner" style={{ padding: '0 14px 14px' }}>
@@ -139,9 +145,21 @@ export function BackersManager() {
 function BackerEditor({ backer, onChange }: { backer: Backer; onChange: (b: Backer) => void }) {
   const [name, setName] = useState(backer.name)
   const [rows, setRows] = useState<BackerStake[]>(backer.stakes)
+  const [sms, setSms] = useState(backer.delivery?.sms ?? '')
+  const [email, setEmail] = useState(backer.delivery?.email ?? '')
 
-  const persist = (nextRows: BackerStake[], nextName: string = name) =>
-    onChange({ ...backer, name: nextName.trim() || backer.name, stakes: nextRows })
+  const persist = (
+    nextRows: BackerStake[] = rows,
+    nextName: string = name,
+    nextSms: string = sms,
+    nextEmail: string = email,
+  ) =>
+    onChange({
+      ...backer,
+      name: nextName.trim() || backer.name,
+      stakes: nextRows,
+      delivery: { sms: nextSms.trim() || undefined, email: nextEmail.trim() || undefined },
+    })
   const addRow = () => {
     const n = [...rows, { format: 'PLO' as const, channel: 'any' as const, pct: 20 }]
     setRows(n)
@@ -215,6 +233,38 @@ function BackerEditor({ backer, onChange }: { backer: Backer; onChange: (b: Back
         ))}
         <button className="btn btn-ghost" style={{ marginTop: 2 }} onClick={addRow}>+ Add game</button>
       </div>
+
+      <div className="field">
+        <label>Delivery — how they hear about it</label>
+        <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+          Their private link + push always works. Add a phone for a text each session, or an email
+          for a weekly digest. Leave blank to skip.
+        </div>
+        <div className="field" style={{ marginBottom: 8 }}>
+          <label>Text (per session)</label>
+          <input
+            className="input"
+            type="tel"
+            inputMode="tel"
+            placeholder="+1 215 555 0199"
+            value={sms}
+            onChange={(e) => setSms(e.target.value)}
+            onBlur={() => persist(rows, name, sms, email)}
+          />
+        </div>
+        <div className="field">
+          <label>Email (weekly digest)</label>
+          <input
+            className="input"
+            type="email"
+            inputMode="email"
+            placeholder="backer@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => persist(rows, name, sms, email)}
+          />
+        </div>
+      </div>
     </>
   )
 }
@@ -270,6 +320,7 @@ export function BackerNotify({ session }: { session: Session }) {
         subs: -1,
         cumulativeCents: 0,
         duplicate: false,
+        sms: 'none' as const,
       }))).map((r, i) => {
         const cut = cuts.find((c) => c.backer.token === r.token) ?? cuts[i]
         const share = cut ? cut.share : 0
@@ -281,6 +332,9 @@ export function BackerNotify({ session }: { session: Session }) {
                 {cut ? `${cut.pct}% of ${money(session.result, { sign: true })}` : ''}
                 {result && r.subs === 0 ? ' · not on push yet (share their link)' : ''}
                 {result && r.subs > 0 ? ` · pushed to ${r.sent}/${r.subs}` : ''}
+                {result && r.sms === 'sent' ? ' · texted' : ''}
+                {result && r.sms === 'unconfigured' ? ' · text not set up' : ''}
+                {result && r.sms === 'error' ? ' · text failed' : ''}
                 {result && r.duplicate ? ' · already recorded' : ''}
               </div>
             </div>

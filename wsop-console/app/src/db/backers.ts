@@ -16,13 +16,29 @@ export interface BackerStake {
   pct: number
 }
 
+// How a backer is reached, on top of the always-available private link + push.
+// sms = a per-session text; email = a weekly digest. Empty/undefined = off.
+export interface BackerDelivery {
+  sms?: string // phone number for per-session texts
+  email?: string // address for the weekly digest
+}
+
 export interface Backer {
   id: string
   token: string // unguessable — keys the private link + push subscription
   name: string
   stakes: BackerStake[]
+  delivery?: BackerDelivery
   createdAt: number
   // updatedAt is stamped by putRecord (drives last-write-wins sync)
+}
+
+/** Short labels for the channels a backer will actually receive on. */
+export function deliveryChannels(backer: Backer): string[] {
+  const out = ['link'] // the private link + push is always available
+  if (backer.delivery?.sms) out.push('text')
+  if (backer.delivery?.email) out.push('email digest')
+  return out
 }
 
 export const FORMAT_LABEL: Record<Format, string> = {

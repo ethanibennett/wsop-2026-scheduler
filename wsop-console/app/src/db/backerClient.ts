@@ -15,6 +15,7 @@ export interface NotifyRecipientResult {
   subs: number // subscriptions on file (0 = backer hasn't enabled push yet)
   cumulativeCents: number // their running share AFTER this event
   duplicate?: boolean // this session was already recorded for them
+  sms?: 'sent' | 'unconfigured' | 'error' | 'none' // per-session text status
 }
 
 export interface NotifyResult {
@@ -41,6 +42,7 @@ export async function notifyBackers(session: Session, cuts: BackerCut[]): Promis
       name: c.backer.name,
       pct: c.pct,
       shareCents: cents(c.share),
+      sms: c.backer.delivery?.sms || undefined, // per-session text destination
     })),
   }
   try {
