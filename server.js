@@ -305,8 +305,13 @@ app.get('/api/backer/:token/feed', (req, res) => {
       });
     }
     estmt.free();
+    let grossCents = 0, netSessionCents = 0;
+    for (const e of events) {
+      grossCents += e.sessionResultCents || 0;
+      netSessionCents += e.shareCents || 0;
+    }
     res.json({
-      name, stakes, openingCents,
+      name, stakes, openingCents, grossCents, netSessionCents,
       cumulativeCents: backerCumulativeCents(token) + openingCents,
       events,
     });
@@ -9044,10 +9049,11 @@ body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Conde
     var name=(feed&&feed.name)||'Your action';
     var stakes=(feed&&feed.stakes)||'';
     var openingCents=(feed&&feed.openingCents)||0;
+    var grossCents=(feed&&feed.grossCents)||0;
     var rows=evs.map(function(e){
       var cls=e.shareCents>=0?'pos':'neg';
       return '<div class="row"><div><div class="row-label">'+esc(e.game)+'</div>'
-        +'<div class="row-meta">'+esc(e.venue)+' · '+fmtH(e.hours)+' · '+esc(e.date)+' · your '+esc(e.pct)+'% of '+money(e.sessionResultCents)+'</div></div>'
+        +'<div class="row-meta">'+esc(e.venue)+' · '+fmtH(e.hours)+' · '+esc(e.date)+' · gross '+money(e.sessionResultCents)+' · your '+esc(e.pct)+'%</div></div>'
         +'<div class="row-result '+cls+'">'+money(e.shareCents)+'</div></div>';
     }).join('');
     var openingRow=openingCents?('<div class="row"><div><div class="row-label">Opening balance</div>'
@@ -9058,9 +9064,11 @@ body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Conde
       +'<h1 class="title">'+esc(name)+'</h1>'
       +'<div class="sub">your action with Ethan</div>'
       +(stakes?'<div class="stakes">Staked: '+esc(stakes)+'</div>':'')
-      +'<div class="card"><div class="card-label">Running position</div>'
+      +'<div class="card"><div class="card-label">Net · your share</div>'
         +'<div class="big '+(cum>=0?'pos':'neg')+'">'+money(cum)+'</div>'
-        +'<div class="small">what settles up with Ethan</div></div>'
+        +'<div class="small">running position — what settles up with Ethan</div>'
+        +(grossCents?'<div class="small">Gross across your games: <span class="'+(grossCents>=0?'pos':'neg')+'">'+money(grossCents)+'</span></div>':'')
+        +'</div>'
       +'<div id="pushbox"></div>'
       +'<div class="card"><div class="card-label">Sessions</div>'
         +sessionsInner
