@@ -40,6 +40,7 @@ Leaf handling at the end of a street's betting (a call/check that closes it):
 A fold is always an exact terminal (chips only), on any street.
 """
 from __future__ import annotations
+import os
 from typing import Callable, Dict, List, Optional, Tuple
 
 from pbs import (RANKS, SUITS, rank_val, suit_idx, down_count,
@@ -216,7 +217,9 @@ class _Resolver:
                  depth_limit: Optional[int], sub_iters: Optional[int] = None,
                  holdings: Optional[List[tuple]] = None,
                  share_matrix: Optional[List[List[float]]] = None,
-                 game: Optional['GameSpec'] = None):
+                 game: Optional['GameSpec'] = None,
+                 gadget_player: Optional[int] = None,
+                 carried_cfv: Optional[List[float]] = None):
         self.street = street
         self.game = game if game is not None else STUD8
         self.st0 = street - 3
@@ -248,6 +251,47 @@ class _Resolver:
         self.strat: Dict[str, List[List[float]]] = {}
         self._share_cache: Dict[Tuple[int, int], float] = {}
         self.root = self._root_node(pot)
+
+        # ── CFR-D SAFE RE-SOLVING GADGET (opt-in; DEFAULT OFF) ──────────────
+        # Burch/Johanson/Bowling 2014 + DeepStack (Moravcik 2017). When
+        # `gadget_player` is set, we re-solve this subgame knowing only the
+        # OTHER seat's range + the gadget player's carried counterfactual values
+        # `carried_cfv` (per holding). A "terminate-or-enter" PSEUDO-ROOT is
+        # spliced ABOVE the real betting root: the gadget player chooses, per
+        # holding i, between ENTER (play the subgame) and TERMINATE (bank the
+        # carried value w[i]). Solving this gadget game yields a subgame strategy
+        # whose composite exploitability is <= blueprint expl + subgame solve
+        # error — the safety property a range-only re-solve cannot promise.
+        #
+        # It is ADDITIVE and default-off: `self.gadget is None` (the default)
+        # leaves `self.root` = the real betting root and every traversal below on
+        # its byte-identical pre-gadget path, so all existing solves / self-tests
+        # are unchanged. When on, `self.root` becomes the gadget node and the
+        # gadget/gterm branches in _cfr / _eval_avg / _br / strategy_report /
+        # _leaf_value take over the top two plies. Game-agnostic: it lives in
+        # those SHARED traversals (not the game-specific betting seams), so the
+        # stud tree (this class) and the single-round draw tree
+        # (resolve_draw._DrawResolver, which inherits these traversals) both get
+        # it with no per-game code.
+        self.gadget = None
+        if gadget_player is not None:
+            g = int(gadget_player)
+            if g not in (0, 1):
+                raise ValueError("gadget_player must be 0 or 1")
+            if carried_cfv is None or len(carried_cfv) != self.H:
+                raise ValueError(
+                    f"carried_cfv must be a per-holding vector of length "
+                    f"{self.H}; got "
+                    f"{None if carried_cfv is None else len(carried_cfv)}")
+            self._subroot = self.root                 # the real betting root
+            self._carried_cfv = [float(x) for x in carried_cfv]
+            self.gadget = g
+            # per-holding ENTER-vs-TERMINATE margin telemetry (always-on when the
+            # gadget is on): filled by solve(); a NEGATIVE entry would flag an
+            # unsafe re-solve (see terminate_margins()).
+            self._term_margin: Optional[List[float]] = None
+            self.root = dict(phase='gadget', toAct=g, curSeq='@GADGET',
+                             folded=None)
 
     # -- root reconstruction from the PBS (canonical start-of-street betting) --
     def _root_node(self, pot: float) -> dict:
@@ -293,6 +337,15 @@ class _Resolver:
     # ── leaf valuation: returns (cfv0, cfv1) over all holdings ──
     def _leaf_value(self, node: dict, reach: List[List[float]]):
         H = self.H
+        if node.get('phase') == 'gterm':
+            # Gadget TERMINATE leaf: the gadget player banks its carried
+            # counterfactual value w[i] (already a counterfactual value — NOT
+            # re-weighted by the opponent's reach), the other seat gets nothing
+            # down this branch (the opponent chose not to enter, so no play).
+            g = self.gadget
+            cg = list(self._carried_cfv)
+            ch = [0.0] * H
+            return (cg, ch) if g == 0 else (ch, cg)
         c = node['contrib']
         cfv0 = [0.0] * H
         cfv1 = [0.0] * H
@@ -424,8 +477,72 @@ class _Resolver:
             cfv1[i2] = a1
         return cfv0, cfv1
 
+    # ── gadget pseudo-root children (game-agnostic; only reached when on) ──
+    def _gadget_children(self, reach: List[List[float]], sigma_F, avg=False):
+        """Value the ENTER (F -> the real betting subroot) and TERMINATE
+        (T -> the carried-value leaf) branches of the gadget node.
+
+        `sigma_F[i]` is the gadget player's ENTER probability for holding i; the
+        opponent's reach passes through unchanged (F), the gadget player's reach
+        into the subgame is scaled by sigma_F. Returns (enter0, enter1, term_g)
+        where enter* are the per-holding CFVs from the subgame and term_g is the
+        gadget player's TERMINATE value (the carried vector). Uses _eval_avg on
+        the subgame when avg=True (average-strategy pass) else _cfr (updating)."""
+        g = self.gadget
+        opp = 1 - g
+        sub_reach = [None, None]
+        sub_reach[g] = [reach[g][i] * sigma_F[i] for i in range(self.H)]
+        sub_reach[opp] = reach[opp]
+        if avg:
+            e0, e1 = self._eval_avg(self._subroot, sub_reach)
+        else:
+            e0, e1 = self._cfr(self._subroot, sub_reach)
+        return e0, e1, list(self._carried_cfv)
+
+    def _cfr_gadget(self, node: dict, reach: List[List[float]]):
+        """One CFR+ iteration at the gadget node: per-holding regret matching for
+        the gadget player over {ENTER, TERMINATE}. ENTER's value is the subgame
+        CFV, TERMINATE's is the carried value w[i]. This is the classic CFR-D
+        resolving gadget — solving it forces the subgame strategy to guarantee the
+        opponent AT LEAST its carried value for every holding, the safety hook."""
+        g = self.gadget
+        opp = 1 - g
+        H = self.H
+        key = node['curSeq']
+        reg = self.regret.get(key)
+        if reg is None:
+            reg = [[0.0, 0.0] for _ in range(H)]      # [ENTER, TERMINATE]
+            self.regret[key] = reg
+            self.strat[key] = [[0.0, 0.0] for _ in range(H)]
+        strat_sum = self.strat[key]
+        sigma = [_regret_match_plus(reg[i]) for i in range(H)]
+        sigma_F = [sigma[i][0] for i in range(H)]
+
+        e0, e1, term_g = self._gadget_children(reach, sigma_F, avg=False)
+        enter_g = e0 if g == 0 else e1
+        enter_o = e1 if g == 0 else e0                # opponent CFV (ENTER only)
+
+        cfv_g = [0.0] * H
+        for i in range(H):
+            ri = reg[i]
+            si = strat_sum[i]
+            v_enter, v_term = enter_g[i], term_g[i]
+            v = sigma[i][0] * v_enter + sigma[i][1] * v_term
+            cfv_g[i] = v
+            rp = reach[g][i]
+            ri[0] = max(0.0, ri[0] + v_enter - v)
+            ri[1] = max(0.0, ri[1] + v_term - v)
+            si[0] += rp * sigma[i][0]
+            si[1] += rp * sigma[i][1]
+        # opponent's CFV flows ONLY from the entered subgame (terminate is the
+        # gadget player's own outside option; the opponent gets no play there).
+        cfv_o = [enter_o[i] for i in range(H)]
+        return (cfv_g, cfv_o) if g == 0 else (cfv_o, cfv_g)
+
     # ── CFR+ traversal (one iteration; mutates regret/strategy sums) ──
     def _cfr(self, node: dict, reach: List[List[float]]):
+        if node.get('phase') == 'gadget':
+            return self._cfr_gadget(node, reach)
         if self._is_leaf(node):
             return self._leaf_value(node, reach)
         p = node['toAct']
@@ -477,8 +594,26 @@ class _Resolver:
             return [x / s for x in row]
         return [1.0 / A] * A
 
+    def _eval_avg_gadget(self, node: dict, reach: List[List[float]]):
+        """Gadget node under the AVERAGE ENTER/TERMINATE mix (no updates)."""
+        g = self.gadget
+        opp = 1 - g
+        H = self.H
+        key = node['curSeq']
+        sigma = [self._avg_sigma_row(key, i, 2) for i in range(H)]
+        sigma_F = [sigma[i][0] for i in range(H)]
+        e0, e1, term_g = self._gadget_children(reach, sigma_F, avg=True)
+        enter_g = e0 if g == 0 else e1
+        enter_o = e1 if g == 0 else e0
+        cfv_g = [sigma[i][0] * enter_g[i] + sigma[i][1] * term_g[i]
+                 for i in range(H)]
+        cfv_o = [enter_o[i] for i in range(H)]
+        return (cfv_g, cfv_o) if g == 0 else (cfv_o, cfv_g)
+
     def _eval_avg(self, node: dict, reach: List[List[float]]):
         """CFVs under the average strategy (no updates) — the net's target."""
+        if node.get('phase') == 'gadget':
+            return self._eval_avg_gadget(node, reach)
         if self._is_leaf(node):
             return self._leaf_value(node, reach)
         p = node['toAct']
@@ -506,7 +641,66 @@ class _Resolver:
             self._cfr(self.root, [self.range[0][:], self.range[1][:]])
         cfv0, cfv1 = self._eval_avg(self.root, [self.range[0][:], self.range[1][:]])
         self.root_cfv = (cfv0, cfv1)
+        if self.gadget is not None:
+            self._record_term_margins()
         return cfv0, cfv1
+
+    # ── terminate-margin telemetry (always on when the gadget is on) ──────────
+    def _record_term_margins(self):
+        """Per-holding SAFETY MARGIN of the re-solve: how much value the gadget
+        player can guarantee itself by BEST-RESPONDING inside the re-solved
+        subgame, minus its carried counterfactual floor w[i].
+
+            margin[i] = BR_gadget(subgame vs hero's re-solved avg strategy)[i]
+                        - w[i]
+
+        This is the DeepStack / CFR-D safety property stated directly: a SOUND
+        re-solve defends the gadget player to AT LEAST its carried value on every
+        holding, i.e. margin[i] >= 0 (up to solve error). A clearly-NEGATIVE
+        entry means the hero's strategy fails to deliver the promised floor for
+        some opponent holding — an UNSAFE / unconverged re-solve (the composite
+        exploitability bound would be violated). It is computed exactly (via the
+        inherited best-response `_br` over the real betting subroot, with the
+        hero's full range fixed to its average strategy), NOT with a forced
+        sigma_F=1 entry — so the margin reflects the guarantee the hero actually
+        provides against an opponent free to choose its own subgame range, which
+        is precisely what "safe" means here. (An always-non-negative margin also
+        distinguishes it from the gadget player's own ENTER-vs-TERMINATE
+        indifference gap, which is legitimately negative wherever the opponent
+        optimally declines to enter.)"""
+        g = self.gadget
+        opp = 1 - g
+        # gadget player best-responds inside the subgame; the opponent (hero,
+        # whose range we trust) plays its re-solved average strategy at full reach.
+        # `_br` is exact only over a betting subgame with NO deal boundary (7th-
+        # street stud / a single draw round — exactly the certified-safe rungs).
+        # If the subgame deals a public card (depth-limited early-street re-solve),
+        # the exact floor check is unavailable; leave margins None rather than
+        # raise, so the gadget still runs (its safety is then the net-leaf's).
+        try:
+            br_g = self._br(self._subroot, self.range[opp][:], g)
+        except NotImplementedError:
+            self._term_margin = None
+            return
+        w = self._carried_cfv
+        self._term_margin = [br_g[i] - w[i] for i in range(self.H)]
+
+    def terminate_margins(self) -> Optional[List[float]]:
+        """The per-holding safety margins from the last solve (None if the gadget
+        was off, or if an exact floor check was unavailable — a deal-boundary
+        subgame). margin[i] = gadget-player best-response value inside the
+        re-solved subgame minus its carried floor w[i]. >= 0 everywhere == the
+        re-solve delivered every carried counterfactual floor (safe); any clearly
+        negative entry is a red flag (the floor is not met -> unsafe)."""
+        return None if self._term_margin is None else list(self._term_margin)
+
+    def min_terminate_margin(self) -> Optional[float]:
+        """The worst (smallest) safety margin — the single safety scalar. A value
+        >= -tol certifies the re-solve met every carried CFV floor; a clearly-
+        negative value signals an unsafe re-solve. None if the gadget was off or
+        the exact floor check was unavailable (deal-boundary subgame)."""
+        m = self._term_margin
+        return None if m is None else min(m)
 
     # ── exact best response (exploitability gauge; 7th street only) ──
     def _br_leaf(self, node: dict, reach_fixed: List[float], brp: int) -> List[float]:
@@ -573,6 +767,30 @@ class _Resolver:
         rep: Dict[str, dict] = {}
 
         def rec(node: dict, reach: List[List[float]]):
+            if node.get('phase') == 'gadget':
+                g = self.gadget
+                key = node['curSeq']
+                sig = [self._avg_sigma_row(key, i, 2) for i in range(self.H)]
+                tot = sum(reach[g])
+                if tot > 0:
+                    freq = [0.0, 0.0]
+                    for i in range(self.H):
+                        rp = reach[g][i]
+                        freq[0] += rp * sig[i][0]
+                        freq[1] += rp * sig[i][1]
+                    freq = [f / tot for f in freq]
+                else:
+                    freq = [0.5, 0.5]
+                rep[key] = {'player': g, 'actions': ['ENTER', 'TERMINATE'],
+                            'freq': freq}
+                # recurse into the real subgame with the gadget player's ENTERED
+                # reach (reach*sigma_F) and the opponent's full reach — so the
+                # betting-tree node keys/frequencies below match a plain solve.
+                sub_reach = [None, None]
+                sub_reach[g] = [reach[g][i] * sig[i][0] for i in range(self.H)]
+                sub_reach[1 - g] = reach[1 - g]
+                rec(self._subroot, sub_reach)
+                return
             if self._is_leaf(node):
                 return
             p = node['toAct']
@@ -602,11 +820,26 @@ class _Resolver:
         return rep
 
 
+def _pick_backend(backend: Optional[str]) -> str:
+    """Resolve the CFR backend: explicit arg > RESOLVE_BACKEND env > 'pure'.
+
+    'numpy' selects the vectorized twin (resolve_fast / resolve_draw2_fast)
+    when NumPy is importable; anything else — and any import failure — is the
+    pure-Python reference. The pure path stays the DEFAULT so datagen and the
+    production oracle worker (oracle_worker.py) run on stock python3 with no
+    numpy anywhere in their import graph."""
+    b = backend if backend is not None else os.environ.get('RESOLVE_BACKEND', '')
+    return 'numpy' if str(b).strip().lower() in ('numpy', 'np') else 'pure'
+
+
 def resolve_subgame(pbs, iters: int = 1000, depth_limit: Optional[int] = None,
                     leaf_value_fn: Optional[Callable] = None,
                     holdings: Optional[List[tuple]] = None,
                     share_matrix: Optional[List[List[float]]] = None,
-                    game: Optional['GameSpec'] = None) -> dict:
+                    game: Optional['GameSpec'] = None,
+                    backend: Optional[str] = None,
+                    gadget_player: Optional[int] = None,
+                    carried_cfv: Optional[List[float]] = None) -> dict:
     """Run CFR on the subgame rooted at `pbs` (start of its street's betting).
 
     Args:
@@ -624,6 +857,25 @@ def resolve_subgame(pbs, iters: int = 1000, depth_limit: Optional[int] = None,
             support). Restricting to nonzero-reach holdings is exact and far
             faster for narrow / node-locked ranges (study). Default: all
             enumerate_holdings(board, k).
+        backend: None (default) reads RESOLVE_BACKEND from the environment;
+            'numpy' routes to the vectorized twin resolve_fast.resolve_subgame_fast
+            (numerically equivalent — same tree, same CFR+ recurrences, same
+            iteration schedule; only float summation order differs). Anything
+            else, or numpy being unimportable, runs this pure-Python reference.
+        gadget_player: opt-in CFR-D SAFE RE-SOLVING (default None = OFF, plain
+            re-solve). When set to a seat (0/1), that seat is the "gadget player"
+            whose range we do NOT know — instead we carry its per-holding
+            counterfactual values `carried_cfv` and splice a terminate-or-enter
+            gadget above the betting root (see _Resolver). `pbs.ranges[gadget_player]`
+            is still supplied (its magnitudes are the gadget player's prior reach
+            into the gadget node, i.e. the range it had at the trunk); its
+            equilibrium subgame range is re-derived by the gadget. The re-solve is
+            exploitability-safe (composite <= blueprint expl + subgame solve
+            error). Routes through the pure backend only (the numpy twin has no
+            gadget).
+        carried_cfv: per-holding counterfactual values for the gadget player
+            (chips), aligned to `holdings` — from carry.carry_cfv() of a prior
+            solve. Required iff gadget_player is set.
 
     Returns:
         dict with:
@@ -634,24 +886,48 @@ def resolve_subgame(pbs, iters: int = 1000, depth_limit: Optional[int] = None,
           value:          [v_me, v_opp] = range-weighted root CFVs (game value)
           exploitability: best-response gap (7th street only; else absent)
           iters:          iterations run
+          gadget:         (only when gadget_player set) {'player', 'carried_cfv',
+                          'min_terminate_margin', 'terminate_margins'} — the
+                          always-on safety telemetry; a NEGATIVE margin flags an
+                          unsafe re-solve.
     """
+    if gadget_player is None and _pick_backend(backend) == 'numpy':
+        try:
+            from resolve_fast import resolve_subgame_fast
+        except Exception:                # no numpy on this box -> pure fallback
+            pass
+        else:
+            return resolve_subgame_fast(pbs, iters=iters,
+                                        depth_limit=depth_limit,
+                                        leaf_value_fn=leaf_value_fn,
+                                        holdings=holdings,
+                                        share_matrix=share_matrix, game=game)
     street = pbs.street
     R = _Resolver(street, pbs.up, pbs.dead, float(pbs.pot),
                   list(pbs.ranges[0]), list(pbs.ranges[1]),
                   leaf_value_fn, iters, depth_limit, holdings=holdings,
-                  share_matrix=share_matrix, game=game)
+                  share_matrix=share_matrix, game=game,
+                  gadget_player=gadget_player, carried_cfv=carried_cfv)
     cfv0, cfv1 = R.solve()
+    subroot = R._subroot if R.gadget is not None else R.root
     out = {
         'strategy': R.strategy_report(),
         'cfv': [cfv0, cfv1],
         'holdings': R.holdings,
-        'pot': R.root['contrib'][0] + R.root['contrib'][1],
+        'pot': subroot['contrib'][0] + subroot['contrib'][1],
         'value': [sum(R.range[0][i] * cfv0[i] for i in range(R.H)),
                   sum(R.range[1][i] * cfv1[i] for i in range(R.H))],
         'iters': iters,
     }
-    if R.st0 == 4:
+    if R.st0 == 4 and R.gadget is None:
         out['exploitability'] = R.exploitability()
+    if R.gadget is not None:
+        out['gadget'] = {
+            'player': R.gadget,
+            'carried_cfv': list(R._carried_cfv),
+            'min_terminate_margin': R.min_terminate_margin(),
+            'terminate_margins': R.terminate_margins(),
+        }
     return out
 
 

@@ -68,13 +68,21 @@ class _DrawResolver(_Resolver):
     def __init__(self, holdings: List[tuple], pot: float,
                  range0: List[float], range1: List[float],
                  iters: int, street: int = 3, bet_size: Optional[int] = None,
-                 game: Optional[GameSpec] = None):
+                 game: Optional[GameSpec] = None,
+                 gadget_player: Optional[int] = None,
+                 carried_cfv: Optional[List[float]] = None):
         self._street = street
         self._bet = bet_size if bet_size is not None else draw_bet_size(street)
         self._pot0 = float(pot)
         # A draw hand has NO public/upcards: the "board" that removes cards from
         # the deck is empty, holdings are the raw 4-card hands, and _share() runs
         # the GameSpec on the holdings directly (self.up[*] are []).
+        # The CFR-D SAFE RE-SOLVING GADGET is inherited verbatim from _Resolver
+        # (it lives in the shared _cfr / _eval_avg / _br traversals, not the
+        # draw-specific betting seams), so it plugs in with a pure pass-through:
+        # `gadget_player` + `carried_cfv` splice the same terminate-or-enter
+        # pseudo-root above THIS class's draw betting root. Default None = OFF, so
+        # every existing draw solve / self-test stays byte-identical.
         super().__init__(
             street=7,                      # >=7 so base sets down_count k -> 3;
             up=[[], []], dead=[], pot=pot, # we override k below to 4 (badugi).
@@ -82,6 +90,7 @@ class _DrawResolver(_Resolver):
             leaf_fn=None, iters=iters, depth_limit=None,
             holdings=holdings, share_matrix=None,
             game=game if game is not None else BADUGI,
+            gadget_player=gadget_player, carried_cfv=carried_cfv,
         )
         self.k = HAND_SIZE                 # 4 private cards, not stud's 3
         self.street = street               # report the draw street (0..3)
@@ -146,13 +155,25 @@ class _DrawResolver(_Resolver):
 def resolve_draw_subgame(pbs: PBS, iters: int = 1000, street: int = 3,
                          bet_size: Optional[int] = None,
                          holdings: Optional[List[tuple]] = None,
-                         game: Optional[GameSpec] = None) -> dict:
+                         game: Optional[GameSpec] = None,
+                         gadget_player: Optional[int] = None,
+                         carried_cfv: Optional[List[float]] = None) -> dict:
     """Solve the M1 single-round DRAW (badugi) subgame rooted at `pbs`.
 
     `pbs.ranges` are over `holdings` (the 4-card badugi hands); if `holdings` is
     None it defaults to all C(unseen(pbs.dead), 4) — pass `pbs.dead` = the cards
     removed by the (irrelevant-here) public state, usually []. Returns the same
     dict shape as resolve.resolve_subgame, including the exact `exploitability`.
+
+    `gadget_player` / `carried_cfv` opt in to the CFR-D SAFE RE-SOLVING GADGET
+    (default None = OFF; a plain re-solve, byte-identical to before). When set,
+    that seat's per-holding range is unknown and its carried counterfactual
+    values `carried_cfv` (from carry.carry_cfv of a prior solve, aligned to
+    `holdings`) are defended by a terminate-or-enter gadget spliced above the
+    draw betting root — the same machinery resolve.resolve_subgame exposes for
+    stud, inherited unchanged (the gadget is game-agnostic). The output then
+    carries a `gadget` block with the always-on terminate-margin safety
+    telemetry.
     """
     if holdings is None:
         from itertools import combinations
@@ -161,18 +182,32 @@ def resolve_draw_subgame(pbs: PBS, iters: int = 1000, street: int = 3,
         holdings = list(combinations(live, HAND_SIZE))
     R = _DrawResolver(holdings, float(pbs.pot),
                       list(pbs.ranges[0]), list(pbs.ranges[1]),
-                      iters=iters, street=street, bet_size=bet_size, game=game)
+                      iters=iters, street=street, bet_size=bet_size, game=game,
+                      gadget_player=gadget_player, carried_cfv=carried_cfv)
     cfv0, cfv1 = R.solve()
-    return {
+    subroot = R._subroot if R.gadget is not None else R.root
+    out = {
         'strategy': R.strategy_report(),
         'cfv': [cfv0, cfv1],
         'holdings': R.holdings,
-        'pot': R.root['contrib'][0] + R.root['contrib'][1],
+        'pot': subroot['contrib'][0] + subroot['contrib'][1],
         'value': [sum(R.range[0][i] * cfv0[i] for i in range(R.H)),
                   sum(R.range[1][i] * cfv1[i] for i in range(R.H))],
         'iters': iters,
-        'exploitability': R.exploitability(),
     }
+    # Exact exploitability is the plain-subgame gauge; the gadget root is not a
+    # normal game node, so it is reported only when the gadget is OFF (a gadget
+    # solve's safety gauge is the terminate-margin block below instead).
+    if R.gadget is None:
+        out['exploitability'] = R.exploitability()
+    if R.gadget is not None:
+        out['gadget'] = {
+            'player': R.gadget,
+            'carried_cfv': list(R._carried_cfv),
+            'min_terminate_margin': R.min_terminate_margin(),
+            'terminate_margins': R.terminate_margins(),
+        }
+    return out
 
 
 # ── first-actor / draw-order helpers (parity with draw-game.js) ────────────
