@@ -5,7 +5,7 @@
 //   Needs doing — a longer-term backlog of one-offs that persist until done
 // All state in localStorage (date-keyed checklist + two editable lists).
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
 import {
   todaysHome,
@@ -16,6 +16,7 @@ import {
 } from '../engine/home'
 import { CATEGORY_META, HOME_LIBRARY, type HomeCadence, type HomeCategory } from '../db/home'
 import { updateAppBadge } from '../db/badge'
+import { writeLocal, LOCAL_UPDATED_EVENT } from '../db/syncLocal'
 import { todayISO, isThisWeek, uid } from '../engine/format'
 
 const DONE_KEY = 'wsop-home-done' // { [dateISO]: taskId[] }
@@ -53,7 +54,7 @@ function initialBacklog(): BacklogItem[] {
       done: t.done,
       created: t.date ?? todayISO(),
     }))
-    localStorage.setItem(BACKLOG_KEY, JSON.stringify(migrated))
+    writeLocal(BACKLOG_KEY, migrated)
     localStorage.removeItem(LEGACY_TODOS)
     return migrated
   }
@@ -90,10 +91,22 @@ export function HomeCard() {
   const count = homeContribution(doneThisWeek)
   const openBacklog = backlog.filter((b) => !b.done).length
 
+  // Reflect a remote sync that changed the home lists underneath.
+  useEffect(() => {
+    const h = () => {
+      setDoneMap(load<DoneMap>(DONE_KEY, {}))
+      setRegulars(load<CustomRegular[]>(REGULAR_KEY, []))
+      setBacklog(load<BacklogItem[]>(BACKLOG_KEY, []))
+      updateAppBadge()
+    }
+    window.addEventListener(LOCAL_UPDATED_EVENT, h)
+    return () => window.removeEventListener(LOCAL_UPDATED_EVENT, h)
+  }, [])
+
   // ── persistence helpers ──
   const persistDone = (next: DoneMap) => {
     setDoneMap(next)
-    localStorage.setItem(DONE_KEY, JSON.stringify(next))
+    writeLocal(DONE_KEY, next)
   }
   const toggleDone = (id: string) => {
     const cur = doneMap[today] ?? []
@@ -102,11 +115,11 @@ export function HomeCard() {
   }
   const persistRegulars = (next: CustomRegular[]) => {
     setRegulars(next)
-    localStorage.setItem(REGULAR_KEY, JSON.stringify(next))
+    writeLocal(REGULAR_KEY, next)
   }
   const persistBacklog = (next: BacklogItem[]) => {
     setBacklog(next)
-    localStorage.setItem(BACKLOG_KEY, JSON.stringify(next))
+    writeLocal(BACKLOG_KEY, next)
     updateAppBadge()
   }
 

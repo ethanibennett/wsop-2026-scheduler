@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { useToast } from '../components/Toast'
+import { writeLocal } from '../db/syncLocal'
 import {
   PROTEIN_TARGET,
   PRINCIPLES,
@@ -61,13 +62,13 @@ export function NutritionView() {
   const toggle = (item: string) => {
     setChecks((cur) => {
       const next = { ...cur, [item]: !cur[item] }
-      localStorage.setItem(SHOP_KEY, JSON.stringify(next))
+      writeLocal(SHOP_KEY, next)
       return next
     })
   }
   const clearChecks = () => {
     setChecks({})
-    localStorage.setItem(SHOP_KEY, '{}')
+    writeLocal(SHOP_KEY, {})
   }
 
   return (

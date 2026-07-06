@@ -111,3 +111,12 @@ The "I can't remember everything I could be doing" problem: the app surfaces con
 - [x] **Edit a past day** (Health rhythm card — backfill routine ticks) + **true-value ranges** on the Dash chart when ≤2 series shown.
 - Skipped by design: **editable nudge times** — needs server-side override storage + cron re-registration for modest value; if wanted, do it as a deliberate server change (store overrides in a table, re-register jobs on change), not an unsupervised patch.
 - **138 tests.**
+
+## Cross-device sync (2026-07-05) — the structural gap, closed
+Data now syncs across devices through the gated server; local-first preserved.
+- **Model:** full-state last-write-wins (dataset is small, so no cursor deltas). `db/sync.ts` pure merge (tested). Persistence uses the **existing `/data` SQLite disk** — no new infra/cost.
+- **Server:** `console_records(store,id,data,updated_at,deleted)` table + `POST /console/api/sync` (gated, INSERT..ON CONFLICT LWW, `getRowsModified` guards the disk write, returns the merged set).
+- **Client A (IndexedDB):** `putRecord` stamps `updatedAt`, `deleteRecord` leaves a tombstone (DB **v3**), `collect/applySyncRecords`; `syncClient.runSync`; store triggers on load/focus/2-min-backstop/debounced-after-edit; Settings sync status + "Sync now".
+- **Client B (localStorage):** `db/syncLocal.ts` — stamped `writeLocal` + a `LOCAL_UPDATED_EVENT` re-read; covers Home lists, admin checklist/tax-rate/staking, balances, nutrition shopping, presets, intention. Excludes device-local state (live session, celebration UI).
+- **Adoption note:** seed from the data-rich device first (Sync now), then open the other. Legacy pre-sync records carry `updatedAt=0`; ties resolve last-writer-wins, which only matters for same-key conflicts (settings, same-day rhythm) — rare for one user.
+- Verified live: migration log "Created console_records table"; edit round-trips phone↔laptop.
