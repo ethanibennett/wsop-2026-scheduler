@@ -7627,13 +7627,19 @@ function drawGradeToContract(g) {
     // ── Pro-mode oracle metadata (present only when oracle grading is on; the
     // default blueprint path leaves these undefined so the payload is byte-
     // identical to today). Mirrors the stud trainerStep mapping. ──
-    gradeSource: g.gradeSource,                         // 'oracle' | 'blueprint' | undefined
+    gradeSource: g.gradeSource,                         // 'oracle' | 'certified-net' | 'blueprint' | undefined
     blueprintEvLoss: g.blueprintEvLoss,
     oracleGradeTrusted: g.oracleGradeTrusted,
     oracleGradeTrust: g.oracleGradeTrust,
     oracleResolveExploitability: g.oracleResolveExploitability,
     oracleIters: g.oracleIters,
     oracleExploitability: g.oracleExploitability,       // back-compat alias
+    // ── CERTIFIED-NET metadata (first neural grade; pre-last-draw badugi). Present
+    // only when gradeSource === 'certified-net'. HONEST: certificationSB is the
+    // net's certified mean grade error (0.059 SB) — NOT an exact/GTO guarantee. ──
+    certificationSB: g.certificationSB,                 // certified mean grade error (SB)
+    netValueGauge: g.netValueGauge,                     // net zero-sum residual (~0 = in-distribution)
+    forwardMode: g.forwardMode,                         // 'certified-net' | 'oracle-exact' | 'exact-forward' | 'mc-forward'
     // ── RANGE-SENSITIVE honesty flag (present only when oracle grading is on) ──
     // rangeSensitive → the oracle best action flipped or the evLoss spread > ~2
     // chips across a prior ensemble; the grade is SHOWN but chargedEvLoss is 0

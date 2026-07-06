@@ -480,7 +480,7 @@ export default function RazzTrainerView() {
           {stepping ? 'Advancing the hand…' : 'Opponent to act…'}
           {stepping && proMode && proModeAvailable(game) && (
             <span style={{ display: 'block', marginTop: 4, fontSize: '0.68rem' }}>
-              Pro mode — if the hand ends, each {oracleStreetLabel(game)} decision runs an exact GTO re-solve (~1–5s).
+              Pro mode — if the hand ends, each {oracleStreetLabel(game)} decision runs an exact GTO re-solve (~1–5s){game === 'badugi' ? '; each pre-last-draw bet is graded by the certified value net (~0.06 SB)' : ''}.
             </span>
           )}
         </div>
@@ -507,6 +507,19 @@ export default function RazzTrainerView() {
                     border: '1px solid var(--accent)', color: 'var(--accent)',
                   }}>
                   pro · true-GTO {catOf(game) === 'draw' ? 'final' : '7th'}
+                </span>
+              )}
+              {/* CERTIFIED-NET provenance (first neural grade): pre-last-draw badugi
+                  bet decisions graded by the trained value net. Kept visually
+                  DISTINCT from 'true-GTO' — a certified approximator, not exact. */}
+              {grades.some((g) => g.gradeSource === 'certified-net') && (
+                <span title={`Pro mode — pre-last-draw badugi bet decisions in this hand were graded by the CERTIFIED value net (a neural approximator of GTO, mean grade error ~0.06 small bets), NOT an exact re-solve. Each card is tagged with its grade source.`}
+                  style={{
+                    marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.54rem', fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                    border: '1px dashed var(--accent)', color: 'var(--accent)',
+                  }}>
+                  pro · certified net ~0.06 SB
                 </span>
               )}
             </span>
@@ -1140,13 +1153,22 @@ function GradeCard({ g, game }) {
   // (Pro mode). 'oracle' = this decision was graded by the exact true-GTO
   // re-solve; 'blueprint' = it used the bucketed blueprint. undefined = the
   // default (blueprint) grader ran and never tagged provenance → show nothing.
-  const gradeSource = g.gradeSource; // 'oracle' | 'blueprint' | undefined
+  const gradeSource = g.gradeSource; // 'oracle' | 'certified-net' | 'blueprint' | undefined
   const isOracleGrade = gradeSource === 'oracle';
-  // A decision on the oracle-eligible street (stud 7th / draw post-last-draw bet)
-  // that still came back as 'blueprint' under Pro mode means the oracle was
-  // unavailable and it fell back — surface that honestly rather than passing it off
-  // as true-GTO.
-  const oracleFellBack = gradeSource === 'blueprint' && onOracleStreet(game, g);
+  // CERTIFIED NET (first neural grade): pre-last-draw badugi bet graded by the
+  // trained value net (torch-free numpy serving). This is HONESTLY distinct from
+  // the exact 'true GTO' oracle — it is an APPROXIMATOR with a certified mean grade
+  // error (certificationSB, ~0.06 SB), NOT an exact/GTO guarantee.
+  const isNetGrade = gradeSource === 'certified-net';
+  const certSB = (typeof g.certificationSB === 'number') ? g.certificationSB : 0.06;
+  // A decision on an oracle/net-eligible street (stud 7th / draw post-last-draw bet
+  // / badugi pre-last-draw bet) that still came back as 'blueprint' under Pro mode
+  // means the exact/net path was unavailable and it fell back — surface that
+  // honestly rather than passing it off as true-GTO / certified.
+  const netEligibleStreet = catOf(game) === 'draw' && game === 'badugi'
+    && g.street === 2 && (g.kind || (g.phase === 'draw' ? 'draw' : 'bet')) === 'bet';
+  const oracleFellBack = gradeSource === 'blueprint'
+    && (onOracleStreet(game, g) || netEligibleStreet);
   // trust flag from the oracle (Fix 2): grade is trusted on EV-convergence.
   const oracleUnconverged = isOracleGrade && g.oracleGradeTrust && g.oracleGradeTrust !== 'ev-converged';
   // RANGE-SENSITIVE ("shown, not charged"): the oracle best action flipped or the
@@ -1210,14 +1232,24 @@ function GradeCard({ g, game }) {
               true GTO
             </span>
           )}
+          {isNetGrade && (
+            <span title={`Graded by the CERTIFIED value net (torch-free) — a neural approximator of GTO for this pre-last-draw badugi spot, NOT an exact re-solve. Certified mean grade error ~${certSB.toFixed(2)} small bets.${g.netValueGauge != null ? ` · net zero-sum residual ${Number(g.netValueGauge).toExponential(1)}` : ''}`}
+              style={{
+                marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                border: '1px solid var(--accent)', color: 'var(--accent)',
+              }}>
+              certified net · ~{certSB.toFixed(2)} SB
+            </span>
+          )}
           {oracleFellBack && (
-            <span title={`Pro mode was on, but the exact re-solver was unavailable for this ${oracleStreetLabel(game)} decision — this grade fell back to the blueprint bot. Treat it as an ordinary blueprint grade, not true GTO.`}
+            <span title={`Pro mode was on, but the ${netEligibleStreet ? 'certified value net' : 'exact re-solver'} was unavailable for this decision — this grade fell back to the blueprint bot. Treat it as an ordinary blueprint grade, not ${netEligibleStreet ? 'a certified-net grade' : 'true GTO'}.`}
               style={{
                 marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
                 border: '1px solid var(--warn, #f59e0b)', color: 'var(--warn, #f59e0b)',
               }}>
-              oracle unavailable · blueprint grade
+              {netEligibleStreet ? 'net unavailable · blueprint grade' : 'oracle unavailable · blueprint grade'}
             </span>
           )}
           {gradeSource === 'blueprint' && !oracleFellBack && (

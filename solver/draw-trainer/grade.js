@@ -581,6 +581,171 @@ function oracleDrawRange(game, strategyMap, handRecord, gradeIdx, heroSeat, opts
   return { range, distinct };
 }
 
+// ── CERTIFIED-NET PRE-LAST-DRAW badugi grading (M-PROD, first neural grade) ────
+// The exact resolver above grades POST-last-draw (street 3, deal-free showdown).
+// The PRE-last-draw betting round (street 2 — "After 2nd draw", the round BEFORE
+// the 3rd/last draw) has a private draw ahead of it, so it has no exact rung. It
+// IS served by the trained badugi value net (nets/badugi_draw1.npz, certified
+// 0.059 SB mean grade error) via a DEPTH-LIMITED net-leaf resolve in
+// oracle_worker.py's numpy path (mode:'net'). The net is the equilibrium value
+// function over pre-last-draw badugi nodes; per-action EV = the net's value of
+// each child node (after the hero action) for hero's bucket.
+//
+// SCOPE: badugi street-2 hero BET decisions ONLY. The provenance tier is ALWAYS
+// 'certified-net' (NEVER 'oracle'/'exact'/'GTO' — those are reserved for the pure-
+// python EXACT resolvers) with the honest certification surfaced. Every OTHER
+// decision stays on the blueprint or (street 3) the exact oracle. Any net failure
+// (worker down, numpy/asset missing, range empty, action mismatch) falls back to
+// the blueprint grade for that decision, tagged gradeSource:'blueprint'.
+
+// Only badugi has a certified pre-last-draw net (td27's net is not built/certified).
+const NET_DRAW_GAMES = new Set(['badugi']);
+
+// Which blueprint grades are eligible for a certified-net override?
+//   - badugi (the only game with a certified pre-last-draw net),
+//   - street 2 (the betting round BEFORE the 3rd/last draw), phase 'bet',
+//   - the hero is to act (snap.toAct === d.actor).
+function netEligible(game, handRecord, gradeIdx) {
+  if (!game || !NET_DRAW_GAMES.has(game.id)) return false;
+  const d = handRecord.decisions[gradeIdx];
+  const snap = d.state;
+  if (!snap || snap.street !== 2 || snap.phase !== 'bet') return false; // pre-last-draw bet only
+  if (snap.toAct !== d.actor) return false;                            // hero to act
+  return true;
+}
+
+// Build the certified-NET spot dict (what oracle_worker._solve_draw_net expects).
+// mode:'net' routes the worker to the numpy net path. Hero maps to SEAT 0 of
+// contrib/acted (the net's to-act convention: seat 0 = hero, to act). `range` is
+// the normalized [{hand,w}] systematic sample of the opponent posterior.
+function buildDrawNetSpot(game, handRecord, gradeIdx, range) {
+  const d = handRecord.decisions[gradeIdx];
+  const snap = d.state;
+  const heroSeat = d.actor;
+  const opp = 1 - heroSeat;
+  return {
+    game: game.id,
+    mode: 'net',
+    me: snap.hands[heroSeat].map(cardStr),
+    opp_range: range.map(c => [c.hand.map(cardStr), c.w]),
+    contrib: [snap.contrib[heroSeat], snap.contrib[opp]],
+    bets: snap.bets,
+    acted: [snap.acted[heroSeat], snap.acted[opp]],
+    toAct: 0,
+    street: 2,
+    draws_remaining: 1,
+  };
+}
+
+// Overlay a CERTIFIED-NET grade onto a blueprint grade for ONE pre-last-draw
+// badugi bet decision. Returns a NEW grade object with per-action EV / evLoss /
+// bestAction sourced from the net, tagged gradeSource:'certified-net'. On ANY
+// failure returns the BLUEPRINT grade (tagged gradeSource:'blueprint'). Mirrors
+// overlayDrawOracleGrade's shape so the client badge logic is shared — but the
+// tier is HONEST: certified-net + the 0.059-SB certification, never 'exact'/'GTO'.
+async function overlayDrawNetGrade(oracle, game, strategyMap, handRecord, g, opts) {
+  const gradeIdx = g.gradeIdx;
+  const d = handRecord.decisions[gradeIdx];
+  const heroSeat = d.actor;
+  const materializeBlueprint = () =>
+    (g && g.perActionEV) ? g : (opts.blueprintGrade ? opts.blueprintGrade() : g);
+  const asBlueprintGrade = () => {
+    const bp = materializeBlueprint();
+    return Object.assign({}, bp, {
+      gradeSource: 'blueprint',
+      blueprintEvLoss: bp.evLoss,
+    });
+  };
+  try {
+    if (!netEligible(game, handRecord, gradeIdx)) return asBlueprintGrade();
+    const built = oracleDrawRange(game, strategyMap, handRecord, gradeIdx, heroSeat, opts);
+    if (!built || !built.range.length) return asBlueprintGrade();
+    const spot = buildDrawNetSpot(game, handRecord, gradeIdx, built.range);
+    const res = await oracle.perActionEV(spot);
+    if (!res || !res.per_action_ev) return asBlueprintGrade();
+    if (res.tier !== 'certified-net') return asBlueprintGrade(); // must be the net path
+
+    // The net must cover exactly the hero's legal (betting) actions.
+    const acts = d.acts;
+    for (const a of acts) {
+      if (!(a in res.per_action_ev)) return asBlueprintGrade();
+    }
+    const perActionEV = {};
+    for (const a of acts) perActionEV[a] = res.per_action_ev[a];
+    let bestA = acts[0], bestEV = -Infinity;
+    for (const a of acts) if (perActionEV[a] > bestEV) { bestEV = perActionEV[a]; bestA = a; }
+    if (!Number.isFinite(bestEV)) return asBlueprintGrade();
+    const chosenEV = perActionEV[d.chosen];
+    if (chosenEV == null || !Number.isFinite(chosenEV)) return asBlueprintGrade();
+    const evLoss = Math.max(0, bestEV - chosenEV);
+
+    const snap = d.state;
+    // The net returns per-action VALUES, not a strategy — keep the blueprint's
+    // GTO mix for display (materialized lazily on the fallback path anyway).
+    const gtoMix = materializeBlueprint().gtoMix;
+
+    // ── RANGE-SENSITIVE honesty flag (same fragility mitigation as the exact
+    // draw path — a pre-last-draw grade is against a particle posterior too). ──
+    let rs = null;
+    if (opts.rangeSensitive !== false) {
+      const support = built.range;
+      const strengthScore = (typeof game.cfg.compare === 'function')
+        ? (hand) => {
+            let wins = 0;
+            for (const c of support) {
+              try { if (game.cfg.compare(hand, c.hand) > 0) wins++; } catch (e) { /* skip */ }
+            }
+            return wins;
+          }
+        : undefined;
+      rs = await computeRangeSensitivity({
+        oracle,
+        buildSpot: (range) => buildDrawNetSpot(game, handRecord, gradeIdx, range),
+        baseRange: built.range,
+        acts,
+        chosen: d.chosen,
+        strengthScore,
+        spreadThreshold: opts.rangeSensitiveThreshold,
+      });
+    }
+    const flagged = !!(rs && rs.rangeSensitive);
+    const chargeZeroed = flagged && opts.rangeSensitiveCharge !== false;
+
+    const out = Object.assign({}, materializeDrawShell(g, game, d, gtoMix), {
+      gradeIdx,
+      // HONEST provenance: certified NET, not exact/GTO. The certification
+      // (0.059 SB mean grade error) rides along so the client badge is truthful.
+      gradeSource: 'certified-net',
+      certificationSB: (typeof res.certification_sb === 'number') ? res.certification_sb : 0.059,
+      perActionEV,
+      bestActionId: bestA,
+      bestActionLabel: game.actionLabel(bestA, snap),
+      evLoss,
+      evLossSE: 0,                          // net value function → no MC forward SE
+      gtoMix,
+      forwardMode: 'certified-net',
+      // Honest net self-consistency gauge (zero-sum residual at the decision node;
+      // ~0 by the ZeroSumLayer — a large value would flag an off-distribution query).
+      netValueGauge: (typeof res.net_value_gauge === 'number') ? res.net_value_gauge : undefined,
+      // NOT trust-labelled 'ev-converged' — the net is an APPROXIMATOR, not a
+      // converging exact solve; its trust is the CERTIFICATION, surfaced above.
+      oppCombos: built.range.length,
+      rangeDistinct: built.distinct,
+      pot: (typeof res.pot === 'number') ? res.pot : undefined,
+    });
+    if (rs) {
+      out.rangeSensitive = flagged;
+      out.rangeSensitiveSpread = rs.rangeSensitiveSpread;
+      out.rangeSensitiveFlip = rs.rangeSensitiveFlip;
+      out.rangeSensitiveEnsemble = rs.ensembleSize;
+      out.chargedEvLoss = chargeZeroed ? 0 : evLoss;
+    }
+    return out;
+  } catch (e) {
+    return asBlueprintGrade(); // never let the net break a grade
+  }
+}
+
 // Build the draw oracle spot dict (what oracle_worker._solve_draw expects — the
 // SAME shape draw_misgrade_study.js builds). Hero maps to SEAT 0 of contrib/acted
 // (the resolver treats the to-act player as seat 0; facing = contrib[1]-contrib[0]
@@ -852,7 +1017,14 @@ async function gradeHandWithOracle(handRecord, blueprint, opts = {}) {
   for (let i = 0; i < handRecord.decisions.length; i++) {
     const dec = handRecord.decisions[i];
     if (!dec.isHero) continue;
-    if (oracleEligible(game, handRecord, i)) {
+    if (netEligible(game, handRecord, i)) {
+      // CERTIFIED-NET: pre-last-draw (street 2) badugi bet decision → the trained
+      // value net (first neural grade to prod). Skip the blueprint grade up front;
+      // it's the lazy fallback if the net path fails.
+      const stub = { gradeIdx: i };
+      grades.push(await overlayDrawNetGrade(oracle, game, strategyMap, handRecord,
+        stub, Object.assign({}, o, { blueprintGrade: () => blueprintDecision(i) })));
+    } else if (oracleEligible(game, handRecord, i)) {
       // Eligible: skip the blueprint grade; oracle grades directly. The blueprint
       // grade is available ONLY on fallback, computed lazily inside the overlay.
       const stub = { gradeIdx: i };
@@ -912,11 +1084,14 @@ function gradeHand(handRecord, blueprint, opts = {}) {
 
 module.exports = {
   gradeHand,
-  gradeHandWithOracle,     // opt-in: overlay the exact post-last-draw oracle
+  gradeHandWithOracle,     // opt-in: overlay the exact post-last-draw oracle + certified net
   overlayDrawOracleGrade,
+  overlayDrawNetGrade,     // CERTIFIED-NET pre-last-draw badugi overlay (first neural grade)
   buildDrawOracleSpot,
+  buildDrawNetSpot,
   oracleDrawRange,
   oracleEligible,
+  netEligible,             // badugi street-2 (pre-last-draw) bet decision
   particlesToRange,        // systematic-stride posterior sampler (shared w/ study)
   gradeDecision,
   buildPosterior,

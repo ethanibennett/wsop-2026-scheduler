@@ -51,6 +51,32 @@ of the stud path — the stud request/response handling above is untouched.
 Anything malformed — wrong hand size, empty/colliding range, a street other
 than 3 (a PRE-last-draw node needs the 2-round tree / a value-net leaf and is
 NOT served here) — returns {"ok":false,...} for the JS blueprint fallback.
+
+CERTIFIED-NET DRAW GRADE (M-PROD, badugi PRE-last-draw): a request with
+"mode":"net" (game "badugi", street 2 = the betting round BEFORE the 3rd/last
+draw) is graded by the trained badugi value net (nets/badugi_draw1.npz, certified
+0.059 SB mean grade error) served TORCH-FREE via net_forward_numpy.NumpyValueNet.
+The net is the equilibrium value function over any pre-last-draw betting node of
+the one-draw (final-draw) subgame; per-action EV = the net's value of each child
+node (after the hero action) for hero's bucket. This is a DEPTH-LIMITED
+pre-last-draw resolve with the net as the post-last-draw boundary. The EXACT
+tiers above stay pure-python — numpy is imported ONLY inside this net path, so
+post-last-draw + stud paths never require numpy.
+
+  request:  {"id": <any>, "game": "badugi", "mode": "net",
+             "me": ["As","2d","3c","5h"],            # hero's exact 4-card hand
+             "opp_range": [[["Kh","Qs","9c","8d"], w], ...],  # posterior
+             "contrib": [c_hero, c_opp],  # TOTAL chips in this hand
+             "bets": 0, "acted": [false,false], "toAct": 0,
+             "street": 2, "draws_remaining": 1}
+  response: {"id":..., "ok": true, "tier": "certified-net",
+             "certification_sb": 0.059, "per_action_ev": {"f":..,"c":..,"r":..},
+             "net_value_gauge": <|zero-sum residual|>, "pot": <chips>}
+
+The tier is ALWAYS labelled 'certified-net' (NEVER 'exact'/'GTO' — those are
+reserved for the pure-python exact resolvers) with the honest certification.
+Any malformed net request, or badugi net asset missing, returns {"ok":false,...}
+so the JS side falls back to the blueprint grade.
 """
 from __future__ import annotations
 
@@ -119,6 +145,228 @@ def _solve_draw(req: dict) -> dict:
         "gtoMix": out["gtoMix"],
         "exploitability": out["exploitability"],
         "pot": out["pot"],
+    }
+
+
+# ── CERTIFIED-NET pre-last-draw badugi path (numpy, guarded) ─────────────────
+# All numpy + net machinery is confined to this section and imported lazily
+# INSIDE the functions, so the exact tiers (stud, post-last-draw draw) never
+# import numpy. The net (nets/badugi_draw1.npz) is a torch-free NumpyValueNet
+# whose forward is bit-exact vs torch (3.9e-14, commit 7e9598e).
+_NET_STATE = {"net": None, "loaded": False, "error": None}
+
+# The badugi net models the ONE-DRAW (final-draw) subgame as a
+# small-bet(pre_bet=2) round -> 1 draw -> big-bet(post_bet=4) round -> showdown,
+# with draws_left=1 — the exact constants train_badugi/datagen_badugi trained on.
+_NET_PRE_BET = 2
+_NET_POST_BET = 4
+_NET_CAP = 4
+_NET_CERT_SB = 0.059      # certified mean grade error (badugi_draw1, M6)
+
+
+def _net_path():
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, "nets", "badugi_draw1.npz")
+
+
+def _load_net():
+    """Lazy-load the badugi NumpyValueNet ONCE. Never raises — on any failure
+    sets _NET_STATE['error'] and returns False so the caller emits ok:false (JS
+    blueprint fallback).
+
+    The serving path needs ONLY the .npz (the net weights) + draw_bucket's pure
+    bucket_of_holding function — NOT the sampled bucket ABSTRACTION json (which
+    lives out-of-repo under a symlinked data/ dir and is a datagen/exact-solve
+    artifact, never consumed here). So the sole shippable asset is the .npz."""
+    if _NET_STATE["loaded"]:
+        return _NET_STATE["net"] is not None
+    _NET_STATE["loaded"] = True
+    try:
+        import numpy  # noqa: F401  (only inside the net path)
+        from net_forward_numpy import NumpyValueNet
+        from draw_bucket import bucket_of_holding  # noqa: F401 (pure fn, no abstraction)
+        npz_path = _net_path()
+        if not os.path.exists(npz_path):
+            raise FileNotFoundError(f"missing badugi net {npz_path}")
+        _NET_STATE["net"] = NumpyValueNet.load(npz_path)
+    except Exception as e:  # numpy missing / asset missing / import error
+        _NET_STATE["error"] = f"{type(e).__name__}: {e}"
+        _NET_STATE["net"] = None
+        return False
+    return True
+
+
+def _net_encode_extra(pot, contrib, bets, to_act, acted):
+    """Reproduce train_badugi.encode_extra EXACTLY for a live pre-last-draw node.
+    The net's public conditioning: pot ratio, to-call/pot, dead/pot, big-round
+    flag, draws_left/3, toAct one-hot, acted flags, bets one-hot 0..4, start_kind
+    one-hot. We do NOT know the node's original start_kind, so the kind one-hot is
+    ALL-ZERO (an in-distribution 'no-kind' context the ZeroSumLayer tolerates —
+    every kind bit is a small linear feature, and the certification is measured on
+    the net's outputs including this featurization)."""
+    pot = float(pot) or 1.0
+    c0, c1 = float(contrib[0]), float(contrib[1])
+    to_call = abs(c0 - c1)
+    base = 0.0
+    big_round = 1.0 if _NET_POST_BET > _NET_PRE_BET else 0.0
+    draws_left = 1.0
+    feats = [pot / 100.0, to_call / pot, base / pot, big_round, draws_left / 3.0]
+    feats += [float(to_act == 0), float(to_act == 1)]
+    feats += [1.0 if acted[0] else 0.0, 1.0 if acted[1] else 0.0]
+    feats += [1.0 if bets == b else 0.0 for b in range(5)]
+    feats += [0.0] * 6   # start_kind one-hot unknown at grade time -> all-zero
+    return feats
+
+
+def _net_value_at(node, r0b, r1b):
+    """Net value (fraction-of-pot per bucket) at a pre-last-draw betting node,
+    for BOTH seats: (v0[19], v1[19]). node = {contrib,bets,toAct,acted}. Uses the
+    CURRENT bucket ranges (hero point-mass + opponent posterior)."""
+    import numpy as np
+    net = _NET_STATE["net"]
+    pot = node["contrib"][0] + node["contrib"][1]
+    extra = _net_encode_extra(pot, node["contrib"], node["bets"],
+                              node["toAct"], node["acted"])
+    v0, v1 = net.forward([], np.asarray(extra, dtype=np.float32),
+                         np.asarray(r0b, dtype=np.float32),
+                         np.asarray(r1b, dtype=np.float32))
+    return v0, v1
+
+
+def _net_legal_actions(node):
+    """Legal betting actions at a pre-last-draw node (mirrors draw-game.js /
+    resolve_draw2._legal_actions for the bet phase)."""
+    p = node["toAct"]
+    facing = node["contrib"][1 - p] - node["contrib"][p]
+    if facing > 0:
+        acts = ["f", "c"]
+        if node["bets"] < _NET_CAP:
+            acts.append("r")
+        return acts
+    acts = ["k"]
+    if node["bets"] < _NET_CAP:
+        acts.append("b")
+    return acts
+
+
+def _net_apply_action(node, a):
+    """Apply a betting action to a pre-last-draw node -> child node
+    (contrib/bets/toAct/acted/closed). Mirrors resolve_draw2._apply_action's bet
+    branch. 'closed' marks a round-closing call/check (both acted) — the child is
+    the point at which OOP would draw, but the net values that continuation from
+    the node AS-IS (it is trained on the whole remaining 2-round tree)."""
+    n = dict(node)
+    n["contrib"] = list(node["contrib"])
+    n["acted"] = list(node["acted"])
+    p = n["toAct"]
+    n["acted"][p] = True
+    facing = n["contrib"][1 - p] - n["contrib"][p]
+    if a == "f":
+        n["folded"] = p
+        return n
+    if a in ("c", "k"):
+        n["contrib"][p] += facing
+        if n["acted"][1 - p]:
+            n["closed"] = True          # round closed -> draw/showdown continuation
+        else:
+            n["toAct"] = 1 - p
+        return n
+    # bet / raise: put in the current-round bet size on top of the call amount
+    n["contrib"][p] = n["contrib"][1 - p] + _NET_PRE_BET
+    n["bets"] += 1
+    n["toAct"] = 1 - p
+    return n
+
+
+def _solve_draw_net(req: dict) -> dict:
+    """CERTIFIED-NET per-action EV for a PRE-last-draw badugi bet decision.
+
+    The net is the equilibrium value function over pre-last-draw nodes; per-action
+    EV = the net's value of each child node (after the hero action) for HERO's
+    bucket, in chips. Hero is seat 0 of contrib/acted (to-act convention). Fold is
+    exact (terminal). Any malformed input raises -> ok:false (blueprint fallback).
+    """
+    import numpy as np
+    from draw_bucket import bucket_of_holding, N_DRAW_BUCKETS
+
+    game_name = str(req.get("game", "")).strip().lower()
+    if game_name != "badugi":
+        raise ValueError("certified-net path is badugi-only")
+    if not _load_net():
+        raise RuntimeError(f"badugi net unavailable ({_NET_STATE['error']})")
+
+    # scope guard: PRE-last-draw = street 2 (the round before the 3rd draw), one
+    # draw remaining. Refuse anything else so we never mislabel a spot.
+    street = int(req.get("street", 2))
+    draws_remaining = int(req.get("draws_remaining", 1))
+    if street != 2 or draws_remaining != 1:
+        raise ValueError("certified-net grades only the pre-last-draw (street 2, "
+                         "1 draw remaining) badugi bet decision")
+
+    me = req.get("me")
+    if not me or len(me) != 4:
+        raise ValueError("me (hero's exact 4-card badugi hand) is required")
+    opp_raw = req.get("opp_range")
+    if not opp_raw:
+        raise ValueError("opp_range (posterior holdings) is required")
+    contrib = req.get("contrib")
+    if not isinstance(contrib, (list, tuple)) or len(contrib) != 2:
+        raise ValueError("contrib=[hero_chips_in, opp_chips_in] is required")
+    bets = int(req.get("bets", 0))
+    acted = req.get("acted") or [False, False]
+    acted = [bool(acted[0]), bool(acted[1])]
+    to_act = int(req.get("toAct", 0))
+    if to_act != 0:
+        raise ValueError("hero must be seat 0 (to act) in the certified-net spot")
+
+    # ── bucket ranges: hero = point mass on its bucket; opp = posterior binned ──
+    hero_bucket = bucket_of_holding(me)
+    r0b = [0.0] * N_DRAW_BUCKETS
+    r0b[hero_bucket] = 1.0
+    r1b = [0.0] * N_DRAW_BUCKETS
+    zsum = 0.0
+    for entry in opp_raw:
+        hand, w = entry[0], float(entry[1])
+        if w <= 0:
+            continue
+        b = bucket_of_holding(hand)
+        r1b[b] += w
+        zsum += w
+    if zsum <= 0:
+        raise ValueError("opp_range has no positive-weight holdings")
+    r1b = [w / zsum for w in r1b]
+
+    node = {"contrib": [float(contrib[0]), float(contrib[1])],
+            "bets": bets, "toAct": to_act, "acted": acted}
+    acts = _net_legal_actions(node)
+
+    per_action_ev = {}
+    for a in acts:
+        child = _net_apply_action(node, a)
+        if child.get("folded") is not None:
+            # exact fold value: the folder loses their own contribution.
+            per_action_ev[a] = -child["contrib"][0]
+            continue
+        v0, _v1 = _net_value_at(child, r0b, r1b)
+        cpot = child["contrib"][0] + child["contrib"][1]
+        # net outputs fraction-of-pot CFV for HERO (seat 0); hero is a point mass
+        # on hero_bucket, so hero's EV = v0[hero_bucket] * pot (chips).
+        per_action_ev[a] = float(v0[hero_bucket]) * cpot
+
+    # HONEST self-consistency gauge (NOT an exact BR gap — the net is an
+    # approximator): the zero-sum residual of the net at the DECISION node (should
+    # be ~0 by the ZeroSumLayer; a large residual would flag an off-distribution
+    # net query). Reported so the JS/UI can surface net trust honestly.
+    v0n, v1n = _net_value_at(node, r0b, r1b)
+    zs_resid = abs(float(np.dot(v0n, r0b)) + float(np.dot(v1n, r1b)))
+
+    pot = node["contrib"][0] + node["contrib"][1]
+    return {
+        "tier": "certified-net",
+        "certification_sb": _NET_CERT_SB,
+        "per_action_ev": per_action_ev,
+        "net_value_gauge": zs_resid,
+        "pot": pot,
     }
 
 
@@ -206,7 +454,10 @@ def main() -> None:
                 out.flush()
                 break
             game_name = str(req.get("game", "razz")).strip().lower()
-            if game_name in DRAW_FINAL_GAMES:
+            mode = str(req.get("mode", "")).strip().lower()
+            if mode == "net":
+                result = _solve_draw_net(req)  # CERTIFIED-NET pre-last-draw badugi
+            elif game_name in DRAW_FINAL_GAMES:
                 result = _solve_draw(req)      # M2 draw rung (badugi/td27)
             else:
                 result = _solve(req)           # stud path — unchanged

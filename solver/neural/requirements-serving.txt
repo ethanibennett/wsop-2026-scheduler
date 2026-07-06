@@ -1,0 +1,15 @@
+# PRODUCTION serving deps for the grading ORACLE worker (oracle_worker.py).
+#
+# The exact tiers (stud 7th-street, post-last-draw draw) are PURE-PYTHON stdlib —
+# they need NOTHING here (that is why prod historically ran ORACLE_PYTHON=python3
+# torch-free). The ONLY runtime dep is numpy, required solely by the CERTIFIED-NET
+# pre-last-draw badugi path (net_forward_numpy.NumpyValueNet — a torch-free numpy
+# forward over nets/badugi_draw1.npz). Torch is NOT a serving dep: the net ships as
+# a plain .npz and is served on numpy alone (Option A). Keep this minimal — one
+# wheel — so the Render build stays fast and small.
+#
+# Deploy: point the oracle worker's python (ORACLE_PYTHON) at an interpreter with
+# this installed, e.g.  pip install -r solver/neural/requirements-serving.txt
+# If numpy is absent the net path fails safe (blueprint fallback); the exact tiers
+# and stud are unaffected.
+numpy>=1.24,<2
