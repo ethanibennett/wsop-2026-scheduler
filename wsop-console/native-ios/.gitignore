@@ -1,0 +1,14 @@
+# Node
+node_modules/
+
+# Xcode / build artifacts
+ios/App/build/
+ios/App/DerivedData/
+ios/App/Pods/
+ios/App/App/public/
+**/*.xcuserstate
+**/xcuserdata/
+.DS_Store
+
+# Capacitor SPM local checkout
+ios/App/CapApp-SPM/.build/
