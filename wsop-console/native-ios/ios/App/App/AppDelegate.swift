@@ -1,14 +1,44 @@
 import UIKit
 import Capacitor
+import UserNotifications
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Ask for notification permission, then register with APNs.
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+            if granted {
+                DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
+            }
+        }
         return true
+    }
+
+    // APNs gave us a device token — hand it to the registrar to POST to the server.
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
+        PushRegistrar.onToken(hex)
+    }
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NSLog("[Push] APNs registration failed: \(error.localizedDescription)")
+    }
+
+    // Show notifications even while the app is in the foreground.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .badge])
+    }
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        completionHandler()
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -85,6 +115,7 @@ public class BasicAuthPlugin: CAPPlugin, CAPBridgedPlugin {
             self.promptLogin(realm: challenge.protectionSpace.realm ?? "futurega.me") { cred in
                 if let cred = cred {
                     BasicAuthPlugin.cached = cred
+                    PushRegistrar.onCredsAvailable() // creds now known → register the APNs token
                     completionHandler(.useCredential, cred)
                 } else {
                     completionHandler(.cancelAuthenticationChallenge, nil)
@@ -117,5 +148,43 @@ public class BasicAuthPlugin: CAPPlugin, CAPBridgedPlugin {
             .first?.rootViewController
         while let presented = top?.presentedViewController { top = presented }
         return top
+    }
+}
+
+// Registers the APNs device token with the console server. Needs both the token
+// (from APNs) and the ham credentials (from the WebView login) — whichever
+// arrives second triggers the POST. The server is Basic-Auth gated, so the
+// request carries the cached credentials.
+enum PushRegistrar {
+    static var deviceTokenHex: String?
+
+    static func onToken(_ hex: String) {
+        deviceTokenHex = hex
+        sync()
+    }
+    static func onCredsAvailable() {
+        sync()
+    }
+
+    static func sync() {
+        guard let token = deviceTokenHex,
+              let cred = BasicAuthPlugin.cached,
+              let user = cred.user, let pass = cred.password,
+              let url = URL(string: "https://futurega.me/console/api/native/register") else { return }
+        #if DEBUG
+        let env = "sandbox"   // dev-signed build → APNs sandbox
+        #else
+        let env = "production"
+        #endif
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let basic = Data("\(user):\(pass)".utf8).base64EncodedString()
+        req.setValue("Basic \(basic)", forHTTPHeaderField: "Authorization")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["token": token, "env": env])
+        URLSession.shared.dataTask(with: req) { _, resp, _ in
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
+            NSLog("[Push] register token → status \(code)")
+        }.resume()
     }
 }

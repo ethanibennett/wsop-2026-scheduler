@@ -537,6 +537,36 @@ if (require('fs').existsSync(consoleDist)) {
     }
   });
 
+  // Native app (APNs) device-token registration + a manual test push. Gated by
+  // the console Basic Auth, so the native app must include ham's credentials.
+  app.post('/console/api/native/register', async (req, res) => {
+    try {
+      const { token, env } = req.body || {};
+      if (!token || typeof token !== 'string' || !/^[a-f0-9]{32,200}$/i.test(token)) {
+        return res.status(400).json({ error: 'bad token' });
+      }
+      const e = env === 'production' ? 'production' : 'sandbox';
+      db.run(
+        `INSERT INTO console_apns_tokens (token, env, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(token) DO UPDATE SET env = excluded.env, updated_at = excluded.updated_at`,
+        [token, e, Date.now()]
+      );
+      await saveDatabase();
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('APNs register error:', err);
+      res.status(500).json({ error: 'register failed' });
+    }
+  });
+  app.post('/console/api/native/test', async (req, res) => {
+    if (!apnsAuthToken()) return res.status(503).json({ ok: false, error: 'APNs not configured on the server' });
+    let count = 0;
+    const s = db.prepare('SELECT COUNT(*) AS n FROM console_apns_tokens');
+    if (s.step()) count = s.getAsObject().n; s.free();
+    await sendConsoleApns('WSOP Console', 'Native notifications are working 🎉', 'test');
+    res.json({ ok: true, tokens: count });
+  });
+
   app.use('/console', express.static(consoleDist, {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) {
@@ -2076,6 +2106,20 @@ async function initDatabase() {
         )`);
         db.run('CREATE INDEX IF NOT EXISTS idx_backer_subs_token ON backer_push_subs(token)');
         console.log('Created backer notification tables');
+      }
+    },
+    {
+      name: 'console-apns-tokens-2026-07',
+      fn: () => {
+        // Native iOS (APNs) device tokens for the console wrapper app. `env` is
+        // 'sandbox' (dev builds) or 'production' (TestFlight/App Store) — picks
+        // the APNs host. Single-user (ham), so no user scoping.
+        db.run(`CREATE TABLE IF NOT EXISTS console_apns_tokens (
+          token TEXT PRIMARY KEY,
+          env TEXT NOT NULL DEFAULT 'sandbox',
+          updated_at INTEGER
+        )`);
+        console.log('Created console_apns_tokens table');
       }
     },
     {
@@ -8806,7 +8850,82 @@ try {
 // regardless of the server timezone.
 const CONSOLE_TZ = 'America/New_York';
 
+// ── APNs (native iOS push for the console app) ──
+let _apnsJwt = null, _apnsJwtAt = 0;
+function apnsAuthToken() {
+  const keyId = process.env.APNS_KEY_ID;
+  const teamId = process.env.APNS_TEAM_ID || '27TK6846H8';
+  const key = process.env.APNS_AUTH_KEY_BASE64
+    ? Buffer.from(process.env.APNS_AUTH_KEY_BASE64, 'base64').toString('utf8')
+    : process.env.APNS_AUTH_KEY;
+  if (!keyId || !key) return null; // not configured
+  const now = Date.now();
+  if (_apnsJwt && now - _apnsJwtAt < 40 * 60 * 1000) return _apnsJwt; // reuse (<60min APNs limit)
+  try {
+    _apnsJwt = jwt.sign({ iss: teamId, iat: Math.floor(now / 1000) }, key,
+      { algorithm: 'ES256', header: { alg: 'ES256', kid: keyId } });
+    _apnsJwtAt = now;
+    return _apnsJwt;
+  } catch (err) {
+    console.error('APNs JWT error:', err.message);
+    return null;
+  }
+}
+function sendApnsOne(token, env, payloadObj) {
+  return new Promise((resolve) => {
+    const auth = apnsAuthToken();
+    if (!auth) return resolve({ ok: false, reason: 'unconfigured' });
+    const http2 = require('http2');
+    const host = env === 'production' ? 'https://api.push.apple.com' : 'https://api.sandbox.push.apple.com';
+    const bundle = process.env.APNS_BUNDLE_ID || 'me.futurega.console';
+    let client;
+    try { client = http2.connect(host); } catch (e) { return resolve({ ok: false, reason: e.message }); }
+    let done = false;
+    const finish = (r) => { if (done) return; done = true; try { client.close(); } catch (_) {} resolve(r); };
+    client.on('error', (e) => finish({ ok: false, reason: e.message }));
+    const bodyBuf = Buffer.from(JSON.stringify(payloadObj));
+    const req = client.request({
+      ':method': 'POST', ':path': `/3/device/${token}`,
+      authorization: `bearer ${auth}`, 'apns-topic': bundle,
+      'apns-push-type': 'alert', 'content-type': 'application/json',
+    });
+    let status = 0, data = '';
+    req.setEncoding('utf8');
+    req.on('response', (h) => { status = h[':status']; });
+    req.on('data', (d) => { data += d; });
+    req.on('end', () => finish({ ok: status === 200, status, data }));
+    req.on('error', (e) => finish({ ok: false, reason: e.message }));
+    req.end(bodyBuf);
+  });
+}
+async function sendConsoleApns(title, body, tag) {
+  if (!apnsAuthToken()) return; // not configured — no-op
+  const rows = [];
+  try {
+    const s = db.prepare('SELECT token, env FROM console_apns_tokens');
+    while (s.step()) rows.push(s.getAsObject());
+    s.free();
+  } catch (_) { return; }
+  if (!rows.length) return;
+  const payload = { aps: { alert: { title, body }, sound: 'default' }, url: '/console/', tag: tag || 'nudge' };
+  let changed = false;
+  for (const r of rows) {
+    const res = await sendApnsOne(r.token, r.env, payload);
+    if (res.status === 410 || (res.status === 400 && /BadDeviceToken/i.test(res.data || ''))) {
+      db.run('DELETE FROM console_apns_tokens WHERE token = ?', [r.token]); changed = true;
+    } else if (!res.ok) {
+      console.error('APNs send error:', res.status || res.reason, res.data || '');
+    }
+  }
+  if (changed) await saveDatabase();
+}
+
+// Fan a console notification out to BOTH native (APNs) and web-push (PWA).
 async function sendConsolePush(title, body, tag) {
+  await sendConsoleApns(title, body, tag);
+  await sendConsoleWebPush(title, body, tag);
+}
+async function sendConsoleWebPush(title, body, tag) {
   if (!process.env.VAPID_PUBLIC_KEY) return;
   try {
     const stmt = db.prepare('SELECT endpoint, keys_p256dh, keys_auth FROM console_push_subscriptions');
