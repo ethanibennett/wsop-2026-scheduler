@@ -26,6 +26,27 @@ xcrun simctl install "$DEV" "$(find ./build/Build/Products -name App.app | head 
 xcrun simctl launch "$DEV" me.futurega.console
 ```
 
+## Run on your iPhone (paid Apple Developer team `27TK6846H8`)
+
+Signing is wired up (team set in `ios/debug.xcconfig`, automatic provisioning).
+With the phone plugged in and unlocked:
+
+```bash
+cd ios/App
+DEV=$(xcrun devicectl list devices | grep -i iphone | grep -oE '[0-9A-F-]{36}' | head -1)
+xcodebuild -project App.xcodeproj -scheme App -configuration Debug \
+  -destination "id=$DEV" -derivedDataPath ./build-device \
+  -allowProvisioningUpdates build
+xcrun devicectl device install app --device "$DEV" \
+  "$(find ./build-device/Build/Products/Debug-iphoneos -maxdepth 1 -name App.app)"
+xcrun devicectl device process launch --device "$DEV" me.futurega.console
+```
+
+Or just open in Xcode, pick your iPhone from the device menu, and hit ▶ Run.
+
+**TestFlight** is now possible too (Product → Archive → Distribute). Native
+push (APNs) would need the push capability + the auth/APNs work — separate task.
+
 ## First launch
 
 The console is behind HTTP Basic Auth, so on first load the app shows a native
