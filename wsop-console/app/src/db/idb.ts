@@ -15,10 +15,11 @@ import type {
   Expense,
   Settings,
 } from './types'
+import type { Backer } from './backers'
 import { recKey, type SyncRecord } from './sync'
 
 export const DB_NAME = 'wsop-console'
-export const DB_VERSION = 3 // v2: expenses · v3: tombstones (cross-device sync)
+export const DB_VERSION = 4 // v2: expenses · v3: tombstones · v4: backers
 
 interface Tombstone {
   key: string // recKey(store, id)
@@ -40,6 +41,7 @@ interface ConsoleDB extends DBSchema {
   reviews: { key: string; value: ReviewEntry; indexes: { date: string } }
   checklist: { key: string; value: ChecklistTick }
   settings: { key: string; value: Settings & { id: string } }
+  backers: { key: string; value: Backer }
   tombstones: { key: string; value: Tombstone }
 }
 
@@ -79,6 +81,9 @@ export function getDB(): Promise<IDBPDatabase<ConsoleDB>> {
         if (oldVersion < 3) {
           db.createObjectStore('tombstones', { keyPath: 'key' })
         }
+        if (oldVersion < 4) {
+          db.createObjectStore('backers', { keyPath: 'id' })
+        }
       },
     })
   }
@@ -95,6 +100,7 @@ export type ListStore =
   | 'health'
   | 'study'
   | 'reviews'
+  | 'backers'
 
 // Stores keyed by `date` (one record per day).
 export type DateStore = 'prehab' | 'routine' | 'checklist'
@@ -154,6 +160,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 const SYNC_STORES = [
   'sessions', 'adjustments', 'expenses', 'lifts', 'benchmarks',
   'prehab', 'routine', 'health', 'study', 'reviews', 'checklist', 'settings',
+  'backers',
 ] as const
 
 /** Gather every local record + tombstone as SyncRecords for a full-state push. */
@@ -209,6 +216,7 @@ type StoreName =
   | 'reviews'
   | 'checklist'
   | 'settings'
+  | 'backers'
 const ALL_STORES: StoreName[] = [
   'sessions',
   'adjustments',
@@ -222,6 +230,7 @@ const ALL_STORES: StoreName[] = [
   'reviews',
   'checklist',
   'settings',
+  'backers',
 ]
 
 export interface BackupBlob {

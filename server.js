@@ -249,6 +249,92 @@ async function requireHamBasic(req, res, next) {
   }
 }
 
+// ── Backer-facing public surface (NOT under /console — backers have no creds) ──
+// Access is gated purely by the unguessable token in the URL; each token sees
+// only its own feed. Registered before the console gate + the SPA catch-all so
+// these win.
+const BACKER_TOKEN_RE = /^[a-f0-9]{8,64}$/;
+
+// Push service worker for the backer page (scope /b/). Must be registered
+// before /b/:token so 'sw.js' isn't captured as a token.
+app.get('/b/sw.js', (req, res) => {
+  res.set('Content-Type', 'application/javascript; charset=utf-8');
+  res.set('Cache-Control', 'no-cache');
+  res.send(
+    "self.addEventListener('push',function(e){var d={};try{d=e.data.json();}catch(_){}" +
+    "e.waitUntil(self.registration.showNotification(d.title||'Update',{body:d.body||'',data:{url:d.url||'/'},tag:d.tag||'action'}));});" +
+    "self.addEventListener('notificationclick',function(e){e.notification.close();" +
+    "var u=(e.notification.data&&e.notification.data.url)||'/';" +
+    "e.waitUntil(clients.matchAll({type:'window'}).then(function(cl){for(var i=0;i<cl.length;i++){if(cl[i].url.indexOf(u)>-1&&'focus'in cl[i])return cl[i].focus();}return clients.openWindow(u);}));});"
+  );
+});
+
+// Public VAPID key so a backer's browser can subscribe.
+app.get('/api/backer/vapid', (req, res) => {
+  res.json({ key: process.env.VAPID_PUBLIC_KEY || null });
+});
+
+// A backer's own feed (their name, running share, per-session log).
+app.get('/api/backer/:token/feed', (req, res) => {
+  const token = String(req.params.token || '');
+  if (!BACKER_TOKEN_RE.test(token)) return res.status(404).json({ error: 'Not found' });
+  try {
+    let name = null;
+    const nstmt = db.prepare('SELECT name FROM backer_public WHERE token = ?');
+    nstmt.bind([token]); if (nstmt.step()) name = nstmt.getAsObject().name; nstmt.free();
+    const events = [];
+    const estmt = db.prepare(
+      'SELECT ts, date, game, venue, hours, session_result_cents, pct, share_cents FROM backer_events WHERE token = ? ORDER BY ts DESC LIMIT 200'
+    );
+    estmt.bind([token]);
+    while (estmt.step()) {
+      const r = estmt.getAsObject();
+      events.push({
+        ts: r.ts, date: r.date, game: r.game, venue: r.venue, hours: r.hours,
+        sessionResultCents: r.session_result_cents, pct: r.pct, shareCents: r.share_cents,
+      });
+    }
+    estmt.free();
+    res.json({ name, cumulativeCents: backerCumulativeCents(token), events });
+  } catch (err) {
+    console.error('Backer feed error:', err);
+    res.status(500).json({ error: 'feed failed' });
+  }
+});
+
+// A backer enables push from their page.
+app.post('/api/backer/:token/subscribe', async (req, res) => {
+  const token = String(req.params.token || '');
+  if (!BACKER_TOKEN_RE.test(token)) return res.status(404).json({ error: 'Not found' });
+  try {
+    const { subscription } = req.body || {};
+    if (!subscription || !subscription.endpoint || !subscription.keys ||
+        !subscription.keys.p256dh || !subscription.keys.auth) {
+      return res.status(400).json({ error: 'Invalid subscription' });
+    }
+    db.run('DELETE FROM backer_push_subs WHERE endpoint = ?', [subscription.endpoint]);
+    db.run(
+      'INSERT INTO backer_push_subs (token, endpoint, keys_p256dh, keys_auth) VALUES (?, ?, ?, ?)',
+      [token, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth]
+    );
+    await saveDatabase();
+    res.json({ message: 'Subscribed' });
+  } catch (err) {
+    console.error('Backer subscribe error:', err);
+    res.status(500).json({ error: 'Failed to subscribe' });
+  }
+});
+
+// The backer's private page (same shell for every token; JS reads the token
+// from the URL and fetches its own feed).
+app.get('/b/:token', (req, res) => {
+  const token = String(req.params.token || '');
+  if (!BACKER_TOKEN_RE.test(token)) return res.status(404).send('Not found');
+  res.set('Cache-Control', 'no-store');
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.send(BACKER_PAGE_HTML);
+});
+
 const consoleDist = path.join(__dirname, 'wsop-console', 'app', 'dist');
 if (require('fs').existsSync(consoleDist)) {
   // Gate everything under /console (assets + shell) on the ham account.
@@ -342,6 +428,64 @@ if (require('fs').existsSync(consoleDist)) {
     } catch (err) {
       console.error('Console sync error:', err);
       res.status(500).json({ error: 'sync failed' });
+    }
+  });
+
+  // Backer notifications (gated — only ham can send). The client sends a
+  // session summary + the computed per-backer cuts; we append each backer's
+  // event (dedup on token+session), recompute their running share, and fire
+  // their web-push. Returns per-recipient delivery + running total.
+  app.post('/console/api/backers/notify', async (req, res) => {
+    try {
+      const { session, recipients } = req.body || {};
+      if (!session || typeof session.id !== 'string' || !Array.isArray(recipients)) {
+        return res.status(400).json({ error: 'Bad payload' });
+      }
+      const ts = Date.now();
+      const results = [];
+      let changed = false;
+      for (const r of recipients) {
+        if (!r || typeof r.token !== 'string' || !/^[a-f0-9]{8,64}$/.test(r.token)) continue;
+        const pct = Number(r.pct) || 0;
+        const shareCents = Math.round(Number(r.shareCents) || 0);
+        db.run(
+          `INSERT INTO backer_public (token, name, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(token) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at`,
+          [r.token, String(r.name || '').slice(0, 80), ts]
+        );
+        db.run(
+          `INSERT OR IGNORE INTO backer_events
+             (id, token, session_id, ts, date, game, venue, hours, session_result_cents, pct, share_cents)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            `${r.token}:${session.id}`, r.token, session.id, ts,
+            String(session.date || ''), String(session.game || '').slice(0, 120),
+            String(session.venue || '').slice(0, 80), Number(session.hours) || 0,
+            Math.round(Number(session.resultCents) || 0), pct, shareCents,
+          ]
+        );
+        const inserted = db.getRowsModified() > 0;
+        if (inserted) changed = true;
+        // Cumulative is computed AFTER the insert-or-ignore, so it reflects this
+        // session once (a re-send finds the row already there and the sum is
+        // unchanged — never double-counted).
+        const cum = backerCumulativeCents(r.token);
+        // Always attempt the push (not only on first record): a backer who
+        // enabled notifications AFTER the first send still gets reached on a
+        // re-send, while the dedup above keeps their running total correct.
+        const title = `${session.game} — ${fmtSignedCents(shareCents)}`;
+        const body =
+          `${session.venue} · ${fmtHours(session.hours)} · session ${fmtSignedCents(session.resultCents)}. ` +
+          `Your ${pct}% = ${fmtSignedCents(shareCents)}. Running: ${fmtSignedCents(cum)}.`;
+        const out = await sendBackerPush(r.token, title, body, `/b/${r.token}`);
+        if (out.changed) changed = true;
+        results.push({ token: r.token, name: r.name, sent: out.sent, subs: out.subs, cumulativeCents: cum, duplicate: !inserted });
+      }
+      if (changed) await saveDatabase();
+      res.json({ results });
+    } catch (err) {
+      console.error('Backer notify error:', err);
+      res.status(500).json({ error: 'notify failed' });
     }
   });
 
@@ -1843,6 +1987,47 @@ async function initDatabase() {
           PRIMARY KEY (store, id)
         )`);
         console.log('Created console_records table');
+      }
+    },
+    {
+      name: 'backer-notifications-2026-07',
+      fn: () => {
+        // Backer-facing notification system. Ethan's backers aren't console
+        // users — each has an unguessable token that keys their private page
+        // (/b/<token>) and their web-push subscription. backer_public holds
+        // their display name; backer_events is the append-only per-session log
+        // (unique on token+session so a re-send never double-counts); their
+        // running share = SUM(share_cents).
+        db.run(`CREATE TABLE IF NOT EXISTS backer_public (
+          token TEXT PRIMARY KEY,
+          name TEXT,
+          updated_at INTEGER
+        )`);
+        db.run(`CREATE TABLE IF NOT EXISTS backer_events (
+          id TEXT PRIMARY KEY,
+          token TEXT NOT NULL,
+          session_id TEXT NOT NULL,
+          ts INTEGER NOT NULL,
+          date TEXT,
+          game TEXT,
+          venue TEXT,
+          hours REAL,
+          session_result_cents INTEGER,
+          pct REAL,
+          share_cents INTEGER,
+          UNIQUE (token, session_id)
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_backer_events_token ON backer_events(token, ts)');
+        db.run(`CREATE TABLE IF NOT EXISTS backer_push_subs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          token TEXT NOT NULL,
+          endpoint TEXT NOT NULL UNIQUE,
+          keys_p256dh TEXT NOT NULL,
+          keys_auth TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_backer_subs_token ON backer_push_subs(token)');
+        console.log('Created backer notification tables');
       }
     },
     {
@@ -8603,6 +8788,138 @@ async function sendConsolePush(title, body, tag) {
     console.error('sendConsolePush error:', err);
   }
 }
+
+// ── Backer notification helpers ──
+function backerCumulativeCents(token) {
+  let c = 0;
+  const s = db.prepare('SELECT COALESCE(SUM(share_cents),0) AS c FROM backer_events WHERE token = ?');
+  s.bind([token]); if (s.step()) c = s.getAsObject().c; s.free();
+  return c || 0;
+}
+function backerSubCount(token) {
+  let n = 0;
+  const s = db.prepare('SELECT COUNT(*) AS n FROM backer_push_subs WHERE token = ?');
+  s.bind([token]); if (s.step()) n = s.getAsObject().n; s.free();
+  return n || 0;
+}
+async function sendBackerPush(token, title, body, url) {
+  let sent = 0, subs = 0, changed = false;
+  if (!process.env.VAPID_PUBLIC_KEY) return { sent, subs, changed };
+  const list = [];
+  const s = db.prepare('SELECT endpoint, keys_p256dh, keys_auth FROM backer_push_subs WHERE token = ?');
+  s.bind([token]); while (s.step()) list.push(s.getAsObject()); s.free();
+  subs = list.length;
+  if (!subs) return { sent, subs, changed };
+  const payload = JSON.stringify({ title, body, url, tag: 'action' });
+  for (const sub of list) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth } },
+        payload
+      );
+      sent++;
+    } catch (err) {
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        db.run('DELETE FROM backer_push_subs WHERE endpoint = ?', [sub.endpoint]);
+        changed = true;
+      } else {
+        console.error('Backer push send error:', err.statusCode || err.message);
+      }
+    }
+  }
+  return { sent, subs, changed };
+}
+function fmtSignedCents(cents) {
+  const v = (Number(cents) || 0) / 100;
+  const n = Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  return (v < 0 ? '−' : '+') + '$' + n;
+}
+function fmtHours(h) {
+  return (Math.round((Number(h) || 0) * 10) / 10) + 'h';
+}
+
+// The backer page — one self-contained shell for every token. Client JS reads
+// the token from the URL, fetches its own feed, and (opt-in) enables web push.
+const BACKER_PAGE_HTML = `<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#100f0d">
+<title>Your action</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#100f0d;color:#e8e4d8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:520px;margin:0 auto;padding:28px 18px 60px}
+.who{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.sub{color:#8a857a;font-size:13px;margin-top:2px}
+.big{font-size:40px;font-weight:800;margin:16px 0 4px;font-variant-numeric:tabular-nums}
+.biglabel{color:#8a857a;font-size:12px;margin-bottom:18px}
+.pos{color:#4bbd85}.neg{color:#e2685f}
+.muted{color:#8a857a}
+.row{border-top:1px solid #26241f;padding:13px 0}
+.row-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.game{font-weight:600;font-size:15px}
+.amt{font-weight:700;font-variant-numeric:tabular-nums}
+.meta{color:#8a857a;font-size:12.5px;margin-top:4px;line-height:1.45}
+.foot{color:#5f5b52;font-size:11.5px;text-align:center;margin-top:34px}
+.btn{display:block;width:100%;margin:12px 0 4px;padding:12px;border-radius:12px;border:1px solid #2f2c26;background:#1b1a17;color:#e8e4d8;font-size:14px;font-weight:600;cursor:pointer}
+.btn:active{opacity:.8}
+.pushnote{color:#8a857a;font-size:12px;text-align:center;margin:6px 0 10px}
+</style></head><body>
+<div id="app"><div class="wrap"><p class="muted">Loading…</p></div></div>
+<script>
+(function(){
+  var token=location.pathname.split('/').filter(Boolean).pop();
+  var app=document.getElementById('app');
+  var feed=null;
+  function money(c){var v=(c||0)/100;var neg=v<0;var n=Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:0});return (neg?'−':'+')+'$'+n;}
+  function fmtH(h){return (Math.round((h||0)*10)/10)+'h';}
+  function esc(s){var d=document.createElement('div');d.textContent=(s==null?'':String(s));return d.innerHTML;}
+  function urlB64(s){var pad='='.repeat((4-s.length%4)%4);var b=(s+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(b);var a=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i);return a;}
+  function render(){
+    var evs=(feed&&feed.events)||[];
+    var cum=(feed&&feed.cumulativeCents)||0;
+    var rows=evs.map(function(e){
+      var cls=e.shareCents>=0?'pos':'neg';
+      return '<div class="row"><div class="row-top"><span class="game">'+esc(e.game)+'</span><span class="amt '+cls+'">'+money(e.shareCents)+'</span></div>'
+        +'<div class="meta">'+esc(e.venue)+' · '+fmtH(e.hours)+' · '+esc(e.date)+'<br>your '+esc(e.pct)+'% of a '+money(e.sessionResultCents)+' session</div></div>';
+    }).join('');
+    var name=(feed&&feed.name)||'Your action';
+    app.innerHTML='<div class="wrap">'
+      +'<div class="who">'+esc(name)+'</div><div class="sub">your action with Ethan</div>'
+      +'<div class="big '+(cum>=0?'pos':'neg')+'">'+money(cum)+'</div>'
+      +'<div class="biglabel">running position — what settles up</div>'
+      +'<div id="pushbox"></div>'
+      +(rows||'<p class="muted">No sessions recorded yet. This page updates as they come in.</p>')
+      +'<p class="foot">Private link · only you can see this.</p></div>';
+    renderPush();
+  }
+  function renderPush(){
+    var box=document.getElementById('pushbox'); if(!box)return;
+    if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window)){box.innerHTML='';return;}
+    if(Notification.permission==='granted'){box.innerHTML='<div class="pushnote">🔔 Notifications are on for this device.</div>';return;}
+    box.innerHTML='<button class="btn" id="enable">🔔 Notify me after each session</button>';
+    document.getElementById('enable').onclick=enablePush;
+  }
+  function enablePush(){
+    var b=document.getElementById('enable'); if(b){b.textContent='Enabling…';b.disabled=true;}
+    navigator.serviceWorker.register('/b/sw.js',{scope:'/b/'}).then(function(reg){
+      return Notification.requestPermission().then(function(p){
+        if(p!=='granted')throw new Error('permission denied');
+        return fetch('/api/backer/vapid').then(function(r){return r.json();}).then(function(v){
+          if(!v.key)throw new Error('unavailable');
+          return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64(v.key)});
+        });
+      });
+    }).then(function(sub){
+      return fetch('/api/backer/'+token+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub})});
+    }).then(function(){
+      var box=document.getElementById('pushbox'); if(box)box.innerHTML='<div class="pushnote">🔔 Notifications are on for this device.</div>';
+    }).catch(function(err){
+      var box=document.getElementById('pushbox'); if(box)box.innerHTML='<div class="pushnote">Notifications unavailable here ('+esc(err&&err.message||'error')+'). You can still open this link anytime.</div>';
+    });
+  }
+  fetch('/api/backer/'+token+'/feed').then(function(r){return r.json();}).then(function(d){feed=d;render();}).catch(function(){render();});
+})();
+</script></body></html>`;
 
 function setupConsoleNudgeCron() {
   if (!consoleSchedule || !Array.isArray(consoleSchedule.BASE_NUDGES)) return;

@@ -15,6 +15,7 @@ import {
   ADMIN_REFERENCE,
   ADMIN_DISCLAIMER,
 } from '../db/admin'
+import { BackersManager } from './BackersUI'
 
 const CHECK_KEY = 'wsop-admin-checklist'
 const RATE_KEY = 'wsop-admin-taxrate'
@@ -172,6 +173,9 @@ export function AdminView() {
 
       {/* Staking calculator */}
       <StakingCalculator deals={deals} onChange={saveDeals} />
+
+      {/* Backers & per-session notifications */}
+      <BackersManager />
 
       {/* Reference landscape */}
       <div className="card">
