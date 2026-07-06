@@ -18,11 +18,15 @@
 // there is no equilibrium / GTO to grade against (ROADMAP.md M9). The number we
 // certify is EV-LOSS-VS-STATED-PROFILE: exactly how many chips the hero's action
 // concedes *against those specific opponents*. To bound how good the profile
-// itself is, we attach each seat's EXACT best-response gap (its exploitability
-// vs the profile) as a published error bar (reuse of the br3/measure3 exact-BR
-// two-pass, over this subgame's enumerated deals). The "GTO" label is therefore
-// impossible to emit here (gradeLabel() below hard-codes the certified-EV-loss
-// framing and throws if asked for "gto").
+// itself is, we attach each seat's best-response gap (its exploitability vs the
+// profile) as a published error bar. NOTE (honest framing): perSeatBR() reuses
+// the measure3 abstraction-respecting BR (one action per infosetKey), so its
+// number is an ABSTRACTION-LIMITED LOWER BOUND — it understates true
+// exploitability when physically-distinct 7th-street states share a key. The
+// TRUE per-physical-state BR (tighter/genuine bound) is also computed here via
+// perSeatTrueBR()/perSeatBRWithBounds(), tractable on these small support-
+// restricted spots. The "GTO" label is impossible to emit here (gradeLabel()
+// below hard-codes the certified-EV-loss framing and throws if asked for "gto").
 //
 // TRACTABILITY. Everything is enumerated over the joint support S0×S1×S2 of the
 // three ranges (card-removal-consistent triples). Betting mechanics are the REAL
@@ -199,8 +203,16 @@ function grade7th(spec, ranges, profile, opts = {}) {
   // let sigma play any pre-hero opponent actions. We enumerate the hero's legal
   // actions at its first decision by probing one concrete deal (legal set is
   // deal-independent on a betting street).
-  // Probe legal hero actions at hero's first turn:
-  const probe = withDeal(base, heroHoldings[0].down, R[0][0].down, R[1][0].down);
+  // Probe legal hero actions at hero's first turn. CRITICAL: seat the probe deal
+  // BY SEAT (mirror the EV-accumulation loop below), NOT positionally — otherwise
+  // for hero != 0 the hero's holding lands in slot 0 and firstHeroActions() walks
+  // the WRONG infoset (razz3's infosetKey reads the acting seat's own cards), so
+  // it discovers the wrong action set. (Bug found by independent verifier.)
+  const pdowns = [null, null, null];
+  pdowns[hero] = heroHoldings[0].down;
+  pdowns[opps[0]] = R[0][0].down;
+  pdowns[opps[1]] = R[1][0].down;
+  const probe = withDeal(base, pdowns[0], pdowns[1], pdowns[2]);
   const heroActions = firstHeroActions(game, probe, hero, profile);
 
   // accumulate per-action EV
@@ -301,38 +313,158 @@ function countTriples(heroHoldings, R, up, publicUsed, hero, opps) {
   return n;
 }
 
-// ── the ERROR BAR: per-seat exact best-response gap vs the profile ──────────
-// Reuse measure3.exactExploit over this 7th-street subgame. exactExploit needs
-// game.enumerateDeals() → [{state, w}] over the joint removal-consistent support
-// of the three ranges, and reads sigma via game.infosetKey. We wrap the built
-// game to expose enumerateDeals for the given ranges and hand it the profile.
-function perSeatBR(spec, ranges, profile) {
+// ── the ERROR BAR: per-seat exploitability LOWER BOUND vs the profile ───────
+// HONEST FRAMING (verifier note): exactExploit best-responds over the infoset
+// KEY ABSTRACTION (one action per abstract key). razz3's infosetKey buckets the
+// acting seat's own cards + bins the pot + summarizes opponent boards, so on 7th
+// street two PHYSICALLY-DISTINCT hero holdings can share a key. An abstraction-
+// respecting BR is FORCED to play the same action at both → it CANNOT exploit
+// each physical state separately → the number it returns is an ABSTRACTION-
+// LIMITED LOWER BOUND on true exploitability, NOT the exact gap. (Undershoots by
+// up to ~3.23 chips in 7/120 spot checks where keys collide.)
+//
+// perSeatBR() returns that lower bound (field `exploit` = abstraction-respecting
+// BR gap). For the small support-restricted 7th-street subgames this module is
+// built for, the TRUE per-physical-state BR is also tractable, so we ALSO expose
+// perSeatTrueBR() (the tighter/true bound) and perSeatBRWithBounds() (both).
+//
+// enumerateDeals() → [{state, w}] over the joint removal-consistent support; the
+// wrapped game reads sigma via game.infosetKey. Shared by both BR flavors.
+function buildEnumerateDeals(spec) {
   const base = build7thState(spec);
   const game = base.game;
   const publicUsed = new Set();
   for (let p = 0; p < 3; p++) for (const c of base.up[p]) publicUsed.add(c);
-  const norm = ranges.map(R => R.map(h => ({ down: h.down.map(c => (typeof c === 'string' ? cardFromStr(c) : c)), w: h.w })));
-  function* enumerateDeals() {
-    for (const h0 of norm[0]) {
-      if (collidesPublic(h0.down, publicUsed)) continue;
-      const s0 = new Set(h0.down);
-      for (const h1 of norm[1]) {
-        if (collidesPublic(h1.down, publicUsed)) continue;
-        if (h1.down.some(c => s0.has(c))) continue;
-        const s1 = new Set(s0); for (const c of h1.down) s1.add(c);
-        for (const h2 of norm[2]) {
-          if (collidesPublic(h2.down, publicUsed)) continue;
-          if (h2.down.some(c => s1.has(c))) continue;
-          const w = h0.w * h1.w * h2.w;
-          if (w <= 0) continue;
-          yield { state: withDeal(base, h0.down, h1.down, h2.down), w };
+  function makeEnumerate(ranges) {
+    const norm = ranges.map(R => R.map(h => ({ down: h.down.map(c => (typeof c === 'string' ? cardFromStr(c) : c)), w: h.w })));
+    return function* enumerateDeals() {
+      for (const h0 of norm[0]) {
+        if (collidesPublic(h0.down, publicUsed)) continue;
+        const s0 = new Set(h0.down);
+        for (const h1 of norm[1]) {
+          if (collidesPublic(h1.down, publicUsed)) continue;
+          if (h1.down.some(c => s0.has(c))) continue;
+          const s1 = new Set(s0); for (const c of h1.down) s1.add(c);
+          for (const h2 of norm[2]) {
+            if (collidesPublic(h2.down, publicUsed)) continue;
+            if (h2.down.some(c => s1.has(c))) continue;
+            const w = h0.w * h1.w * h2.w;
+            if (w <= 0) continue;
+            yield { state: withDeal(base, h0.down, h1.down, h2.down), w, downs: [h0.down, h1.down, h2.down] };
+          }
         }
       }
-    }
+    };
   }
-  game.enumerateDeals = enumerateDeals;
+  return { base, game, makeEnumerate };
+}
+
+// per-seat exploitability LOWER BOUND (abstraction-respecting BR). NOT exact:
+// best-responds over game.infosetKey → understates true exploitability when
+// physically-distinct 7th-street states share a key.
+function perSeatBR(spec, ranges, profile) {
+  const { game, makeEnumerate } = buildEnumerateDeals(spec);
+  game.enumerateDeals = makeEnumerate(ranges);
   const res = exactExploit(game, profile);   // [{seat,onPolicy,br,exploit}]
-  return res;
+  // annotate the honest framing on the returned rows
+  return res.map(r => ({ ...r, bound: 'lower', boundKind: 'abstraction-respecting-BR' }));
+}
+
+// TRUE per-physical-state per-seat BR (the tighter / genuine bound). The hero's
+// finest LEGITIMATE information partition on 7th street is (its own downcards +
+// betting history) — it cannot see opponents' downcards, and the upboards are
+// public/fixed for the spot, so two deals that share the hero's downs+history
+// MUST get the same hero action, but deals differing in the hero's downs (even
+// if they collapse to the same abstract infoset key) may each get their own
+// action. Reach-weighted two-pass BR to fixpoint over the enumerated subgame.
+// Tractable on the support-restricted spots this module targets; for a very
+// large joint support this is heavier than the abstraction-respecting bound.
+function perSeatTrueBR(spec, ranges, profile) {
+  const { game, makeEnumerate } = buildEnumerateDeals(spec);
+  const enumerate = makeEnumerate(ranges);
+  const D = [...enumerate()];
+  let wsum = 0; for (const d of D) wsum += d.w;
+
+  // hero's true info key: its own downcards (sorted) + the per-street action seq.
+  function heroInfoKey(state, hero) {
+    const down = state.down[hero].slice().sort((a, b) => a - b).join(',');
+    return down + '|' + (state.curSeq || '');
+  }
+  function heroValue(state, hero, brTable) {
+    if (game.isTerminal(state)) return game.utility(state)[hero];
+    const p = game.currentPlayer(state);
+    const acts = game.legalActions(state);
+    if (p === hero) {
+      const key = heroInfoKey(state, hero);
+      const choice = brTable[key];
+      if (choice != null && acts.includes(choice)) return heroValue(game.applyAction(state, choice), hero, brTable);
+      let best = -Infinity;
+      for (const a of acts) { const v = heroValue(game.applyAction(state, a), hero, brTable); if (v > best) best = v; }
+      return best;
+    }
+    const probs = sigmaProbs(profile, game, state);
+    let ev = 0;
+    for (let i = 0; i < acts.length; i++) if (probs[i] > 0) ev += probs[i] * heroValue(game.applyAction(state, acts[i]), hero, brTable);
+    return ev;
+  }
+  function sigmaValue(state, hero) {
+    if (game.isTerminal(state)) return game.utility(state)[hero];
+    const acts = game.legalActions(state);
+    const probs = sigmaProbs(profile, game, state);
+    let ev = 0;
+    for (let i = 0; i < acts.length; i++) if (probs[i] > 0) ev += probs[i] * sigmaValue(game.applyAction(state, acts[i]), hero);
+    return ev;
+  }
+  function accumulate(state, hero, brTable, reach, w, acc) {
+    if (game.isTerminal(state)) return;
+    const p = game.currentPlayer(state);
+    const acts = game.legalActions(state);
+    if (p === hero) {
+      const key = heroInfoKey(state, hero);
+      if (!acc[key]) acc[key] = { acts, val: acts.map(() => 0) };
+      const rec = acc[key];
+      for (let i = 0; i < acts.length; i++) rec.val[i] += w * reach * heroValue(game.applyAction(state, acts[i]), hero, brTable);
+      const choice = brTable[key] && acts.includes(brTable[key]) ? brTable[key] : acts[0];
+      return accumulate(game.applyAction(state, choice), hero, brTable, reach, w, acc);
+    }
+    const probs = sigmaProbs(profile, game, state);
+    for (let i = 0; i < acts.length; i++) if (probs[i] > 0) accumulate(game.applyAction(state, acts[i]), hero, brTable, reach * probs[i], w, acc);
+  }
+  const out = [];
+  for (let hero = 0; hero < 3; hero++) {
+    let brTable = {};
+    for (let sweep = 0; sweep < 12; sweep++) {
+      const acc = {};
+      for (const d of D) accumulate(d.state, hero, brTable, 1, d.w, acc);
+      const next = {}; let changed = false;
+      for (const key of Object.keys(acc)) {
+        const a = acc[key]; let bi = 0, bv = -Infinity;
+        for (let i = 0; i < a.acts.length; i++) if (a.val[i] > bv) { bv = a.val[i]; bi = i; }
+        next[key] = a.acts[bi]; if (brTable[key] !== next[key]) changed = true;
+      }
+      brTable = next; if (!changed && sweep > 0) break;
+    }
+    let onPol = 0, br = 0;
+    for (const d of D) { onPol += d.w * sigmaValue(d.state, hero); br += d.w * heroValue(d.state, hero, brTable); }
+    onPol /= wsum; br /= wsum;
+    out.push({ seat: hero, onPolicy: onPol, br, exploit: br - onPol, bound: 'true', boundKind: 'per-physical-state-BR' });
+  }
+  return out;
+}
+
+// convenience: both bounds side-by-side per seat. `lower` is what a bucketed
+// solver could ever prove; `true` is the genuine exploitability of the profile
+// over this enumerated subgame (lower <= true always).
+function perSeatBRWithBounds(spec, ranges, profile) {
+  const lower = perSeatBR(spec, ranges, profile);
+  const trueBR = perSeatTrueBR(spec, ranges, profile);
+  return lower.map((lo, i) => ({
+    seat: i,
+    onPolicy: lo.onPolicy,
+    exploitLowerBound: lo.exploit,       // abstraction-respecting BR gap
+    exploitTrue: trueBR[i].exploit,      // per-physical-state BR gap (tighter)
+    abstractionGap: trueBR[i].exploit - lo.exploit,
+  }));
 }
 
 // ── the HONEST LABEL (GTO is impossible) ────────────────────────────────────
@@ -344,7 +476,7 @@ function gradeLabel(kind) {
 }
 
 module.exports = {
-  build7thState, grade7th, perSeatBR, gradeLabel,
+  build7thState, grade7th, perSeatBR, perSeatTrueBR, perSeatBRWithBounds, gradeLabel,
   sigmaProbs, withDeal, dealtValue, parseCards, cardsToStr, firstHeroActions,
 };
 

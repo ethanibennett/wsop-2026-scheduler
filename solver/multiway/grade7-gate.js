@@ -61,6 +61,40 @@ function skewedProfile(spec, ranges) {
   return sigma;
 }
 
+// A BET-LEADER profile: at every infoset, bias hard toward the AGGRESSIVE action
+// (bet 'b' when unbet, raise 'r' when facing, else call 'c'). This makes the
+// FIRST actor BET, so a graded hero != 0 faces a bet at its real node — the exact
+// condition that exposed BUG 1 (a positionally-mis-seated probe would instead
+// walk the hero to a CHECK node and discover the WRONG action set). The resolver
+// and brute read the SAME object, so the gate only checks they AGREE.
+function betLeaderProfile(spec, ranges) {
+  const { build7thState, withDeal } = require('./grade7');
+  const { cardFromStr: cf } = require('../engine/cards');
+  const base = build7thState(spec);
+  const game = base.game;
+  const used = new Set(); for (let p = 0; p < 3; p++) for (const c of base.up[p]) used.add(c);
+  const R = ranges.map(r => r.map(h => ({ down: h.down.map(c => (typeof c === 'string' ? cf(c) : c)), w: h.w })));
+  const sigma = {};
+  function visit(s) {
+    if (game.isTerminal(s)) return;
+    const acts = game.legalActions(s);
+    const key = game.infosetKey(s);
+    if (!sigma[key]) {
+      // aggressive preference order
+      let bi = acts.indexOf('b'); if (bi < 0) bi = acts.indexOf('r'); if (bi < 0) bi = acts.indexOf('c'); if (bi < 0) bi = acts.indexOf('k'); if (bi < 0) bi = 0;
+      const p = acts.map((_, i) => (i === bi ? 0.85 : 0.15 / (acts.length - 1 || 1)));
+      if (acts.length === 1) p[0] = 1;
+      sigma[key] = { a: acts, p };
+    }
+    for (const a of acts) visit(game.applyAction(s, a));
+  }
+  for (const h0 of R[0]) { if (h0.down.some(c => used.has(c))) continue; const s0 = new Set(h0.down);
+    for (const h1 of R[1]) { if (h1.down.some(c => used.has(c) || s0.has(c))) continue; const s1 = new Set(s0); for (const c of h1.down) s1.add(c);
+      for (const h2 of R[2]) { if (h2.down.some(c => used.has(c) || s1.has(c))) continue;
+        visit(withDeal(base, h0.down, h1.down, h2.down)); } } }
+  return sigma;
+}
+
 // ── test spots ───────────────────────────────────────────────────────────────
 function spotA() {
   // 3-way fresh 7th street. Boards chosen with distinct low ranks so act order
@@ -128,6 +162,15 @@ function spotC_2way() {
 
 function maxAbsDiffActEV(res, brute) {
   let worst = 0, detail = [];
+  // ACTION-SET MISMATCH is the BUG-1 signature: the resolver's discovered hero
+  // action set differs from the brute's (e.g. resolver says ['k','b'] because a
+  // mis-seated probe walked to a check node, while brute correctly says
+  // ['f','c','r'] facing a bet). Treat it as a hard FAIL, not a crash on undefined.
+  const resActs = res.actions.slice().sort().join(',');
+  const bruteActs = brute.heroActs.slice().sort().join(',');
+  if (resActs !== bruteActs) {
+    return { worst: Infinity, detail: [['ACTION-SET-MISMATCH', resActs, bruteActs, Infinity]], dOn: Infinity, actionSetMismatch: true };
+  }
   for (const a of res.actions) {
     const d = Math.abs(res.actionEV[a] - brute.actEV[a]);
     detail.push([a, res.actionEV[a], brute.actEV[a], d]);
@@ -149,8 +192,14 @@ function maxAbsDiffBR(resBR, bruteBRr) {
   return { worst, detail };
 }
 
+function pickProfile(kind, S) {
+  if (kind === 'skew') return skewedProfile(S.spec, S.ranges);
+  if (kind === 'betlead') return betLeaderProfile(S.spec, S.ranges);
+  return emptyProfile();
+}
+
 function runSpot(name, S, hero, profileKind) {
-  const profile = profileKind === 'skew' ? skewedProfile(S.spec, S.ranges) : emptyProfile();
+  const profile = pickProfile(profileKind, S);
   const res = grade7th(S.spec, S.ranges, profile, { hero });
   const brute = bruteHeroEV(S.spec, S.ranges, profile, hero);
   const resBR = perSeatBR(S.spec, S.ranges, profile);
@@ -158,7 +207,12 @@ function runSpot(name, S, hero, profileKind) {
   const dEV = maxAbsDiffActEV(res, brute);
   const dBR = maxAbsDiffBR(resBR, bruteBRr);
   const worst = Math.max(dEV.worst, dBR.worst);
-  return { name, hero, profileKind, res, brute, resBR, bruteBRr, dEV, dBR, worst };
+  // BUG-1 GUARD: for hero != 0 under a bet-leader profile, assert the hero's real
+  // node is a FACING-A-BET decision (action set includes 'f'/'c'/'r'), i.e. the
+  // first actor actually bet. This is the condition a positionally-mis-seated
+  // probe would mis-discover as a check node ['k','b'].
+  const facesBet = res.actions.includes('f') && res.actions.includes('c');
+  return { name, hero, profileKind, res, brute, resBR, bruteBRr, dEV, dBR, worst, facesBet };
 }
 
 function run() {
@@ -171,17 +225,31 @@ function run() {
     ['spotB/skew hero2', spotB(), 2, 'skew'],
     ['spotC_2way/uniform', spotC_2way(), 0, 'uniform'],
     ['spotC_2way/skew', spotC_2way(), 1, 'skew'],
+    // BUG-1 REGRESSION SPOTS: hero != 0 AND the first actor BETS (bet-leader
+    // profile). These are the spots the old gate lacked — the ones that expose a
+    // positionally-mis-seated action-set probe. All 3 heroes must match brute.
+    ['spotA/betlead hero1', spotA(), 1, 'betlead'],
+    ['spotA/betlead hero2', spotA(), 2, 'betlead'],
+    ['spotB/betlead hero1', spotB(), 1, 'betlead'],
+    ['spotB/betlead hero2', spotB(), 2, 'betlead'],
   ];
   let globalWorst = 0;
   const rows = [];
+  let betLeadFacesBetCount = 0;   // # of hero!=0 bet-leader spots that truly faced a bet
   for (const [nm, S, hero, kind] of spots) {
     const r = runSpot(nm, S, hero, kind);
     globalWorst = Math.max(globalWorst, r.worst);
     rows.push(r);
-    console.log(`\n=== ${nm} (hero ${hero}) triples=${r.res.tripleCount} ===`);
+    if (kind === 'betlead' && hero !== 0 && r.facesBet) betLeadFacesBetCount++;
+    console.log(`\n=== ${nm} (hero ${hero}) triples=${r.res.tripleCount} ${kind === 'betlead' ? `facesBet=${r.facesBet} actions=${JSON.stringify(r.res.actions)}` : ''} ===`);
     console.log('  per-action EV (resolver vs brute):');
-    for (const [a, rv, bv, d] of r.dEV.detail) console.log(`    ${a}: ${rv.toFixed(9)}  vs  ${bv.toFixed(9)}   |Δ|=${d.toExponential(2)}`);
-    console.log(`    onPolicy: Δ=${r.dEV.dOn.toExponential(2)}`);
+    if (r.dEV.actionSetMismatch) {
+      const [, resActs, bruteActs] = r.dEV.detail[0];
+      console.log(`    ❌ ACTION-SET MISMATCH (BUG-1 signature): resolver=[${resActs}]  brute=[${bruteActs}]`);
+    } else {
+      for (const [a, rv, bv, d] of r.dEV.detail) console.log(`    ${a}: ${rv.toFixed(9)}  vs  ${bv.toFixed(9)}   |Δ|=${d.toExponential(2)}`);
+      console.log(`    onPolicy: Δ=${r.dEV.dOn.toExponential(2)}`);
+    }
     console.log('  per-seat BR (resolver exploit vs brute exploit):');
     for (let i = 0; i < 3; i++) console.log(`    seat${i}: resolver exploit=${r.resBR[i].exploit.toFixed(9)}  brute=${r.bruteBRr[i].exploit.toFixed(9)}   |Δ|=${Math.abs(r.resBR[i].exploit - r.bruteBRr[i].exploit).toExponential(2)}`);
     console.log(`  worst |Δ| this spot: ${r.worst.toExponential(3)}`);
@@ -192,18 +260,25 @@ function run() {
   try { gradeLabel('gto'); } catch (e) { banOk = true; }
   const label = gradeLabel('ev-loss');
 
+  // BUG-1 REGRESSION ASSERTION: we must have exercised >=2 spots where hero != 0
+  // AND the first actor bets (hero faces a bet at its real node) — the exact
+  // condition the old gate missed — and all of them must still match to <=1e-6.
+  const bug1Ok = betLeadFacesBetCount >= 2 && globalWorst <= 1e-6;
+
   console.log('\n──────────────────────────────────────────────────────────────');
   console.log(`GATE THRESHOLD: 1e-6`);
   console.log(`WORST DEVIATION across all spots (per-action EV + per-seat BR): ${globalWorst.toExponential(4)}`);
   console.log(`GATE ${globalWorst <= 1e-6 ? 'PASS ✅' : 'FAIL ❌'}`);
+  console.log(`BUG-1 GUARD: ${betLeadFacesBetCount} hero!=0 bet-leader spot(s) truly faced a bet (need >=2) → ${bug1Ok ? 'PASS ✅' : 'FAIL ❌'}`);
   console.log(`HONEST FRAMING: label="${label}"; GTO-label-banned=${banOk ? 'YES ✅' : 'NO ❌'}`);
   console.log('──────────────────────────────────────────────────────────────');
 
+  const pass = globalWorst <= 1e-6 && bug1Ok && banOk;
   // machine-readable tail
-  console.log(JSON.stringify({ worstDeviation: globalWorst, threshold: 1e-6, pass: globalWorst <= 1e-6, gtoBanned: banOk, label }));
-  return { globalWorst, pass: globalWorst <= 1e-6, banOk, label };
+  console.log(JSON.stringify({ worstDeviation: globalWorst, threshold: 1e-6, pass, gtoBanned: banOk, label, bug1FacesBet: betLeadFacesBetCount, bug1Ok }));
+  return { globalWorst, pass, banOk, label, bug1FacesBet: betLeadFacesBetCount, bug1Ok };
 }
 
-module.exports = { run, spotA, spotB, spotC_2way, skewedProfile };
+module.exports = { run, spotA, spotB, spotC_2way, skewedProfile, betLeaderProfile };
 
 if (require.main === module) run();
