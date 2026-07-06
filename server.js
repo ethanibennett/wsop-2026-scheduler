@@ -344,6 +344,22 @@ app.post('/api/backer/:token/subscribe', async (req, res) => {
   }
 });
 
+// A backer turns push off from their page.
+app.post('/api/backer/:token/unsubscribe', async (req, res) => {
+  const token = String(req.params.token || '');
+  if (!BACKER_TOKEN_RE.test(token)) return res.status(404).json({ error: 'Not found' });
+  try {
+    const { endpoint } = req.body || {};
+    if (endpoint) db.run('DELETE FROM backer_push_subs WHERE token = ? AND endpoint = ?', [token, endpoint]);
+    else db.run('DELETE FROM backer_push_subs WHERE token = ?', [token]);
+    await saveDatabase();
+    res.json({ message: 'Unsubscribed' });
+  } catch (err) {
+    console.error('Backer unsubscribe error:', err);
+    res.status(500).json({ error: 'Failed to unsubscribe' });
+  }
+});
+
 // The backer's private page (same shell for every token; JS reads the token
 // from the URL and fetches its own feed).
 app.get('/b/:token', (req, res) => {
@@ -9031,6 +9047,10 @@ body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Conde
 .btn{display:block;width:100%;margin:2px 0 8px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:var(--bone);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .btn:active{opacity:.8}
 .pushnote{color:var(--muted);font-size:12px;text-align:center;margin:6px 0 10px}
+.pushrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:2px 0 8px}
+.pushon{font-size:14px;font-weight:700}
+.btn-off{flex:0 0 auto;width:auto;margin:0;padding:8px 14px;font-size:13px;font-weight:600;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);font-family:inherit;cursor:pointer}
+.btn-off:active{opacity:.8}
 .foot{color:#5f5f5f;font-size:10.5px;text-align:center;margin-top:30px;font-family:'Univers Condensed','Univers',monospace;letter-spacing:.06em;text-transform:uppercase}
 </style></head><body>
 <div id="app"><div class="wrap"><p class="muted">Loading…</p></div></div>
@@ -9079,9 +9099,22 @@ body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Conde
   function renderPush(){
     var box=document.getElementById('pushbox'); if(!box)return;
     if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window)){box.innerHTML='';return;}
-    if(Notification.permission==='granted'){box.innerHTML='<div class="pushnote">🔔 Notifications are on for this device.</div>';return;}
-    box.innerHTML='<button class="btn" id="enable">🔔 Notify me after each session</button>';
-    document.getElementById('enable').onclick=enablePush;
+    if(Notification.permission==='denied'){box.innerHTML='<div class="pushnote">Notifications are blocked in your browser settings.</div>';return;}
+    box.innerHTML='<div class="pushnote">…</div>';
+    navigator.serviceWorker.getRegistration('/b/').then(function(reg){
+      return reg?reg.pushManager.getSubscription():null;
+    }).then(function(sub){
+      if(sub){
+        box.innerHTML='<div class="pushrow"><span class="pushon">🔔 Notifications on</span><button class="btn-off" id="pushoff">Turn off</button></div>';
+        document.getElementById('pushoff').onclick=disablePush;
+      }else{
+        box.innerHTML='<button class="btn" id="enable">🔔 Notify me after each session</button>';
+        document.getElementById('enable').onclick=enablePush;
+      }
+    }).catch(function(){
+      box.innerHTML='<button class="btn" id="enable">🔔 Notify me after each session</button>';
+      var e=document.getElementById('enable'); if(e)e.onclick=enablePush;
+    });
   }
   function enablePush(){
     var b=document.getElementById('enable'); if(b){b.textContent='Enabling…';b.disabled=true;}
@@ -9095,11 +9128,21 @@ body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Conde
       });
     }).then(function(sub){
       return fetch('/api/backer/'+token+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub})});
-    }).then(function(){
-      var box=document.getElementById('pushbox'); if(box)box.innerHTML='<div class="pushnote">🔔 Notifications are on for this device.</div>';
-    }).catch(function(err){
+    }).then(function(){renderPush();}).catch(function(err){
       var box=document.getElementById('pushbox'); if(box)box.innerHTML='<div class="pushnote">Notifications unavailable here ('+esc(err&&err.message||'error')+'). You can still open this link anytime.</div>';
     });
+  }
+  function disablePush(){
+    var b=document.getElementById('pushoff'); if(b){b.textContent='…';b.disabled=true;}
+    navigator.serviceWorker.getRegistration('/b/').then(function(reg){
+      return reg?reg.pushManager.getSubscription():null;
+    }).then(function(sub){
+      if(!sub)return null;
+      var endpoint=sub.endpoint;
+      return sub.unsubscribe().then(function(){
+        return fetch('/api/backer/'+token+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:endpoint})});
+      });
+    }).then(function(){renderPush();}).catch(function(){renderPush();});
   }
   fetch('/api/backer/'+token+'/feed').then(function(r){return r.json();}).then(function(d){feed=d;render();}).catch(function(){render();});
 })();
