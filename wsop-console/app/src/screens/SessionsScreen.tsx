@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { useToast } from '../components/Toast'
 import { Sheet } from '../components/Sheet'
 import { SessionForm } from '../components/SessionForm'
+import { BackerNotify } from './BackersUI'
 import type { Session } from '../db/types'
 import { money, fmtDate, fmtHours, isThisWeek, todayISO } from '../engine/format'
 import {
@@ -470,12 +471,15 @@ export function SessionsScreen() {
       </Sheet>
       <Sheet open={!!editing} onClose={() => setEditing(null)} title="Edit session">
         {editing && (
-          <SessionForm
-            initial={editing}
-            onSave={save}
-            onCancel={() => setEditing(null)}
-            onDelete={del}
-          />
+          <>
+            <SessionForm
+              initial={editing}
+              onSave={save}
+              onCancel={() => setEditing(null)}
+              onDelete={del}
+            />
+            <BackerNotify session={editing} />
+          </>
         )}
       </Sheet>
     </div>

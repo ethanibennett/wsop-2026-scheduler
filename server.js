@@ -249,7 +249,131 @@ async function requireHamBasic(req, res, next) {
   }
 }
 
+// ── Backer-facing public surface (NOT under /console — backers have no creds) ──
+// Access is gated purely by the unguessable token in the URL; each token sees
+// only its own feed. Registered before the console gate + the SPA catch-all so
+// these win.
+const BACKER_TOKEN_RE = /^[A-Za-z0-9]{6,64}$/; // short base62 codes + legacy 32-hex
+
+// Push service worker for the backer page (scope /b/). Must be registered
+// before /b/:token so 'sw.js' isn't captured as a token.
+app.get('/b/sw.js', (req, res) => {
+  res.set('Content-Type', 'application/javascript; charset=utf-8');
+  res.set('Cache-Control', 'no-cache');
+  res.send(
+    "self.addEventListener('push',function(e){var d={};try{d=e.data.json();}catch(_){}" +
+    "e.waitUntil(self.registration.showNotification(d.title||'Update',{body:d.body||'',data:{url:d.url||'/'},tag:d.tag||'action'}));});" +
+    "self.addEventListener('notificationclick',function(e){e.notification.close();" +
+    "var u=(e.notification.data&&e.notification.data.url)||'/';" +
+    "e.waitUntil(clients.matchAll({type:'window'}).then(function(cl){for(var i=0;i<cl.length;i++){if(cl[i].url.indexOf(u)>-1&&'focus'in cl[i])return cl[i].focus();}return clients.openWindow(u);}));});"
+  );
+});
+
+// Public VAPID key so a backer's browser can subscribe.
+app.get('/api/backer/vapid', (req, res) => {
+  res.json({ key: process.env.VAPID_PUBLIC_KEY || null });
+});
+
+// A backer's own feed (their name, running share, per-session log).
+app.get('/api/backer/:token/feed', (req, res) => {
+  const token = String(req.params.token || '');
+  if (!BACKER_TOKEN_RE.test(token)) return res.status(404).json({ error: 'Not found' });
+  try {
+    let name = null;
+    const nstmt = db.prepare('SELECT name FROM backer_public WHERE token = ?');
+    nstmt.bind([token]); if (nstmt.step()) name = nstmt.getAsObject().name; nstmt.free();
+    // Fall back to the synced backer object for name + stakes, so a freshly
+    // created backer's page is presentable before the first session is notified.
+    let stakes = '';
+    let openingCents = 0;
+    const rec = backerRecordByToken(token);
+    if (rec) {
+      if (!name) name = rec.name || null;
+      stakes = stakesSummaryServer(rec.stakes || []);
+      openingCents = Math.round((Number(rec.opening) || 0) * 100);
+    }
+    const events = [];
+    const estmt = db.prepare(
+      'SELECT ts, date, game, venue, hours, session_result_cents, pct, share_cents FROM backer_events WHERE token = ? ORDER BY ts DESC LIMIT 200'
+    );
+    estmt.bind([token]);
+    while (estmt.step()) {
+      const r = estmt.getAsObject();
+      events.push({
+        ts: r.ts, date: r.date, game: r.game, venue: r.venue, hours: r.hours,
+        sessionResultCents: r.session_result_cents, pct: r.pct, shareCents: r.share_cents,
+      });
+    }
+    estmt.free();
+    let grossCents = 0, netSessionCents = 0;
+    for (const e of events) {
+      grossCents += e.sessionResultCents || 0;
+      netSessionCents += e.shareCents || 0;
+    }
+    res.json({
+      name, stakes, openingCents, grossCents, netSessionCents,
+      cumulativeCents: backerCumulativeCents(token) + openingCents,
+      events,
+    });
+  } catch (err) {
+    console.error('Backer feed error:', err);
+    res.status(500).json({ error: 'feed failed' });
+  }
+});
+
+// A backer enables push from their page.
+app.post('/api/backer/:token/subscribe', async (req, res) => {
+  const token = String(req.params.token || '');
+  if (!BACKER_TOKEN_RE.test(token)) return res.status(404).json({ error: 'Not found' });
+  try {
+    const { subscription } = req.body || {};
+    if (!subscription || !subscription.endpoint || !subscription.keys ||
+        !subscription.keys.p256dh || !subscription.keys.auth) {
+      return res.status(400).json({ error: 'Invalid subscription' });
+    }
+    db.run('DELETE FROM backer_push_subs WHERE endpoint = ?', [subscription.endpoint]);
+    db.run(
+      'INSERT INTO backer_push_subs (token, endpoint, keys_p256dh, keys_auth) VALUES (?, ?, ?, ?)',
+      [token, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth]
+    );
+    await saveDatabase();
+    res.json({ message: 'Subscribed' });
+  } catch (err) {
+    console.error('Backer subscribe error:', err);
+    res.status(500).json({ error: 'Failed to subscribe' });
+  }
+});
+
+// A backer turns push off from their page.
+app.post('/api/backer/:token/unsubscribe', async (req, res) => {
+  const token = String(req.params.token || '');
+  if (!BACKER_TOKEN_RE.test(token)) return res.status(404).json({ error: 'Not found' });
+  try {
+    const { endpoint } = req.body || {};
+    if (endpoint) db.run('DELETE FROM backer_push_subs WHERE token = ? AND endpoint = ?', [token, endpoint]);
+    else db.run('DELETE FROM backer_push_subs WHERE token = ?', [token]);
+    await saveDatabase();
+    res.json({ message: 'Unsubscribed' });
+  } catch (err) {
+    console.error('Backer unsubscribe error:', err);
+    res.status(500).json({ error: 'Failed to unsubscribe' });
+  }
+});
+
+// The backer's private page (same shell for every token; JS reads the token
+// from the URL and fetches its own feed).
+app.get('/b/:token', (req, res) => {
+  const token = String(req.params.token || '');
+  if (!BACKER_TOKEN_RE.test(token)) return res.status(404).send('Not found');
+  res.set('Cache-Control', 'no-store');
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.send(BACKER_PAGE_HTML);
+});
+
 const consoleDist = path.join(__dirname, 'wsop-console', 'app', 'dist');
+// Public copies of the Univers fonts for the backer page — the /console copies
+// sit behind Basic Auth, so a backer's browser can't load them.
+app.use('/bfonts', express.static(path.join(consoleDist, 'fonts'), { maxAge: '30d' }));
 if (require('fs').existsSync(consoleDist)) {
   // Gate everything under /console (assets + shell) on the ham account.
   app.use('/console', requireHamBasic);
@@ -343,6 +467,104 @@ if (require('fs').existsSync(consoleDist)) {
       console.error('Console sync error:', err);
       res.status(500).json({ error: 'sync failed' });
     }
+  });
+
+  // Backer notifications (gated — only ham can send). The client sends a
+  // session summary + the computed per-backer cuts; we append each backer's
+  // event (dedup on token+session), recompute their running share, and fire
+  // their web-push. Returns per-recipient delivery + running total.
+  app.post('/console/api/backers/notify', async (req, res) => {
+    try {
+      const { session, recipients } = req.body || {};
+      if (!session || typeof session.id !== 'string' || !Array.isArray(recipients)) {
+        return res.status(400).json({ error: 'Bad payload' });
+      }
+      const ts = Date.now();
+      const results = [];
+      let changed = false;
+      for (const r of recipients) {
+        if (!r || typeof r.token !== 'string' || !/^[A-Za-z0-9]{6,64}$/.test(r.token)) continue;
+        const pct = Number(r.pct) || 0;
+        const shareCents = Math.round(Number(r.shareCents) || 0);
+        db.run(
+          `INSERT INTO backer_public (token, name, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(token) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at`,
+          [r.token, String(r.name || '').slice(0, 80), ts]
+        );
+        db.run(
+          `INSERT OR IGNORE INTO backer_events
+             (id, token, session_id, ts, date, game, venue, hours, session_result_cents, pct, share_cents)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            `${r.token}:${session.id}`, r.token, session.id, ts,
+            String(session.date || ''), String(session.game || '').slice(0, 120),
+            String(session.venue || '').slice(0, 80), Number(session.hours) || 0,
+            Math.round(Number(session.resultCents) || 0), pct, shareCents,
+          ]
+        );
+        const inserted = db.getRowsModified() > 0;
+        if (inserted) changed = true;
+        // Cumulative is computed AFTER the insert-or-ignore, so it reflects this
+        // session once (a re-send finds the row already there and the sum is
+        // unchanged — never double-counted). Add the backer's carry-in so the
+        // "Running" figure matches their page.
+        const cum = backerCumulativeCents(r.token) + Math.round(Number(r.openingCents) || 0);
+        // Always attempt the push (not only on first record): a backer who
+        // enabled notifications AFTER the first send still gets reached on a
+        // re-send, while the dedup above keeps their running total correct.
+        const title = `${session.game} — ${fmtSignedCents(shareCents)}`;
+        const body =
+          `${session.venue} · ${fmtHours(session.hours)} · session ${fmtSignedCents(session.resultCents)}. ` +
+          `Your ${pct}% = ${fmtSignedCents(shareCents)}. Running: ${fmtSignedCents(cum)}.`;
+        const out = await sendBackerPush(r.token, title, body, `/b/${r.token}`);
+        if (out.changed) changed = true;
+        // Per-session text (Twilio), if this backer has a phone on file.
+        let smsStatus = 'none';
+        if (r.sms && typeof r.sms === 'string') {
+          smsStatus = await sendBackerSms(
+            r.sms,
+            `${session.game} at ${session.venue}: session ${fmtSignedCents(session.resultCents)} over ${fmtHours(session.hours)}. ` +
+            `Your ${pct}% = ${fmtSignedCents(shareCents)}. Running ${fmtSignedCents(cum)}. futurega.me/b/${r.token}`
+          );
+        }
+        results.push({ token: r.token, name: r.name, sent: out.sent, subs: out.subs, cumulativeCents: cum, duplicate: !inserted, sms: smsStatus });
+      }
+      if (changed) await saveDatabase();
+      res.json({ results });
+    } catch (err) {
+      console.error('Backer notify error:', err);
+      res.status(500).json({ error: 'notify failed' });
+    }
+  });
+
+  // Native app (APNs) device-token registration + a manual test push. Gated by
+  // the console Basic Auth, so the native app must include ham's credentials.
+  app.post('/console/api/native/register', async (req, res) => {
+    try {
+      const { token, env } = req.body || {};
+      if (!token || typeof token !== 'string' || !/^[a-f0-9]{32,200}$/i.test(token)) {
+        return res.status(400).json({ error: 'bad token' });
+      }
+      const e = env === 'production' ? 'production' : 'sandbox';
+      db.run(
+        `INSERT INTO console_apns_tokens (token, env, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(token) DO UPDATE SET env = excluded.env, updated_at = excluded.updated_at`,
+        [token, e, Date.now()]
+      );
+      await saveDatabase();
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('APNs register error:', err);
+      res.status(500).json({ error: 'register failed' });
+    }
+  });
+  app.post('/console/api/native/test', async (req, res) => {
+    if (!apnsAuthToken()) return res.status(503).json({ ok: false, error: 'APNs not configured on the server' });
+    let count = 0;
+    const s = db.prepare('SELECT COUNT(*) AS n FROM console_apns_tokens');
+    if (s.step()) count = s.getAsObject().n; s.free();
+    await sendConsoleApns('WSOP Console', 'Native notifications are working 🎉', 'test');
+    res.json({ ok: true, tokens: count });
   });
 
   app.use('/console', express.static(consoleDist, {
@@ -1843,6 +2065,61 @@ async function initDatabase() {
           PRIMARY KEY (store, id)
         )`);
         console.log('Created console_records table');
+      }
+    },
+    {
+      name: 'backer-notifications-2026-07',
+      fn: () => {
+        // Backer-facing notification system. Ethan's backers aren't console
+        // users — each has an unguessable token that keys their private page
+        // (/b/<token>) and their web-push subscription. backer_public holds
+        // their display name; backer_events is the append-only per-session log
+        // (unique on token+session so a re-send never double-counts); their
+        // running share = SUM(share_cents).
+        db.run(`CREATE TABLE IF NOT EXISTS backer_public (
+          token TEXT PRIMARY KEY,
+          name TEXT,
+          updated_at INTEGER
+        )`);
+        db.run(`CREATE TABLE IF NOT EXISTS backer_events (
+          id TEXT PRIMARY KEY,
+          token TEXT NOT NULL,
+          session_id TEXT NOT NULL,
+          ts INTEGER NOT NULL,
+          date TEXT,
+          game TEXT,
+          venue TEXT,
+          hours REAL,
+          session_result_cents INTEGER,
+          pct REAL,
+          share_cents INTEGER,
+          UNIQUE (token, session_id)
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_backer_events_token ON backer_events(token, ts)');
+        db.run(`CREATE TABLE IF NOT EXISTS backer_push_subs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          token TEXT NOT NULL,
+          endpoint TEXT NOT NULL UNIQUE,
+          keys_p256dh TEXT NOT NULL,
+          keys_auth TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        db.run('CREATE INDEX IF NOT EXISTS idx_backer_subs_token ON backer_push_subs(token)');
+        console.log('Created backer notification tables');
+      }
+    },
+    {
+      name: 'console-apns-tokens-2026-07',
+      fn: () => {
+        // Native iOS (APNs) device tokens for the console wrapper app. `env` is
+        // 'sandbox' (dev builds) or 'production' (TestFlight/App Store) — picks
+        // the APNs host. Single-user (ham), so no user scoping.
+        db.run(`CREATE TABLE IF NOT EXISTS console_apns_tokens (
+          token TEXT PRIMARY KEY,
+          env TEXT NOT NULL DEFAULT 'sandbox',
+          updated_at INTEGER
+        )`);
+        console.log('Created console_apns_tokens table');
       }
     },
     {
@@ -8579,7 +8856,82 @@ try {
 // regardless of the server timezone.
 const CONSOLE_TZ = 'America/New_York';
 
+// ── APNs (native iOS push for the console app) ──
+let _apnsJwt = null, _apnsJwtAt = 0;
+function apnsAuthToken() {
+  const keyId = process.env.APNS_KEY_ID;
+  const teamId = process.env.APNS_TEAM_ID || '27TK6846H8';
+  const key = process.env.APNS_AUTH_KEY_BASE64
+    ? Buffer.from(process.env.APNS_AUTH_KEY_BASE64, 'base64').toString('utf8')
+    : process.env.APNS_AUTH_KEY;
+  if (!keyId || !key) return null; // not configured
+  const now = Date.now();
+  if (_apnsJwt && now - _apnsJwtAt < 40 * 60 * 1000) return _apnsJwt; // reuse (<60min APNs limit)
+  try {
+    _apnsJwt = jwt.sign({ iss: teamId, iat: Math.floor(now / 1000) }, key,
+      { algorithm: 'ES256', header: { alg: 'ES256', kid: keyId } });
+    _apnsJwtAt = now;
+    return _apnsJwt;
+  } catch (err) {
+    console.error('APNs JWT error:', err.message);
+    return null;
+  }
+}
+function sendApnsOne(token, env, payloadObj) {
+  return new Promise((resolve) => {
+    const auth = apnsAuthToken();
+    if (!auth) return resolve({ ok: false, reason: 'unconfigured' });
+    const http2 = require('http2');
+    const host = env === 'production' ? 'https://api.push.apple.com' : 'https://api.sandbox.push.apple.com';
+    const bundle = process.env.APNS_BUNDLE_ID || 'me.futurega.console';
+    let client;
+    try { client = http2.connect(host); } catch (e) { return resolve({ ok: false, reason: e.message }); }
+    let done = false;
+    const finish = (r) => { if (done) return; done = true; try { client.close(); } catch (_) {} resolve(r); };
+    client.on('error', (e) => finish({ ok: false, reason: e.message }));
+    const bodyBuf = Buffer.from(JSON.stringify(payloadObj));
+    const req = client.request({
+      ':method': 'POST', ':path': `/3/device/${token}`,
+      authorization: `bearer ${auth}`, 'apns-topic': bundle,
+      'apns-push-type': 'alert', 'content-type': 'application/json',
+    });
+    let status = 0, data = '';
+    req.setEncoding('utf8');
+    req.on('response', (h) => { status = h[':status']; });
+    req.on('data', (d) => { data += d; });
+    req.on('end', () => finish({ ok: status === 200, status, data }));
+    req.on('error', (e) => finish({ ok: false, reason: e.message }));
+    req.end(bodyBuf);
+  });
+}
+async function sendConsoleApns(title, body, tag) {
+  if (!apnsAuthToken()) return; // not configured — no-op
+  const rows = [];
+  try {
+    const s = db.prepare('SELECT token, env FROM console_apns_tokens');
+    while (s.step()) rows.push(s.getAsObject());
+    s.free();
+  } catch (_) { return; }
+  if (!rows.length) return;
+  const payload = { aps: { alert: { title, body }, sound: 'default' }, url: '/console/', tag: tag || 'nudge' };
+  let changed = false;
+  for (const r of rows) {
+    const res = await sendApnsOne(r.token, r.env, payload);
+    if (res.status === 410 || (res.status === 400 && /BadDeviceToken/i.test(res.data || ''))) {
+      db.run('DELETE FROM console_apns_tokens WHERE token = ?', [r.token]); changed = true;
+    } else if (!res.ok) {
+      console.error('APNs send error:', res.status || res.reason, res.data || '');
+    }
+  }
+  if (changed) await saveDatabase();
+}
+
+// Fan a console notification out to BOTH native (APNs) and web-push (PWA).
 async function sendConsolePush(title, body, tag) {
+  await sendConsoleApns(title, body, tag);
+  await sendConsoleWebPush(title, body, tag);
+}
+async function sendConsoleWebPush(title, body, tag) {
   if (!process.env.VAPID_PUBLIC_KEY) return;
   try {
     const stmt = db.prepare('SELECT endpoint, keys_p256dh, keys_auth FROM console_push_subscriptions');
@@ -8609,6 +8961,317 @@ async function sendConsolePush(title, body, tag) {
     console.error('sendConsolePush error:', err);
   }
 }
+
+// ── Backer notification helpers ──
+function backerCumulativeCents(token) {
+  let c = 0;
+  const s = db.prepare('SELECT COALESCE(SUM(share_cents),0) AS c FROM backer_events WHERE token = ?');
+  s.bind([token]); if (s.step()) c = s.getAsObject().c; s.free();
+  return c || 0;
+}
+function backerSubCount(token) {
+  let n = 0;
+  const s = db.prepare('SELECT COUNT(*) AS n FROM backer_push_subs WHERE token = ?');
+  s.bind([token]); if (s.step()) n = s.getAsObject().n; s.free();
+  return n || 0;
+}
+// The synced backer object (from console_records) for a token, or null. Lets the
+// backer page show a name + stakes the moment the backer is created in the app,
+// before any session has been notified (backer_public is only set on notify).
+function backerRecordByToken(token) {
+  const s = db.prepare("SELECT data FROM console_records WHERE store = 'backers' AND deleted = 0");
+  let found = null;
+  while (s.step()) {
+    try {
+      const b = JSON.parse(s.getAsObject().data);
+      if (b && b.token === token) { found = b; break; }
+    } catch (_) { /* skip malformed */ }
+  }
+  s.free();
+  return found;
+}
+const SRV_FMT_LABEL = {
+  PLO: 'PLO', PLO8: 'PLO8', NLH: 'NLH', mixed: 'Mixed', stud8: 'Stud8',
+  razz: 'Razz', '2-7': '2-7', BigO: 'Big O', other: 'Other', all: 'all games',
+};
+function stakesSummaryServer(stakes) {
+  if (!Array.isArray(stakes) || !stakes.length) return '';
+  return stakes
+    .map((s) => {
+      const f = SRV_FMT_LABEL[s.format] || s.format;
+      const c = s.channel && s.channel !== 'any' ? ` (${s.channel})` : '';
+      return `${s.pct}% ${f}${c}`;
+    })
+    .join(' · ');
+}
+async function sendBackerPush(token, title, body, url) {
+  let sent = 0, subs = 0, changed = false;
+  if (!process.env.VAPID_PUBLIC_KEY) return { sent, subs, changed };
+  const list = [];
+  const s = db.prepare('SELECT endpoint, keys_p256dh, keys_auth FROM backer_push_subs WHERE token = ?');
+  s.bind([token]); while (s.step()) list.push(s.getAsObject()); s.free();
+  subs = list.length;
+  if (!subs) return { sent, subs, changed };
+  const payload = JSON.stringify({ title, body, url, tag: 'action' });
+  for (const sub of list) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth } },
+        payload
+      );
+      sent++;
+    } catch (err) {
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        db.run('DELETE FROM backer_push_subs WHERE endpoint = ?', [sub.endpoint]);
+        changed = true;
+      } else {
+        console.error('Backer push send error:', err.statusCode || err.message);
+      }
+    }
+  }
+  return { sent, subs, changed };
+}
+function fmtSignedCents(cents) {
+  const v = (Number(cents) || 0) / 100;
+  const n = Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  return (v < 0 ? '−' : '+') + '$' + n;
+}
+function fmtHours(h) {
+  return (Math.round((Number(h) || 0) * 10) / 10) + 'h';
+}
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Generic console email via the existing SMTP transporter (password resets use
+// the same one). Returns true on send, false if SMTP isn't configured.
+async function sendConsoleEmail(to, subject, html) {
+  if (!mailTransporter) {
+    console.log('[console] email skipped (SMTP unconfigured):', to, '·', subject);
+    return false;
+  }
+  try {
+    await mailTransporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, html });
+    return true;
+  } catch (err) {
+    console.error('Console email error:', err.message);
+    return false;
+  }
+}
+
+// Per-session backer text via Twilio's REST API (no SDK dependency). Inert
+// until TWILIO_* env vars are set — returns 'unconfigured' so the UI can say so.
+async function sendBackerSms(phone, body) {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM || process.env.TWILIO_FROM_NUMBER;
+  if (!sid || !token || !from) return 'unconfigured';
+  if (typeof fetch !== 'function') return 'error';
+  try {
+    const params = new URLSearchParams({ To: phone, From: from, Body: body });
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+    if (!res.ok) {
+      console.error('Twilio SMS failed:', res.status);
+      return 'error';
+    }
+    return 'sent';
+  } catch (err) {
+    console.error('Twilio SMS error:', err.message);
+    return 'error';
+  }
+}
+
+// Weekly email digest for backers with an email on file: the past 7 days of
+// their recorded sessions + their running total. Reads backer objects from the
+// synced console_records (store='backers'); events from backer_events.
+async function sendBackerWeeklyDigests() {
+  try {
+    const backers = [];
+    const s = db.prepare("SELECT data FROM console_records WHERE store = 'backers' AND deleted = 0");
+    while (s.step()) {
+      try {
+        const b = JSON.parse(s.getAsObject().data);
+        if (b && b.token && b.delivery && b.delivery.email) backers.push(b);
+      } catch (_) { /* skip malformed */ }
+    }
+    s.free();
+    if (!backers.length) return;
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    for (const b of backers) {
+      const evs = [];
+      const es = db.prepare(
+        'SELECT date, game, venue, hours, session_result_cents, pct, share_cents FROM backer_events WHERE token = ? AND ts >= ? ORDER BY ts DESC'
+      );
+      es.bind([b.token, weekAgo]);
+      while (es.step()) evs.push(es.getAsObject());
+      es.free();
+      if (!evs.length) continue; // nothing to report this week
+      const cum = backerCumulativeCents(b.token) + Math.round((Number(b.opening) || 0) * 100);
+      const weekShare = evs.reduce((a, e) => a + (e.share_cents || 0), 0);
+      const rows = evs.map((e) => {
+        const col = (e.share_cents || 0) >= 0 ? '#2c7a52' : '#c0544c';
+        return `<tr>
+          <td style="padding:6px 10px 6px 0;">${escapeHtml(e.game)}</td>
+          <td style="padding:6px 10px 6px 0;color:#888;">${escapeHtml(e.venue)} · ${fmtHours(e.hours)} · ${escapeHtml(e.date)}</td>
+          <td style="padding:6px 0;text-align:right;font-weight:600;color:${col};">${fmtSignedCents(e.share_cents)}</td>
+        </tr>`;
+      }).join('');
+      const html = `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#111;">
+        <h2 style="margin:0 0 2px;">Your week with Ethan</h2>
+        <p style="color:#888;margin:0 0 16px;">${evs.length} session${evs.length > 1 ? 's' : ''} · your week ${fmtSignedCents(weekShare)}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">${rows}</table>
+        <p style="margin:18px 0 4px;font-size:16px;"><strong>Running total: ${fmtSignedCents(cum)}</strong></p>
+        <p style="color:#888;font-size:12px;">Full detail anytime: <a href="https://futurega.me/b/${b.token}">your private page</a>.</p>
+      </div>`;
+      await sendConsoleEmail(b.delivery.email, 'Your weekly staking digest', html);
+    }
+  } catch (err) {
+    console.error('Backer weekly digest error:', err);
+  }
+}
+
+// The backer page — one self-contained shell for every token. Client JS reads
+// the token from the URL, fetches its own feed, and (opt-in) enables web push.
+const BACKER_PAGE_HTML = `<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#111111">
+<title>Your action</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:'Univers Condensed';src:url('/bfonts/univers-condensed.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Univers Condensed';src:url('/bfonts/univers-bold-condensed.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Univers';src:url('/bfonts/univers-regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Univers';src:url('/bfonts/univers-bold.woff2') format('woff2');font-weight:700;font-display:swap}
+:root{--ink:#111111;--surface:#1a1a1a;--surface-2:#242424;--line:#333333;--bone:#e8e8e8;--muted:#808080;--good:#5a9e7a;--bad:#c96b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Condensed','Univers',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.wrap{max-width:520px;margin:0 auto;padding:26px 18px 64px}
+.title{font-family:'Libre Baskerville',Georgia,serif;font-weight:700;font-size:26px;letter-spacing:-.03em;margin:0}
+.sub{font-family:'Univers Condensed','Univers',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.stakes{color:var(--muted);font-size:13px;margin-top:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0 14px}
+.card-label{font-family:'Univers Condensed','Univers',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.big{font-family:'Univers Condensed','Univers',monospace;font-weight:700;font-size:40px;letter-spacing:-.01em;line-height:1;font-variant-numeric:tabular-nums}
+.small{color:var(--muted);font-size:12px;margin-top:8px}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.muted{color:var(--muted)}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0;padding-top:0}
+.row-label{font-weight:700;font-size:15px}
+.row-meta{color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.4}
+.row-result{font-family:'Univers Condensed','Univers',monospace;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.btn{display:block;width:100%;margin:2px 0 8px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:var(--bone);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.btn:active{opacity:.8}
+.pushnote{color:var(--muted);font-size:12px;text-align:center;margin:6px 0 10px}
+.pushrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:2px 0 8px}
+.pushon{font-size:14px;font-weight:700}
+.btn-off{flex:0 0 auto;width:auto;margin:0;padding:8px 14px;font-size:13px;font-weight:600;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);font-family:inherit;cursor:pointer}
+.btn-off:active{opacity:.8}
+.foot{color:#5f5f5f;font-size:10.5px;text-align:center;margin-top:30px;font-family:'Univers Condensed','Univers',monospace;letter-spacing:.06em;text-transform:uppercase}
+</style></head><body>
+<div id="app"><div class="wrap"><p class="muted">Loading…</p></div></div>
+<script>
+(function(){
+  var token=location.pathname.split('/').filter(Boolean).pop();
+  var app=document.getElementById('app');
+  var feed=null;
+  function money(c){var v=(c||0)/100;var neg=v<0;var n=Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:0});return (neg?'−':'+')+'$'+n;}
+  function fmtH(h){return (Math.round((h||0)*10)/10)+'h';}
+  function esc(s){var d=document.createElement('div');d.textContent=(s==null?'':String(s));return d.innerHTML;}
+  function urlB64(s){var pad='='.repeat((4-s.length%4)%4);var b=(s+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(b);var a=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i);return a;}
+  function render(){
+    var evs=(feed&&feed.events)||[];
+    var cum=(feed&&feed.cumulativeCents)||0;
+    var name=(feed&&feed.name)||'Your action';
+    var stakes=(feed&&feed.stakes)||'';
+    var openingCents=(feed&&feed.openingCents)||0;
+    var grossCents=(feed&&feed.grossCents)||0;
+    var rows=evs.map(function(e){
+      var cls=e.shareCents>=0?'pos':'neg';
+      return '<div class="row"><div><div class="row-label">'+esc(e.game)+'</div>'
+        +'<div class="row-meta">'+esc(e.venue)+' · '+fmtH(e.hours)+' · '+esc(e.date)+' · gross '+money(e.sessionResultCents)+' · your '+esc(e.pct)+'%</div></div>'
+        +'<div class="row-result '+cls+'">'+money(e.shareCents)+'</div></div>';
+    }).join('');
+    var openingRow=openingCents?('<div class="row"><div><div class="row-label">Opening balance</div>'
+      +'<div class="row-meta">carried in</div></div>'
+      +'<div class="row-result '+(openingCents>=0?'pos':'neg')+'">'+money(openingCents)+'</div></div>'):'';
+    var sessionsInner=(rows+openingRow)||'<div class="muted" style="font-size:13px">No sessions yet — they\\'ll show up here as Ethan logs them.</div>';
+    app.innerHTML='<div class="wrap">'
+      +'<h1 class="title">'+esc(name)+'</h1>'
+      +'<div class="sub">your action with Ethan</div>'
+      +(stakes?'<div class="stakes">Staked: '+esc(stakes)+'</div>':'')
+      +'<div class="card"><div class="card-label">Net · your share</div>'
+        +'<div class="big '+(cum>=0?'pos':'neg')+'">'+money(cum)+'</div>'
+        +'<div class="small">running position — what settles up with Ethan</div>'
+        +(grossCents?'<div class="small">Gross across your games: <span class="'+(grossCents>=0?'pos':'neg')+'">'+money(grossCents)+'</span></div>':'')
+        +'</div>'
+      +'<div id="pushbox"></div>'
+      +'<div class="card"><div class="card-label">Sessions</div>'
+        +sessionsInner
+        +'</div>'
+      +'<div class="foot">Private link · only you can see this</div></div>';
+    renderPush();
+  }
+  function renderPush(){
+    var box=document.getElementById('pushbox'); if(!box)return;
+    if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window)){box.innerHTML='';return;}
+    if(Notification.permission==='denied'){box.innerHTML='<div class="pushnote">Notifications are blocked in your browser settings.</div>';return;}
+    box.innerHTML='<div class="pushnote">…</div>';
+    navigator.serviceWorker.getRegistration('/b/').then(function(reg){
+      return reg?reg.pushManager.getSubscription():null;
+    }).then(function(sub){
+      if(sub){
+        box.innerHTML='<div class="pushrow"><span class="pushon">🔔 Notifications on</span><button class="btn-off" id="pushoff">Turn off</button></div>';
+        document.getElementById('pushoff').onclick=disablePush;
+      }else{
+        box.innerHTML='<button class="btn" id="enable">🔔 Notify me after each session</button>';
+        document.getElementById('enable').onclick=enablePush;
+      }
+    }).catch(function(){
+      box.innerHTML='<button class="btn" id="enable">🔔 Notify me after each session</button>';
+      var e=document.getElementById('enable'); if(e)e.onclick=enablePush;
+    });
+  }
+  function enablePush(){
+    var b=document.getElementById('enable'); if(b){b.textContent='Enabling…';b.disabled=true;}
+    navigator.serviceWorker.register('/b/sw.js',{scope:'/b/'}).then(function(reg){
+      return Notification.requestPermission().then(function(p){
+        if(p!=='granted')throw new Error('permission denied');
+        return fetch('/api/backer/vapid').then(function(r){return r.json();}).then(function(v){
+          if(!v.key)throw new Error('unavailable');
+          return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64(v.key)});
+        });
+      });
+    }).then(function(sub){
+      return fetch('/api/backer/'+token+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub})});
+    }).then(function(){renderPush();}).catch(function(err){
+      var box=document.getElementById('pushbox'); if(box)box.innerHTML='<div class="pushnote">Notifications unavailable here ('+esc(err&&err.message||'error')+'). You can still open this link anytime.</div>';
+    });
+  }
+  function disablePush(){
+    var b=document.getElementById('pushoff'); if(b){b.textContent='…';b.disabled=true;}
+    navigator.serviceWorker.getRegistration('/b/').then(function(reg){
+      return reg?reg.pushManager.getSubscription():null;
+    }).then(function(sub){
+      if(!sub)return null;
+      var endpoint=sub.endpoint;
+      return sub.unsubscribe().then(function(){
+        return fetch('/api/backer/'+token+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:endpoint})});
+      });
+    }).then(function(){renderPush();}).catch(function(){renderPush();});
+  }
+  fetch('/api/backer/'+token+'/feed').then(function(r){return r.json();}).then(function(d){feed=d;render();}).catch(function(){render();});
+})();
+</script></body></html>`;
 
 function setupConsoleNudgeCron() {
   if (!consoleSchedule || !Array.isArray(consoleSchedule.BASE_NUDGES)) return;
@@ -10399,6 +11062,12 @@ initDatabase().then(() => {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
     setupConsoleNudgeCron();
+    // Weekly backer email digest — Sunday 18:00 ET.
+    try {
+      cron.schedule('0 18 * * 0', () => { sendBackerWeeklyDigests(); }, { timezone: CONSOLE_TZ });
+    } catch (err) {
+      console.error('Backer digest cron setup error:', err.message);
+    }
   });
 
   const shutdown = () => {

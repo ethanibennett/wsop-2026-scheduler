@@ -25,6 +25,7 @@ export const SYNCED_LOCAL_KEYS = [
   'wsop-nut-shop',
   'wsop-session-presets',
   'wsop-intention',
+  'wsop-notified-sessions',
 ]
 
 function readMeta(): Record<string, number> {
