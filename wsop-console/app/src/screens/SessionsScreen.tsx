@@ -4,6 +4,7 @@ import { useToast } from '../components/Toast'
 import { Sheet } from '../components/Sheet'
 import { SessionForm } from '../components/SessionForm'
 import { BackerNotify } from './BackersUI'
+import { autoNotifyForSession } from '../db/backerClient'
 import type { Session } from '../db/types'
 import { money, fmtDate, fmtHours, isThisWeek, todayISO } from '../engine/format'
 import {
@@ -149,10 +150,19 @@ export function SessionsScreen() {
   const pct = target > 0 ? Math.min(100, (cashHrs / target) * 100) : 0
 
   const save = async (s: Session) => {
+    const isNew = !editing
     await put('sessions', s)
     setEditing(null)
     setAdding(false)
-    toast(editing ? 'Session updated' : 'Session logged')
+    if (!isNew) {
+      toast('Session updated')
+      return
+    }
+    // New session → notify staked backers automatically.
+    const { notified, ok } = await autoNotifyForSession(s)
+    if (notified === 0) toast('Session logged')
+    else if (ok) toast(`Logged · notified ${notified} backer${notified > 1 ? 's' : ''}`)
+    else toast('Logged · backer notify failed (open the session to retry)')
   }
   const del = async (id: string) => {
     await remove('sessions', id)
