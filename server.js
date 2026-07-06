@@ -282,6 +282,14 @@ app.get('/api/backer/:token/feed', (req, res) => {
     let name = null;
     const nstmt = db.prepare('SELECT name FROM backer_public WHERE token = ?');
     nstmt.bind([token]); if (nstmt.step()) name = nstmt.getAsObject().name; nstmt.free();
+    // Fall back to the synced backer object for name + stakes, so a freshly
+    // created backer's page is presentable before the first session is notified.
+    let stakes = '';
+    const rec = backerRecordByToken(token);
+    if (rec) {
+      if (!name) name = rec.name || null;
+      stakes = stakesSummaryServer(rec.stakes || []);
+    }
     const events = [];
     const estmt = db.prepare(
       'SELECT ts, date, game, venue, hours, session_result_cents, pct, share_cents FROM backer_events WHERE token = ? ORDER BY ts DESC LIMIT 200'
@@ -295,7 +303,7 @@ app.get('/api/backer/:token/feed', (req, res) => {
       });
     }
     estmt.free();
-    res.json({ name, cumulativeCents: backerCumulativeCents(token), events });
+    res.json({ name, stakes, cumulativeCents: backerCumulativeCents(token), events });
   } catch (err) {
     console.error('Backer feed error:', err);
     res.status(500).json({ error: 'feed failed' });
@@ -8811,6 +8819,35 @@ function backerSubCount(token) {
   s.bind([token]); if (s.step()) n = s.getAsObject().n; s.free();
   return n || 0;
 }
+// The synced backer object (from console_records) for a token, or null. Lets the
+// backer page show a name + stakes the moment the backer is created in the app,
+// before any session has been notified (backer_public is only set on notify).
+function backerRecordByToken(token) {
+  const s = db.prepare("SELECT data FROM console_records WHERE store = 'backers' AND deleted = 0");
+  let found = null;
+  while (s.step()) {
+    try {
+      const b = JSON.parse(s.getAsObject().data);
+      if (b && b.token === token) { found = b; break; }
+    } catch (_) { /* skip malformed */ }
+  }
+  s.free();
+  return found;
+}
+const SRV_FMT_LABEL = {
+  PLO: 'PLO', PLO8: 'PLO8', NLH: 'NLH', mixed: 'Mixed', stud8: 'Stud8',
+  razz: 'Razz', '2-7': '2-7', BigO: 'Big O', other: 'Other', all: 'all games',
+};
+function stakesSummaryServer(stakes) {
+  if (!Array.isArray(stakes) || !stakes.length) return '';
+  return stakes
+    .map((s) => {
+      const f = SRV_FMT_LABEL[s.format] || s.format;
+      const c = s.channel && s.channel !== 'any' ? ` (${s.channel})` : '';
+      return `${s.pct}% ${f}${c}`;
+    })
+    .join(' · ');
+}
 async function sendBackerPush(token, title, body, url) {
   let sent = 0, subs = 0, changed = false;
   if (!process.env.VAPID_PUBLIC_KEY) return { sent, subs, changed };
@@ -8990,12 +9027,14 @@ body{margin:0;background:#100f0d;color:#e8e4d8;font-family:-apple-system,BlinkMa
         +'<div class="meta">'+esc(e.venue)+' · '+fmtH(e.hours)+' · '+esc(e.date)+'<br>your '+esc(e.pct)+'% of a '+money(e.sessionResultCents)+' session</div></div>';
     }).join('');
     var name=(feed&&feed.name)||'Your action';
+    var stakes=(feed&&feed.stakes)||'';
     app.innerHTML='<div class="wrap">'
       +'<div class="who">'+esc(name)+'</div><div class="sub">your action with Ethan</div>'
+      +(stakes?'<div class="sub" style="margin-top:5px;">Staked: '+esc(stakes)+'</div>':'')
       +'<div class="big '+(cum>=0?'pos':'neg')+'">'+money(cum)+'</div>'
       +'<div class="biglabel">running position — what settles up</div>'
       +'<div id="pushbox"></div>'
-      +(rows||'<p class="muted">No sessions recorded yet. This page updates as they come in.</p>')
+      +(rows||'<p class="muted">No sessions yet — they\\'ll show up here as Ethan logs them.</p>')
       +'<p class="foot">Private link · only you can see this.</p></div>';
     renderPush();
   }

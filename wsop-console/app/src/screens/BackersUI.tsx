@@ -106,6 +106,18 @@ export function BackersManager() {
                   <div className="field-row" style={{ alignItems: 'center' }}>
                     <input className="input mono" style={{ fontSize: 12 }} readOnly value={backerLink(b.token)} />
                     <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => void copyLink(b)}>Copy</button>
+                    <a
+                      className="btn"
+                      style={{ flex: '0 0 auto' }}
+                      href={backerLink(b.token)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Preview
+                    </a>
+                  </div>
+                  <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+                    Preview shows {b.name}&rsquo;s page exactly as they&rsquo;ll see it — check it before you send.
                   </div>
                 </div>
                 <button
