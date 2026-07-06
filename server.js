@@ -344,6 +344,9 @@ app.get('/b/:token', (req, res) => {
 });
 
 const consoleDist = path.join(__dirname, 'wsop-console', 'app', 'dist');
+// Public copies of the Univers fonts for the backer page — the /console copies
+// sit behind Basic Auth, so a backer's browser can't load them.
+app.use('/bfonts', express.static(path.join(consoleDist, 'fonts'), { maxAge: '30d' }));
 if (require('fs').existsSync(consoleDist)) {
   // Gate everything under /console (assets + shell) on the ham account.
   app.use('/console', requireHamBasic);
@@ -8986,27 +8989,37 @@ async function sendBackerWeeklyDigests() {
 // the token from the URL, fetches its own feed, and (opt-in) enables web push.
 const BACKER_PAGE_HTML = `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#100f0d">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#111111">
 <title>Your action</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&display=swap" rel="stylesheet">
 <style>
+@font-face{font-family:'Univers Condensed';src:url('/bfonts/univers-condensed.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Univers Condensed';src:url('/bfonts/univers-bold-condensed.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Univers';src:url('/bfonts/univers-regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Univers';src:url('/bfonts/univers-bold.woff2') format('woff2');font-weight:700;font-display:swap}
+:root{--ink:#111111;--surface:#1a1a1a;--surface-2:#242424;--line:#333333;--bone:#e8e8e8;--muted:#808080;--good:#5a9e7a;--bad:#c96b6b}
 *{box-sizing:border-box}
-body{margin:0;background:#100f0d;color:#e8e4d8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-.wrap{max-width:520px;margin:0 auto;padding:28px 18px 60px}
-.who{font-size:22px;font-weight:700;letter-spacing:-.01em}
-.sub{color:#8a857a;font-size:13px;margin-top:2px}
-.big{font-size:40px;font-weight:800;margin:16px 0 4px;font-variant-numeric:tabular-nums}
-.biglabel{color:#8a857a;font-size:12px;margin-bottom:18px}
-.pos{color:#4bbd85}.neg{color:#e2685f}
-.muted{color:#8a857a}
-.row{border-top:1px solid #26241f;padding:13px 0}
-.row-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.game{font-weight:600;font-size:15px}
-.amt{font-weight:700;font-variant-numeric:tabular-nums}
-.meta{color:#8a857a;font-size:12.5px;margin-top:4px;line-height:1.45}
-.foot{color:#5f5b52;font-size:11.5px;text-align:center;margin-top:34px}
-.btn{display:block;width:100%;margin:12px 0 4px;padding:12px;border-radius:12px;border:1px solid #2f2c26;background:#1b1a17;color:#e8e4d8;font-size:14px;font-weight:600;cursor:pointer}
+body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Condensed','Univers',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.wrap{max-width:520px;margin:0 auto;padding:26px 18px 64px}
+.title{font-family:'Libre Baskerville',Georgia,serif;font-weight:700;font-size:26px;letter-spacing:-.03em;margin:0}
+.sub{font-family:'Univers Condensed','Univers',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.stakes{color:var(--muted);font-size:13px;margin-top:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0 14px}
+.card-label{font-family:'Univers Condensed','Univers',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.big{font-family:'Univers Condensed','Univers',monospace;font-weight:700;font-size:40px;letter-spacing:-.01em;line-height:1;font-variant-numeric:tabular-nums}
+.small{color:var(--muted);font-size:12px;margin-top:8px}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.muted{color:var(--muted)}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0;padding-top:0}
+.row-label{font-weight:700;font-size:15px}
+.row-meta{color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.4}
+.row-result{font-family:'Univers Condensed','Univers',monospace;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.btn{display:block;width:100%;margin:2px 0 8px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:var(--bone);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .btn:active{opacity:.8}
-.pushnote{color:#8a857a;font-size:12px;text-align:center;margin:6px 0 10px}
+.pushnote{color:var(--muted);font-size:12px;text-align:center;margin:6px 0 10px}
+.foot{color:#5f5f5f;font-size:10.5px;text-align:center;margin-top:30px;font-family:'Univers Condensed','Univers',monospace;letter-spacing:.06em;text-transform:uppercase}
 </style></head><body>
 <div id="app"><div class="wrap"><p class="muted">Loading…</p></div></div>
 <script>
@@ -9021,21 +9034,26 @@ body{margin:0;background:#100f0d;color:#e8e4d8;font-family:-apple-system,BlinkMa
   function render(){
     var evs=(feed&&feed.events)||[];
     var cum=(feed&&feed.cumulativeCents)||0;
-    var rows=evs.map(function(e){
-      var cls=e.shareCents>=0?'pos':'neg';
-      return '<div class="row"><div class="row-top"><span class="game">'+esc(e.game)+'</span><span class="amt '+cls+'">'+money(e.shareCents)+'</span></div>'
-        +'<div class="meta">'+esc(e.venue)+' · '+fmtH(e.hours)+' · '+esc(e.date)+'<br>your '+esc(e.pct)+'% of a '+money(e.sessionResultCents)+' session</div></div>';
-    }).join('');
     var name=(feed&&feed.name)||'Your action';
     var stakes=(feed&&feed.stakes)||'';
+    var rows=evs.map(function(e){
+      var cls=e.shareCents>=0?'pos':'neg';
+      return '<div class="row"><div><div class="row-label">'+esc(e.game)+'</div>'
+        +'<div class="row-meta">'+esc(e.venue)+' · '+fmtH(e.hours)+' · '+esc(e.date)+' · your '+esc(e.pct)+'% of '+money(e.sessionResultCents)+'</div></div>'
+        +'<div class="row-result '+cls+'">'+money(e.shareCents)+'</div></div>';
+    }).join('');
     app.innerHTML='<div class="wrap">'
-      +'<div class="who">'+esc(name)+'</div><div class="sub">your action with Ethan</div>'
-      +(stakes?'<div class="sub" style="margin-top:5px;">Staked: '+esc(stakes)+'</div>':'')
-      +'<div class="big '+(cum>=0?'pos':'neg')+'">'+money(cum)+'</div>'
-      +'<div class="biglabel">running position — what settles up</div>'
+      +'<h1 class="title">'+esc(name)+'</h1>'
+      +'<div class="sub">your action with Ethan</div>'
+      +(stakes?'<div class="stakes">Staked: '+esc(stakes)+'</div>':'')
+      +'<div class="card"><div class="card-label">Running position</div>'
+        +'<div class="big '+(cum>=0?'pos':'neg')+'">'+money(cum)+'</div>'
+        +'<div class="small">what settles up with Ethan</div></div>'
       +'<div id="pushbox"></div>'
-      +(rows||'<p class="muted">No sessions yet — they\\'ll show up here as Ethan logs them.</p>')
-      +'<p class="foot">Private link · only you can see this.</p></div>';
+      +'<div class="card"><div class="card-label">Sessions</div>'
+        +(rows||'<div class="muted" style="font-size:13px">No sessions yet — they\\'ll show up here as Ethan logs them.</div>')
+        +'</div>'
+      +'<div class="foot">Private link · only you can see this</div></div>';
     renderPush();
   }
   function renderPush(){
