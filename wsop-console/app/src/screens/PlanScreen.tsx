@@ -18,6 +18,9 @@ import {
   STANDARD_WEEK_NOTE,
   PHASE1_WEEKS,
   PHASE1_FOOT,
+  PHASE_ZOOM,
+  PHASE_SHORT,
+  type PhaseZoom,
   DIALS,
   FIXED_POINTS,
   DAY_TEMPLATES,
@@ -164,7 +167,7 @@ function YearView({ active, currentId }: { active: Filter; currentId?: number })
   )
 }
 
-function PhaseView({ active, currentWeek }: { active: Filter; currentWeek?: number }) {
+function Phase1Zoom({ active, currentWeek }: { active: Filter; currentWeek?: number }) {
   const [open, setOpen] = useState<Record<number, boolean>>({})
   const p1 = PHASES[0]
   return (
@@ -237,6 +240,109 @@ function PhaseView({ active, currentWeek }: { active: Filter; currentWeek?: numb
         })}
       </div>
       <div className="pl-foot">{PHASE1_FOOT}</div>
+    </>
+  )
+}
+
+// Generic zoom for phases 2–6 (PHASE_ZOOM, synthesized from weekly-breakdown.md).
+function PhaseZoomView({
+  zoom,
+  active,
+  currentWk,
+}: {
+  zoom: PhaseZoom
+  active: Filter
+  currentWk?: number
+}) {
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  return (
+    <>
+      <p className="pl-dates">{zoom.dates}</p>
+      <p className="pl-sub">{zoom.sub}</p>
+
+      <div className="pl-arc">
+        {zoom.arc.map((s) => (
+          <div key={s.w} className={`pl-step${s.hot ? ' hot' : ''}`}>
+            {s.w}
+            <b>{s.t}</b>
+          </div>
+        ))}
+      </div>
+
+      <p className="pl-hint">Tap a window to open it · filter by track</p>
+
+      <div className="pl-timeline">
+        {zoom.weeks.map((w) => {
+          const here = currentWk != null && currentWk >= w.wk[0] && currentWk <= w.wk[1]
+          const isOpen = !!open[w.n]
+          return (
+            <div key={w.n} className={`pl-wk${w.cls ? ' ' + w.cls : ''}${here ? ' here' : ''}`}>
+              <span className="pl-node" />
+              <div className={`pl-card${isOpen ? ' open' : ''}`}>
+                <button
+                  className="pl-head"
+                  aria-expanded={isOpen}
+                  onClick={() => setOpen((o) => ({ ...o, [w.n]: !o[w.n] }))}
+                >
+                  <div className="pl-htop">
+                    <span className="pl-wn">
+                      {w.n}
+                      {here && <span className="pl-now">NOW</span>}
+                    </span>
+                    <span className="pl-wd">{w.dates}</span>
+                  </div>
+                  <div className="pl-hl">{w.hl}</div>
+                  {(w.event || w.ramp) && (
+                    <div className="pl-tagrow">
+                      {w.event && <span className="pl-ev">◆ {w.event}</span>}
+                      {w.ramp && <span className="pl-ramp">{w.ramp}</span>}
+                    </div>
+                  )}
+                </button>
+                <div className="pl-body">
+                  <div className="pl-bodyinner">
+                    <Tracks tracks={w.tracks} active={active} />
+                    {w.note && <div className="pl-marker">{w.note}</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="pl-foot">{zoom.foot}</div>
+    </>
+  )
+}
+
+// Phase picker + routing: Phase 1 keeps its bespoke zoom; 2–6 use PHASE_ZOOM.
+function PhaseView({ active, currentId, week }: { active: Filter; currentId?: number; week: number }) {
+  const initial = currentId && currentId >= 1 && currentId <= 6 ? currentId : 1
+  const [sel, setSel] = useState<number>(initial)
+  return (
+    <>
+      <div className="pl-phasepicker">
+        {PHASES.map((p) => (
+          <button
+            key={p.id}
+            className={`pl-pchip${sel === p.id ? ' on' : ''}${currentId === p.id ? ' now' : ''}`}
+            onClick={() => setSel(p.id)}
+          >
+            <span className="pl-pchip-n">P{p.id}</span>
+            {PHASE_SHORT[p.id]}
+          </button>
+        ))}
+      </div>
+
+      {sel === 1 ? (
+        <Phase1Zoom active={active} currentWeek={currentId === 1 ? week : undefined} />
+      ) : (
+        <PhaseZoomView
+          zoom={PHASE_ZOOM[sel]}
+          active={active}
+          currentWk={currentId === sel ? week : undefined}
+        />
+      )}
     </>
   )
 }
@@ -391,7 +497,7 @@ export function PlanScreen() {
           Year
         </button>
         <button className={`pill${view === 'phase' ? ' on' : ''}`} onClick={() => setView('phase')}>
-          Phase 1
+          Phase
         </button>
         <button className={`pill${view === 'day' ? ' on' : ''}`} onClick={() => setView('day')}>
           Day
@@ -401,9 +507,7 @@ export function PlanScreen() {
       {view !== 'day' && <TrackFilter active={active} onPick={setActive} />}
 
       {view === 'year' && <YearView active={active} currentId={ps.phase?.id} />}
-      {view === 'phase' && (
-        <PhaseView active={active} currentWeek={ps.phase?.id === 1 ? ps.week : undefined} />
-      )}
+      {view === 'phase' && <PhaseView active={active} currentId={ps.phase?.id} week={ps.week} />}
       {view === 'day' && <DayView />}
     </div>
   )
