@@ -4,6 +4,7 @@
 // already holds for /console, so no credentials live in JS.
 
 import { collectSyncRecords, applySyncRecords } from './idb'
+import { collectLocalRecords, applyLocalRecords, LOCAL_STORE } from './syncLocal'
 import { recordsToApply, toMap, type SyncRecord } from './sync'
 
 export type SyncOutcome =
@@ -15,7 +16,7 @@ const SYNC_URL = '/console/api/sync'
 export async function runSync(): Promise<SyncOutcome> {
   let local: SyncRecord[]
   try {
-    local = await collectSyncRecords()
+    local = [...(await collectSyncRecords()), ...collectLocalRecords()]
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'collect failed' }
   }
@@ -38,7 +39,8 @@ export async function runSync(): Promise<SyncOutcome> {
   const apply = recordsToApply(toMap(local), remote)
   if (apply.length) {
     try {
-      await applySyncRecords(apply)
+      await applySyncRecords(apply.filter((r) => r.store !== LOCAL_STORE)) // IndexedDB
+      applyLocalRecords(apply.filter((r) => r.store === LOCAL_STORE)) // localStorage
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'apply failed' }
     }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Session, Channel, Format, MoodRating } from '../db/types'
 import { readIntention } from '../db/intention'
+import { writeLocal } from '../db/syncLocal'
 import { uid, todayISO, money } from '../engine/format'
 
 const FORMATS: Format[] = [
@@ -69,7 +70,7 @@ export function SessionForm({ initial, draft, onSave, onCancel, onDelete }: Prop
 
   const persistCustoms = (next: Preset[]) => {
     setCustoms(next)
-    localStorage.setItem(PRESET_KEY, JSON.stringify(next.map(({ custom: _c, ...p }) => p)))
+    writeLocal(PRESET_KEY, next.map(({ custom: _c, ...p }) => p))
   }
   // Save the current game setup (not the money/hours) as a one-tap preset.
   const saveAsPreset = () => {

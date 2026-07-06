@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
+import { readLocal, writeLocal, LOCAL_UPDATED_EVENT } from '../db/syncLocal'
 import { useToast } from '../components/Toast'
 import { Sheet } from '../components/Sheet'
 import type { BankrollAdjustment, AdjustmentType } from '../db/types'
@@ -442,25 +443,31 @@ const DEFAULT_LOCATIONS = ['Bank', 'Cash on hand', 'Parx front', 'WSOP.com', 'Ph
 // reconcile against the derived roll+fund. Drift = an unlogged session, a
 // forgotten withdrawal, or money quietly parked somewhere.
 function BalancesCard({ derived }: { derived: number }) {
-  const [saved] = useState<{ entries: BalanceEntry[]; updatedAt: string } | null>(() => {
-    try {
-      const raw = localStorage.getItem(BAL_KEY)
-      return raw ? JSON.parse(raw) : null
-    } catch {
-      return null
-    }
-  })
+  const load = () => readLocal<{ entries: BalanceEntry[]; updatedAt: string } | null>(BAL_KEY, null)
   const [entries, setEntries] = useState<BalanceEntry[]>(
-    () => saved?.entries ?? DEFAULT_LOCATIONS.map((name) => ({ id: name, name, amount: 0 })),
+    () => load()?.entries ?? DEFAULT_LOCATIONS.map((name) => ({ id: name, name, amount: 0 })),
   )
-  const [updatedAt, setUpdatedAt] = useState<string | null>(saved?.updatedAt ?? null)
+  const [updatedAt, setUpdatedAt] = useState<string | null>(load()?.updatedAt ?? null)
   const [newName, setNewName] = useState('')
+
+  // Reflect a remote sync that updated the balances underneath.
+  useEffect(() => {
+    const h = () => {
+      const v = load()
+      if (v) {
+        setEntries(v.entries)
+        setUpdatedAt(v.updatedAt)
+      }
+    }
+    window.addEventListener(LOCAL_UPDATED_EVENT, h)
+    return () => window.removeEventListener(LOCAL_UPDATED_EVENT, h)
+  }, [])
 
   const persist = (next: BalanceEntry[]) => {
     const at = todayISO()
     setEntries(next)
     setUpdatedAt(at)
-    localStorage.setItem(BAL_KEY, JSON.stringify({ entries: next, updatedAt: at }))
+    writeLocal(BAL_KEY, { entries: next, updatedAt: at })
   }
   const setAmount = (id: string, v: string) =>
     persist(entries.map((e) => (e.id === id ? { ...e, amount: Number(v) || 0 } : e)))

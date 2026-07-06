@@ -2,6 +2,8 @@
 // Stored per-date in localStorage; read back by the session form at log time so
 // the post-session journal closes the loop against it.
 
+import { writeLocal } from './syncLocal'
+
 const INTENT_KEY = 'wsop-intention' // { date, text }
 
 export function readIntention(date: string): string {
@@ -16,5 +18,5 @@ export function readIntention(date: string): string {
 }
 
 export function saveIntention(date: string, text: string): void {
-  localStorage.setItem(INTENT_KEY, JSON.stringify({ date, text }))
+  writeLocal(INTENT_KEY, { date, text })
 }

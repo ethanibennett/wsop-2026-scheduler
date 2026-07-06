@@ -8,6 +8,7 @@ import { useStore } from '../store'
 import { getAll, putRecord, deleteRecord } from '../db/idb'
 import type { Expense, ExpenseCategory } from '../db/types'
 import { money, uid, todayISO, fmtDate } from '../engine/format'
+import { writeLocal } from '../db/syncLocal'
 import { taxEstimate, expenseTotals } from '../engine/analytics'
 import {
   ADMIN_CHECKLIST,
@@ -54,7 +55,7 @@ export function AdminView() {
 
   const updateRate = (v: number) => {
     setRatePct(v)
-    localStorage.setItem(RATE_KEY, JSON.stringify(v))
+    writeLocal(RATE_KEY, v)
   }
 
   // Setup checklist.
@@ -64,7 +65,7 @@ export function AdminView() {
   const toggleCheck = (id: string) => {
     setChecks((cur) => {
       const next = { ...cur, [id]: !cur[id] }
-      localStorage.setItem(CHECK_KEY, JSON.stringify(next))
+      writeLocal(CHECK_KEY, next)
       return next
     })
   }
@@ -75,7 +76,7 @@ export function AdminView() {
   const [deals, setDeals] = useState<StakeDeal[]>(() => loadJSON<StakeDeal[]>(STAKE_KEY, []))
   const saveDeals = (next: StakeDeal[]) => {
     setDeals(next)
-    localStorage.setItem(STAKE_KEY, JSON.stringify(next))
+    writeLocal(STAKE_KEY, next)
   }
 
   return (
