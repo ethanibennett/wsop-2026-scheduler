@@ -10,7 +10,7 @@ const BACKUP_STALE_DAYS = 14
 import { pushSupported, isSubscribed, enablePush, disablePush } from '../push'
 
 export function SettingsScreen() {
-  const { settings, sessions, updateSettings, reloadAll } = useStore()
+  const { settings, sessions, updateSettings, reloadAll, sync, syncState, lastSyncAt } = useStore()
   const toast = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -175,6 +175,35 @@ export function SettingsScreen() {
         </div>
         <div className="muted" style={{ fontSize: 12 }}>
           Phase dates come from the real plan schedule. Override to preview a phase today.
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="row-split">
+          <div>
+            <div className="card-label" style={{ marginBottom: 4 }}>Cross-device sync</div>
+            <div className="muted" style={{ fontSize: 13 }}>
+              {syncState === 'syncing'
+                ? 'Syncing…'
+                : syncState === 'error'
+                  ? 'Sync failed — retries automatically. Check you’re online.'
+                  : lastSyncAt
+                    ? `Synced ${daysSince(lastSyncAt) === 0 ? 'today' : `${daysSince(lastSyncAt)}d ago`} · ${new Date(lastSyncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                    : 'Not synced yet. Runs on open, on focus, and after edits.'}
+            </div>
+          </div>
+          <button
+            className="btn"
+            disabled={syncState === 'syncing'}
+            onClick={() => void sync()}
+            style={{ flex: '0 0 auto' }}
+          >
+            {syncState === 'syncing' ? '…' : '⟳ Sync now'}
+          </button>
+        </div>
+        <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          Your data syncs across devices through your gated server. Local-first — the app works
+          offline and reconciles when it reconnects.
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -16,6 +17,7 @@ import {
   type ListStore,
   type DateStore,
 } from './db/idb'
+import { runSync } from './db/syncClient'
 import type {
   Session,
   BankrollAdjustment,
@@ -42,6 +44,8 @@ interface StoreData {
   settings: Settings
 }
 
+export type SyncState = 'idle' | 'syncing' | 'ok' | 'error'
+
 interface StoreApi extends StoreData {
   // generic id-keyed list mutations
   put: <T extends { id?: string; date?: string }>(store: ListStore, value: T) => Promise<void>
@@ -50,7 +54,13 @@ interface StoreApi extends StoreData {
   putByDate: <T extends { date: string }>(store: DateStore, value: T) => Promise<void>
   updateSettings: (patch: Partial<Settings>) => Promise<void>
   reloadAll: () => Promise<void>
+  // cross-device sync
+  sync: () => Promise<void>
+  syncState: SyncState
+  lastSyncAt: string | null
 }
+
+const LAST_SYNC_KEY = 'wsop-last-sync'
 
 const Ctx = createContext<StoreApi | null>(null)
 
@@ -86,32 +96,82 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  // ── Cross-device sync ──
+  const [syncState, setSyncState] = useState<SyncState>('idle')
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(() => localStorage.getItem(LAST_SYNC_KEY))
+  const syncing = useRef(false)
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const sync = useCallback(async () => {
+    if (syncing.current) return
+    syncing.current = true
+    setSyncState('syncing')
+    const r = await runSync()
+    syncing.current = false
+    if (r.ok) {
+      if (r.applied > 0) await reloadAll() // remote changes landed → refresh UI
+      const now = new Date().toISOString()
+      localStorage.setItem(LAST_SYNC_KEY, now)
+      setLastSyncAt(now)
+      setSyncState('ok')
+    } else {
+      setSyncState('error')
+    }
+  }, [reloadAll])
+
+  // Debounced sync after local mutations (batches a burst of edits).
+  const scheduleSync = useCallback(() => {
+    if (debounce.current) clearTimeout(debounce.current)
+    debounce.current = setTimeout(() => void sync(), 2500)
+  }, [sync])
+
   useEffect(() => {
     void reloadAll()
   }, [reloadAll])
+
+  // Sync on first load, on focus, and on a 2-min backstop (catches writes that
+  // go through putRecord directly, e.g. Today's checklist / live session).
+  useEffect(() => {
+    void sync()
+    const onFocus = () => void sync()
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void sync()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVis)
+    const interval = setInterval(() => void sync(), 120_000)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVis)
+      clearInterval(interval)
+    }
+  }, [sync])
 
   const put = useCallback(
     async (store: ListStore, value: { id?: string }) => {
       await putRecord(store, value)
       await reloadAll()
+      scheduleSync()
     },
-    [reloadAll],
+    [reloadAll, scheduleSync],
   )
 
   const remove = useCallback(
     async (store: ListStore, id: string) => {
       await deleteRecord(store, id)
       await reloadAll()
+      scheduleSync()
     },
-    [reloadAll],
+    [reloadAll, scheduleSync],
   )
 
   const putByDate = useCallback(
     async (store: DateStore, value: { date: string }) => {
       await putRecord(store, value)
       await reloadAll()
+      scheduleSync()
     },
-    [reloadAll],
+    [reloadAll, scheduleSync],
   )
 
   const updateSettings = useCallback(
@@ -119,13 +179,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const next = { ...data.settings, ...patch }
       await saveSettings(next)
       setData((d) => ({ ...d, settings: next }))
+      scheduleSync()
     },
-    [data.settings],
+    [data.settings, scheduleSync],
   )
 
   const api = useMemo<StoreApi>(
-    () => ({ ...data, put, remove, putByDate, updateSettings, reloadAll }),
-    [data, put, remove, putByDate, updateSettings, reloadAll],
+    () => ({ ...data, put, remove, putByDate, updateSettings, reloadAll, sync, syncState, lastSyncAt }),
+    [data, put, remove, putByDate, updateSettings, reloadAll, sync, syncState, lastSyncAt],
   )
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
