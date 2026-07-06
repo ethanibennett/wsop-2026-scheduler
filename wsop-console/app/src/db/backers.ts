@@ -29,6 +29,7 @@ export interface Backer {
   name: string
   stakes: BackerStake[]
   delivery?: BackerDelivery
+  opening?: number // carry-in balance in dollars (what they're already owed); seeds the running position
   createdAt: number
   // updatedAt is stamped by putRecord (drives last-write-wins sync)
 }

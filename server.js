@@ -285,10 +285,12 @@ app.get('/api/backer/:token/feed', (req, res) => {
     // Fall back to the synced backer object for name + stakes, so a freshly
     // created backer's page is presentable before the first session is notified.
     let stakes = '';
+    let openingCents = 0;
     const rec = backerRecordByToken(token);
     if (rec) {
       if (!name) name = rec.name || null;
       stakes = stakesSummaryServer(rec.stakes || []);
+      openingCents = Math.round((Number(rec.opening) || 0) * 100);
     }
     const events = [];
     const estmt = db.prepare(
@@ -303,7 +305,11 @@ app.get('/api/backer/:token/feed', (req, res) => {
       });
     }
     estmt.free();
-    res.json({ name, stakes, cumulativeCents: backerCumulativeCents(token), events });
+    res.json({
+      name, stakes, openingCents,
+      cumulativeCents: backerCumulativeCents(token) + openingCents,
+      events,
+    });
   } catch (err) {
     console.error('Backer feed error:', err);
     res.status(500).json({ error: 'feed failed' });
@@ -479,8 +485,9 @@ if (require('fs').existsSync(consoleDist)) {
         if (inserted) changed = true;
         // Cumulative is computed AFTER the insert-or-ignore, so it reflects this
         // session once (a re-send finds the row already there and the sum is
-        // unchanged — never double-counted).
-        const cum = backerCumulativeCents(r.token);
+        // unchanged — never double-counted). Add the backer's carry-in so the
+        // "Running" figure matches their page.
+        const cum = backerCumulativeCents(r.token) + Math.round(Number(r.openingCents) || 0);
         // Always attempt the push (not only on first record): a backer who
         // enabled notifications AFTER the first send still gets reached on a
         // re-send, while the dedup above keeps their running total correct.
@@ -8961,7 +8968,7 @@ async function sendBackerWeeklyDigests() {
       while (es.step()) evs.push(es.getAsObject());
       es.free();
       if (!evs.length) continue; // nothing to report this week
-      const cum = backerCumulativeCents(b.token);
+      const cum = backerCumulativeCents(b.token) + Math.round((Number(b.opening) || 0) * 100);
       const weekShare = evs.reduce((a, e) => a + (e.share_cents || 0), 0);
       const rows = evs.map((e) => {
         const col = (e.share_cents || 0) >= 0 ? '#2c7a52' : '#c0544c';
@@ -9036,12 +9043,17 @@ body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Conde
     var cum=(feed&&feed.cumulativeCents)||0;
     var name=(feed&&feed.name)||'Your action';
     var stakes=(feed&&feed.stakes)||'';
+    var openingCents=(feed&&feed.openingCents)||0;
     var rows=evs.map(function(e){
       var cls=e.shareCents>=0?'pos':'neg';
       return '<div class="row"><div><div class="row-label">'+esc(e.game)+'</div>'
         +'<div class="row-meta">'+esc(e.venue)+' · '+fmtH(e.hours)+' · '+esc(e.date)+' · your '+esc(e.pct)+'% of '+money(e.sessionResultCents)+'</div></div>'
         +'<div class="row-result '+cls+'">'+money(e.shareCents)+'</div></div>';
     }).join('');
+    var openingRow=openingCents?('<div class="row"><div><div class="row-label">Opening balance</div>'
+      +'<div class="row-meta">carried in</div></div>'
+      +'<div class="row-result '+(openingCents>=0?'pos':'neg')+'">'+money(openingCents)+'</div></div>'):'';
+    var sessionsInner=(rows+openingRow)||'<div class="muted" style="font-size:13px">No sessions yet — they\\'ll show up here as Ethan logs them.</div>';
     app.innerHTML='<div class="wrap">'
       +'<h1 class="title">'+esc(name)+'</h1>'
       +'<div class="sub">your action with Ethan</div>'
@@ -9051,7 +9063,7 @@ body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Conde
         +'<div class="small">what settles up with Ethan</div></div>'
       +'<div id="pushbox"></div>'
       +'<div class="card"><div class="card-label">Sessions</div>'
-        +(rows||'<div class="muted" style="font-size:13px">No sessions yet — they\\'ll show up here as Ethan logs them.</div>')
+        +sessionsInner
         +'</div>'
       +'<div class="foot">Private link · only you can see this</div></div>';
     renderPush();

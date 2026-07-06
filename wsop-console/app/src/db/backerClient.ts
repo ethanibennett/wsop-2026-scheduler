@@ -43,6 +43,7 @@ export async function notifyBackers(session: Session, cuts: BackerCut[]): Promis
       pct: c.pct,
       shareCents: cents(c.share),
       sms: c.backer.delivery?.sms || undefined, // per-session text destination
+      openingCents: cents(c.backer.opening || 0), // carry-in, so "Running" includes it
     })),
   }
   try {

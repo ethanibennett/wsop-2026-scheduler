@@ -159,18 +159,21 @@ function BackerEditor({ backer, onChange }: { backer: Backer; onChange: (b: Back
   const [rows, setRows] = useState<BackerStake[]>(backer.stakes)
   const [sms, setSms] = useState(backer.delivery?.sms ?? '')
   const [email, setEmail] = useState(backer.delivery?.email ?? '')
+  const [opening, setOpening] = useState(backer.opening ? String(backer.opening) : '')
 
   const persist = (
     nextRows: BackerStake[] = rows,
     nextName: string = name,
     nextSms: string = sms,
     nextEmail: string = email,
+    nextOpening: string = opening,
   ) =>
     onChange({
       ...backer,
       name: nextName.trim() || backer.name,
       stakes: nextRows,
       delivery: { sms: nextSms.trim() || undefined, email: nextEmail.trim() || undefined },
+      opening: Number(nextOpening) || undefined,
     })
   const addRow = () => {
     const n = [...rows, { format: 'PLO' as const, channel: 'any' as const, pct: 20 }]
@@ -244,6 +247,23 @@ function BackerEditor({ backer, onChange }: { backer: Backer; onChange: (b: Back
           </div>
         ))}
         <button className="btn btn-ghost" style={{ marginTop: 2 }} onClick={addRow}>+ Add game</button>
+      </div>
+
+      <div className="field">
+        <label>Opening balance — what they're already owed ($)</label>
+        <input
+          className="input"
+          type="number"
+          inputMode="decimal"
+          placeholder="0"
+          value={opening}
+          onChange={(e) => setOpening(e.target.value)}
+          onBlur={() => persist(rows, name, sms, email, opening)}
+        />
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          Carry-in from before you started tracking here. Their page starts at this figure; sessions
+          add to it. Negative if they're in makeup.
+        </div>
       </div>
 
       <div className="field">
