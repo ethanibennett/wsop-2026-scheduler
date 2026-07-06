@@ -98,10 +98,10 @@ describe('deliveryChannels', () => {
 })
 
 describe('newToken', () => {
-  it('is 32 hex chars and unique', () => {
+  it('is 8 base62 chars and unique', () => {
     const a = newToken()
     const b = newToken()
-    expect(a).toMatch(/^[a-f0-9]{32}$/)
+    expect(a).toMatch(/^[A-Za-z0-9]{8}$/)
     expect(a).not.toBe(b)
   })
 })

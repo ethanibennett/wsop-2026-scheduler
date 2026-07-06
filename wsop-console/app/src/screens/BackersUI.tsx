@@ -119,6 +119,22 @@ export function BackersManager() {
                   <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
                     Preview shows {b.name}&rsquo;s page exactly as they&rsquo;ll see it — check it before you send.
                   </div>
+                  {b.token.length > 12 && (
+                    <button
+                      className="btn btn-ghost"
+                      style={{ marginTop: 6, fontSize: 12 }}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Give ${b.name} a new, shorter link? The old link stops working (only matters if you already sent it).`,
+                          )
+                        )
+                          void saveBacker({ ...b, token: newToken() })
+                      }}
+                    >
+                      Shorten this link
+                    </button>
+                  )}
                 </div>
                 <button
                   className="btn btn-ghost"

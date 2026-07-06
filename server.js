@@ -253,7 +253,7 @@ async function requireHamBasic(req, res, next) {
 // Access is gated purely by the unguessable token in the URL; each token sees
 // only its own feed. Registered before the console gate + the SPA catch-all so
 // these win.
-const BACKER_TOKEN_RE = /^[a-f0-9]{8,64}$/;
+const BACKER_TOKEN_RE = /^[A-Za-z0-9]{6,64}$/; // short base62 codes + legacy 32-hex
 
 // Push service worker for the backer page (scope /b/). Must be registered
 // before /b/:token so 'sw.js' isn't captured as a token.
@@ -462,7 +462,7 @@ if (require('fs').existsSync(consoleDist)) {
       const results = [];
       let changed = false;
       for (const r of recipients) {
-        if (!r || typeof r.token !== 'string' || !/^[a-f0-9]{8,64}$/.test(r.token)) continue;
+        if (!r || typeof r.token !== 'string' || !/^[A-Za-z0-9]{6,64}$/.test(r.token)) continue;
         const pct = Number(r.pct) || 0;
         const shareCents = Math.round(Number(r.shareCents) || 0);
         db.run(

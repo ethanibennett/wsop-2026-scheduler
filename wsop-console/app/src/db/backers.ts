@@ -74,12 +74,17 @@ export const STAKE_CHANNEL_OPTIONS: { v: BackerStake['channel']; label: string }
   { v: 'online', label: 'Online only' },
 ]
 
-/** 128-bit URL-safe token for a backer's private link. */
+/**
+ * A short, URL-clean token for a backer's private link — 8 base62 chars
+ * (~48 bits), so links read like futurega.me/b/k7Qm2xR9 while staying
+ * unguessable. (Legacy 32-hex tokens remain valid; the server accepts both.)
+ */
 export function newToken(): string {
-  const bytes = new Uint8Array(16)
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  const bytes = new Uint8Array(8)
   crypto.getRandomValues(bytes)
   let s = ''
-  for (const b of bytes) s += b.toString(16).padStart(2, '0')
+  for (const b of bytes) s += alphabet[b % 62]
   return s
 }
 
