@@ -5,10 +5,8 @@
 // double-counts) and returns per-recipient results.
 
 import type { Session } from './types'
-import type { Backer, BackerCut } from './backers'
-import { sessionGameLabel, cutsForSession } from './backers'
-import { getAll } from './idb'
-import { readLocal, writeLocal } from './syncLocal'
+import type { BackerCut } from './backers'
+import { sessionGameLabel } from './backers'
 
 export interface NotifyRecipientResult {
   token: string
@@ -27,32 +25,6 @@ export interface NotifyResult {
 }
 
 const cents = (dollars: number) => Math.round(dollars * 100)
-
-const NOTIFIED_KEY = 'wsop-notified-sessions'
-
-/**
- * Notify every staked backer for a session automatically (used on save, so a
- * logged session reaches its backers with no extra tap). No-ops cleanly when no
- * backer is staked in the game. Marks the session notified so the manual panel
- * shows its status. Never throws — a notify failure must not fail the save.
- */
-export async function autoNotifyForSession(
-  session: Session,
-): Promise<{ notified: number; ok: boolean }> {
-  try {
-    const backers = await getAll<Backer>('backers')
-    const cuts = cutsForSession(backers, session)
-    if (!cuts.length) return { notified: 0, ok: true }
-    const res = await notifyBackers(session, cuts)
-    if (res.ok) {
-      const set = readLocal<string[]>(NOTIFIED_KEY, [])
-      if (!set.includes(session.id)) writeLocal(NOTIFIED_KEY, [...set, session.id])
-    }
-    return { notified: cuts.length, ok: res.ok }
-  } catch {
-    return { notified: 0, ok: false }
-  }
-}
 
 export async function notifyBackers(session: Session, cuts: BackerCut[]): Promise<NotifyResult> {
   if (!cuts.length) return { ok: true, results: [] }

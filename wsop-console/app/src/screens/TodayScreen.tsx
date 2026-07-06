@@ -5,7 +5,6 @@ import { Sheet } from '../components/Sheet'
 import { SessionForm } from '../components/SessionForm'
 import { HomeCard } from './HomeCard'
 import { getRecord, putRecord } from '../db/idb'
-import { autoNotifyForSession } from '../db/backerClient'
 import { readIntention, saveIntention } from '../db/intention'
 import {
   readLive,
@@ -149,11 +148,7 @@ export function TodayScreen() {
       }
       await reloadAll()
       setLogOpen(false)
-      // Notify staked backers automatically.
-      const { notified, ok } = await autoNotifyForSession(s)
-      if (notified === 0) toast('Session logged')
-      else if (ok) toast(`Logged · notified ${notified} backer${notified > 1 ? 's' : ''}`)
-      else toast('Logged · backer notify failed')
+      toast('Session logged')
     })
 
   const dateLabel = new Date().toLocaleDateString('en-US', {
