@@ -22,6 +22,7 @@ const { makeRng } = require('../engine/cards');
 const { MCCFR3Trainer } = require('./mccfr3');
 const { makeGame, DEFAULT_CAP, DEFAULT_ANTES } = require('./razz3-game');
 const { stratDrift, sampledExploit } = require('./measure3');
+const { makePool } = require('./parallel3');
 
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
@@ -68,6 +69,15 @@ async function main() {
   const coarseOpp = !!arg('coarse-opp', false);
   const seed = parseInt(arg('seed', 999), 10);
   const measureHands = parseInt(arg('measure-hands', smoke ? 300 : 6000), 10);
+  // Data-parallel MCCFR: W>=2 spreads each round's iterations across W worker
+  // threads and AVERAGES their tables (parallel3.mergeAverage — DCFR-correct,
+  // gate3-verified <= single-thread). W<=1 uses the in-process single-thread
+  // loop below, byte-identical to before (the parallel path is never taken).
+  // --merge-every is the per-round iteration budget (snapshot->W workers->merge);
+  // averaging means iterations advance by this per round, NOT ×W.
+  const workers = parseInt(arg('workers', 1), 10);
+  const mergeEvery = parseInt(arg('merge-every', 5000), 10);
+  const workerHeapMB = parseInt(arg('worker-heap', 0), 10);
   const out = arg('out', null);
   // Full-state checkpoint (resume file) next to --out, gitignored like the
   // stud/draw *.ckpt.json. Periodic write every --ckpt-every seconds so a
@@ -93,6 +103,17 @@ async function main() {
   const potScale = game.deadPot + 3 * 8; // rough pot scale for % readout
   const meta = { game: 'razz3', cap, antes, deadPot: game.deadPot, coarseOpp, seed, iters };
 
+  // Data-parallel pool (W>=2 only). Each worker rebuilds the IDENTICAL game via
+  // this descriptor {module,factory,opts}. The pool wraps THIS SAME trainer, so
+  // all the resume/checkpoint/blueprint/measure code below is unchanged — the
+  // only difference is the training chunk goes through pool.step() (broadcast ->
+  // W workers -> DCFR-safe averaging merge) instead of trainer.train(). W<=1
+  // leaves pool null and the in-process single-thread loop runs, byte-identical.
+  const parallel = workers >= 2;
+  const gameDesc = { module: './razz3-game', factory: 'makeGame', opts: { cap, antes, coarseOpp } };
+  const pool = parallel ? makePool(trainer, gameDesc, { workers, workerHeapMB }) : null;
+  if (parallel) console.log(`  data-parallel: ${workers} workers, merge-every=${mergeEvery} (averaging merge; iters advance by merge-every/round, NOT ×W)`);
+
   // Checkpoint-on-signal: on a supervised/perpetual box the process is
   // SIGTERM'd to rotate; checkpoint the live table + refresh the blueprint
   // first so no work is lost (idiom from solver/train.js).
@@ -107,6 +128,12 @@ async function main() {
         console.log(`${mb.toFixed(0)} MB at ${trainer.iterations} iters`);
       }
     } catch (e) { console.error('checkpoint-on-exit failed:', e.message); }
+    // Tear down the worker pool so the process can exit promptly. The signal
+    // fires between merges (the loop yields to the event loop each chunk), so
+    // the just-checkpointed trainer table already reflects the last merge — no
+    // in-flight worker round is lost. Fire-and-forget terminate; process.exit
+    // below drops any stragglers.
+    if (pool) { pool.close().catch(() => {}); }
     process.exit(0);
   }
   process.on('SIGTERM', () => onSignal('SIGTERM'));
@@ -138,13 +165,24 @@ async function main() {
       // the incremental checkpoint below can fire mid-rung, not just at each
       // measure stop (idiom from solver/train.js).
       while (trainer.iterations < stop && !shuttingDown) {
-        // Small chunks (~1-2s each at this abstraction — a cold cap-2 iter
-        // touches a huge game tree, ~35ms/iter) so the SIGTERM/SIGINT handler
-        // and the incremental checkpoint timer are honored within a couple
-        // seconds, not stalled behind a multi-minute synchronous span.
-        const chunk = Math.min(50, stop - trainer.iterations);
-        trainer.train(chunk, rng);
-        await new Promise(r => setImmediate(r));
+        if (parallel) {
+          // Parallel round: broadcast the current table to W workers, each runs
+          // up to `mergeEvery` iters on its own RNG stream, then the DCFR-safe
+          // averaging merge folds them back into THIS trainer (iterations advance
+          // by the round size, not ×W). `await` yields to the event loop, so the
+          // SIGTERM/SIGINT handler + the incremental checkpoint below are honored
+          // between rounds — a kill loses at most one un-checkpointed round.
+          const round = Math.min(mergeEvery, stop - trainer.iterations);
+          await pool.step(round, seed);
+        } else {
+          // Small chunks (~1-2s each at this abstraction — a cold cap-2 iter
+          // touches a huge game tree, ~35ms/iter) so the SIGTERM/SIGINT handler
+          // and the incremental checkpoint timer are honored within a couple
+          // seconds, not stalled behind a multi-minute synchronous span.
+          const chunk = Math.min(50, stop - trainer.iterations);
+          trainer.train(chunk, rng);
+          await new Promise(r => setImmediate(r));
+        }
         if (saveCheckpoint && ckptEverySec > 0 && (Date.now() - lastCkpt) > ckptEverySec * 1000) {
           const mb = writeCheckpoint(trainer, ckptFile);
           if (out) writeBlueprint(trainer, out, meta);
@@ -178,6 +216,9 @@ async function main() {
     const n = writeBlueprint(trainer, out, meta);
     console.log(`saved ${n} infosets → ${out}`);
   }
+  // Terminate the worker pool so the process exits (worker threads keep the
+  // event loop alive). No-op when single-threaded (pool is null).
+  if (pool) await pool.close();
   console.log('\nDONE.');
 }
 
