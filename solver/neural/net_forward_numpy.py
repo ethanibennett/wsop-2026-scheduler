@@ -87,11 +87,22 @@ class NumpyValueNet:
         board may be width 0 (board_dim=0, e.g. badugi) — passed as shape (·,0)
         or as an empty/None value. Returns (v0, v1) with the input's batch rank.
         """
-        board = self._as2d(board, self.board_dim)
+        # "single" = the caller passed 1-D vectors (one PBS), so we squeeze the
+        # batch axis back off the outputs. Decide this LOCALLY from the input
+        # ranks — NOT from a mutable self._one instance flag (which was fragile
+        # on the shared serving singleton and could leave outputs 2-D, so a
+        # downstream float(v0[i]) hit a >0-dim array -> TypeError on numpy>=2.4).
+        single = (np.ndim(extra) == 1 or np.ndim(r0) == 1 or np.ndim(r1) == 1)
         extra = self._as2d(extra, self.extra_dim)
         r0 = self._as2d(r0, self.n_holdings)
         r1 = self._as2d(r1, self.n_holdings)
-        squeeze = (extra.shape[0] == 1 and np.ndim(extra) == 2 and self._one)
+        batch = extra.shape[0]
+        board = self._as2d(board, self.board_dim)
+        # A zero-width board (board_dim=0, e.g. badugi) is passed as [] / (·,0);
+        # match it to the batch size so concatenate broadcasts for batched calls.
+        if board.shape[0] != batch:
+            board = np.zeros((batch, board.shape[-1]), dtype=self.dtype)
+        squeeze = single and batch == 1
 
         x = np.concatenate([board, extra, r0, r1], axis=-1)
         for (w, b, a) in self.trunk:
@@ -109,15 +120,14 @@ class NumpyValueNet:
         return v0, v1
 
     def _as2d(self, arr, width):
-        """Coerce a vector/matrix/None to shape (batch, width) in the net dtype."""
+        """Coerce a vector/matrix/None to shape (batch, width) in the net dtype.
+        Batch-rank tracking is handled by the caller (forward's `single` flag),
+        so this is now pure/stateless."""
         if arr is None:
             arr = np.zeros((1, 0))
         arr = np.asarray(arr, dtype=self.dtype)
         if arr.ndim == 1:
-            self._one = True
             arr = arr.reshape(1, -1)
-        else:
-            self._one = getattr(self, "_one", False)
         if width == 0 and arr.shape[-1] != 0:
             # a caller passed a nonempty board where board_dim=0 -> ignore width
             pass

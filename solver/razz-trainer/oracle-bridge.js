@@ -63,8 +63,13 @@ class OracleWorker {
     this.proc.stdout.on('data', (chunk) => this._onData(chunk));
     this.proc.on('error', (e) => this._die(`oracle process error: ${e.message}`));
     this.proc.on('exit', (code) => this._die(`oracle exited (code ${code})`));
-    // stderr is the worker's own log; swallow it (keep tool output small).
-    this.proc.stderr.on('data', () => {});
+    // Forward the worker's stderr (its own log + any Python traceback) to our
+    // stderr so a net-path failure is VISIBLE in the Render logs instead of an
+    // invisible blueprint fallback. Prefixed + trimmed to stay readable.
+    this.proc.stderr.on('data', (chunk) => {
+      const s = String(chunk).trimEnd();
+      if (s) process.stderr.write(`[oracle_worker] ${s}\n`);
+    });
   }
 
   _onData(chunk) {
@@ -128,7 +133,21 @@ class OracleWorker {
   // Returns {per_action_ev, gtoMix, exploitability, pot} or null (=> fall back).
   async perActionEV(spot) {
     const res = await this._send(Object.assign({}, spot));
-    if (!res || res.ok !== true) return null;
+    if (!res || res.ok !== true) {
+      // STOP THE SILENT FAILURE: a worker-side exception (e.g. the numpy net
+      // path failing on a Render env mismatch) comes back as {ok:false,error}.
+      // Surface it to stderr ONCE per distinct error so it shows up in the
+      // Render logs instead of an invisible blueprint fallback. We still return
+      // null (safe fallback) — this only makes the failure VISIBLE.
+      const err = res && res.error;
+      if (err && err !== this._lastLoggedError) {
+        this._lastLoggedError = err;
+        const mode = spot && spot.mode ? ` mode=${spot.mode}` : '';
+        const game = spot && spot.game ? ` game=${spot.game}` : '';
+        process.stderr.write(`[oracle-bridge] worker error${game}${mode}: ${err}\n`);
+      }
+      return null;
+    }
     return res;
   }
 

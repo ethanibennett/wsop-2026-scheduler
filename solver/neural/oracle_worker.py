@@ -164,6 +164,23 @@ _NET_CAP = 4
 _NET_CERT_SB = 0.059      # certified mean grade error (badugi_draw1, M6)
 
 
+def _scalar(x) -> float:
+    """Coerce a numpy 0-d array / numpy scalar / size-1 array (or a plain
+    Python number) to a Python float, SAFELY across numpy 1.x AND >=2.4.
+
+    numpy 2.4 made `float(arr)` on any array with ndim>0 a hard TypeError (it was
+    only a DeprecationWarning through 2.3). Our net forward returns per-bucket
+    vectors and we index a single bucket; depending on the squeeze path that
+    element can be a 0-d array rather than a numpy scalar, so `float(...)` on it
+    would raise on Render's numpy 2.5.x. `.reshape(-1)[0]` (or `.item()`)
+    extracts the single element first, which both numpy generations accept."""
+    try:
+        # numpy arrays (0-d or size-1) expose .item(); plain floats do not.
+        return float(x.item())
+    except AttributeError:
+        return float(x)
+
+
 def _net_path():
     here = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(here, "nets", "badugi_draw1.npz")
@@ -350,8 +367,9 @@ def _solve_draw_net(req: dict) -> dict:
         v0, _v1 = _net_value_at(child, r0b, r1b)
         cpot = child["contrib"][0] + child["contrib"][1]
         # net outputs fraction-of-pot CFV for HERO (seat 0); hero is a point mass
-        # on hero_bucket, so hero's EV = v0[hero_bucket] * pot (chips).
-        per_action_ev[a] = float(v0[hero_bucket]) * cpot
+        # on hero_bucket, so hero's EV = v0[hero_bucket] * pot (chips). _scalar
+        # extracts the single bucket element numpy-2.5-safely (see _scalar).
+        per_action_ev[a] = _scalar(v0[hero_bucket]) * cpot
 
     # HONEST self-consistency gauge (NOT an exact BR gap — the net is an
     # approximator): the zero-sum residual of the net at the DECISION node (should
@@ -466,6 +484,22 @@ def main() -> None:
             out.write(json.dumps(result) + "\n")
             out.flush()
         except Exception as e:  # any failure -> ok:false so JS falls back cleanly
+            # STOP THE SILENT FAILURE: the JS bridge turns ok:false into a
+            # blueprint fallback and (historically) discarded the reason. Log the
+            # full traceback to STDERR so a net-path env break (e.g. numpy 2.x on
+            # Render) is VISIBLE in the Render logs. The ok:false response still
+            # drives the safe blueprint fallback exactly as before.
+            import traceback
+            mode = ""
+            try:
+                mode = str(req.get("mode", "")).strip().lower()  # noqa: F821
+            except Exception:
+                pass
+            sys.stderr.write(
+                f"[oracle_worker] request FAILED (mode={mode!r}): "
+                f"{type(e).__name__}: {e}\n")
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
             out.write(json.dumps({"id": rid, "ok": False,
                                   "error": f"{type(e).__name__}: {e}"}) + "\n")
             out.flush()
