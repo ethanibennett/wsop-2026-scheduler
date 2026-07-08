@@ -34,21 +34,50 @@ console.log('[build] Running vite build...');
 const build = spawnSync('npm', ['run', 'build'], { cwd: viteAppDir, stdio: 'inherit' });
 if ((build.status ?? 0) !== 0) process.exit(build.status);
 
-// 4. Build the WSOP 2027 Console PWA (wsop-console/app → dist/), served by
-// server.js under /console. Self-contained; same install-if-missing pattern.
-const consoleAppDir = path.join(__dirname, 'wsop-console', 'app');
-if (fs.existsSync(consoleAppDir)) {
-  if (!fs.existsSync(path.join(consoleAppDir, 'node_modules'))) {
-    console.log('[build] Installing wsop-console deps...');
-    // Use `npm install`, NOT `npm ci`: the console has a dual-esbuild tree
-    // (vite 5 wants 0.21, vitest 4 wants 0.27/0.28) that strict `npm ci`
-    // rejects on Render's npm even when the lockfile validates locally. `npm
-    // install` resolves the right platform binaries on the build host.
-    const cInstall = spawnSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: consoleAppDir, stdio: 'inherit' });
-    if (cInstall.status !== 0) process.exit(cInstall.status);
-  }
-  console.log('[build] Building wsop-console PWA...');
+// 4. WSOP 2027 Console — now lives in its OWN repo (github.com/ethanibennett/
+// wsop-console). Clone it fresh each build into ./wsop-console (where server.js
+// still expects app/dist and push-service/schedule.js), then build the PWA.
+// Fail-loud: any failure exits non-zero so Render marks the deploy failed and
+// keeps the last-good deploy live — never a silent console-less deploy.
+const consoleDir = path.join(__dirname, 'wsop-console');
+const CONSOLE_TOKEN = process.env.CONSOLE_REPO_TOKEN;
+const CONSOLE_BRANCH = process.env.CONSOLE_REPO_BRANCH || 'main';
+
+function die(msg, code) {
+  console.error(`[build] ${msg}`);
+  process.exit(code || 1);
+}
+
+if (CONSOLE_TOKEN) {
+  console.log('[build] Fetching WSOP Console from its repo...');
+  // Fresh clone (clear any cached copy so we never build stale console code).
+  fs.rmSync(consoleDir, { recursive: true, force: true });
+  const url = `https://x-access-token:${CONSOLE_TOKEN}@github.com/ethanibennett/wsop-console.git`;
+  const clone = spawnSync('git', ['clone', '--depth', '1', '--branch', CONSOLE_BRANCH, url, consoleDir], { stdio: 'inherit' });
+  if (clone.status !== 0) die('Console clone FAILED — check CONSOLE_REPO_TOKEN.', clone.status);
+
+  const consoleAppDir = path.join(consoleDir, 'app');
+  // `npm install` (NOT `npm ci`): dual-esbuild tree (vite 5→0.21, vitest 4→0.27/0.28)
+  // that strict ci rejects on Render even when the lockfile validates locally.
+  const cInstall = spawnSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: consoleAppDir, stdio: 'inherit' });
+  if (cInstall.status !== 0) die('Console npm install failed.', cInstall.status);
   const cBuild = spawnSync('npm', ['run', 'build'], { cwd: consoleAppDir, stdio: 'inherit' });
-  process.exit(cBuild.status ?? 0);
+  if (cBuild.status !== 0) die('Console build failed.', cBuild.status);
+  if (!fs.existsSync(path.join(consoleAppDir, 'dist', 'index.html'))) {
+    die('Console dist/index.html missing after build — refusing to ship a console-less deploy.');
+  }
+  console.log('[build] Console built ✓');
+} else if (process.env.RENDER) {
+  // On Render the token MUST be set — fail rather than deploy without the console.
+  die('CONSOLE_REPO_TOKEN not set on Render — cannot fetch the console. Set it in the service env.');
+} else if (fs.existsSync(path.join(consoleDir, 'app'))) {
+  // Local dev fallback: if an in-tree copy still exists, build it (no token needed).
+  console.log('[build] CONSOLE_REPO_TOKEN unset — building in-tree wsop-console/app (local).');
+  const consoleAppDir = path.join(consoleDir, 'app');
+  spawnSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: consoleAppDir, stdio: 'inherit' });
+  const cBuild = spawnSync('npm', ['run', 'build'], { cwd: consoleAppDir, stdio: 'inherit' });
+  if (cBuild.status !== 0) process.exit(cBuild.status);
+} else {
+  console.warn('[build] No console token and no in-tree console — skipping console build.');
 }
 process.exit(0);
