@@ -567,6 +567,117 @@ if (require('fs').existsSync(consoleDist)) {
     res.json({ ok: true, tokens: count, results: (out && out.results) || [] });
   });
 
+  // Apple Watch / HealthKit uploader (native → server). The native app reads
+  // Watch-specific metrics HealthKit owns (active energy, exercise minutes,
+  // steps, stand hours, workouts, VO2max, daytime HR) and POSTs a batch of
+  // per-day rows here. Gated by the console Basic Auth (same as /native/register),
+  // so the native app carries ham's cached credentials.
+  //
+  // These land in the SAME console_records health store the web app + Oura use,
+  // so the existing /console/api/sync pull fans them out to every device with
+  // ZERO client sync change. To avoid double-counting with the parallel Oura
+  // integration, HealthKit and Oura live in separate id namespaces on the same
+  // calendar day: Oura writes id='oura-<date>', HealthKit writes id='hk-<date>'.
+  // The health store is id-keyed with a `date` index, so both rows coexist as
+  // siblings for one day and the client merges them by date. HealthKit rows only
+  // ever populate the Watch-specific fields (never sleep/rhr/hrv), so the two
+  // sources never overwrite each other's data.
+  //
+  // Idempotent + self-healing: id='hk-'+date is a pure function of the NY-local
+  // date, so re-uploading the same day upserts the same (store,id) row. The
+  // monotonic-updatedAt guard (WHERE excluded.updated_at >= …) means a re-sync
+  // with an equal/newer updatedAt overwrites in place — no duplicate rows.
+  app.post('/console/api/native/health', async (req, res) => {
+    try {
+      const days = (req.body && req.body.days) || [];
+      if (!Array.isArray(days)) {
+        return res.status(400).json({ error: 'days must be an array' });
+      }
+      if (days.length > 90) {
+        return res.status(413).json({ error: 'too many days (max 90)' });
+      }
+
+      // ISO local date, e.g. "2026-07-05". The native client computes this in
+      // America/New_York and it becomes both the row id suffix and the `date`.
+      const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+      // Accept a finite non-negative number only. Guard against JSON coercion
+      // traps: Number(null)/Number('')/Number([]) all === 0, so require the raw
+      // value to already be a number (a client-side NaN serialises to null and
+      // must NOT be stored as 0 — treat absent/invalid as "no data", never 0).
+      const num = (v) => {
+        if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return undefined;
+        return v;
+      };
+
+      const now = Date.now();
+      let changed = 0;
+      let upserted = 0;
+      for (const d of days) {
+        if (!d || typeof d.date !== 'string' || !DATE_RE.test(d.date)) continue;
+        const date = d.date;
+
+        // Sanitise the workout breakdown: [{ type, minutes }] with a short
+        // type label and a finite minute count. Cap the array so a rogue
+        // payload can't bloat a row.
+        let workouts;
+        if (Array.isArray(d.workouts)) {
+          workouts = d.workouts
+            .filter((w) => w && typeof w.type === 'string')
+            .slice(0, 40)
+            .map((w) => ({ type: String(w.type).slice(0, 40), minutes: num(w.minutes) ?? 0 }));
+          if (workouts.length === 0) workouts = undefined;
+        }
+
+        // Build a stable-shaped HealthMetric row — HK owns ONLY the Watch
+        // fields; sleep*/rhr/hrv are deliberately left undefined so the Oura
+        // sibling row for this date remains the source of truth for those.
+        // Every stored row carries source:'healthkit' for client provenance.
+        const row = {
+          id: 'hk-' + date,
+          date,
+          activeEnergy: num(d.activeEnergy),
+          exerciseMinutes: num(d.exerciseMinutes),
+          steps: num(d.steps),
+          standHours: num(d.standHours),
+          workoutMinutes: num(d.workoutMinutes),
+          workouts,
+          vo2max: num(d.vo2max),
+          dayHrAvg: num(d.dayHrAvg),
+          dayHrMax: num(d.dayHrMax),
+          source: 'healthkit',
+        };
+        // Drop undefined keys so the stored JSON is compact + deterministic
+        // (a day with no data for a metric simply omits it, never writes 0).
+        for (const k of Object.keys(row)) if (row[k] === undefined) delete row[k];
+
+        // Skip a wholly-empty day (only id/date/source) — nothing to record.
+        if (Object.keys(row).length <= 3) continue;
+
+        // Stamp updatedAt fresh each POST (never reuse a client value) so a
+        // legitimately-updated same-day re-sync isn't rejected as not-newer by
+        // the monotonic guard. See risks[] in the design doc.
+        const stamped = { ...row, updatedAt: now };
+        db.run(
+          `INSERT INTO console_records (store, id, data, updated_at, deleted)
+           VALUES ('health', ?, ?, ?, 0)
+           ON CONFLICT(store, id) DO UPDATE SET
+             data = excluded.data,
+             updated_at = excluded.updated_at,
+             deleted = excluded.deleted
+           WHERE excluded.updated_at >= console_records.updated_at`,
+          [row.id, JSON.stringify(stamped), now]
+        );
+        changed += db.getRowsModified();
+        upserted += 1;
+      }
+      if (changed) await saveDatabase(); // no disk rewrite on a no-op re-sync
+      res.json({ ok: true, upserted, changed });
+    } catch (err) {
+      console.error('HealthKit upload error:', err);
+      res.status(500).json({ error: 'health upload failed' });
+    }
+  });
+
   app.use('/console', express.static(consoleDist, {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) {
