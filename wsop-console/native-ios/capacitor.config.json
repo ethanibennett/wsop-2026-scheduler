@@ -1,9 +1,0 @@
-{
-  "appId": "me.futurega.console",
-  "appName": "WSOP Console",
-  "webDir": "www",
-  "server": {
-    "url": "https://futurega.me/console",
-    "cleartext": false
-  }
-}
