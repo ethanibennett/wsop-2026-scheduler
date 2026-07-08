@@ -563,8 +563,8 @@ if (require('fs').existsSync(consoleDist)) {
     let count = 0;
     const s = db.prepare('SELECT COUNT(*) AS n FROM console_apns_tokens');
     if (s.step()) count = s.getAsObject().n; s.free();
-    await sendConsoleApns('WSOP Console', 'Native notifications are working 🎉', 'test');
-    res.json({ ok: true, tokens: count });
+    const out = await sendConsoleApns('WSOP Console', 'Native notifications are working 🎉', 'test');
+    res.json({ ok: true, tokens: count, results: (out && out.results) || [] });
   });
 
   app.use('/console', express.static(consoleDist, {
@@ -9268,28 +9268,35 @@ function sendApnsOne(token, env, payloadObj) {
       authorization: `bearer ${auth}`, 'apns-topic': bundle,
       'apns-push-type': 'alert', 'content-type': 'application/json',
     });
-    let status = 0, data = '';
+    let status = 0, data = '', apnsId = '';
     req.setEncoding('utf8');
-    req.on('response', (h) => { status = h[':status']; });
+    req.on('response', (h) => { status = h[':status']; apnsId = h['apns-id'] || ''; });
     req.on('data', (d) => { data += d; });
-    req.on('end', () => finish({ ok: status === 200, status, data }));
+    req.on('end', () => finish({ ok: status === 200, status, data, apnsId }));
     req.on('error', (e) => finish({ ok: false, reason: e.message }));
     req.end(bodyBuf);
   });
 }
 async function sendConsoleApns(title, body, tag) {
-  if (!apnsAuthToken()) return; // not configured — no-op
+  if (!apnsAuthToken()) return { configured: false, results: [] };
   const rows = [];
   try {
     const s = db.prepare('SELECT token, env FROM console_apns_tokens');
     while (s.step()) rows.push(s.getAsObject());
     s.free();
-  } catch (_) { return; }
-  if (!rows.length) return;
+  } catch (_) { return { configured: true, results: [] }; }
+  if (!rows.length) return { configured: true, results: [] };
   const payload = { aps: { alert: { title, body }, sound: 'default' }, url: '/console/', tag: tag || 'nudge' };
   let changed = false;
+  const results = [];
   for (const r of rows) {
     const res = await sendApnsOne(r.token, r.env, payload);
+    // Verbose per-send log so delivery problems are visible in the runtime logs.
+    console.log(
+      `[APNs] send env=${r.env} token=${(r.token || '').slice(0, 8)}… status=${res.status || '-'} ` +
+      `apns-id=${res.apnsId || '-'} ${res.ok ? 'OK' : 'ERR:' + (res.reason || res.data || '?')}`
+    );
+    results.push({ env: r.env, status: res.status || null, ok: !!res.ok, error: res.ok ? null : (res.reason || res.data || null) });
     if (res.status === 410 || (res.status === 400 && /BadDeviceToken/i.test(res.data || ''))) {
       db.run('DELETE FROM console_apns_tokens WHERE token = ?', [r.token]); changed = true;
     } else if (!res.ok) {
@@ -9297,6 +9304,7 @@ async function sendConsoleApns(title, body, tag) {
     }
   }
   if (changed) await saveDatabase();
+  return { configured: true, results };
 }
 
 // Fan a console notification out to BOTH native (APNs) and web-push (PWA).
