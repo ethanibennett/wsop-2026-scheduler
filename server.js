@@ -8375,6 +8375,12 @@ app.post('/api/solver/razz-trainer/step', authenticateToken, (req, res) => {
 // "optimal"/"solved" strings anywhere in this section or its payloads.
 const play3 = require('./solver/multiway/play3');
 const grade3 = require('./solver/multiway/grade3');
+// The multiway grade (grade3.gradeHand3) is ~5.8s median / ~13.5s worst — heavy
+// pure JS whose exact 7th-street enumeration would BLOCK the event loop for every
+// user if run inline. Offload it to a persistent worker thread (blueprint cached
+// once IN the worker) so /step `await`s it without blocking. grade3 stays the
+// direct synchronous API for the CLI/tests; the worker calls the very same fn.
+const { getManager: getGrade3Manager } = require('./solver/multiway/grade3-manager');
 const { makeGame: makeRazz3 } = require('./solver/multiway/razz3-game');
 const { bestLowRazz: razz3BestLow } = require('./solver/eval/razz');
 const razz3Game = makeRazz3({ cap: 2, antes: 8 }); // blueprint training params
@@ -8410,12 +8416,15 @@ function RANK_VAL_R3(cs) {
 // razz3.json the grind is actively rewriting). Loaded ONCE, lazily, and cached —
 // a per-request 70MB JSON.parse would dominate latency. `undefined` = not loaded;
 // `null` = load failed / refused by the memory guard.
+// Absolute path to the blueprint file — shared by the in-process cache (below)
+// and the grade WORKER (which parses its OWN copy once, off the event loop).
+const RAZZ3_BP_FILE = path.join(__dirname, 'solver', 'strategies', 'razz3.best-750k.json');
 let _razz3Bp; // razz3 blueprint (whole file {meta,strategy}) | null
 function getRazz3Bp() {
   if (_razz3Bp === undefined) {
     try {
       const fsSync = require('fs');
-      const file = path.join(__dirname, 'solver', 'strategies', 'razz3.best-750k.json');
+      const file = RAZZ3_BP_FILE;
       const cap = Number(process.env.BP_MAX_BYTES || 0);
       const sz = fsSync.existsSync(file) ? fsSync.statSync(file).size : 0;
       if (!sz) { console.error('razz3 blueprint missing:', file); _razz3Bp = null; }
@@ -8438,6 +8447,17 @@ function getRazz3Bp() {
 // publish). Earlier streets are the blueprint MC estimate (samples/oppCapEarly
 // tuned so a full hand grades in ~1.5s avg / <8s worst on this box).
 const RAZZ3_GRADE_OPTS = { oppCap: 8, withTrueBR: false, oppCapEarly: 5, samples: 60, game: razz3Game };
+// Plain-scalar view of the grade budget for the WORKER (the `game` object can't
+// cross a thread boundary — the worker rebuilds its own identical razz3 game).
+const { game: _razz3GradeGameUnused, ...RAZZ3_GRADE_OPTS_PLAIN } = RAZZ3_GRADE_OPTS;
+// Lazy accessor for the persistent grade worker. First call fixes the blueprint
+// path + game params (cap/antes) and warms the worker (parses the 70MB blueprint
+// ONCE in the worker); later calls reuse it. Kept separate from getRazz3Bp: the
+// in-process blueprint is still used for the fast deterministic REPLAY (~ms), the
+// worker owns only the heavy GRADE.
+function razz3GradeManager() {
+  return getGrade3Manager({ bpFile: RAZZ3_BP_FILE, gameOpts: { cap: 2, antes: 8 } });
+}
 // heroSeat is a deterministic function of the seed so /step recomputes it from
 // {seed} alone (3 seats → mod 3). /deal returns it for the client.
 function razz3HeroSeat(seed) { return ((seed >>> 0) % 3); }
@@ -8636,7 +8656,7 @@ function trainer3Deal(req, res) {
 // step → replay from seed + heroActions, advance to the next hero node OR
 // terminal. On terminal: grade every hero decision (7th exact, earlier MC) and
 // return the honest per-decision report + the per-seat exploitability bar.
-function trainer3Step(req, res) {
+async function trainer3Step(req, res) {
   if (!getRazz3Bp()) return res.status(503).json({ error: 'razz3 blueprint unavailable on this server' });
   try {
     const body = req.body || {};
@@ -8657,12 +8677,25 @@ function trainer3Step(req, res) {
       });
     }
 
-    // Terminal: result + honest grades.
+    // Terminal: result + honest grades. The REPLAY above is cheap (~ms) and stays
+    // on the event loop; the HEAVY grade (grade3.gradeHand3, ~5.8s median) is
+    // offloaded to the persistent worker thread so the loop stays free for other
+    // users while this hand grades. The worker calls the identical gradeHand3
+    // against the same handRecord + blueprint → byte-identical to the direct call.
     const hr = r.handRecord;
     const term = r.terminal;
     const result = razz3ResultPayload(term, hr.utility[heroSeat], heroSeat);
-    const bp = getRazz3Bp();
-    const graded = grade3.gradeHand3(hr, bp, RAZZ3_GRADE_OPTS);
+    let graded;
+    try {
+      graded = await razz3GradeManager().grade(hr, RAZZ3_GRADE_OPTS_PLAIN);
+    } catch (e) {
+      // A worker crash/timeout must NOT wedge the server or lose the hand — the
+      // hand already played out (result is valid), only the grade failed. Return
+      // a clean 502 so the client can surface "grading unavailable, try again".
+      console.error('razz3 trainer3 grade worker failed:', e.message);
+      if (!res.headersSent) res.status(502).json({ error: 'grading temporarily unavailable', gradeFailed: true, result });
+      return;
+    }
     const grades = graded.grades.map(g => razz3GradeToContract(g, hr));
 
     res.json({
@@ -8685,9 +8718,11 @@ function trainer3Step(req, res) {
 
 app.post('/api/solver/trainer3/razz3/deal', authenticateToken, (req, res) => { trainer3Deal(req, res); });
 app.post('/api/solver/trainer3/razz3/step', authenticateToken, (req, res) => {
-  // Grading is synchronous but bounded (~1.5s avg / <8s worst); wrap so any throw
-  // surfaces as a clean 500 rather than an unhandled rejection.
-  Promise.resolve().then(() => trainer3Step(req, res)).catch(err => {
+  // trainer3Step is async: the cheap replay runs on the loop, the heavy grade is
+  // AWAITED on a worker thread (event loop free meanwhile). The catch is a
+  // last-resort net so any unexpected rejection is a clean 500, not an unhandled
+  // rejection that could wedge the process.
+  Promise.resolve(trainer3Step(req, res)).catch(err => {
     console.error('razz3 trainer3 step (async) error:', err);
     if (!res.headersSent) res.status(500).json({ error: 'Failed to step razz3 hand' });
   });
