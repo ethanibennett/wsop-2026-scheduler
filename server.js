@@ -567,6 +567,24 @@ if (require('fs').existsSync(consoleDist)) {
     res.json({ ok: true, tokens: count, results: (out && out.results) || [] });
   });
 
+  // Manual Oura sync trigger (ham-gated by requireHamBasic on /console). Runs
+  // the same job as the daily cron, once, for first-run backfill + debugging
+  // without waiting for 10:30 ET. Body: { days?: number } (default 14 here so a
+  // first call seeds ~2 weeks of history; steady-state cron uses 4). Idempotent.
+  app.post('/console/api/oura/sync-now', async (req, res) => {
+    try {
+      if (!process.env.OURA_PAT) {
+        return res.status(503).json({ ok: false, error: 'OURA_PAT not configured on the server' });
+      }
+      const days = Math.max(1, Math.min(60, Number((req.body && req.body.days)) || 14));
+      const result = await ouraSync.runOuraSync(db, saveDatabase, { days });
+      res.json(result);
+    } catch (err) {
+      console.error('[oura] sync-now error:', err);
+      res.status(500).json({ ok: false, error: 'oura sync failed' });
+    }
+  });
+
   app.use('/console', express.static(consoleDist, {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) {
@@ -9225,6 +9243,10 @@ try {
 } catch (err) {
   console.warn('[console] schedule.js not found — nudges disabled:', err.message);
 }
+// Oura Ring → console health sync (server authors `health` records into
+// console_records so they sync down to every device). Self-disables without
+// OURA_PAT. See oura-sync.js for the day-mapping/merge invariants.
+const ouraSync = require('./oura-sync.js');
 // The plan runs on the user's Eastern clock (Philadelphia); fire nudges in ET
 // regardless of the server timezone.
 const CONSOLE_TZ = 'America/New_York';
@@ -11443,6 +11465,12 @@ initDatabase().then(() => {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
     setupConsoleNudgeCron();
+    // Oura → console health sync — daily 10:30 ET (self-disables w/o OURA_PAT).
+    try {
+      ouraSync.setupOuraSyncCron(cron, db, saveDatabase, CONSOLE_TZ);
+    } catch (err) {
+      console.error('[oura] cron setup error:', err.message);
+    }
     // Weekly backer email digest — Sunday 18:00 ET.
     try {
       cron.schedule('0 18 * * 0', () => { sendBackerWeeklyDigests(); }, { timezone: CONSOLE_TZ });
