@@ -41,6 +41,7 @@ const SolverTrainerView = lazy(() => import('./components/SolverTrainerView.jsx'
 const SolverPlayView = lazy(() => import('./components/SolverPlayView.jsx'));
 const SolverView = lazy(() => import('./components/SolverView.jsx'));
 const RazzTrainerView = lazy(() => import('./components/RazzTrainerView.jsx'));
+const Multiway3TrainerView = lazy(() => import('./components/Multiway3TrainerView.jsx'));
 const StakingView = lazy(() => import('./components/StakingView.jsx'));
 const AdminView = lazy(() => import('./components/AdminView.jsx'));
 
@@ -1349,7 +1350,7 @@ export default function App() {
             ? <div style={{height:'100%',display:'flex',flexDirection:'column'}}>
                 {isAdmin && (
                   <div style={{display:'flex',gap:6,padding:'8px 14px 0',fontFamily:"'Univers Condensed','Univers',sans-serif",flexWrap:'wrap'}}>
-                    {[['replayer','Replayer'],['solver','Solver'],['trainer','Solver Trainer'],['razz-trainer','Trainer']].map(([id,lbl]) => (
+                    {[['replayer','Replayer'],['solver','Solver'],['trainer','Solver Trainer'],['razz-trainer','Trainer'],['multiway','3-Way']].map(([id,lbl]) => (
                       <button key={id} onClick={() => setHandsTool(id)}
                         style={{padding:'4px 12px',borderRadius:12,fontFamily:'inherit',fontSize:'0.7rem',fontWeight:600,cursor:'pointer',
                           border:'1px solid ' + (handsTool === id ? 'var(--accent)' : 'var(--border)'),
@@ -1369,6 +1370,8 @@ export default function App() {
                     ? <Suspense fallback={<LazyFallback />}><SolverPlayView /></Suspense>
                     : handsTool === 'razz-trainer' && isAdmin
                     ? <Suspense fallback={<LazyFallback />}><RazzTrainerView /></Suspense>
+                    : handsTool === 'multiway' && isAdmin
+                    ? <Suspense fallback={<LazyFallback />}><Multiway3TrainerView /></Suspense>
                     : <Suspense fallback={<LazyFallback />}><HandReplayerView token={token} heroName={realName || username || 'Hero'} cardSplay={cardSplay} initialHand={sharedHandData} onClearInitialHand={() => setSharedHandData(null)} onSolveSpot={isAdmin ? (spot => { setPendingSolverSpot(spot); setHandsTool('solver'); }) : undefined} /></Suspense>}
                 </div>
               </div>

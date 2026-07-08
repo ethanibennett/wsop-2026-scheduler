@@ -8355,6 +8355,344 @@ app.post('/api/solver/razz-trainer/step', authenticateToken, (req, res) => {
   });
 });
 
+// ── MULTIWAY (3-player razz) TRAINER — trainer3 ───────────────────────────────
+// The 3-seat analogue of the heads-up stud trainer above. Stateless + seeded-
+// deterministic: a hand is REPLAYED from `seed` on every request — makeRng(seed)
+// drives the deal + the TWO non-hero seats' blueprint σ-sampling + chance; the
+// hero's actions are injected from the request body. Same seed + same heroActions
+// ⇒ byte-identical replay. The engine (solver/multiway/razz3-game.js) and the
+// grader (solver/multiway/grade3.js) are the FROZEN, gated foundation — this is
+// pure wiring on top of them.
+//
+//   POST /api/solver/trainer3/razz3/deal  {}                     -> { seed, heroSeat, game, state }
+//   POST /api/solver/trainer3/razz3/step  { seed, heroActions:[] } -> { state, legalActions|null, handOver, result?, grades?, profile? }
+//
+// HONESTY (product requirement, general-sum 3-player razz has NO equilibrium):
+// grade3 already bans the GTO label (grade7.gradeLabel throws on "gto") and
+// stamps `certified-EV-loss-vs-stated-profile`. Every field this endpoint emits
+// is framed as EV-loss-vs-the-stated-profile; the exploitability number is
+// carried as a per-seat LOWER bound (exploitLowerBound). No "GTO"/"equilibrium"/
+// "optimal"/"solved" strings anywhere in this section or its payloads.
+const play3 = require('./solver/multiway/play3');
+const grade3 = require('./solver/multiway/grade3');
+const { makeGame: makeRazz3 } = require('./solver/multiway/razz3-game');
+const { bestLowRazz: razz3BestLow } = require('./solver/eval/razz');
+const razz3Game = makeRazz3({ cap: 2, antes: 8 }); // blueprint training params
+
+// Human low-hand string for a seat's revealed 7 cards (ace-to-five, no straights/
+// flushes). Picks the 5 distinct-rank cards forming the best low and renders them
+// high→low, e.g. "8-6-4-3-A". Purely for showdown display; the pot is decided by
+// razz3Game.utility (bestLowRazz), never by this string.
+const RAZZ3_RANKCH = { 14: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: 'T', 11: 'J', 12: 'Q', 13: 'K' };
+function razz3LowString(cardStrs) {
+  // ace low; dedupe ranks; take the 5 lowest distinct ranks.
+  const lowVal = r => (r === 14 ? 1 : r);
+  const seen = new Set(); const ranks = [];
+  for (const cs of cardStrs) {
+    const r = RANK_VAL_R3(cs);
+    if (r == null) continue;
+    if (seen.has(r)) continue; seen.add(r); ranks.push(r);
+  }
+  ranks.sort((a, b) => lowVal(a) - lowVal(b));
+  const five = ranks.slice(0, 5);
+  if (five.length < 5) return null;
+  // display high→low by low value
+  return five.slice().sort((a, b) => lowVal(b) - lowVal(a)).map(r => RAZZ3_RANKCH[r]).join('-');
+}
+function RANK_VAL_R3(cs) {
+  if (!cs || cs.length < 1) return null;
+  const map = { A: 14, K: 13, Q: 12, J: 11, T: 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2 };
+  return map[cs[0].toUpperCase()] || null;
+}
+
+// The 3-player blueprint PROFILE the two non-hero seats sample and the grader
+// certifies EV-loss against. It is the 70MB razz3.best-750k.json (NOT the live
+// razz3.json the grind is actively rewriting). Loaded ONCE, lazily, and cached —
+// a per-request 70MB JSON.parse would dominate latency. `undefined` = not loaded;
+// `null` = load failed / refused by the memory guard.
+let _razz3Bp; // razz3 blueprint (whole file {meta,strategy}) | null
+function getRazz3Bp() {
+  if (_razz3Bp === undefined) {
+    try {
+      const fsSync = require('fs');
+      const file = path.join(__dirname, 'solver', 'strategies', 'razz3.best-750k.json');
+      const cap = Number(process.env.BP_MAX_BYTES || 0);
+      const sz = fsSync.existsSync(file) ? fsSync.statSync(file).size : 0;
+      if (!sz) { console.error('razz3 blueprint missing:', file); _razz3Bp = null; }
+      else if (cap > 0 && sz > cap) {
+        console.error(`razz3 blueprint is ${Math.round(sz / 1e6)}MB > BP_MAX_BYTES=${Math.round(cap / 1e6)}MB — refusing to load (memory guard)`);
+        _razz3Bp = null;
+      } else {
+        console.log(`Loading razz3 blueprint (${Math.round(sz / 1e6)}MB) — one-time...`);
+        _razz3Bp = JSON.parse(fsSync.readFileSync(file, 'utf8'));
+        console.log(`razz3 blueprint loaded: ${Object.keys(play3.strategyMapOf(_razz3Bp)).length} infosets`);
+      }
+    } catch (e) { console.error('razz3 blueprint load failed:', e.message); _razz3Bp = null; }
+  }
+  return _razz3Bp || null;
+}
+// Grading budget. The 7th-street grade is the EXACT multiway certificate; its
+// opponent-range enumeration is the cost, so oppCap is bounded and the published
+// error bar is the LOWER bound only (withTrueBR:false — the tighter true bound
+// roughly doubles the 7th-street cost and the LLB is exactly the honest number we
+// publish). Earlier streets are the blueprint MC estimate (samples/oppCapEarly
+// tuned so a full hand grades in ~1.5s avg / <8s worst on this box).
+const RAZZ3_GRADE_OPTS = { oppCap: 8, withTrueBR: false, oppCapEarly: 5, samples: 60, game: razz3Game };
+// heroSeat is a deterministic function of the seed so /step recomputes it from
+// {seed} alone (3 seats → mod 3). /deal returns it for the client.
+function razz3HeroSeat(seed) { return ((seed >>> 0) % 3); }
+
+// Serialize a live razz3 snapshot to the contract `state`. All THREE seats'
+// upcards are public; the hero's down cards are shown; the two opponents' down
+// cards are hidden until showdown (never serialized here). `decisionsSoFar` are
+// the recorded decision nodes (all seats) → the public action log.
+function razz3ToState(s, heroSeat, decisionsSoFar) {
+  const opps = [0, 1, 2].filter(p => p !== heroSeat);
+  return {
+    street: s.street,
+    // total live pot including the owner-less dead-money overlay (deadPot).
+    pot: s.deadPot + s.contrib.reduce((a, b) => a + b, 0),
+    deadPot: s.deadPot,
+    heroSeat,
+    // per-seat public view (index-aligned to seats 0..2)
+    seats: [0, 1, 2].map(p => ({
+      seat: p,
+      isHero: p === heroSeat,
+      up: s.up[p].map(play3.cardStr),
+      down: p === heroSeat ? s.down[p].map(play3.cardStr) : s.down[p].map(() => null), // opp downs hidden
+      contrib: s.contrib[p],
+      folded: !!s.folded[p],
+    })),
+    heroUp: s.up[heroSeat].map(play3.cardStr),
+    heroDown: s.down[heroSeat].map(play3.cardStr),
+    oppSeats: opps,
+    toAct: s.toAct,
+    bringInSeat: s.bringIn,
+    log: decisionsSoFar.map(d => ({
+      seat: d.actor,
+      street: d.street,
+      actionId: d.chosen,
+      label: razz3Game.actionLabel(d.chosen, d.state),
+    })),
+  };
+}
+
+// Deterministic replay of a razz3 hand from `seed`, injecting `heroActions` at the
+// hero's decision nodes; the two non-hero seats sample the blueprint σ. A thin
+// reimplementation of play3.runHand3's loop that STOPS at the first un-supplied
+// hero node (returning the decisions recorded so far — the opponents' pre-hero
+// line we need for the state/log), or runs to terminal and returns a full
+// handRecord for grade3.gradeHand3. Mirrors replayRazz (the HU path).
+function replayRazz3(seed, heroActions) {
+  const bp = getRazz3Bp();
+  const strategyMap = play3.strategyMapOf(bp);
+  const heroSeat = razz3HeroSeat(seed);
+  const rng = makeRazzRng(seed >>> 0);
+  let state = razz3Game.newHand(rng);
+  const decisions = [];
+  let idx = 0;   // index into heroActions
+  let guard = 0;
+
+  while (!razz3Game.isTerminal(state)) {
+    if (++guard > 500) break;
+    if (razz3Game.isChance(state)) { state = razz3Game.sampleChance(state, rng); continue; }
+    const acts = razz3Game.legalActions(state);
+    if (acts.length <= 1) { state = razz3Game.applyAction(state, acts[0]); continue; }
+
+    const actor = razz3Game.currentPlayer(state);
+    const key = razz3Game.infosetKey(state);
+    const strat = play3.strategyFor(strategyMap, key, acts);
+    const snap = play3.snapshotState(state);
+
+    let chosen;
+    if (actor === heroSeat) {
+      if (idx >= heroActions.length) {
+        return { done: false, heroSeat, state: snap, acts: acts.slice(), decisions };
+      }
+      chosen = heroActions[idx++];
+      if (acts.indexOf(chosen) < 0) {
+        const err = new Error(`illegal hero action '${chosen}' (legal: ${acts.join(',')})`);
+        err.illegal = true;
+        throw err;
+      }
+    } else {
+      chosen = acts[play3.sampleIndex(strat.probs, rng)];
+    }
+
+    decisions.push({
+      actor, isHero: actor === heroSeat, street: state.street, key,
+      acts: acts.slice(), chosen, gtoProbs: strat.probs.slice(), gtoTrained: strat.trained,
+      state: snap,
+    });
+    state = razz3Game.applyAction(state, chosen);
+  }
+
+  const handRecord = {
+    game: razz3Game.id, heroSeat, nseat: 3, decisions,
+    terminal: play3.snapshotState(state), utility: razz3Game.utility(state),
+  };
+  return { done: true, heroSeat, terminal: state, decisions, handRecord };
+}
+
+// Build the per-hand result payload from a 3-seat terminal state. `heroDelta` is
+// the hero's chip utility. Coarse label + showdown reveal (only on a real
+// showdown — never leak folded seats' hole cards). All three seats' rank strings
+// are shown at showdown so the GUI can render the 3-way low.
+function razz3ResultPayload(term, heroDelta, heroSeat) {
+  const live = razz3Game.liveSeats(term);
+  const isShowdown = live.length > 1; // >1 live seat reaching the end = showdown
+  let winner;
+  if (heroDelta > 0) winner = 'hero';
+  else if (heroDelta < 0) winner = 'opp';
+  else winner = 'split';
+  const util = razz3Game.utility(term);
+  const seats = [0, 1, 2].map(p => ({
+    seat: p,
+    folded: !!term.folded[p],
+    delta: util[p],
+    // reveal every live seat's hand at showdown; folded/mucked seats stay hidden.
+    up: term.up[p].map(play3.cardStr),
+    down: (isShowdown && !term.folded[p]) ? term.down[p].map(play3.cardStr) : term.down[p].map(() => null),
+    lowRank: (isShowdown && !term.folded[p])
+      ? razz3LowString(term.up[p].concat(term.down[p]).map(play3.cardStr))
+      : null,
+  }));
+  return { heroDelta, winner, endType: isShowdown ? 'showdown' : 'fold', seats };
+}
+
+// Map a grade3 grade object to the API contract. Preserves the HONEST framing:
+// gradeSource + forwardMode ('exact-multiway-oracle' for 7th, 'blueprint-graded'
+// for earlier streets), certified string, and the per-seat exploitability LOWER
+// bound bar. actionLabels are resolved through the engine so the UI can show
+// human labels without re-deriving them.
+function razz3GradeToContract(g, handRecord) {
+  const dec = handRecord.decisions[g.gradeIdx];
+  const st = dec.state;
+  const actions = (g.actions || (g.gtoMix && g.gtoMix.actions) || []).slice();
+  // per-seat exploitability LOWER bound (the published error bar on the profile).
+  let exploitBar = null;
+  const bar = g.exploitabilityBar;
+  if (bar) {
+    const src = bar.bounds || bar.lower; // withTrueBR:false → bar.lower is the array
+    if (Array.isArray(src)) {
+      exploitBar = src.map(b => ({
+        seat: b.seat,
+        // LOWER bound only (honest): what a strong opponent can provably win.
+        exploitLowerBound: (b.exploitLowerBound != null ? b.exploitLowerBound : b.exploit),
+      }));
+    }
+  }
+  return {
+    gradeIdx: g.gradeIdx,
+    seat: g.seat,
+    street: g.street,
+    streetName: g.streetName,
+    heroActionId: g.chosen,
+    heroActionLabel: razz3Game.actionLabel(g.chosen, st),
+    // The blueprint PROFILE's action mix at this node (frequencies the two
+    // opponents play). Emitted under a neutral key — the payload makes no
+    // perfect-play claim of any kind.
+    profileMix: {
+      actions: g.gtoMix.actions,
+      labels: g.gtoMix.actions.map(id => razz3Game.actionLabel(id, st)),
+      probs: g.gtoMix.probs,
+      trained: g.gtoMix.trained,
+    },
+    actions,
+    actionLabels: actions.map(id => razz3Game.actionLabel(id, st)),
+    perActionEV: g.perActionEV,
+    bestActionId: g.bestAction,
+    evLoss: g.evLoss,
+    evLossSE: g.evLossSE,           // present only on blueprint-graded (earlier) streets
+    // HONEST provenance the UI badges from:
+    //   'exact-multiway-oracle'  → 7th-street exact certificate
+    //   'blueprint-graded'       → earlier-street MC estimate vs the profile
+    forwardMode: g.forwardMode,
+    gradeSource: g.gradeSource,
+    certified: g.certified,         // 'certified-…' or 'estimated-EV-loss-vs-stated-profile'
+    exactPath: g.exactPath,         // 'grade7th-first-actor' | 'snapshot-exact' (7th only)
+    exploitBar,                     // per-seat LOWER-bound bar (7th only)
+    oppRangeSizes: g.oppRangeSizes,
+    oppCoverage: g.oppCoverage,
+  };
+}
+
+// deal → { seed, heroSeat, game, state } (state stops at the hero's first node,
+// or terminal if the hero never acts this deal).
+function trainer3Deal(req, res) {
+  if (!getRazz3Bp()) return res.status(503).json({ error: 'razz3 blueprint unavailable on this server' });
+  try {
+    const seed = (Math.random() * 0x7fffffff) | 0;
+    const heroSeat = razz3HeroSeat(seed);
+    const r = replayRazz3(seed, []);
+    const snap = r.done ? r.terminal : r.state;
+    res.json({ seed, heroSeat, game: 'razz3', state: razz3ToState(snap, heroSeat, r.decisions) });
+  } catch (error) {
+    console.error('razz3 trainer3 deal error:', error);
+    res.status(500).json({ error: 'Failed to deal razz3 hand' });
+  }
+}
+
+// step → replay from seed + heroActions, advance to the next hero node OR
+// terminal. On terminal: grade every hero decision (7th exact, earlier MC) and
+// return the honest per-decision report + the per-seat exploitability bar.
+function trainer3Step(req, res) {
+  if (!getRazz3Bp()) return res.status(503).json({ error: 'razz3 blueprint unavailable on this server' });
+  try {
+    const body = req.body || {};
+    if (body.seed == null) return res.status(400).json({ error: 'seed is required' });
+    const seed = body.seed | 0;
+    const heroActions = Array.isArray(body.heroActions) ? body.heroActions : [];
+
+    let r;
+    try { r = replayRazz3(seed, heroActions); }
+    catch (e) { if (e.illegal) return res.status(400).json({ error: e.message }); throw e; }
+    const heroSeat = r.heroSeat;
+
+    if (!r.done) {
+      const legalActions = r.acts.map(id => ({ id, label: razz3Game.actionLabel(id, r.state) }));
+      return res.json({
+        state: razz3ToState(r.state, heroSeat, r.decisions),
+        legalActions, handOver: false,
+      });
+    }
+
+    // Terminal: result + honest grades.
+    const hr = r.handRecord;
+    const term = r.terminal;
+    const result = razz3ResultPayload(term, hr.utility[heroSeat], heroSeat);
+    const bp = getRazz3Bp();
+    const graded = grade3.gradeHand3(hr, bp, RAZZ3_GRADE_OPTS);
+    const grades = graded.grades.map(g => razz3GradeToContract(g, hr));
+
+    res.json({
+      state: razz3ToState(term, heroSeat, hr.decisions),
+      legalActions: null,
+      handOver: true,
+      result,
+      grades,
+      // HONEST profile framing carried to the client verbatim. label is the
+      // certified-EV-loss string; claimsPerfectPlay:false records that the grade
+      // asserts no single-correct-strategy claim (general-sum). The UI must not
+      // relabel these. (grade3.gtoBanned===true → we assert perfect-play false.)
+      profile: { label: graded.label, claimsPerfectPlay: !graded.gtoBanned, oracleGraded: graded.oracleGraded },
+    });
+  } catch (error) {
+    console.error('razz3 trainer3 step error:', error);
+    res.status(500).json({ error: 'Failed to step razz3 hand' });
+  }
+}
+
+app.post('/api/solver/trainer3/razz3/deal', authenticateToken, (req, res) => { trainer3Deal(req, res); });
+app.post('/api/solver/trainer3/razz3/step', authenticateToken, (req, res) => {
+  // Grading is synchronous but bounded (~1.5s avg / <8s worst); wrap so any throw
+  // surfaces as a clean 500 rather than an unhandled rejection.
+  Promise.resolve().then(() => trainer3Step(req, res)).catch(err => {
+    console.error('razz3 trainer3 step (async) error:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Failed to step razz3 hand' });
+  });
+});
+
 // ── Trainer graded-hand persistence (durable per-hand history) ───────────────
 // These mirror the auth + style of the /api/solver/trainer/:game/(deal|step)
 // routes above. The frontend posts the graded-hand object it already gets back
