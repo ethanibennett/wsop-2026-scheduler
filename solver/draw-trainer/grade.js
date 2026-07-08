@@ -662,13 +662,24 @@ async function overlayDrawNetGrade(oracle, game, strategyMap, handRecord, g, opt
     if (!built || !built.range.length) return asBlueprintGrade();
     const spot = buildDrawNetSpot(game, handRecord, gradeIdx, built.range);
     const res = await oracle.perActionEV(spot);
+    // VISIBILITY (cheap, dedup'd): the worker/bridge already log worker-side
+    // exceptions to stderr. These two branches are the ONLY remaining SILENT
+    // fallbacks (net returned but was rejected here), so surface their reason once
+    // so a bad deploy shows WHY the grade fell back instead of an invisible
+    // blueprint. Positive success is logged once below.
     if (!res || !res.per_action_ev) return asBlueprintGrade();
-    if (res.tier !== 'certified-net') return asBlueprintGrade(); // must be the net path
+    if (res.tier !== 'certified-net') {
+      netLogOnce('tier-mismatch', `[certified-net] fallback: tier=${res.tier}`);
+      return asBlueprintGrade(); // must be the net path
+    }
 
     // The net must cover exactly the hero's legal (betting) actions.
     const acts = d.acts;
     for (const a of acts) {
-      if (!(a in res.per_action_ev)) return asBlueprintGrade();
+      if (!(a in res.per_action_ev)) {
+        netLogOnce('act-mismatch', `[certified-net] fallback: net missing action '${a}' (acts=${acts.join(',')})`);
+        return asBlueprintGrade();
+      }
     }
     const perActionEV = {};
     for (const a of acts) perActionEV[a] = res.per_action_ev[a];
@@ -740,10 +751,24 @@ async function overlayDrawNetGrade(oracle, game, strategyMap, handRecord, g, opt
       out.rangeSensitiveEnsemble = rs.ensembleSize;
       out.chargedEvLoss = chargeZeroed ? 0 : evLoss;
     }
+    // VISIBILITY: the FIRST certified-net success per process prints one line so a
+    // deploy's Render logs positively confirm the net path is live (not just the
+    // absence of an error). Dedup'd -> not per-grade log spam.
+    netLogOnce('ok', `[certified-net] LIVE: badugi street-2 net grade served (certSB=${out.certificationSB}, gauge=${out.netValueGauge})`);
     return out;
   } catch (e) {
     return asBlueprintGrade(); // never let the net break a grade
   }
+}
+
+// One-line-per-distinct-key stderr logger for the certified-net path so the next
+// deploy's Render logs show either a positive "LIVE" line or the exact silent-
+// fallback reason — WITHOUT per-grade spam (each key logs at most once/process).
+const _netLogged = new Set();
+function netLogOnce(key, msg) {
+  if (_netLogged.has(key)) return;
+  _netLogged.add(key);
+  try { process.stderr.write(msg + '\n'); } catch (e) { /* ignore */ }
 }
 
 // Build the draw oracle spot dict (what oracle_worker._solve_draw expects — the
