@@ -968,7 +968,7 @@ html,body{width:100%;height:100%;overflow:hidden}
   }
   function frac(cur, goal){
     if(!isNum(cur)) return DASH;
-    return cur + '/' + (isNum(goal) ? goal : '—');
+    return Math.round(cur) + '/' + (isNum(goal) ? Math.round(goal) : '—');
   }
 
   // 90-day trace -------------------------------------------------------------
