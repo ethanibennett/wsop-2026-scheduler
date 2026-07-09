@@ -8382,6 +8382,10 @@ async function trainerStep(game, req, res) {
         forwardMode: g.forwardMode,
         oracle6thApproximate: g.oracle6thApproximate,
         oracle6thAbstractionChips: g.oracle6thAbstractionChips,
+        // 5th-street oracle (net-leaf, gradeSource==='oracle-5th'): approximate
+        // laddered grade, SHOWN not charged. gradeSource/forwardMode/chargedEvLoss/
+        // oracleGradeTrust already flow through above.
+        oracle5thApproximate: g.oracle5thApproximate,
       };
     });
 

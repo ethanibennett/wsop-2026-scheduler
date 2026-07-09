@@ -932,7 +932,8 @@ def resolve_subgame(pbs, iters: int = 1000, depth_limit: Optional[int] = None,
 
 
 def root_action_ev(pbs, hero_holding, hero_reach=None, game: Optional['GameSpec'] = None,
-                   iters: int = 2000, opp_range=None, return_meta: bool = False) -> dict:
+                   iters: int = 2000, opp_range=None, return_meta: bool = False,
+                   depth_limit: Optional[int] = None, leaf_value_fn=None) -> dict:
     """The TRUE-GTO grading ORACLE primitive.
 
     Solve the subgame rooted at `pbs` to equilibrium, then for EACH legal root
@@ -1016,8 +1017,12 @@ def root_action_ev(pbs, hero_holding, hero_reach=None, game: Optional['GameSpec'
         s0 = sum(r0)
         r0 = [x / s0 for x in r0] if s0 else r0
 
-    R = _Resolver(street, up, dead, pot, r0, r1, None, iters=iters,
-                  depth_limit=None, holdings=holdings, game=g)
+    # depth_limit + leaf_value_fn (both None => exact, the 7th-street path, unchanged).
+    # For 5th-street grading pass depth_limit=1 + a value-net leaf (net_leaf): the
+    # 5th->6th public up-card boundary is valued by the 6th net instead of an
+    # intractable exact enumeration. per-action EV extraction below is identical.
+    R = _Resolver(street, up, dead, pot, r0, r1, leaf_value_fn, iters=iters,
+                  depth_limit=depth_limit, holdings=holdings, game=g)
     cfv0, cfv1 = R.solve()
 
     root = R.root

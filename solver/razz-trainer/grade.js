@@ -658,6 +658,19 @@ function oracleEligible6th(handRecord, gradeIdx) {
   return true;
 }
 
+// 5th-street eligibility: 5th (snap.street === 2), start-of-street, hero opens.
+// razz-only for now (only its 6th net — the depth-limited leaf — is trained); the
+// dispatch also gates on the game being razz before routing a decision here.
+function oracleEligible5th(handRecord, gradeIdx) {
+  const d = handRecord.decisions[gradeIdx];
+  const snap = d.state;
+  if (!snap || snap.street !== 2) return false;             // 5th street only
+  const c = snap.contrib;
+  if (!c || Math.abs(c[0] - c[1]) > 1e-9) return false;     // start-of-street only
+  if (snap.toAct !== d.actor) return false;
+  return true;
+}
+
 // Build the oracle spot dict (what oracle_worker.py expects) from a blueprint
 // grade's already-computed reach-weighted opponent range. `blueprintGrade` is a
 // gradeDecision result; `candidates` is its normalized [{hand:[int],w}] range.
@@ -685,6 +698,17 @@ function buildOracleSpot6th(game, handRecord, gradeIdx, candidates, iters) {
   const spot = buildOracleSpot(game, handRecord, gradeIdx, candidates, iters || 250);
   spot.mode = 'resolve6';
   spot.street = 6;
+  return spot;
+}
+
+// 5th-street spot: reuse buildOracleSpot (me = snap.down[heroSeat] is the 2 hole
+// cards on 5th) and tag it for the depth-limited net-leaf 5th resolver. `mode`
+// routes to oracle_worker._solve_stud5_net; `street:5` is its guard. iters left
+// undefined so the worker uses its tuned default (100).
+function buildOracleSpot5th(game, handRecord, gradeIdx, candidates, iters) {
+  const spot = buildOracleSpot(game, handRecord, gradeIdx, candidates, iters || 100);
+  spot.mode = 'resolve5';
+  spot.street = 5;
   return spot;
 }
 
@@ -1011,6 +1035,79 @@ async function overlayOracleGrade6th(oracle, game, strategyMap, handRecord, g, o
   }
 }
 
+// 5th-street trust. 5th is the FIRST street BELOW the last exact-referenceable
+// street (6th): its grade is the 6th NET used as a depth-limited leaf, so it is
+// APPROXIMATE (net fit + public up-card sampling + NO exact anchor below 6th) — an
+// honest 'laddered' tier, softer than the 6th. razz-only for now.
+function oracle5thTrust(gameId) {
+  return { label: 'oracle-5th-laddered' };
+}
+
+// 5th-STREET oracle overlay — the sibling of overlayOracleGrade6th, one street
+// down. The grade comes from a DEPTH-LIMITED 5th resolve with the razz 6th NET as
+// the leaf (mode:'resolve5'): the 5th->6th PUBLIC up-card boundary is valued by the
+// net (sampled deals, CRN). More approximate than the 6th (net-leaf + no exact
+// anchor below 6th), so: DISTINCT gradeSource ('oracle-5th'), SHOWN but NEVER
+// CHARGED, NEVER exact/GTO ('oracle-5th-netleaf'). Falls back to blueprint on any
+// failure/timeout.
+async function overlayOracleGrade5th(oracle, game, strategyMap, handRecord, g, opts) {
+  const gradeIdx = g.gradeIdx;
+  const d = handRecord.decisions[gradeIdx];
+  const materializeBlueprint = () =>
+    (g && g.perActionEV) ? g : (opts.blueprintGrade ? opts.blueprintGrade() : g);
+  const asBlueprintGrade = () => {
+    const bp = materializeBlueprint();
+    return Object.assign({}, bp, { gradeSource: 'blueprint', blueprintEvLoss: bp.evLoss });
+  };
+  try {
+    if (!oracleEligible5th(handRecord, gradeIdx)) return asBlueprintGrade();
+    const candidates = oracleCandidates(game, strategyMap, handRecord, gradeIdx, opts);
+    if (!candidates || !candidates.length) return asBlueprintGrade();
+    const iters = opts.oracleIters5th || 100;
+    const spot = buildOracleSpot5th(game, handRecord, gradeIdx, candidates, iters);
+    const res = await oracle.perActionEV(spot);
+    if (!res || !res.per_action_ev) return asBlueprintGrade();
+
+    const acts = d.acts;
+    for (const a of acts) if (!(a in res.per_action_ev)) return asBlueprintGrade();
+
+    const perActionEV = {};
+    for (const a of acts) perActionEV[a] = res.per_action_ev[a];
+    let bestA = acts[0], bestEV = -Infinity;
+    for (const a of acts) if (perActionEV[a] > bestEV) { bestEV = perActionEV[a]; bestA = a; }
+    const evLoss = Math.max(0, bestEV - perActionEV[d.chosen]);
+
+    const gtoMix = materializeBlueprint().gtoMix;
+    const trust = oracle5thTrust(game.id);
+    const blueprintEvLoss = (g && g.perActionEV) ? g.evLoss
+      : (opts.debugBlueprintEvLoss && opts.blueprintGrade ? opts.blueprintGrade().evLoss : undefined);
+
+    const out = Object.assign({}, materializeBlueprintShell(g, d, gtoMix), {
+      gradeIdx,
+      gradeSource: 'oracle-5th',                     // DISTINCT from 6th/7th
+      perActionEV,
+      perActionSE: acts.reduce((o2, a) => (o2[a] = 0, o2), {}),
+      bestAction: bestA,
+      evLoss,
+      evLossSE: 0,
+      gtoMix,
+      forwardMode: 'oracle-5th-netleaf',             // NEVER exact/GTO
+      oracle5thApproximate: true,
+      oracleGradeTrusted: false,
+      oracleGradeTrust: trust.label,                 // 'oracle-5th-laddered'
+      oracleResolveExploitability: res.exploitability,  // null below 7th
+      oracleIters: iters,
+      oppCoverage: candidates.coverage == null ? 1 : candidates.coverage,
+      oppCombos: candidates.length,
+      chargedEvLoss: 0,                              // SHOWN, NEVER CHARGED (approximate 5th)
+    });
+    if (blueprintEvLoss !== undefined) out.blueprintEvLoss = blueprintEvLoss;
+    return out;
+  } catch (e) {
+    return asBlueprintGrade();
+  }
+}
+
 // Build the display/passthrough shell an oracle grade inherits (seat/street/
 // heroCards/etc.). If `g` is a full blueprint grade we reuse it as the base; if
 // it's the light {gradeIdx} stub we synthesize the shell from the decision so the
@@ -1120,6 +1217,13 @@ async function gradeHandWithOracle(handRecord, blueprint, opts = {}) {
       // 6th-street eligible: bucketed 6th->7th oracle (approximate, shown-not-charged).
       const stub = { gradeIdx: i };
       grades.push(await overlayOracleGrade6th(oracle, game, strategyMap, handRecord,
+        stub, Object.assign({}, o, { blueprintGrade: () => blueprintDecision(i) })));
+    } else if ((game.id === 'razz' || game.id === 'razzv1' || game.id === 'razzv2')
+               && oracleEligible5th(handRecord, i)) {
+      // 5th-street eligible (razz only — its 6th net is the depth-limited leaf):
+      // net-leaf 5th oracle (approximate laddered, shown-not-charged).
+      const stub = { gradeIdx: i };
+      grades.push(await overlayOracleGrade5th(oracle, game, strategyMap, handRecord,
         stub, Object.assign({}, o, { blueprintGrade: () => blueprintDecision(i) })));
     } else {
       // Non-eligible: blueprint grade, byte-identical to the default gradeHand path.

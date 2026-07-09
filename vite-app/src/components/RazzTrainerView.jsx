@@ -535,6 +535,16 @@ export default function RazzTrainerView() {
                   pro · 6th approx
                 </span>
               )}
+              {grades.some((g) => g.gradeSource === 'oracle-5th') && (
+                <span title={`Pro mode — 5th-street decisions were graded by a depth-limited re-solve with the 6th value net as the leaf: APPROXIMATE (net-leaf, no exact anchor below 6th), SHOWN but NOT charged. The softest tier.`}
+                  style={{
+                    marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.54rem', fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                    border: '1px dashed var(--accent2, #eab308)', color: 'var(--accent2, #eab308)',
+                  }}>
+                  pro · 5th laddered
+                </span>
+              )}
             </span>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
               total EV-loss <b style={{ color: totalEvLoss > 0.5 ? 'var(--neg, #ef4444)' : 'var(--pos, #22c55e)', fontVariantNumeric: 'tabular-nums' }}>
@@ -1180,6 +1190,9 @@ function GradeCard({ g, game }) {
   // coarse) from the cert.
   const isOracle6thGrade = gradeSource === 'oracle-6th';
   const oracle6thChips = (typeof g.oracle6thAbstractionChips === 'number') ? g.oracle6thAbstractionChips : 2.0;
+  // 5th-STREET ORACLE: depth-limited 5th resolve with the 6th net as the leaf.
+  // The MOST approximate tier (net leaf + no exact anchor below 6th) — 'laddered'.
+  const isOracle5thGrade = gradeSource === 'oracle-5th';
   // A decision on an oracle/net-eligible street (stud 7th / draw post-last-draw bet
   // / badugi pre-last-draw bet) that still came back as 'blueprint' under Pro mode
   // means the exact/net path was unavailable and it fell back — surface that
@@ -1269,6 +1282,16 @@ function GradeCard({ g, game }) {
                 border: '1px dashed var(--accent2, #eab308)', color: 'var(--accent2, #eab308)',
               }}>
               6th oracle · approx ~{oracle6thChips.toFixed(1)}ch
+            </span>
+          )}
+          {isOracle5thGrade && (
+            <span title={`Graded by a depth-limited 5th-street re-solve using the 6th value net as the leaf — APPROXIMATE (net leaf + public up-card sampling, and NO exact anchor below 6th street). SHOWN but NOT charged to your score. The softest tier — one street below the last exactly-referenceable street.${g.oracleIters ? ` · ${g.oracleIters} CFR+ iters` : ''}`}
+              style={{
+                marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                border: '1px dashed var(--accent2, #eab308)', color: 'var(--accent2, #eab308)',
+              }}>
+              5th oracle · laddered
             </span>
           )}
           {oracleFellBack && (

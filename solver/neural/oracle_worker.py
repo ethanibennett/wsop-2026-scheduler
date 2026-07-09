@@ -544,6 +544,107 @@ def _solve_stud6_bucketed(req: dict) -> dict:
     }
 
 
+_NET5_STATE = {"net": None, "leaf": None, "err": None}
+
+
+def _load_razz6_net():
+    """Lazy singleton: the razz 6th net (torch-free numpy) + its net_leaf, used as
+    the fast leaf for 5th-street depth-limited resolving. Serves under prod's numpy
+    python (same interpreter as the badugi certified-net). On any failure the error
+    is cached and 5th requests fall back to the blueprint (never crash the worker)."""
+    if _NET5_STATE["net"] is not None or _NET5_STATE["err"] is not None:
+        return _NET5_STATE
+    try:
+        from net_forward_numpy import NumpyValueNet
+        import net_leaf as _nl
+        import bucket_razz as _br
+        here = os.path.dirname(os.path.abspath(__file__))
+        npz = os.path.join(here, "nets", "razz_st6.npz")
+        if not os.path.exists(npz):
+            raise FileNotFoundError(f"missing razz 6th net {npz}")
+        net = NumpyValueNet.load(npz)
+
+        def predict(board, extra, br0, br1):
+            v0, v1 = net.forward(board, extra, br0, br1)
+            return list(v0), list(v1)
+
+        def batch(boards, extras, r0s, r1s):
+            v0, v1 = net.forward(boards, extras, r0s, r1s)
+            return [list(r) for r in v0], [list(r) for r in v1]
+
+        predict.batch = batch
+        _NET5_STATE["net"] = net
+        # deal_samples=16 (vs default 32): a sweep showed the 5th grade's per-action
+        # EV drifts <=0.06 chips from the 32-deal reference at 16 (CRN makes the
+        # public up-card deals a STABLE approximation, not per-iter noise), while
+        # halving the per-iter net cost -> ~14s (fits the 20s bridge timeout). Below
+        # 16 the sampling gets too coarse and the grade shifts ~0.5 chips.
+        _NET5_STATE["leaf"] = _nl.make_leaf_value_fn(predict, bucketing=_br, deal_samples=16)
+    except Exception as e:  # noqa: BLE001 — cache + degrade, never crash the worker
+        _NET5_STATE["err"] = str(e)
+    return _NET5_STATE
+
+
+def _solve_stud5_net(req: dict) -> dict:
+    """5th-street per-action EV (mode='resolve5') via a DEPTH-LIMITED 5th resolve
+    with the razz 6th NET as the leaf (the 5th->6th public up-card boundary is
+    valued by the net, sampled M joint deals w/ CRN in net_leaf). razz-only for now
+    (its 6th net is trained; stud8 waits on its 6th net). APPROXIMATE by design
+    (net-leaf + sampling + NO exact anchor below 6th) — the JS overlay tags it
+    'oracle-5th', shown-not-charged, NEVER exact/GTO. Lazy imports; any issue ->
+    ok:false -> blueprint fallback."""
+    from resolve import root_action_ev
+    from pbs import PBS
+
+    game_name = str(req.get("game", "razz")).strip().lower()
+    if game_name not in ("razz", "razzv1", "razzv2"):
+        raise ValueError("resolve5 currently supports razz only (its 6th net is ready)")
+
+    st = _load_razz6_net()
+    if st["err"] or st["leaf"] is None:
+        raise RuntimeError(f"razz 6th net leaf unavailable: {st.get('err')}")
+
+    up0 = req.get("up0")
+    up1 = req.get("up1")
+    if not up0 or not up1:
+        raise ValueError("up0 and up1 (both players' upcards) are required")
+    dead = req.get("dead") or []
+    pot = float(req.get("pot", 20))
+    me = req.get("me")
+    if not me or len(me) != 2:
+        raise ValueError("me (hero's 2 down cards for 5th) is required")
+
+    opp_raw = req.get("opp_range")
+    if not opp_raw:
+        raise ValueError("opp_range (reach-weighted opponent 2-card holdings) is required")
+    opp_range = {}
+    for entry in opp_raw:
+        holding, weight = entry[0], float(entry[1])
+        if weight <= 0:
+            continue
+        h = _sort_holding(holding)
+        opp_range[h] = opp_range.get(h, 0.0) + weight
+    if not opp_range:
+        raise ValueError("opp_range has no positive-weight holdings")
+
+    street = int(req.get("street", 5))
+    if street != 5:
+        raise ValueError("resolve5 mode is 5th-street only")
+    iters = int(req.get("iters", 100))   # EV converged by ~100 (drift <=0.06 chips vs 200)
+    iters = max(1, min(iters, 600))
+
+    pbs = PBS(street=5, up=[list(up0), list(up1)], dead=list(dead), pot=pot, ranges=[[], []])
+    out = root_action_ev(pbs, me, game=RAZZ, iters=iters, opp_range=opp_range,
+                         depth_limit=1, leaf_value_fn=st["leaf"])
+    return {
+        "per_action_ev": out["per_action_ev"],
+        "gtoMix": out.get("gtoMix"),
+        "exploitability": out.get("exploitability"),  # None below 7th
+        "pot": out["pot"],
+        "tier": "oracle-5th-netleaf",   # NEVER exact/GTO — net-leaf approximate
+    }
+
+
 def main() -> None:
     # line-buffered stdout; the JS side reads one JSON line per request.
     out = sys.stdout
@@ -573,6 +674,8 @@ def main() -> None:
                 result = _solve_draw_net(req)  # CERTIFIED-NET pre-last-draw badugi
             elif mode == "resolve6":
                 result = _solve_stud6_bucketed(req)  # 6th-street bucketed per-action EV
+            elif mode == "resolve5":
+                result = _solve_stud5_net(req)        # 5th-street depth-limited net-leaf EV
             elif game_name in DRAW_FINAL_GAMES:
                 result = _solve_draw(req)      # M2 draw rung (badugi/td27)
             else:
