@@ -598,8 +598,12 @@ if (require('fs').existsSync(consoleDist)) {
     try {
       const { code, state, error } = req.query || {};
       if (error) return res.status(400).send(`Oura authorization failed: ${String(error)}`);
-      if (!code || !state || state !== ouraOAuthState) {
-        return res.status(400).send('Invalid or expired authorization (state mismatch). Restart at /console/api/oura/connect.');
+      if (!code) return res.status(400).send('Missing authorization code. Restart at /console/api/oura/connect.');
+      // The whole flow is behind requireHamBasic (only ham can reach here), so
+      // enforce `state` only when we still have it — a server restart wipes the
+      // in-memory state, and we must not reject a legitimate gated callback for it.
+      if (ouraOAuthState && state !== ouraOAuthState) {
+        return res.status(400).send('Authorization state mismatch. Restart at /console/api/oura/connect.');
       }
       ouraOAuthState = null; // one-time use
       await ouraSync.exchangeOuraCode(db, saveDatabase, String(code));
