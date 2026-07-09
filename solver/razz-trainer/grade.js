@@ -1082,9 +1082,17 @@ async function overlayOracleGrade5th(oracle, game, strategyMap, handRecord, g, o
   };
   try {
     if (!oracleEligible5th(handRecord, gradeIdx)) return asBlueprintGrade();
-    const candidates = oracleCandidates(game, strategyMap, handRecord, gradeIdx, opts);
+    // 5th is the numpy net-leaf path — the net runs EVERY CFR iter, so it is the
+    // slowest oracle. On Render's CPU the default oppCap=40 / iters=100 exceeded the
+    // 20s oracle-bridge timeout -> the bridge silently returned null (NO worker error
+    // logged) -> blueprint fallback, so oracle-5th never fired in prod (it fires
+    // locally where the solve is fast). Cut to oppCap=15 / iters=60 (~1.6s local, big
+    // prod margin; EV drift ~0.13 chips vs the 30/100 reference — fine for the
+    // shown-not-charged laddered tier).
+    const opts5 = Object.assign({}, opts, { oppCap: opts.oppCap5th || 15 });
+    const candidates = oracleCandidates(game, strategyMap, handRecord, gradeIdx, opts5);
     if (!candidates || !candidates.length) return asBlueprintGrade();
-    const iters = opts.oracleIters5th || 100;
+    const iters = opts.oracleIters5th || 60;
     const spot = buildOracleSpot5th(game, handRecord, gradeIdx, candidates, iters);
     const res = await oracle.perActionEV(spot);
     if (!res || !res.per_action_ev) return asBlueprintGrade();
