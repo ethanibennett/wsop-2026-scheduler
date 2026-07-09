@@ -33,6 +33,95 @@
 const OURA_BASE = 'https://api.ouraring.com';
 const HEALTH_STORE = 'health';
 
+// ── OAuth2 (authorization-code + rotating refresh) ──────────────────────────
+// Oura deprecated new Personal Access Tokens (Dec 2025), so auth is OAuth2:
+// one-time browser authorize → code → tokens, then the server auto-refreshes.
+// Refresh tokens are SINGLE-USE: every refresh returns a NEW refresh_token that
+// MUST be persisted, or the next refresh 400s. Tokens live in the oura_auth
+// table (single row id=1) in the same sql.js DB.
+const OURA_AUTHORIZE_URL = 'https://cloud.ouraring.com/oauth/authorize';
+const OURA_TOKEN_URL = 'https://api.ouraring.com/oauth/token';
+const OURA_SCOPES = 'daily heartrate personal';
+const OURA_REDIRECT_URI =
+  process.env.OURA_REDIRECT_URI || 'https://futurega.me/console/api/oura/callback';
+
+function ouraConfigured() {
+  return !!(process.env.OURA_CLIENT_ID && process.env.OURA_CLIENT_SECRET);
+}
+function ensureOuraAuthTable(db) {
+  db.run(`CREATE TABLE IF NOT EXISTS oura_auth (
+    id INTEGER PRIMARY KEY,
+    access_token TEXT, refresh_token TEXT, expires_at INTEGER, updated_at INTEGER
+  )`);
+}
+function loadOuraTokens(db) {
+  ensureOuraAuthTable(db);
+  const s = db.prepare('SELECT access_token, refresh_token, expires_at FROM oura_auth WHERE id = 1');
+  let row = null;
+  if (s.step()) row = s.getAsObject();
+  s.free();
+  if (!row || !row.refresh_token) return null;
+  return { accessToken: row.access_token, refreshToken: row.refresh_token, expiresAt: row.expires_at || 0 };
+}
+async function storeOuraTokens(db, saveDatabase, tok) {
+  ensureOuraAuthTable(db);
+  const now = Date.now();
+  const expiresAt = now + (Number(tok.expires_in) || 3600) * 1000;
+  db.run(
+    `INSERT INTO oura_auth (id, access_token, refresh_token, expires_at, updated_at)
+     VALUES (1, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET access_token = excluded.access_token,
+       refresh_token = excluded.refresh_token, expires_at = excluded.expires_at,
+       updated_at = excluded.updated_at`,
+    [tok.access_token, tok.refresh_token, expiresAt, now]
+  );
+  await saveDatabase();
+  return { accessToken: tok.access_token, refreshToken: tok.refresh_token, expiresAt };
+}
+function ouraAuthorizeUrl(state) {
+  const u = new URL(OURA_AUTHORIZE_URL);
+  u.searchParams.set('response_type', 'code');
+  u.searchParams.set('client_id', process.env.OURA_CLIENT_ID || '');
+  u.searchParams.set('redirect_uri', OURA_REDIRECT_URI);
+  u.searchParams.set('scope', OURA_SCOPES);
+  u.searchParams.set('state', state);
+  return u.toString();
+}
+async function ouraTokenRequest(params) {
+  const body = new URLSearchParams({
+    ...params,
+    client_id: process.env.OURA_CLIENT_ID || '',
+    client_secret: process.env.OURA_CLIENT_SECRET || '',
+  });
+  const resp = await fetch(OURA_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(`Oura token HTTP ${resp.status}: ${text.slice(0, 300)}`);
+  return JSON.parse(text);
+}
+// Called by the /callback route: swap the auth code for tokens + persist.
+async function exchangeOuraCode(db, saveDatabase, code) {
+  const tok = await ouraTokenRequest({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: OURA_REDIRECT_URI,
+  });
+  return storeOuraTokens(db, saveDatabase, tok);
+}
+// A currently-valid access token, refreshing (and re-persisting the rotated
+// refresh token) when expired. null = not connected yet.
+async function getOuraAccessToken(db, saveDatabase) {
+  const cur = loadOuraTokens(db);
+  if (!cur) return null;
+  if (cur.accessToken && Date.now() < cur.expiresAt - 60_000) return cur.accessToken;
+  const tok = await ouraTokenRequest({ grant_type: 'refresh_token', refresh_token: cur.refreshToken });
+  const stored = await storeOuraTokens(db, saveDatabase, tok);
+  return stored.accessToken;
+}
+
 // ── Small date helpers on the ET wall clock ─────────────────────────────────
 // We format "today" and "today - N" as YYYY-MM-DD in America/New_York so the
 // trailing fetch window matches the user's local calendar, independent of the
@@ -268,10 +357,20 @@ async function writeHealthRecords(db, saveDatabase, records) {
 // first-run backfill passes ~14). Returns a small summary object. NEVER throws:
 // all failure modes are caught and logged so the cron/route stays alive.
 async function runOuraSync(db, saveDatabase, opts = {}) {
-  const pat = process.env.OURA_PAT;
-  if (!pat) {
-    console.log('[oura] disabled — no OURA_PAT env var set');
-    return { ok: false, reason: 'no_pat', written: 0 };
+  if (!ouraConfigured()) {
+    console.log('[oura] disabled — OAuth client not configured (OURA_CLIENT_ID/SECRET)');
+    return { ok: false, reason: 'not_configured', written: 0 };
+  }
+  let accessToken;
+  try {
+    accessToken = await getOuraAccessToken(db, saveDatabase);
+  } catch (err) {
+    console.error('[oura] token refresh failed:', err.message);
+    return { ok: false, reason: 'refresh_failed', error: err.message, written: 0 };
+  }
+  if (!accessToken) {
+    console.log('[oura] not connected yet — authorize at /console/api/oura/connect');
+    return { ok: false, reason: 'not_connected', written: 0 };
   }
 
   const days = Math.max(1, Math.min(60, opts.days || 4));
@@ -280,7 +379,7 @@ async function runOuraSync(db, saveDatabase, opts = {}) {
   const startDay = shiftDay(endDay, -(days - 1));
 
   try {
-    const raw = await fetchOuraWindow(startDay, endDay, pat);
+    const raw = await fetchOuraWindow(startDay, endDay, accessToken);
     const patches = buildHealthRecords(raw, { extended });
     const written = await writeHealthRecords(db, saveDatabase, patches);
     console.log(
@@ -299,8 +398,8 @@ async function runOuraSync(db, saveDatabase, opts = {}) {
 // secret is a loud no-op rather than a crash. Wire from the same init block as
 // setupConsoleNudgeCron().
 function setupOuraSyncCron(cron, db, saveDatabase, tz = CONSOLE_TZ) {
-  if (!process.env.OURA_PAT) {
-    console.log('[oura] cron not scheduled — no OURA_PAT env var set');
+  if (!ouraConfigured()) {
+    console.log('[oura] cron not scheduled — OAuth client not configured');
     return false;
   }
   cron.schedule(
@@ -319,6 +418,11 @@ function setupOuraSyncCron(cron, db, saveDatabase, tz = CONSOLE_TZ) {
 module.exports = {
   runOuraSync,
   setupOuraSyncCron,
+  // OAuth (used by the /connect + /callback routes in server.js):
+  ouraConfigured,
+  ouraAuthorizeUrl,
+  exchangeOuraCode,
+  getOuraAccessToken,
   // Exported for tests / manual use:
   fetchOuraWindow,
   buildHealthRecords,

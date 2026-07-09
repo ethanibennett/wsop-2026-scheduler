@@ -573,8 +573,8 @@ if (require('fs').existsSync(consoleDist)) {
   // first call seeds ~2 weeks of history; steady-state cron uses 4). Idempotent.
   app.post('/console/api/oura/sync-now', async (req, res) => {
     try {
-      if (!process.env.OURA_PAT) {
-        return res.status(503).json({ ok: false, error: 'OURA_PAT not configured on the server' });
+      if (!ouraSync.ouraConfigured()) {
+        return res.status(503).json({ ok: false, error: 'Oura OAuth not configured on the server' });
       }
       const days = Math.max(1, Math.min(60, Number((req.body && req.body.days)) || 14));
       const result = await ouraSync.runOuraSync(db, saveDatabase, { days });
@@ -582,6 +582,35 @@ if (require('fs').existsSync(consoleDist)) {
     } catch (err) {
       console.error('[oura] sync-now error:', err);
       res.status(500).json({ ok: false, error: 'oura sync failed' });
+    }
+  });
+
+  // Oura OAuth2 (ham-gated by requireHamBasic on /console). /connect starts the
+  // authorize flow with a CSRF `state`; /callback swaps the code for tokens and
+  // kicks off a first backfill. Single-user, so `state` lives in one module var.
+  let ouraOAuthState = null;
+  app.get('/console/api/oura/connect', (req, res) => {
+    if (!ouraSync.ouraConfigured()) return res.status(503).send('Oura OAuth not configured on the server.');
+    ouraOAuthState = require('crypto').randomBytes(16).toString('hex');
+    res.redirect(ouraSync.ouraAuthorizeUrl(ouraOAuthState));
+  });
+  app.get('/console/api/oura/callback', async (req, res) => {
+    try {
+      const { code, state, error } = req.query || {};
+      if (error) return res.status(400).send(`Oura authorization failed: ${String(error)}`);
+      if (!code || !state || state !== ouraOAuthState) {
+        return res.status(400).send('Invalid or expired authorization (state mismatch). Restart at /console/api/oura/connect.');
+      }
+      ouraOAuthState = null; // one-time use
+      await ouraSync.exchangeOuraCode(db, saveDatabase, String(code));
+      // Fire-and-forget first backfill so ~2 weeks of history seed immediately.
+      ouraSync.runOuraSync(db, saveDatabase, { days: 14 }).catch((e) => console.error('[oura] post-connect backfill:', e && e.message));
+      res.set('Content-Type', 'text/html; charset=utf-8').send(
+        '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:-apple-system,system-ui,sans-serif;background:#111;color:#e8e8e8;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center;padding:24px"><h2 style="font-weight:600">Oura connected ✓</h2><p style="color:#888">Your sleep &amp; recovery data is syncing now — you can close this tab.</p></div></body>'
+      );
+    } catch (err) {
+      console.error('[oura] callback error:', err);
+      res.status(500).send('Oura token exchange failed — check the server logs and retry /console/api/oura/connect.');
     }
   });
 
