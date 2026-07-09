@@ -682,7 +682,7 @@ function buildOracleSpot(game, handRecord, gradeIdx, candidates, iters) {
 // the 2 hole cards on 6th) and tag it for the bucketed 6th->7th resolver. `mode`
 // routes to oracle_worker._solve_stud6_bucketed; `street:6` is its guard.
 function buildOracleSpot6th(game, handRecord, gradeIdx, candidates, iters) {
-  const spot = buildOracleSpot(game, handRecord, gradeIdx, candidates, iters || 400);
+  const spot = buildOracleSpot(game, handRecord, gradeIdx, candidates, iters || 250);
   spot.mode = 'resolve6';
   spot.street = 6;
   return spot;
@@ -960,7 +960,12 @@ async function overlayOracleGrade6th(oracle, game, strategyMap, handRecord, g, o
     if (!oracleEligible6th(handRecord, gradeIdx)) return asBlueprintGrade();
     const candidates = oracleCandidates(game, strategyMap, handRecord, gradeIdx, opts);
     if (!candidates || !candidates.length) return asBlueprintGrade();
-    const iters = opts.oracleIters6th || 400;
+    // 250 iters: the per-action EV is CONVERGED here — measured drift vs a 600-iter
+    // reference is <=0.06 chips (negligible for a grade) — while keeping the solve
+    // well under the 20s oracle-bridge timeout (~10s stud8 / ~4s razz uncontended).
+    // At 400 the stud8 solve flirted with the timeout on slower CPUs -> silent
+    // blueprint fallback; 250 gives margin with no grade-quality cost.
+    const iters = opts.oracleIters6th || 250;
     const spot = buildOracleSpot6th(game, handRecord, gradeIdx, candidates, iters);
     const res = await oracle.perActionEV(spot);
     if (!res || !res.per_action_ev) return asBlueprintGrade();
