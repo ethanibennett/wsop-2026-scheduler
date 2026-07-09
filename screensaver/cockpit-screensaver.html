@@ -280,25 +280,93 @@ body{
 .pr-seg.done .pr-bar i{background:var(--glow-dim);box-shadow:none}
 </style>
 <style>
-/* ── Screensaver additions: fixed 1440×1280 poster stage, scaled to viewport ─
-   The mockup was a max-width:1440 flow layout; for a deterministic headless
-   snapshot we freeze it onto a fixed-aspect stage (tall enough to hold the
-   whole deck incl. the 90-day trace) and scale it to fill the snapshot
-   viewport (mirrors the daily dashboard poster pattern). */
+/* ── Screensaver additions: EDGE-TO-EDGE fluid full-viewport deck ─────────────
+   The mockup was a max-width:1440 flow layout that was previously frozen onto a
+   fixed 1440×1280 poster and CONTAIN-scaled — which letterboxed a 16:10 snapshot
+   (side bars). Instead we now REFLOW the deck as a vertical flex column that
+   fills 100vw × 100vh exactly: fixed-height bits (masthead, phase rail, ribbon,
+   bottom nav) keep their size; the main instrument cluster grows to absorb the
+   height, the 90-day trace takes a capped share, and the vertical rhythm is
+   compressed so the whole deck fits with zero overflow and zero black margin. */
 html,body{width:100%;height:100%;overflow:hidden}
-#stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--ink)}
+#stage{position:absolute;inset:0;background:var(--ink)}
 #poster{
-  width:1440px;height:1280px;flex:0 0 auto;overflow:hidden;position:relative;
-  transform-origin:center center;
+  width:100vw;height:100vh;overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
   background:
     radial-gradient(1200px 700px at 78% -10%, rgba(127,227,196,0.05), transparent 60%),
     radial-gradient(900px 600px at 8% 110%, rgba(201,166,62,0.045), transparent 55%),
     var(--ink);
 }
-/* the deck inside the poster no longer needs its own centering/bottom pad —
-   the bottom nav is pinned inside the poster, not the window */
-#poster .deck{max-width:none;margin:0;padding:18px 26px 84px;min-height:100%}
-#poster .busnav{position:absolute}
+
+/* ── deck fills the space above the bottom nav and is itself a flex column ── */
+#poster .deck{
+  flex:1 1 auto;min-height:0;max-width:none;margin:0;
+  padding:16px 34px 12px;position:relative;
+  display:flex;flex-direction:column;
+}
+/* fixed-height rows keep their natural size; trimmed top gaps */
+#poster .deck > .topbar{flex:0 0 auto;padding-bottom:12px}
+#poster .deck > .phaserail{flex:0 0 auto;margin-top:12px}
+#poster .deck > .ribbon{flex:0 0 auto;margin-top:10px}
+#poster .deck > .footnote{flex:0 0 auto;margin-top:8px}
+/* the active view grows to fill the reclaimed height */
+#poster .deck > .view.show{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+
+/* main instrument cluster absorbs the bulk of the vertical space */
+#poster #v-tonight > .cluster{flex:1 1 auto;min-height:0;margin-top:12px;align-items:stretch}
+#poster #v-tonight > .cluster .col{gap:11px;min-height:0}
+/* the 90-day trace is a wide strip — give it a modest, capped share */
+#poster #v-tonight > .trend{flex:0 0 auto;margin-top:11px}
+#poster #v-tonight > .trend .chartbox svg{height:9.5vh;min-height:84px}
+#poster #v-tonight > .trend .chartbox{padding:5px}
+#poster #v-tonight > .trend .trend-head{margin-bottom:6px}
+#poster #v-tonight > .trend .corr{margin-top:6px}
+
+/* ── vertical-rhythm compression so the whole deck fits 16:10 uncramped ── */
+/* instrument bezels: tighten interior padding + head gap */
+#poster .inst{padding:11px 15px}
+#poster .inst-head{margin-bottom:8px}
+/* left/right rails: the stacked instruments FLEX-DISTRIBUTE to exactly fill
+   their column height (which equals the cluster height), so nothing overflows
+   into the trace below. Extra space settles as bottom breathing room. */
+#poster .col > .inst{flex:1 1 auto;min-height:0}
+/* verdict console (hero) — trimmed but still dominant */
+#poster .verdict{padding:14px 22px 13px;min-height:0}
+#poster .verdict .vmain{margin:8px 0 2px;gap:20px}
+#poster .verdict .verd-word .w{font-size:50px}
+#poster .verdict .verd-word .sub{margin-top:6px}
+#poster .verdict .drivers{margin-top:10px}
+#poster .verdict .drv{padding:8px 12px}
+#poster .verdict .drv .v{font-size:17px;margin-top:3px}
+#poster .verdict .stake{margin-top:9px}
+#poster .verdict .stake-cell{padding:9px 14px}
+#poster .verdict .stake-cell .v{font-size:16px;margin-top:3px}
+#poster .verdict .launch{margin-top:9px}
+#poster .verdict .btn{padding:11px}
+#poster .verdict .vhead + .vmain{margin-top:6px}
+/* the verdict gauge ring, scaled down a touch to reclaim height */
+#poster .verdict .gaugewrap svg{width:128px;height:128px}
+/* the intention footer inside verdict — tighten its top margin/pad */
+#poster .verdict > div[style*="margin-top:14px"]{margin-top:9px!important;padding-top:9px!important}
+/* right/left instrument internals */
+#poster svg.ring-lg{width:104px;height:104px}
+#poster .vrow{padding:6px 12px}
+#poster .spark{height:20px}
+#poster .countbig .n{font-size:36px}
+#poster .fundtrack{margin-top:10px}
+#poster .fundmeta{margin-top:6px}
+/* fund pace footnote is a fixed inline block — tighten its top gap */
+#poster #fundPaceLine{margin-top:7px!important}
+/* activity rings — shrink slightly so the right rail never clips Vitals */
+#poster .actrow svg[aria-label="Activity rings"]{width:84px;height:84px}
+#poster .actlegend{gap:7px}
+
+/* bottom nav becomes a normal full-width flex child pinned at the base */
+#poster .busnav{position:static;flex:0 0 auto}
+#poster .busnav .inner{max-width:none}
+#poster .busnav .nav-tab{padding:9px 4px}
+
 /* a value that is missing renders as an em-dash in muted ink */
 .dim{color:var(--muted-2)}
 .is-hidden{display:none!important}
@@ -1032,14 +1100,11 @@ html,body{width:100%;height:100%;overflow:hidden}
     }
   }
 
-  // ── Fit the fixed poster to the viewport (deterministic scale) ─────────────
-  function fitStage(){
-    var poster = byId('poster');
-    if(!poster) return;
-    var sw = window.innerWidth / 1440, sh = window.innerHeight / 1280;
-    var scale = Math.min(sw, sh);
-    poster.style.transform = 'scale(' + scale + ')';
-  }
+  // ── Fit — no-op ────────────────────────────────────────────────────────────
+  // The deck now REFLOWS fluidly to fill 100vw × 100vh (see the CSS flex column);
+  // there is no fixed poster to contain-scale, so this stays a no-op to preserve
+  // the call site + determinism (no transform, no resize handling).
+  function fitStage(){}
 
   // ── Ready signal for the offscreen snapshot helper ─────────────────────────
   // The page renders in a HIDDEN/offscreen WebKit context where
@@ -1063,8 +1128,8 @@ html,body{width:100%;height:100%;overflow:hidden}
   window.__readyPromise = new Promise(function(res){ window.__resolveReady = res; });
 
   // ── Boot — bootstrap-only, synchronous first paint, then ready ─────────────
+  // Layout is now fully fluid (CSS flex fills the viewport) — no scale/resize.
   fitStage();
-  window.addEventListener('resize', fitStage);
   try { paint(BOOTSTRAP); } catch(e){ /* still signal ready so the helper gets a frame */ }
   signalReady();
 })();
