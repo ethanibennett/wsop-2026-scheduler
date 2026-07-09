@@ -645,6 +645,19 @@ function oracleEligible(handRecord, gradeIdx) {
   return true;
 }
 
+// 6th-street eligibility: same shape as oracleEligible but for 6th (snap.street
+// === 3), start-of-street (equal contributions), hero to act. The bucketed 6th
+// resolver's root then matches this exact decision node (hero opens 6th).
+function oracleEligible6th(handRecord, gradeIdx) {
+  const d = handRecord.decisions[gradeIdx];
+  const snap = d.state;
+  if (!snap || snap.street !== 3) return false;             // 6th street only
+  const c = snap.contrib;
+  if (!c || Math.abs(c[0] - c[1]) > 1e-9) return false;     // start-of-street only
+  if (snap.toAct !== d.actor) return false;
+  return true;
+}
+
 // Build the oracle spot dict (what oracle_worker.py expects) from a blueprint
 // grade's already-computed reach-weighted opponent range. `blueprintGrade` is a
 // gradeDecision result; `candidates` is its normalized [{hand:[int],w}] range.
@@ -663,6 +676,16 @@ function buildOracleSpot(game, handRecord, gradeIdx, candidates, iters) {
     opp_range: candidates.map(c => [c.hand.map(cardStr), c.w]),
     iters: iters || 2000,
   };
+}
+
+// 6th-street spot: reuse buildOracleSpot (me = snap.down[heroSeat] is naturally
+// the 2 hole cards on 6th) and tag it for the bucketed 6th->7th resolver. `mode`
+// routes to oracle_worker._solve_stud6_bucketed; `street:6` is its guard.
+function buildOracleSpot6th(game, handRecord, gradeIdx, candidates, iters) {
+  const spot = buildOracleSpot(game, handRecord, gradeIdx, candidates, iters || 400);
+  spot.mode = 'resolve6';
+  spot.street = 6;
+  return spot;
 }
 
 // Game-agnostic-enough STRENGTH scorer for the range-sensitive strength-tilt: an
@@ -903,6 +926,86 @@ async function overlayOracleGrade(oracle, game, strategyMap, handRecord, g, opts
   }
 }
 
+// Per-game 6th-street abstraction-gap badge, from the bucketed-vs-exact CERT
+// (cert_st6.py, 2026-07-08): stud8's 25-bucket hi/lo grid is TIGHT on realistic
+// boards (~sub-chip), razz's 8-bucket low ladder is the COARSER one (~2 chips).
+// This is the reverse of the net-quality ordering — grading rides the ABSTRACTION,
+// not the net. Numbers are conservative honest estimates, not certified bars.
+function oracle6thTrust(gameId) {
+  if (gameId === 'stud8') return { label: 'oracle-6th-tight', chips: 0.7 };
+  return { label: 'oracle-6th-approximate', chips: 2.0 };   // razz / razzv1 / razzv2
+}
+
+// 6th-STREET oracle overlay — the LEANER, more conservative sibling of
+// overlayOracleGrade. The grade comes from the BUCKETED 6th->7th resolve
+// (mode:'resolve6'), which is APPROXIMATE (bucket abstraction + sampled
+// transitions). So it is:
+//   • a DISTINCT gradeSource ('oracle-6th') — a pro must never confuse it with the
+//     near-exact 7th 'oracle';
+//   • SHOWN but NEVER CHARGED (chargedEvLoss = 0 unconditionally) — hence no
+//     range-sensitivity ensemble is needed (the charge is always zero anyway),
+//     which also avoids tripling an already-~14s solve;
+//   • NEVER labelled exact/GTO (forwardMode 'oracle-6th-bucketed').
+// Falls back to the blueprint grade on ANY failure/timeout.
+async function overlayOracleGrade6th(oracle, game, strategyMap, handRecord, g, opts) {
+  const gradeIdx = g.gradeIdx;
+  const d = handRecord.decisions[gradeIdx];
+  const materializeBlueprint = () =>
+    (g && g.perActionEV) ? g : (opts.blueprintGrade ? opts.blueprintGrade() : g);
+  const asBlueprintGrade = () => {
+    const bp = materializeBlueprint();
+    return Object.assign({}, bp, { gradeSource: 'blueprint', blueprintEvLoss: bp.evLoss });
+  };
+  try {
+    if (!oracleEligible6th(handRecord, gradeIdx)) return asBlueprintGrade();
+    const candidates = oracleCandidates(game, strategyMap, handRecord, gradeIdx, opts);
+    if (!candidates || !candidates.length) return asBlueprintGrade();
+    const iters = opts.oracleIters6th || 400;
+    const spot = buildOracleSpot6th(game, handRecord, gradeIdx, candidates, iters);
+    const res = await oracle.perActionEV(spot);
+    if (!res || !res.per_action_ev) return asBlueprintGrade();
+
+    const acts = d.acts;
+    for (const a of acts) if (!(a in res.per_action_ev)) return asBlueprintGrade();
+
+    const perActionEV = {};
+    for (const a of acts) perActionEV[a] = res.per_action_ev[a];
+    let bestA = acts[0], bestEV = -Infinity;
+    for (const a of acts) if (perActionEV[a] > bestEV) { bestEV = perActionEV[a]; bestA = a; }
+    const evLoss = Math.max(0, bestEV - perActionEV[d.chosen]);
+
+    const gtoMix = materializeBlueprint().gtoMix;   // 6th v1: blueprint mix for display
+    const trust = oracle6thTrust(game.id);
+    const blueprintEvLoss = (g && g.perActionEV) ? g.evLoss
+      : (opts.debugBlueprintEvLoss && opts.blueprintGrade ? opts.blueprintGrade().evLoss : undefined);
+
+    const out = Object.assign({}, materializeBlueprintShell(g, d, gtoMix), {
+      gradeIdx,
+      gradeSource: 'oracle-6th',                     // DISTINCT from 7th 'oracle'
+      perActionEV,
+      perActionSE: acts.reduce((o2, a) => (o2[a] = 0, o2), {}),
+      bestAction: bestA,
+      evLoss,
+      evLossSE: 0,
+      gtoMix,
+      forwardMode: 'oracle-6th-bucketed',            // NEVER exact/GTO
+      oracle6thApproximate: true,
+      oracleGradeTrusted: false,                     // approximate; not a charged 'trusted' grade
+      oracleGradeTrust: trust.label,                 // 'oracle-6th-tight' | 'oracle-6th-approximate'
+      oracle6thAbstractionChips: trust.chips,        // per-game abstraction-gap estimate (cert)
+      oracleResolveExploitability: res.exploitability,
+      oracleIters: iters,
+      oppCoverage: candidates.coverage == null ? 1 : candidates.coverage,
+      oppCombos: candidates.length,
+      chargedEvLoss: 0,                              // SHOWN, NEVER CHARGED (approximate 6th)
+    });
+    if (blueprintEvLoss !== undefined) out.blueprintEvLoss = blueprintEvLoss;
+    return out;
+  } catch (e) {
+    return asBlueprintGrade();
+  }
+}
+
 // Build the display/passthrough shell an oracle grade inherits (seat/street/
 // heroCards/etc.). If `g` is a full blueprint grade we reuse it as the base; if
 // it's the light {gradeIdx} stub we synthesize the shell from the decision so the
@@ -1007,6 +1110,11 @@ async function gradeHandWithOracle(handRecord, blueprint, opts = {}) {
       // grade is available ONLY on fallback, computed lazily inside the overlay.
       const stub = { gradeIdx: i };
       grades.push(await overlayOracleGrade(oracle, game, strategyMap, handRecord,
+        stub, Object.assign({}, o, { blueprintGrade: () => blueprintDecision(i) })));
+    } else if (oracleEligible6th(handRecord, i)) {
+      // 6th-street eligible: bucketed 6th->7th oracle (approximate, shown-not-charged).
+      const stub = { gradeIdx: i };
+      grades.push(await overlayOracleGrade6th(oracle, game, strategyMap, handRecord,
         stub, Object.assign({}, o, { blueprintGrade: () => blueprintDecision(i) })));
     } else {
       // Non-eligible: blueprint grade, byte-identical to the default gradeHand path.

@@ -522,6 +522,19 @@ export default function RazzTrainerView() {
                   pro · certified net ~0.06 SB
                 </span>
               )}
+              {/* 6th-STREET ORACLE provenance: bucketed 6th→7th re-solve, APPROXIMATE
+                  (bucket abstraction), shown but NOT charged. Dashed amber = distinct
+                  from the solid-accent near-exact 7th 'true-GTO' and 'certified net'. */}
+              {grades.some((g) => g.gradeSource === 'oracle-6th') && (
+                <span title={`Pro mode — 6th-street decisions in this hand were graded by the bucketed 6th→7th re-solve: APPROXIMATE (bucket abstraction), SHOWN but NOT charged to your score. Distinct from the near-exact 7th-street oracle. Each card is tagged with its grade source.`}
+                  style={{
+                    marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.54rem', fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                    border: '1px dashed var(--accent2, #eab308)', color: 'var(--accent2, #eab308)',
+                  }}>
+                  pro · 6th approx
+                </span>
+              )}
             </span>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
               total EV-loss <b style={{ color: totalEvLoss > 0.5 ? 'var(--neg, #ef4444)' : 'var(--pos, #22c55e)', fontVariantNumeric: 'tabular-nums' }}>
@@ -1161,6 +1174,12 @@ function GradeCard({ g, game }) {
   // error (certificationSB, ~0.06 SB), NOT an exact/GTO guarantee.
   const isNetGrade = gradeSource === 'certified-net';
   const certSB = (typeof g.certificationSB === 'number') ? g.certificationSB : 0.06;
+  // 6th-STREET ORACLE (bucketed 6th→7th re-solve): APPROXIMATE by design (bucket
+  // abstraction), distinct from BOTH 'true GTO' (7th, near-exact) and 'certified
+  // net'. Shown but NEVER charged. Per-game abstraction badge (stud8 tight, razz
+  // coarse) from the cert.
+  const isOracle6thGrade = gradeSource === 'oracle-6th';
+  const oracle6thChips = (typeof g.oracle6thAbstractionChips === 'number') ? g.oracle6thAbstractionChips : 2.0;
   // A decision on an oracle/net-eligible street (stud 7th / draw post-last-draw bet
   // / badugi pre-last-draw bet) that still came back as 'blueprint' under Pro mode
   // means the exact/net path was unavailable and it fell back — surface that
@@ -1240,6 +1259,16 @@ function GradeCard({ g, game }) {
                 border: '1px solid var(--accent)', color: 'var(--accent)',
               }}>
               certified net · ~{certSB.toFixed(2)} SB
+            </span>
+          )}
+          {isOracle6thGrade && (
+            <span title={`Graded by the bucketed 6th→7th re-solve — APPROXIMATE (bucket abstraction), NOT exact. SHOWN but NOT charged to your score. Estimated abstraction gap ~${oracle6thChips.toFixed(1)} chips for this game.${g.oracleIters ? ` · ${g.oracleIters} CFR+ iters` : ''}`}
+              style={{
+                marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+                border: '1px dashed var(--accent2, #eab308)', color: 'var(--accent2, #eab308)',
+              }}>
+              6th oracle · approx ~{oracle6thChips.toFixed(1)}ch
             </span>
           )}
           {oracleFellBack && (

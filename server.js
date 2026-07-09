@@ -8213,6 +8213,13 @@ async function trainerStep(game, req, res) {
         rangeSensitiveSpread: g.rangeSensitiveSpread,
         rangeSensitiveFlip: g.rangeSensitiveFlip,
         chargedEvLoss: g.chargedEvLoss,
+        // ── 6th-STREET oracle metadata (present only for gradeSource==='oracle-6th') ──
+        // Approximate bucketed 6th->7th grade: SHOWN, never charged; the abstraction-gap
+        // badge is per-game (stud8 tight, razz coarse). forwardMode + oracle6th* let the
+        // client render this distinct from the near-exact 7th 'oracle'.
+        forwardMode: g.forwardMode,
+        oracle6thApproximate: g.oracle6thApproximate,
+        oracle6thAbstractionChips: g.oracle6thAbstractionChips,
       };
     });
 

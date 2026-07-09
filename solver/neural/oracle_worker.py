@@ -448,6 +448,102 @@ def _solve(req: dict) -> dict:
     }
 
 
+def _solve_stud6_bucketed(req: dict) -> dict:
+    """BUCKETED 6th-street per-action EV (mode='resolve6').
+
+    Solves the 6th->7th subgame over the bucket abstraction and returns per-action
+    EV (chips) for the hero's 6th decision. APPROXIMATE by construction (bucket
+    abstraction + sampled transitions) — the JS overlay tags it 'oracle-6th-*',
+    NEVER 'exact'/'GTO', and never charges it. Imports are LAZY so any issue in
+    the 6th modules only fails 6th requests (-> ok:false -> blueprint fallback),
+    never the whole worker. Requires hero to be the first actor at start-of-6th
+    (the JS oracleEligible6th gate guarantees this)."""
+    import random as _random
+    from bucket_resolve_stud6 import (resolve_stud6_bucketed as _rs6,
+                                      _GameBuckets as _GB)
+    try:
+        from resolve import legal_actions as _legal_actions
+    except Exception:
+        _legal_actions = None
+
+    game_name = str(req.get("game", "stud8")).strip().lower()
+    if game_name not in _GAME:
+        raise ValueError(f"unknown game {game_name!r} (use 'razz' or 'stud8')")
+    game = _GAME[game_name]
+
+    up0 = req.get("up0")
+    up1 = req.get("up1")
+    if not up0 or not up1:
+        raise ValueError("up0 and up1 (both players' upcards) are required")
+    dead = req.get("dead") or []
+    pot = float(req.get("pot", 20))
+    me = req.get("me")
+    if not me or len(me) != 2:
+        raise ValueError("me (hero's 2 down cards for 6th) is required")
+
+    opp_raw = req.get("opp_range")
+    if not opp_raw:
+        raise ValueError("opp_range (reach-weighted opponent 2-card holdings) is required")
+    opp_range = {}
+    for entry in opp_raw:
+        holding, weight = entry[0], float(entry[1])
+        if weight <= 0:
+            continue
+        h = _sort_holding(holding)
+        opp_range[h] = opp_range.get(h, 0.0) + weight
+    if not opp_range:
+        raise ValueError("opp_range has no positive-weight holdings")
+
+    street = int(req.get("street", 6))
+    if street != 6:
+        raise ValueError("resolve6 mode is 6th-street only")
+    iters = int(req.get("iters", 400))
+    iters = max(1, min(iters, 2000))
+
+    gb = _GB(game)
+    nb = gb.nb6
+    me_s = _sort_holding(me)
+    hero_bucket = gb.bucket_of(me_s, up0)          # hero is passed as seat 0
+    brange0 = [0.0] * nb
+    brange0[hero_bucket] = 1.0
+    brange1 = [0.0] * nb
+    tot = 0.0
+    for h, w in opp_range.items():
+        brange1[gb.bucket_of(h, up1)] += w
+        tot += w
+    if tot <= 0:
+        raise ValueError("opp_range aggregates to zero mass")
+    brange1 = [x / tot for x in brange1]
+
+    res = _rs6([list(up0), list(up1)], list(dead), pot, brange0, brange1,
+               iters=iters, game=game, rng=_random.Random(0))
+    R = res["_resolver"]
+    root = R.root
+    if root["toAct"] != 0:
+        raise ValueError("hero is not the first actor at the 6th root")
+
+    reach = [None, None]
+    hero_reach = [0.0] * nb
+    hero_reach[hero_bucket] = 1.0
+    reach[0] = hero_reach
+    reach[1] = R.range[1][:]
+
+    acts = _legal_actions(root) if _legal_actions else R._legal_actions(root)
+    per_action_ev = {}
+    for a in acts:
+        child = R._apply_action(root, a)
+        c0, _c1 = R._eval_avg(child, reach)
+        per_action_ev[a] = c0[hero_bucket]
+
+    return {
+        "per_action_ev": per_action_ev,
+        "gtoMix": None,                  # 6th v1: JS overlay falls back to blueprint mix
+        "exploitability": res.get("exploitability"),
+        "pot": pot,
+        "tier": "oracle-6th-bucketed",   # NEVER 'exact'/'GTO' — approximate abstraction
+    }
+
+
 def main() -> None:
     # line-buffered stdout; the JS side reads one JSON line per request.
     out = sys.stdout
@@ -475,6 +571,8 @@ def main() -> None:
             mode = str(req.get("mode", "")).strip().lower()
             if mode == "net":
                 result = _solve_draw_net(req)  # CERTIFIED-NET pre-last-draw badugi
+            elif mode == "resolve6":
+                result = _solve_stud6_bucketed(req)  # 6th-street bucketed per-action EV
             elif game_name in DRAW_FINAL_GAMES:
                 result = _solve_draw(req)      # M2 draw rung (badugi/td27)
             else:
