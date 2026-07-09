@@ -9789,6 +9789,51 @@ function computeDashboardSummary(now = new Date()) {
     }
   }
 
+  // ── Cockpit extras (phase rail, verdict, readiness/activity/vitals, pace) ──
+  const phase = dashPhaseState(now);
+  const verdict = dashVerdict({ roll }, appSettings, health.rows, S);
+  const cockpit = computeCockpitHealth(now);
+
+  // Peak roll from the roll-affecting event trajectory (cash+MTT sessions minus
+  // fund transfers plus roll adjustments; settlements go to the fund, not roll).
+  const rollEvents = [];
+  for (const s of S) if (!isWsop(s)) rollEvents.push({ date: s.date, d: num(s.result) });
+  for (const a of A) {
+    if (a.type === 'wsop-fund-transfer') rollEvents.push({ date: a.date, d: -num(a.amount) });
+    else if (a.type !== 'backer-settlement') rollEvents.push({ date: a.date, d: num(a.amount) });
+  }
+  rollEvents.sort((x, y) => String(x.date).localeCompare(String(y.date)));
+  let rollCur = startingRoll, rollPeak = startingRoll;
+  for (const e of rollEvents) { rollCur += e.d; if (rollCur > rollPeak) rollPeak = rollCur; }
+
+  // WSOP fund pace: contributions over the elapsed window → weekly rate →
+  // projected full date vs the WSOP start (positive aheadDays = ahead of schedule).
+  const FUND_TARGET = Number(appSettings && appSettings.wsopFundTarget) || 50000;
+  const fundEvents = [];
+  for (const a of A) if (a.type === 'wsop-fund-transfer' || a.type === 'backer-settlement') fundEvents.push(a.date);
+  for (const s of S) if (isWsop(s)) fundEvents.push(s.date);
+  fundEvents.sort((x, y) => String(x).localeCompare(String(y)));
+  let fundPerWeek = null, fundFullDate = null, fundAheadDays = null;
+  if (fundEvents.length >= 1) {
+    const firstD = new Date(fundEvents[0] + 'T00:00:00').getTime();
+    const weeks = Math.max(1, (now.getTime() - firstD) / (7 * 86400000));
+    fundPerWeek = wsopFund / weeks;
+    if (fundPerWeek > 0 && wsopFund < FUND_TARGET) {
+      const weeksToFull = (FUND_TARGET - wsopFund) / fundPerWeek;
+      const full = new Date(now.getTime() + weeksToFull * 7 * 86400000);
+      fundFullDate = dashLocalDate(full);
+      fundAheadDays = Math.round((new Date(DASH_WSOP_START + 'T00:00:00').getTime() - full.getTime()) / 86400000);
+    }
+  }
+
+  // Weekly pace: grind hours (real) + study hours (real) vs targets (defaults
+  // until the settings type adds them). Study store may be absent → 0, safe.
+  const GRIND_TARGET = Number(appSettings && appSettings.grindTarget) || 18;
+  const STUDY_TARGET = Number(appSettings && appSettings.studyTarget) || 4;
+  const studyHoursWeek = dashboardRecords('study').rows
+    .filter((r) => r && typeof r.date === 'string' && inWeek(r.date))
+    .reduce((a, r) => a + (Number(r.hours) || (Number(r.minutes) || 0) / 60), 0);
+
   return {
     generatedAt: now.toISOString(),
     updatedAt: maxUpdatedAt,
@@ -9800,6 +9845,22 @@ function computeDashboardSummary(now = new Date()) {
     sleepScore, sleepDate,
     weight, weightGoal: DASH_WEIGHT_GOAL, weightVsGoal, lbsPerWeek,
     wsop2027Days, routineStreak,
+    // ── Cockpit ──
+    phase,
+    verdict,
+    readiness: cockpit.readiness,
+    activity: cockpit.activity,
+    vitals: cockpit.vitals,
+    rollStats: { peak: rollPeak, floor: 40000 },
+    fund: {
+      saved: wsopFund, target: FUND_TARGET, daysToWsop: wsop2027Days,
+      pct: FUND_TARGET > 0 ? Math.max(0, Math.min(1, wsopFund / FUND_TARGET)) : 0,
+      perWeek: fundPerWeek, fullDate: fundFullDate, aheadDays: fundAheadDays,
+    },
+    pace: {
+      grindHours: weekHours, grindTarget: GRIND_TARGET,
+      studyHours: studyHoursWeek, studyTarget: STUDY_TARGET, fundPerWeek,
+    },
   };
 }
 
@@ -9870,6 +9931,258 @@ function buildDashboardSeries(now = new Date()) {
   return { range: DASH_SERIES_DAYS + 'd', generatedAt: now.toISOString(), series };
 }
 
+// ── Cockpit screensaver engines: phase + verdict + health/vitals/activity ────
+// Ported VERBATIM from the console TS engines (phase.ts / bankroll.ts /
+// analytics.ts / risk.ts). Wrapped in an IIFE so the framework constants
+// (floors, ladders, thresholds) never leak to module scope in this large file;
+// only the three entry points reach module scope. They close over the existing
+// dashboardRecords()/dashLocalDate() helpers defined above.
+const { dashPhaseState, dashVerdict, computeCockpitHealth } = (() => {
+  const num = (x) => Number(x) || 0;
+
+  // ===== PHASE ENGINE (phase.ts + seed.ts PHASES + plan.ts PHASE_SHORT) =====
+  const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
+  const PHASES = [
+    { num: 1, name: 'Foundation & Reset',      short: 'Foundation', start: '2026-07-21', end: '2026-09-21' },
+    { num: 2, name: 'First Sprint — Monterey', short: 'Monterey',   start: '2026-09-22', end: '2026-10-25' },
+    { num: 3, name: 'Home Season',             short: 'Home',       start: '2026-10-26', end: '2027-02-07' },
+    { num: 4, name: 'Grind Season',            short: 'Grind',      start: '2027-02-08', end: '2027-05-02' },
+    { num: 5, name: 'WSOP 2027',               short: 'WSOP',       start: '2027-05-03', end: '2027-07-18' },
+    { num: 6, name: 'Landing',                 short: 'Landing',    start: '2027-07-19', end: '2027-08-12' },
+  ];
+  const asDate = (iso) => new Date(iso + 'T00:00:00'); // LOCAL midnight (phase.ts asDate)
+  function currentPhase(now) {
+    const t = now.getTime();
+    for (const p of PHASES) {
+      const start = asDate(p.start).getTime();
+      const end = asDate(p.end).getTime() + MS_WEEK / 7; // end day inclusive
+      if (t >= start && t <= end) return p;
+    }
+    return null;
+  }
+  function dashPhaseState(now = new Date()) {
+    const phase = currentPhase(now);
+    if (!phase) {
+      const beforeP1 = now.getTime() < asDate(PHASES[0].start).getTime();
+      if (beforeP1) {
+        const p1 = PHASES[0];
+        const todayMid = asDate(dashLocalDate(now)).getTime();
+        const daysToNext = Math.round((asDate(p1.start).getTime() - todayMid) / 86400000);
+        return { phaseNum: 0, phaseName: 'Pre-season', phaseShort: 'Pre-season', weekInPhase: 0, totalWeeksInPhase: 0, daysToNext, nextPhaseName: p1.name, nextPhaseShort: p1.short, pctThroughPhase: 0, totalPhases: PHASES.length, phases: PHASES.map((p) => ({ num: p.num, short: p.short, done: false })) };
+      }
+      return { phaseNum: 0, phaseName: 'Cycle complete', phaseShort: 'Done', weekInPhase: 0, totalWeeksInPhase: 0, daysToNext: null, nextPhaseName: null, nextPhaseShort: null, pctThroughPhase: 1, totalPhases: PHASES.length, phases: PHASES.map((p) => ({ num: p.num, short: p.short, done: true })) };
+    }
+    const start = asDate(phase.start).getTime();
+    const week = Math.floor((now.getTime() - start) / MS_WEEK) + 1;
+    const totalWeeks = Math.max(1, Math.round((asDate(phase.end).getTime() - start) / MS_WEEK) + 1);
+    const next = PHASES.find((p) => p.num === phase.num + 1) || null;
+    const todayMid = asDate(dashLocalDate(now)).getTime();
+    const nextStartIso = next ? next.start : phase.end;
+    const daysToNext = Math.round((asDate(nextStartIso).getTime() - todayMid) / 86400000);
+    const spanEnd = asDate(nextStartIso).getTime();
+    const pctThroughPhase = spanEnd > start ? Math.min(1, Math.max(0, (now.getTime() - start) / (spanEnd - start))) : 0;
+    return {
+      phaseNum: phase.num, phaseName: phase.name, phaseShort: phase.short,
+      weekInPhase: Math.min(Math.max(week, 1), totalWeeks), totalWeeksInPhase: totalWeeks,
+      daysToNext, nextPhaseName: next ? next.name : null, nextPhaseShort: next ? next.short : null,
+      pctThroughPhase, totalPhases: PHASES.length,
+      phases: PHASES.map((p) => ({ num: p.num, short: p.short, done: now.getTime() > asDate(p.end).getTime() + MS_WEEK / 7 })),
+    };
+  }
+
+  // ===== VERDICT ENGINE (bankroll.ts + analytics.ts + risk.ts) =====
+  const FLOOR_SOFT = 40000, FLOOR_HARD = 25000;
+  const LADDER = [
+    { amount: 50000, cleared: '2/2/5' }, { amount: 60000, cleared: '5/5/10' },
+    { amount: 75000, cleared: '5/5/10' }, { amount: 100000, cleared: '5/10/30' },
+    { amount: 135000, cleared: '5/10/30' }, { amount: 150000, cleared: '10/10/25' },
+  ];
+  const STAKE_LADDER = [
+    { key: '2/2/5', label: '$2 / $5', buyIn: 1000 },
+    { key: '5/5/10', label: '$5 / $10', buyIn: 2000 },
+    { key: '5/10/30', label: '$10 / $30', buyIn: 2500 },
+    { key: '10/10/25', label: '$10 / $25', buyIn: 5000 },
+    { key: '25/25/50', label: '$25 / $50', buyIn: 10000 },
+  ];
+  const SIT_BI = 30, MOVEUP_BI = 40, SHOT_BI_MIN = 3, SHOT_BI_MAX = 5;
+  const DEFAULT_READINESS_LINE = 80, STOP_LOSS_BI_NORMAL = 4, STOP_LOSS_BI_TIRED = 3;
+  const DOWNSWING_LEVEL = { none: 0, watch: 1, deep: 2 };
+
+  function ladderLookup(roll) { let hit = null; for (const c of LADDER) if (roll >= c.amount) hit = c; return hit; }
+  function recommendStake(roll) {
+    const clearedKey = (ladderLookup(roll) || {}).cleared || null;
+    let sitIdx = clearedKey ? STAKE_LADDER.findIndex((r) => r.key === clearedKey) : -1;
+    if (sitIdx < 0 && roll >= SIT_BI * STAKE_LADDER[0].buyIn) sitIdx = 0;
+    const sit = sitIdx >= 0 ? STAKE_LADDER[sitIdx] : null;
+    const next = sit && sitIdx + 1 < STAKE_LADDER.length ? STAKE_LADDER[sitIdx + 1] : null;
+    const buyInsAtSit = sit ? Math.floor(roll / sit.buyIn) : 0;
+    const canMoveUp = !!next && roll >= MOVEUP_BI * next.buyIn;
+    let shotEarmark = 0;
+    if (sit && next && !canMoveUp) {
+      const surplus = roll - SIT_BI * sit.buyIn;
+      if (surplus >= SHOT_BI_MIN * next.buyIn) shotEarmark = Math.min(SHOT_BI_MAX * next.buyIn, surplus);
+    }
+    const belowFloor = roll < FLOOR_HARD ? 'hard' : roll < FLOOR_SOFT ? 'soft' : 'none';
+    return { sit, buyInsAtSit, next, canMoveUp, shotEarmark, belowFloor };
+  }
+  function downswingState(sessions) {
+    const cash = sessions.filter((s) => !s.isMTT && !s.isWsopFund).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    let peak = 0, current = 0;
+    for (const s of cash) { current += num(s.result); if (current >= peak) peak = current; }
+    const desc = cash.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    let lossStreak = 0;
+    for (const s of desc) { if (num(s.result) < 0) lossStreak++; else break; }
+    return { current, peak, drawdown: Math.max(0, peak - current), lossStreak };
+  }
+  function downswingSeverity(state, buyIn) {
+    const bi = buyIn > 0 ? state.drawdown / buyIn : 0;
+    if (state.lossStreak >= 5 || bi >= 15) return 'deep';
+    if (state.lossStreak >= 3 || bi >= 7) return 'watch';
+    return 'none';
+  }
+  function rateConfidence(sessions) {
+    const cash = sessions.filter((s) => !s.isMTT && !s.isWsopFund && num(s.hours) > 0);
+    const hours = cash.reduce((a, s) => a + num(s.hours), 0);
+    const result = cash.reduce((a, s) => a + num(s.result), 0);
+    const perHour = hours > 0 ? result / hours : 0;
+    let v = 0;
+    for (const s of cash) { const e = num(s.result) - perHour * num(s.hours); v += (e * e) / num(s.hours); }
+    const sdPerHour = cash.length >= 2 ? Math.sqrt(v / Math.max(1, cash.length - 1)) : 0;
+    const se = hours > 0 && sdPerHour > 0 ? sdPerHour / Math.sqrt(hours) : 0;
+    const low = perHour - 1.96 * se, high = perHour + 1.96 * se;
+    let verdict;
+    if (se === 0 || cash.length < 2) verdict = 'inconclusive';
+    else if (low > 0) verdict = 'winning';
+    else if (high < 0) verdict = 'losing';
+    else if (perHour > 0) verdict = 'likely-winning';
+    else verdict = 'inconclusive';
+    return { perHour, verdict, low, high };
+  }
+  function latestReadiness(health) {
+    let score = null, date = null;
+    for (const h of health) {
+      if (h == null || h.readinessScore == null) continue;
+      if (date == null || String(h.date) > date) { score = num(h.readinessScore); date = String(h.date); }
+    }
+    return { score, date };
+  }
+  function dashVerdict(summary, settings, health, sessions) {
+    const roll = num(summary && summary.roll);
+    const rows = Array.isArray(sessions) ? sessions : [];
+    const healthRows = Array.isArray(health) ? health : [];
+    const readinessLine = num(settings && settings.readinessLine) || DEFAULT_READINESS_LINE;
+    const rec = recommendStake(roll);
+    const sitStake = rec.sit ? rec.sit.label : null;
+    const sitBuyIn = rec.sit ? rec.sit.buyIn : 0;
+    const rollVsFloorBI = sitBuyIn > 0 ? Math.floor((roll - FLOOR_SOFT) / sitBuyIn) : 0;
+    const shotStake = rec.next ? rec.next.label : null;
+    const shotUnlocked = rec.canMoveUp || rec.shotEarmark > 0;
+    const dstate = downswingState(rows);
+    const severity = downswingSeverity(dstate, sitBuyIn);
+    const downswingLevel = DOWNSWING_LEVEL[severity];
+    const rd = latestReadiness(healthRows);
+    const readiness = rd.score;
+    const readinessBelowLine = readiness != null && readiness < readinessLine;
+    const conf = rateConfidence(rows);
+    const edgeProven = conf.verdict === 'winning';
+    const stopBI = readinessBelowLine ? STOP_LOSS_BI_TIRED : STOP_LOSS_BI_NORMAL;
+    const stopLoss = sitBuyIn > 0 ? -(stopBI * sitBuyIn) : 0;
+    let verdict;
+    if (rec.belowFloor === 'hard' || severity === 'deep') verdict = 'SIT';
+    else if (rec.belowFloor === 'soft' || severity === 'watch' || readinessBelowLine) verdict = 'CAUTION';
+    else verdict = 'GO';
+    let cFloor;
+    if (rec.belowFloor === 'hard') cFloor = 0;
+    else if (rec.belowFloor === 'soft') cFloor = 35 * ((roll - FLOOR_HARD) / (FLOOR_SOFT - FLOOR_HARD));
+    else { const cushionBI = sitBuyIn > 0 ? (roll - FLOOR_SOFT) / sitBuyIn : 0; cFloor = 35 + Math.min(5, cushionBI / 4); }
+    const cDown = severity === 'none' ? 35 : severity === 'watch' ? 15 : 0;
+    let cReady;
+    if (readiness == null) cReady = 10;
+    else if (readiness >= readinessLine) cReady = 15;
+    else if (readiness >= readinessLine - 10) cReady = 8;
+    else cReady = 0;
+    const cEdge = edgeProven ? 10 : 0;
+    const clearance = Math.round(Math.max(0, Math.min(100, cFloor + cDown + cReady + cEdge)));
+    return {
+      verdict, clearance, rollVsFloorBI, downswingLevel, readiness,
+      sitStake, shotStake, stopLoss, edgeProven,
+      sitBuyIns: rec.buyInsAtSit, shotUnlocked, readinessLine, belowFloor: rec.belowFloor,
+    };
+  }
+
+  // ===== HEALTH / ACTIVITY / VITALS =====
+  const MOVE_GOAL = 640, EXERCISE_GOAL = 30, STAND_GOAL = 12, VITALS_DAYS = 14;
+  function latestMetric(rows, pick) {
+    let value = null, date = null;
+    for (const h of rows) {
+      if (!h || typeof h.date !== 'string') continue;
+      const v = pick(h);
+      if (v == null || Number.isNaN(Number(v))) continue;
+      if (date == null || h.date > date) { value = Number(v); date = h.date; }
+    }
+    return { value, date };
+  }
+  function vitalSeries(rows, pick, cutoffISO, opts = {}) {
+    const invert = !!opts.invert;
+    const pts = rows
+      .filter((h) => h && typeof h.date === 'string' && h.date >= cutoffISO)
+      .map((h) => ({ date: h.date, value: pick(h) }))
+      .filter((p) => p.value != null && !Number.isNaN(Number(p.value)))
+      .map((p) => ({ date: p.date, value: Number(p.value) }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (!pts.length) return { latest: null, delta: null, points: [] };
+    const vals = pts.map((p) => p.value);
+    const min = Math.min(...vals), max = Math.max(...vals), span = max - min;
+    const points = pts.map((p) => { let t = span === 0 ? 0.5 : (p.value - min) / span; if (invert) t = 1 - t; return { date: p.date, value: p.value, t }; });
+    const latest = pts[pts.length - 1].value;
+    const prev = pts.length >= 2 ? pts[pts.length - 2].value : null;
+    const delta = prev == null ? null : Math.round((latest - prev) * 100) / 100;
+    return { latest, delta, points };
+  }
+  function computeCockpitHealth(now = new Date()) {
+    const health = dashboardRecords('health').rows;
+    const readiness = latestMetric(health, (h) => h.readinessScore);
+    const hrv = latestMetric(health, (h) => h.hrv);
+    const rhr = latestMetric(health, (h) => h.rhr);
+    const sleepScore = latestMetric(health, (h) => h.sleepScore);
+    const sleepHours = latestMetric(health, (h) => h.sleepHours);
+    const activeEnergy = latestMetric(health, (h) => h.activeEnergy);
+    const exerciseMinutes = latestMetric(health, (h) => h.exerciseMinutes);
+    const standHours = latestMetric(health, (h) => h.standHours);
+    const cutoff = new Date(now);
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - (VITALS_DAYS - 1));
+    const cutoffISO = dashLocalDate(cutoff);
+    return {
+      readiness: {
+        readiness: readiness.value, hrv: hrv.value, rhr: rhr.value,
+        sleepScore: sleepScore.value, sleepHours: sleepHours.value,
+        date: readiness.date || sleepScore.date,
+      },
+      activity: {
+        activeEnergy: activeEnergy.value, moveGoal: MOVE_GOAL,
+        exerciseMinutes: exerciseMinutes.value, exerciseGoal: EXERCISE_GOAL,
+        standHours: standHours.value, standGoal: STAND_GOAL,
+        rings: {
+          move: activeEnergy.value == null ? null : Math.min(1, activeEnergy.value / MOVE_GOAL),
+          exercise: exerciseMinutes.value == null ? null : Math.min(1, exerciseMinutes.value / EXERCISE_GOAL),
+          stand: standHours.value == null ? null : Math.min(1, standHours.value / STAND_GOAL),
+        },
+        date: activeEnergy.date || exerciseMinutes.date || standHours.date,
+      },
+      vitals: {
+        sleep: vitalSeries(health, (h) => h.sleepScore, cutoffISO),
+        readiness: vitalSeries(health, (h) => h.readinessScore, cutoffISO),
+        hrv: vitalSeries(health, (h) => h.hrv, cutoffISO),
+        rhr: vitalSeries(health, (h) => h.rhr, cutoffISO, { invert: true }),
+        weight: vitalSeries(health, (h) => h.weight, cutoffISO, { invert: true }),
+      },
+    };
+  }
+
+  return { dashPhaseState, dashVerdict, computeCockpitHealth };
+})();
+
 // The dashboard page template (self-contained), with Baskerville inlined ONCE at
 // boot. __BOOTSTRAP__ is substituted per-request in the /d/:token handler. Read
 // fail-soft: a missing asset yields null → /d/:token returns 503, never crashes
@@ -9878,7 +10191,7 @@ const DASHBOARD_PAGE_HTML = (() => {
   try {
     const fs = require('fs');
     const dir = path.join(__dirname, 'screensaver');
-    const tpl = fs.readFileSync(path.join(dir, 'dashboard-page.html'), 'utf8');
+    const tpl = fs.readFileSync(path.join(dir, 'cockpit-screensaver.html'), 'utf8');
     const b64 = fs.readFileSync(path.join(dir, 'baskerville.b64'), 'utf8').trim();
     // Anchor to the real @font-face src, not the bare token — the token also
     // appears in an HTML comment above it (replacing that would leave the real
