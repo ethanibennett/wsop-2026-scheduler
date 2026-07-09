@@ -636,11 +636,19 @@ def _solve_stud5_net(req: dict) -> dict:
     pbs = PBS(street=5, up=[list(up0), list(up1)], dead=list(dead), pot=pot, ranges=[[], []])
     out = root_action_ev(pbs, me, game=RAZZ, iters=iters, opp_range=opp_range,
                          depth_limit=1, leaf_value_fn=st["leaf"])
+    # The numpy net leaf propagates numpy float32 through the resolve; the worker's
+    # json.dumps response (Python 3.14 on Render) rejects float32 (float64 subclasses
+    # Python float, so it slips through locally — which is why this only bit in prod).
+    # Coerce every returned number to a NATIVE Python float. 6th/7th are pure-Python
+    # (py floats already); only this net-leaf path needs it.
+    gm = out.get("gtoMix") or None
+    expl = out.get("exploitability")
     return {
-        "per_action_ev": out["per_action_ev"],
-        "gtoMix": out.get("gtoMix"),
-        "exploitability": out.get("exploitability"),  # None below 7th
-        "pot": out["pot"],
+        "per_action_ev": {a: float(v) for a, v in out["per_action_ev"].items()},
+        "gtoMix": ({"actions": list(gm.get("actions", [])),
+                    "freq": [float(x) for x in gm.get("freq", [])]} if gm else None),
+        "exploitability": (float(expl) if expl is not None else None),  # None below 7th
+        "pot": float(out["pot"]),
         "tier": "oracle-5th-netleaf",   # NEVER exact/GTO — net-leaf approximate
     }
 
