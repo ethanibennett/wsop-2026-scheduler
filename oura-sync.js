@@ -321,7 +321,7 @@ function upsertOuraDay(db, day, fields) {
   // Merge: prior fields first, then our fresh Oura fields override, then pin the
   // identity fields + fresh stamp. updatedAt lives INSIDE the JSON (client does
   // not re-stamp on apply).
-  const merged = { ...prev, ...fields, id, date: day, updatedAt: now };
+  const merged = { ...prev, ...fields, id, date: day, source: 'oura', updatedAt: now };
 
   const json = JSON.stringify(merged);
   db.run(
