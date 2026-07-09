@@ -642,6 +642,13 @@ function oracleEligible(handRecord, gradeIdx) {
   const c = snap.contrib;
   if (!c || Math.abs(c[0] - c[1]) > 1e-9) return false;     // start-of-street only
   if (snap.toAct !== d.actor) return false;
+  // Hero must be the OPENER (the street's first-actor), not the second actor after
+  // a check: equal contributions are preserved through a check, so that test alone
+  // does NOT distinguish them. The oracle re-solves from the first-actor's root, so
+  // a hero-acts-second spot is rejected there ('hero not first actor at root') and
+  // silently falls back. `starter` = the first-actor set at street start
+  // (razz-game.js:263 / play.js). Fixes 5th/6th/7th (7th/6th just hit it rarely).
+  if (snap.toAct !== snap.starter) return false;
   return true;
 }
 
@@ -655,6 +662,13 @@ function oracleEligible6th(handRecord, gradeIdx) {
   const c = snap.contrib;
   if (!c || Math.abs(c[0] - c[1]) > 1e-9) return false;     // start-of-street only
   if (snap.toAct !== d.actor) return false;
+  // Hero must be the OPENER (the street's first-actor), not the second actor after
+  // a check: equal contributions are preserved through a check, so that test alone
+  // does NOT distinguish them. The oracle re-solves from the first-actor's root, so
+  // a hero-acts-second spot is rejected there ('hero not first actor at root') and
+  // silently falls back. `starter` = the first-actor set at street start
+  // (razz-game.js:263 / play.js). Fixes 5th/6th/7th (7th/6th just hit it rarely).
+  if (snap.toAct !== snap.starter) return false;
   return true;
 }
 
@@ -668,6 +682,13 @@ function oracleEligible5th(handRecord, gradeIdx) {
   const c = snap.contrib;
   if (!c || Math.abs(c[0] - c[1]) > 1e-9) return false;     // start-of-street only
   if (snap.toAct !== d.actor) return false;
+  // Hero must be the OPENER (the street's first-actor), not the second actor after
+  // a check: equal contributions are preserved through a check, so that test alone
+  // does NOT distinguish them. The oracle re-solves from the first-actor's root, so
+  // a hero-acts-second spot is rejected there ('hero not first actor at root') and
+  // silently falls back. `starter` = the first-actor set at street start
+  // (razz-game.js:263 / play.js). Fixes 5th/6th/7th (7th/6th just hit it rarely).
+  if (snap.toAct !== snap.starter) return false;
   return true;
 }
 
