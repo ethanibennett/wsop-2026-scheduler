@@ -759,6 +759,30 @@ function studStrengthScorer(game, oppUp) {
 // enumeration is intractable/times out. Capping to the top-mass holdings keeps
 // the solve node-locked (<~1s) while covering the bulk of the opponent's reach.
 // Returns normalized [{hand,w}] over the retained holdings (renormalized).
+// Realistic full-ring 3rd-street ENTRY PRIOR (razz). The blueprint is a HEADS-UP
+// bot that enters/completes/raises with trash a real full-table player folds, so
+// the reach-weighted opponent range is unrealistically WIDE. Apply a Bayesian prior
+// over the opponent's STARTING hand (door + hole pair):
+//   P(holding | line)  ∝  P(holding)_realistic  ×  P(line | holding)_blueprint
+// earlyLowTier (0=best low .. 5=trash) is the razz-v2 starting-hand-strength tier;
+// map it to a [0,1] entry weight (validated: wheel/three-low->1.0, two-low->0.35,
+// faces->0.04, pairs penalised). On 7th (3 hidden = hole pair + river) which 2 are
+// the hole pair is unobserved -> take the MAX over the 3 decompositions (a legit
+// start exists if ANY hole-pair choice is legit). stud8 (hi/lo) entry is more
+// complex -> deferred (returns 1, no change). ORACLE-ONLY: the blueprint grader
+// uses its own range builder, so this only tightens the opt-in oracle grades.
+const RAZZ_ENTRY_W = { 0: 1.0, 1: 1.0, 2: 0.7, 3: 0.35, 4: 0.12, 5: 0.04 };
+function entryPrior(game, door, combo) {
+  if (!(game.id === 'razz' || game.id === 'razzv1' || game.id === 'razzv2')) return 1;
+  const w = (t) => (RAZZ_ENTRY_W[t] != null ? RAZZ_ENTRY_W[t] : 0.04);
+  if (combo.length <= 2) return w(DEFAULT_GAME.earlyLowTier([door, ...combo]));
+  let best = 0;
+  for (let r = 0; r < combo.length; r++) {
+    best = Math.max(best, w(DEFAULT_GAME.earlyLowTier([door, ...combo.filter((_, i) => i !== r)])));
+  }
+  return best;
+}
+
 function oracleCandidates(game, strategyMap, handRecord, gradeIdx, opts) {
   const d = handRecord.decisions[gradeIdx];
   const snap = d.state;
@@ -769,8 +793,13 @@ function oracleCandidates(game, strategyMap, handRecord, gradeIdx, opts) {
   const budget = opts.exactRangeBudget == null ? 20000 : opts.exactRangeBudget;
   const oppCap = opts.oppCap == null ? 40 : opts.oppCap; // resolver union cap
   const candidates = [];
+  // Realistic full-ring 3rd-street entry prior (razz): tighten the opponent range by
+  // the strength of their STARTING hand (door + hole pair). Toggle with opts.entryPrior.
+  const door = (snap.up[oppSeat] && snap.up[oppSeat].length) ? snap.up[oppSeat][0] : null;
+  const usePrior = opts.entryPrior !== false && door != null;
   for (const combo of combos(pool, k, 0, [])) {
-    const w = reachWeight(game, strategyMap, handRecord, gradeIdx, oppSeat, combo);
+    let w = reachWeight(game, strategyMap, handRecord, gradeIdx, oppSeat, combo);
+    if (w > 0 && usePrior) w *= entryPrior(game, door, combo);
     if (w > 0) candidates.push({ hand: combo, w });
     if (candidates.length > budget) break;
   }
