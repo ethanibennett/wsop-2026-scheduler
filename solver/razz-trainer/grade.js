@@ -35,7 +35,7 @@
 // reach-weighting / 7th-street decomposition / oppDownCount / deal-structure
 // logic below is stud-GENERIC — it just reads the passed game.
 const DEFAULT_GAME = require('../games/razz-game');
-const { makeDeck, makeRng, cardStr } = require('../engine/cards');
+const { makeDeck, makeRng, cardStr, rankOf, suitOf, lowRankOf } = require('../engine/cards');
 const { strategyMapOf } = require('./play');
 // Shared, game-agnostic RANGE-SENSITIVE honesty flag (also used by the draw
 // grader draw-trainer/grade.js — the two share the "re-solve vs an assumed
@@ -772,13 +772,87 @@ function studStrengthScorer(game, oppUp) {
 // complex -> deferred (returns 1, no change). ORACLE-ONLY: the blueprint grader
 // uses its own range builder, so this only tightens the opt-in oracle grades.
 const RAZZ_ENTRY_W = { 0: 1.0, 1: 1.0, 2: 0.7, 3: 0.35, 4: 0.12, 5: 0.04 };
+
+// ── stud8 (hi/lo) realistic full-ring 3rd-street ENTRY model ──────────────────
+// P(a winning full-ring stud8 player voluntarily plays this 3-card starting hand
+// = door + 2 hole). TWO-DIMENSIONAL (low draw × high pair/draw × scoop), unlike
+// razz's low-only earlyLowTier. First-match-wins classifier over the 3 cards ->
+// one of six tiers -> weight. Designed + adversarially validated (design workflow
+// wf_6261eb65: 3 angles -> synthesis -> 4-lens critique -> finalize; 32/32 labeled
+// examples reproduce). Weights T0..T5 = {1,.85,.6,.35,.12,.04}; trash is DOWN-
+// weighted 25x, never zeroed (bring-in defense / disguise floor). ORDERING IS
+// LOAD-BEARING (see STEP comments) — do not reorder without re-running the
+// 32-example unit test (solver/razz-trainer/stud8-entry.test.js).
+const STUD8_ENTRY_W = { 0: 1.0, 1: 0.85, 2: 0.6, 3: 0.35, 4: 0.12, 5: 0.04 };
+function stud8EntryTier(cards3) {
+  if (!cards3 || cards3.length !== 3) return 5; // defensive: only classify a 3-card start
+  const ranks = cards3.map(rankOf);             // 2..14 (ace high)
+  const lrank = cards3.map(lowRankOf);          // ace = 1
+  const suits = cards3.map(suitOf);
+  const L = new Set(lrank.filter(r => r <= 8)).size;   // # distinct low ranks <= 8
+  const hasAce = ranks.some(r => r === 14);
+  const hasTwo = ranks.some(r => r === 2);
+  const rc = {}; for (const r of ranks) rc[r] = (rc[r] || 0) + 1;
+  const counts = Object.values(rc);
+  const isTrips = counts.includes(3);
+  const isPair = counts.includes(2);
+  const pairRank = isPair ? Math.max(...Object.keys(rc).filter(r => rc[r] === 2).map(Number)) : 0;
+  const threeFlush = suits[0] === suits[1] && suits[1] === suits[2];
+  const distinct3 = new Set(ranks).size === 3;
+  const allWheel = distinct3 && lrank.every(r => r <= 5);          // three-to-a-wheel
+  const spanLow = Math.max(...lrank) - Math.min(...lrank);
+  const connected3 = distinct3 && spanLow <= 2;                    // TIGHT (adjacent only)
+  const highStraight = distinct3 && ranks.every(r => r >= 9) &&
+    (Math.max(...ranks) - Math.min(...ranks) <= 4);               // K-Q-J, J-T-9, A-K-Q ...
+
+  // STEP 0 — rolled-up trips
+  if (isTrips) return 0;
+  // STEP 1 — pairs FIRST (matched cards are not two separate lows)
+  if (isPair) {
+    if (pairRank === 14) return 0;                        // AA
+    if (pairRank === 13 || pairRank === 12) return 1;     // KK / QQ
+    if (pairRank === 11) return 2;                        // JJ
+    if (pairRank === 10 || pairRank === 9) return 3;      // TT / 99
+    if (pairRank <= 8 && hasAce && hasTwo) return 2;      // A-2-2 (pair doesn't cut the {A,2} nut low)
+    return 4;                                             // any other small pair
+  }
+  // STEP 2 — three distinct lows (L === 3 ⟹ three distinct ranks <= 8)
+  if (L === 3) {
+    if (threeFlush || allWheel || (hasAce && hasTwo)) return 0; // low three-flush / wheel / A-2-x
+    if (hasAce) return 1;                                        // ace-anchored nut-low draw
+    if (connected3) return 1;                                    // no-ace low three-STRAIGHT (two-way)
+    return 2;                                                    // bare no-ace three-low
+  }
+  // STEP 3 — straight-flush draw (adjacent suited)
+  if (threeFlush && connected3) return 1;
+  // STEP 4 — ace three-flush (flush + ace, two-way) before flat high-flush
+  if (threeFlush && hasAce) return hasTwo ? 1 : 2;             // A-2+flush / A-x+flush
+  // STEP 5 — high three-flush (no ace, not adjacent)
+  if (threeFlush) return 3;
+  // STEP 6 — one-way / leaning three-straight (medium two-way & broadway)
+  if (connected3 || highStraight) return 3;
+  // STEP 7 — exactly two distinct lows
+  if (L === 2) return (hasAce && hasTwo) ? 2 : 4;             // A-2+high / partial-low
+  // STEP 8 — one or zero lows
+  if (hasAce) return 4;                                        // lone-ace junk
+  return 5;                                                    // high-card trash
+}
+
 function entryPrior(game, door, combo) {
-  if (!(game.id === 'razz' || game.id === 'razzv1' || game.id === 'razzv2')) return 1;
-  const w = (t) => (RAZZ_ENTRY_W[t] != null ? RAZZ_ENTRY_W[t] : 0.04);
-  if (combo.length <= 2) return w(DEFAULT_GAME.earlyLowTier([door, ...combo]));
+  const isRazz = (game.id === 'razz' || game.id === 'razzv1' || game.id === 'razzv2');
+  const isStud8 = (game.id === 'stud8');
+  if (!isRazz && !isStud8) return 1;
+  // Evaluate the 3-card STARTING hand = door + 2 hole. Past 3rd street the
+  // opponent has >2 hidden cards (7th adds the river); which 2 were the hole is
+  // unobserved -> take the MAX over dropping each extra hidden card (a legit
+  // start exists if ANY 2-hidden choice is legit). Mirrors the razz path.
+  const weightOf = isRazz
+    ? (three) => { const t = DEFAULT_GAME.earlyLowTier(three); return RAZZ_ENTRY_W[t] != null ? RAZZ_ENTRY_W[t] : 0.04; }
+    : (three) => STUD8_ENTRY_W[stud8EntryTier(three)];
+  if (combo.length <= 2) return weightOf([door, ...combo]);
   let best = 0;
   for (let r = 0; r < combo.length; r++) {
-    best = Math.max(best, w(DEFAULT_GAME.earlyLowTier([door, ...combo.filter((_, i) => i !== r)])));
+    best = Math.max(best, weightOf([door, ...combo.filter((_, i) => i !== r)]));
   }
   return best;
 }
@@ -1337,6 +1411,9 @@ module.exports = {
   buildOracleSpot,
   oracleCandidates,
   oracleEligible,
+  entryPrior,
+  stud8EntryTier,
+  STUD8_ENTRY_W,
   studStrengthScorer,
   STUD_RANGE_FLAG,
   gradeDecision,

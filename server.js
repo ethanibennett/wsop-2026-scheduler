@@ -8387,8 +8387,12 @@ async function trainerStep(game, req, res) {
     // back to the blueprint grade on any oracle failure/timeout. Default stays
     // the pure-JS blueprint grader.
     const useOracle = body.oracle === true;
+    // entryPrior toggles the full-ring realistic 3rd-street entry prior on the
+    // ORACLE opponent range (razz only; default ON). Pass body.entryPrior:false
+    // to A/B the prior's grade impact (prior OFF = the wide HU-blueprint range).
+    const oracleOpts = { seed, samples: 2000, game, entryPrior: body.entryPrior };
     const graded = useOracle
-      ? await razzGrade.gradeHandWithOracle(hr, getTrainerBp(game.id), { seed, samples: 2000, game })
+      ? await razzGrade.gradeHandWithOracle(hr, getTrainerBp(game.id), oracleOpts)
       : razzGrade.gradeHand(hr, getTrainerBp(game.id), { seed, samples: 2000, game });
     const grades = graded.grades.map(g => {
       const dec = hr.decisions[g.gradeIdx];
