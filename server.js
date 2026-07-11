@@ -621,6 +621,17 @@ if (require('fs').existsSync(consoleDist)) {
     res.json({ ok: true, tokens: count, results: (out && out.results) || [] });
   });
 
+  // Keep-on-track nudge test (ham-gated): fire one dynamic nudge NOW, bypassing
+  // the synced-data gate, so delivery + wording can be verified on demand.
+  // Body: { kind?: 'verdict'|'winddown'|'offpace'|'review' } (default 'verdict').
+  app.post('/console/api/track/test', async (req, res) => {
+    const kind = String((req.body && req.body.kind) || 'verdict');
+    const msg = trackNudge(kind, new Date(), true);
+    if (!msg) return res.json({ ok: true, kind, fired: false, reason: 'no nudge for this kind/state' });
+    await sendConsolePush(msg.title, msg.body, 'track-' + kind);
+    res.json({ ok: true, kind, fired: true, title: msg.title, body: msg.body });
+  });
+
   // Manual Oura sync trigger (ham-gated by requireHamBasic on /console). Runs
   // the same job as the daily cron, once, for first-run backfill + debugging
   // without waiting for 10:30 ET. Body: { days?: number } (default 14 here so a
@@ -9865,6 +9876,9 @@ function computeDashboardSummary(now = new Date()) {
       grindHours: weekHours, grindTarget: GRIND_TARGET,
       studyHours: studyHoursWeek, studyTarget: STUDY_TARGET, fundPerWeek,
     },
+    // ── Keep-on-track ──
+    discipline: computeDisciplineScore(now),
+    insight: computeInsight(now),
   };
 }
 
@@ -10186,6 +10200,86 @@ const { dashPhaseState, dashVerdict, computeCockpitHealth } = (() => {
 
   return { dashPhaseState, dashVerdict, computeCockpitHealth };
 })();
+
+// ── Keep-on-track: Discipline score (0–100 adherence) ───────────────────────
+// A single number rolling up rhythm + study adherence over the last 14 days.
+// Strict: an unlogged day counts as a miss (discipline = showing up). Weights:
+// wake-anchor .30, wind-down .25, movement .20, study cadence .25.
+function computeDisciplineScore(now = new Date()) {
+  const routine = dashboardRecords('routine').rows;
+  const study = dashboardRecords('study').rows;
+  const byDate = new Map(routine.map((r) => [r.date, r]));
+  const DAYS = 14;
+  const adherence = (flag) => {
+    let hit = 0;
+    const d = new Date(now); d.setHours(0, 0, 0, 0);
+    for (let i = 0; i < DAYS; i++) {
+      const log = byDate.get(dashLocalDate(d));
+      if (log && log[flag]) hit++;
+      d.setDate(d.getDate() - 1);
+    }
+    return hit / DAYS;
+  };
+  const anchor = adherence('wakeAnchor');
+  const windDown = adherence('windDown');
+  const movement = adherence('movement');
+  // Study cadence: study logs in the last 7 days vs a 4/wk target (StudyLog has
+  // no hours field — cadence is session COUNT, not hours).
+  const weekAgo = new Date(now); weekAgo.setHours(0, 0, 0, 0); weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoISO = dashLocalDate(weekAgo);
+  const studyCount = study.filter((r) => r && typeof r.date === 'string' && r.date >= weekAgoISO).length;
+  const studyCadence = Math.min(1, studyCount / 4);
+  const score = Math.round(100 * (0.30 * anchor + 0.25 * windDown + 0.20 * movement + 0.25 * studyCadence));
+  return {
+    score,
+    components: {
+      anchor: Math.round(anchor * 100),
+      windDown: Math.round(windDown * 100),
+      movement: Math.round(movement * 100),
+      study: Math.round(studyCadence * 100),
+    },
+    studyCount, days: DAYS,
+  };
+}
+
+// ── Keep-on-track: Prescriptive insight (analytics.ts rhythmEdge/moodEdge) ───
+// Splits cash $/hr by a rhythm condition; returns the strongest directional
+// edge (largest |Δ| clearing 3 sessions/side) as a one-liner the verdict cites.
+function computeInsight(now = new Date()) {
+  void now;
+  const sessions = dashboardRecords('sessions').rows.filter((s) => s && !s.isMTT && !s.isWsopFund);
+  const routine = dashboardRecords('routine').rows;
+  const MIN = 3; // EDGE_MIN_SIDE
+  const num = (x) => Number(x) || 0;
+  const side = (arr) => {
+    const hours = arr.reduce((x, s) => x + num(s.hours), 0);
+    const result = arr.reduce((x, s) => x + num(s.result), 0);
+    return { n: arr.length, perHour: hours > 0 ? result / hours : 0 };
+  };
+  const splitBy = (pred, aLabel, bLabel) => {
+    const a = [], b = [];
+    for (const s of sessions) { const v = pred(s); if (v === true) a.push(s); else if (v === false) b.push(s); }
+    const sa = side(a), sb = side(b);
+    const delta = sa.n >= MIN && sb.n >= MIN ? sa.perHour - sb.perHour : null;
+    return { aLabel, bLabel, a: sa, b: sb, delta };
+  };
+  const held = new Set(routine.filter((r) => r && r.wakeAnchor).map((r) => r.date));
+  const cands = [
+    splitBy((s) => held.has(s.date), 'anchor held', 'anchor missed'),
+    splitBy((s) => (s.moodRating == null || s.moodRating === 3 ? null : s.moodRating >= 4), 'A-game', 'off A-game'),
+  ].filter((e) => e.delta != null);
+  if (!cands.length) return null;
+  cands.sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
+  const e = cands[0];
+  const money = (v) => (v < 0 ? '−$' : '$') + Math.abs(Math.round(v));
+  return {
+    text: `${e.aLabel} ${money(e.a.perHour)}/hr vs ${money(e.b.perHour)}/hr ${e.bLabel} — Δ ${money(e.delta)}/hr over ${e.a.n + e.b.n} sessions`,
+    aLabel: e.aLabel, bLabel: e.bLabel,
+    aPerHour: Math.round(e.a.perHour), bPerHour: Math.round(e.b.perHour),
+    delta: Math.round(e.delta), n: e.a.n + e.b.n,
+    favorable: e.delta > 0,
+  };
+}
 
 // The dashboard page template (self-contained), with Baskerville inlined ONCE at
 // boot. __BOOTSTRAP__ is substituted per-request in the /d/:token handler. Read
@@ -10529,6 +10623,78 @@ function setupConsoleNudgeCron() {
     scheduled++;
   }
   console.log(`[console] scheduled ${scheduled} nudge cron job(s) (${CONSOLE_TZ})`);
+}
+
+// ── Keep-on-track: DYNAMIC nudges (verdict / wind-down / off-pace / review) ──
+// Unlike the static BASE_NUDGES above, these compute their body at fire time
+// from the live dashboard summary (verdict, fund pace, discipline, insight) and
+// go to BOTH APNs (phone+watch) and web push via sendConsolePush. Gated on a
+// synced app (`stale`) so an empty/unsynced console is never nagged. `force`
+// bypasses the gate for the test route.
+function trackNudge(kind, now = new Date(), force = false) {
+  let s;
+  try { s = computeDashboardSummary(now); } catch (_) { return null; }
+  if (!force && s.stale) return null; // don't nudge an unsynced console
+  const money = (v) => (Number(v) < 0 ? '−$' : '$') + Math.abs(Math.round(Number(v) || 0));
+  const v = s.verdict || {};
+  const line = v.readinessLine || 80;
+  switch (kind) {
+    case 'verdict': {
+      if (v.verdict === 'GO') {
+        const stake = v.sitStake ? ` — sit ${v.sitStake}, hard stop ${money(v.stopLoss)}` : '';
+        const edge = s.insight && s.insight.favorable ? ` ${s.insight.text}.` : '';
+        return { title: 'Tonight · GO', body: `Cleared to play${stake}. Clearance ${v.clearance}.${edge}` };
+      }
+      if (v.verdict === 'CAUTION') {
+        const why = v.belowFloor === 'soft' ? 'roll near the move-down line'
+          : (v.readiness != null && v.readiness < line ? `readiness ${v.readiness}, below your ${line} line`
+          : 'a caution flag is up');
+        return { title: 'Tonight · CAUTION', body: `Play smaller — ${why}. Clearance ${v.clearance}.` };
+      }
+      const why = v.belowFloor === 'hard' ? 'roll under the hard floor'
+        : (v.readiness != null && v.readiness < line ? `readiness ${v.readiness}` : 'the signals say sit');
+      return { title: 'Tonight · SIT', body: `Sit it out — ${why}. Rest and reset for tomorrow.` };
+    }
+    case 'winddown': {
+      const routine = dashboardRecords('routine').rows;
+      const todayLog = routine.find((r) => r && r.date === dashLocalDate(now));
+      if (todayLog && todayLog.windDown) return null; // already wound down
+      const streak = s.routineStreak ? ` Anchor streak ${s.routineStreak}d — don't break it.` : '';
+      return { title: 'Wind-down', body: `Wind-down time — protect tomorrow's readiness. Log tonight's session if you played.${streak}` };
+    }
+    case 'offpace': {
+      const f = s.fund || {};
+      if (f.aheadDays == null || f.aheadDays >= 0) return null; // on/ahead of pace
+      return { title: 'WSOP fund off pace', body: `${Math.abs(f.aheadDays)}d behind the summit — ${money(f.target - f.saved)} to go, banking ${money(f.perWeek)}/wk lately.` };
+    }
+    case 'review': {
+      const w = s.week || {};
+      const d = s.discipline || {};
+      return { title: 'Weekly review', body: `${money(w.pnl)} over ${Math.round(w.hours || 0)}h · discipline ${d.score}/100. Set your one thing.` };
+    }
+    default: return null;
+  }
+}
+
+function setupTrackNudgeCron() {
+  const jobs = [
+    { kind: 'verdict',  cron: '0 17 * * *' }, // 5:00pm ET daily — tonight's read
+    { kind: 'winddown', cron: '0 23 * * *' }, // 11:00pm ET — if not wound down
+    { kind: 'offpace',  cron: '0 10 * * 1' }, // Mon 10am ET — only if behind pace
+    { kind: 'review',   cron: '0 18 * * 0' }, // Sun 6pm ET — weekly review
+  ];
+  let n = 0;
+  for (const j of jobs) {
+    if (!cron.validate(j.cron)) continue;
+    cron.schedule(j.cron, () => {
+      try {
+        const msg = trackNudge(j.kind, new Date());
+        if (msg) sendConsolePush(msg.title, msg.body, 'track-' + j.kind);
+      } catch (err) { console.error('[track-nudge] ' + j.kind + ' error:', err && err.message); }
+    }, { timezone: CONSOLE_TZ });
+    n++;
+  }
+  console.log(`[console] scheduled ${n} keep-on-track nudge cron job(s) (${CONSOLE_TZ})`);
 }
 
 // ── Schedule Parser: extract tournament data from PDF/image via Claude Vision ──
@@ -12279,6 +12445,7 @@ initDatabase().then(() => {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
     setupConsoleNudgeCron();
+    setupTrackNudgeCron();
     // Oura → console health sync — daily 10:30 ET (self-disables w/o OURA_PAT).
     try {
       ouraSync.setupOuraSyncCron(cron, db, saveDatabase, CONSOLE_TZ);
