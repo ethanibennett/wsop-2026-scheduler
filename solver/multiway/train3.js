@@ -20,7 +20,7 @@ const fs = require('fs');
 const path = require('path');
 const { makeRng } = require('../engine/cards');
 const { MCCFR3Trainer } = require('./mccfr3');
-const { makeGame, DEFAULT_CAP, DEFAULT_ANTES } = require('./razz3-game');
+const { makeGame, DEFAULT_CAP, DEFAULT_ANTES, UNIFORM_PRIORS } = require('./razz3-game');
 const { stratDrift, sampledExploit } = require('./measure3');
 const { makePool } = require('./parallel3');
 
@@ -67,6 +67,13 @@ async function main() {
   const cap = parseInt(arg('cap', DEFAULT_CAP), 10);
   const antes = parseInt(arg('antes', DEFAULT_ANTES), 10);
   const coarseOpp = !!arg('coarse-opp', false);
+  // --uniform: deal 3rd-street hands UNIFORMLY (no biased door-rank prior) so the
+  // 3rd-street fold/enter equilibrium frequencies EMERGE as the derived entry range
+  // (solver/entry, DERIVATION_SPEC.md). Default = biased DEFAULT_PRIORS (unchanged;
+  // the running grinds are untouched). Use a DISTINCT --out so it never clobbers the
+  // biased blueprint.
+  const uniform = !!arg('uniform', false);
+  const priors = uniform ? UNIFORM_PRIORS : undefined;
   const seed = parseInt(arg('seed', 999), 10);
   const measureHands = parseInt(arg('measure-hands', smoke ? 300 : 6000), 10);
   // Data-parallel MCCFR: W>=2 spreads each round's iterations across W worker
@@ -86,7 +93,7 @@ async function main() {
   const saveCheckpoint = !!ckptFile && arg('checkpoint', '1') !== '0';
   const ckptEverySec = parseInt(arg('ckpt-every', smoke ? '0' : '180'), 10);
 
-  const game = makeGame({ cap, antes, coarseOpp });
+  const game = makeGame({ cap, antes, coarseOpp, priors });
   // Resume from the checkpoint if one exists (warm-start the regret + avg-strat
   // tables), else start fresh. This is the accumulation seam.
   let trainer;
@@ -101,7 +108,7 @@ async function main() {
   // (same trick as solver/train.js's seed-mix on trainer.iterations).
   const rng = makeRng((seed + trainer.iterations * 2654435761) >>> 0 || seed);
   const potScale = game.deadPot + 3 * 8; // rough pot scale for % readout
-  const meta = { game: 'razz3', cap, antes, deadPot: game.deadPot, coarseOpp, seed, iters };
+  const meta = { game: 'razz3', cap, antes, deadPot: game.deadPot, coarseOpp, uniform, seed, iters };
 
   // Data-parallel pool (W>=2 only). Each worker rebuilds the IDENTICAL game via
   // this descriptor {module,factory,opts}. The pool wraps THIS SAME trainer, so
@@ -110,7 +117,7 @@ async function main() {
   // W workers -> DCFR-safe averaging merge) instead of trainer.train(). W<=1
   // leaves pool null and the in-process single-thread loop runs, byte-identical.
   const parallel = workers >= 2;
-  const gameDesc = { module: './razz3-game', factory: 'makeGame', opts: { cap, antes, coarseOpp } };
+  const gameDesc = { module: './razz3-game', factory: 'makeGame', opts: { cap, antes, coarseOpp, ...(priors ? { priors } : {}) } };
   const pool = parallel ? makePool(trainer, gameDesc, { workers, workerHeapMB }) : null;
   if (parallel) console.log(`  data-parallel: ${workers} workers, merge-every=${mergeEvery} (averaging merge; iters advance by merge-every/round, NOT ×W)`);
 

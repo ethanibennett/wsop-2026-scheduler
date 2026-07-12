@@ -34,6 +34,36 @@ const MATCHUP = {
   },
 };
 
+// hero's TRUE split share of the pot in a k-way all-in showdown (hero + opps,
+// each a full 7-card showdown hand). Generalizes MATCHUP from 2 to m seats with
+// exact tie-splitting — the EV-exact payoff the entry fixed-point thresholds on.
+// razz/draw (lower score wins): 1/(#tied for best) if hero is a best, else 0.
+// stud8 (hi/lo split): 0.5*hiShare + 0.5*loShare; if NO seat qualifies for low
+// the high winner(s) scoop (whole pot by hi). share in {0,.25,.5,.75,1,...}.
+const LOWSCORE = { td27: score27, badugi: badugiScore, razz: bestLowRazz };
+function multiwayShare(game, hero, opps) {
+  const all = [hero, ...opps];
+  if (game === 'stud8') {
+    const hi = all.map(bestHi7);
+    const maxHi = Math.max(...hi);
+    const hiWinners = hi.filter(s => s === maxHi).length;
+    const hiShare = hi[0] === maxHi ? 1 / hiWinners : 0;
+    const lo = all.map(bestLo8);                       // null = no qualifying low
+    const quals = lo.filter(s => s !== null);
+    if (quals.length === 0) return hiShare;            // no low -> hi scoops the pot
+    const minLo = Math.min(...quals);
+    const loWinners = lo.filter(s => s === minLo).length;
+    const loShare = (lo[0] !== null && lo[0] === minLo) ? 1 / loWinners : 0;
+    return 0.5 * hiShare + 0.5 * loShare;
+  }
+  const scorer = LOWSCORE[game];
+  if (!scorer) throw new Error('multiwayShare: unsupported game ' + game);
+  const s = all.map(scorer);
+  const best = Math.min(...s);
+  const winners = s.filter(x => x === best).length;
+  return s[0] === best ? 1 / winners : 0;
+}
+
 function parseHand(s) {
   const o = [];
   for (let i = 0; i < s.length; i += 2) o.push(cardFromStr(s.slice(i, i + 2)));
@@ -97,7 +127,7 @@ function equityCurve(game, myRange, oppRange, board = {}) {
   return { points, n: points.length, rangeEquity: tw > 0 ? te / tw : null };
 }
 
-module.exports = { MATCHUP, equityVsRange, equityCurve, allHands, range, parseHand, handStr, combos };
+module.exports = { MATCHUP, multiwayShare, equityVsRange, equityCurve, allHands, range, parseHand, handStr, combos };
 
 // ── self-test: node solver/equity.js ──
 if (require.main === module) {
