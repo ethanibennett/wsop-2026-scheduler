@@ -9879,6 +9879,8 @@ function computeDashboardSummary(now = new Date()) {
     // ── Keep-on-track ──
     discipline: computeDisciplineScore(now),
     insight: computeInsight(now),
+    // ── Upcoming scheduled MTTs (the departures board) ──
+    events: computeDashboardEvents(now),
   };
 }
 
@@ -10281,6 +10283,68 @@ function computeInsight(now = new Date()) {
   };
 }
 
+// ── Dashboard events: the user's upcoming SCHEDULED tournaments (his MTT picks) ──
+// Same sql.js db holds tournaments/user_schedules/users alongside console_records.
+// Resolve the owner by DASHBOARD_USER_ID or DASHBOARD_USER_EMAIL (default Ethan),
+// join his picks, parse the mixed date formats (ISO + 'Month D, YYYY'), return the
+// next N upcoming. Empty (never throws) if no user / no picks / no tables.
+function dashboardUserId() {
+  const envId = Number(process.env.DASHBOARD_USER_ID);
+  if (Number.isFinite(envId) && envId >= 0) return envId;
+  const who = process.env.DASHBOARD_USER_EMAIL || 'ethanibennett@gmail.com';
+  try {
+    const s = db.prepare('SELECT id FROM users WHERE email = ? OR username = ? LIMIT 1');
+    s.bind([who, who]);
+    let id = null;
+    if (s.step()) id = s.getAsObject().id;
+    s.free();
+    return id == null ? null : Number(id);
+  } catch (_) { return null; }
+}
+function computeDashboardEvents(now = new Date(), limit = 6) {
+  const uid = dashboardUserId();
+  if (uid == null) return [];
+  const rows = [];
+  try {
+    const s = db.prepare(
+      'SELECT t.date AS date, t.event_name AS event, t.buyin AS buyin, t.game_variant AS variant, us.is_anchor AS anchor ' +
+      'FROM user_schedules us JOIN tournaments t ON t.id = us.tournament_id WHERE us.user_id = ?'
+    );
+    s.bind([uid]);
+    while (s.step()) rows.push(s.getAsObject());
+    s.free();
+  } catch (_) { return []; }
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = new Date(dashLocalDate(now) + 'T00:00:00').getTime();
+  const parse = (d) => {
+    if (!d) return null;
+    const str = String(d);
+    const iso = /^\d{4}-\d{2}-\d{2}/.test(str);
+    const dt = new Date(iso ? str.slice(0, 10) + 'T00:00:00' : str);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  };
+  const out = [];
+  for (const r of rows) {
+    const dt = parse(r.date);
+    if (!dt) continue;
+    const daysAway = Math.round((new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime() - today) / 86400000);
+    if (daysAway < 0) continue;
+    out.push({
+      dateISO: dashLocalDate(dt),
+      dateLabel: MON[dt.getMonth()] + ' ' + dt.getDate(),
+      weekday: WD[dt.getDay()],
+      daysAway,
+      event: String(r.event || ''),
+      buyin: Number(r.buyin) || 0,
+      variant: String(r.variant || ''),
+      anchor: !!r.anchor,
+    });
+  }
+  out.sort((a, b) => a.daysAway - b.daysAway || a.event.localeCompare(b.event));
+  return out.slice(0, limit);
+}
+
 // The dashboard page template (self-contained), with Baskerville inlined ONCE at
 // boot. __BOOTSTRAP__ is substituted per-request in the /d/:token handler. Read
 // fail-soft: a missing asset yields null → /d/:token returns 503, never crashes
@@ -10289,7 +10353,7 @@ const DASHBOARD_PAGE_HTML = (() => {
   try {
     const fs = require('fs');
     const dir = path.join(__dirname, 'screensaver');
-    const tpl = fs.readFileSync(path.join(dir, 'cockpit-screensaver.html'), 'utf8');
+    const tpl = fs.readFileSync(path.join(dir, 'cockpit-min.html'), 'utf8');
     const b64 = fs.readFileSync(path.join(dir, 'baskerville.b64'), 'utf8').trim();
     // Anchor to the real @font-face src, not the bare token — the token also
     // appears in an HTML comment above it (replacing that would leave the real
