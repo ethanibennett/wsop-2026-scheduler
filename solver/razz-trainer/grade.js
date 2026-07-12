@@ -851,14 +851,18 @@ function entryPrior(game, door, combo) {
   // else fall back to the hand-tuned tiers. The derived range is horizon-correct
   // and threshold-free (the equity fixed point was ill-conditioned — see
   // solver/entry/DERIVATION_SPEC.md). Absent the file, behavior is unchanged.
-  const derivedPrior = isRazz ? require('../entry/derived-prior') : null;
+  const derivedPrior = require('../entry/derived-prior');
   const weightOf = isRazz
     ? (three) => {
         const d = derivedPrior.pEnter('razz', three);
         if (d != null) return d;
         const t = DEFAULT_GAME.earlyLowTier(three); return RAZZ_ENTRY_W[t] != null ? RAZZ_ENTRY_W[t] : 0.04;
       }
-    : (three) => STUD8_ENTRY_W[stud8EntryTier(three)];
+    : (three) => {
+        const d = derivedPrior.pEnter('stud8', three);
+        if (d != null) return d;
+        return STUD8_ENTRY_W[stud8EntryTier(three)];
+      };
   if (combo.length <= 2) return weightOf([door, ...combo]);
   let best = 0;
   for (let r = 0; r < combo.length; r++) {

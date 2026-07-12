@@ -12,6 +12,7 @@ const { bucketOf } = require('./extract-cfr-entry');
 // stud8 gets its own once a stud8 multiway (uniform-deal) blueprint exists.
 const FILES = {
   razz: process.env.RAZZ_ENTRY_FILE || path.join(__dirname, '../strategies/razz3-uniform-entry.json'),
+  stud8: process.env.STUD8_ENTRY_FILE || path.join(__dirname, '../strategies/stud8-3way-uniform-entry.json'),
 };
 const CACHE = {};
 
@@ -32,7 +33,7 @@ function loadTable(game) {
 function pEnter(game, cards) {
   const t = loadTable(game);
   if (!t) return null;
-  const v = t[bucketOf(cards)];
+  const v = t[bucketOf(game, cards)];
   return (v == null ? null : v);
 }
 
