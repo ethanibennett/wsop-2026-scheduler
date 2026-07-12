@@ -21,7 +21,7 @@ echo "=== stud8 UNIFORM grind started $(date) pid=$$ ===" >> "$LOG"
 for ITERS in $LADDER; do
   echo "" >> "$LOG"
   echo "=== PASS target=$ITERS (cumulative, stud8 uniform)  $(date) ===" >> "$LOG"
-  nice -n 12 node --max-old-space-size=6144 solver/multiway/train3.js \
+  nice -n 12 node --max-old-space-size=8192 solver/multiway/train3.js \
     --game stud8 --uniform --iters "$ITERS" --cap 2 --antes 8 --seed 999 --measure-hands 6000 \
     --ckpt-every "$CKPT_EVERY" --out "$OUT" >> "$LOG" 2>&1
   echo "=== pass target=$ITERS exited code=$? $(date) ===" >> "$LOG"
@@ -29,7 +29,7 @@ done
 while true; do
   echo "" >> "$LOG"
   echo "=== PERPETUAL keep-warm target=3000000 (stud8 uniform)  $(date) ===" >> "$LOG"
-  nice -n 12 node --max-old-space-size=6144 solver/multiway/train3.js \
+  nice -n 12 node --max-old-space-size=8192 solver/multiway/train3.js \
     --game stud8 --uniform --iters 3000000 --cap 2 --antes 8 --seed 999 --measure-hands 6000 \
     --ckpt-every "$CKPT_EVERY" --out "$OUT" >> "$LOG" 2>&1
   echo "=== perpetual pass exited code=$? $(date) ===" >> "$LOG"

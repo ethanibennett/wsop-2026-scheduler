@@ -64,11 +64,20 @@ function boardValue(up) {
 // seats is the lowest card, suit-tiebroken — matching games/stud8-game.js.
 function doorBringInValue(card) { return rankOf(card) * 4 + suitOf(card); }
 
-// ── ownBucket — hi/lo-aware, adapted VERBATIM from games/stud8-game.js. ──
-// pairCls (-/T/2/A/p/P) × distinct-low count (0..4) × ace × flush × made-low
+// ── ownBucket — hi/lo-aware, adapted from games/stud8-game.js. ──
+// pairCls (-/T/2/A/p/P) × distinct-low count (0..3) × ace × flush × made-low
 // quality (Ls ≤6 / Lw 7-8). Distinguishes made-low draws (L high / lowFlag),
 // big pairs (P, A), and junk (- with low L). `street` sets the flush threshold
 // (3 suited on 3rd/4th, 4 on 5th+), matching the 2-player game.
+//
+// COARSENING (vs the 2-player game's Math.min(4,·)): the distinct-low count is
+// capped at 3 (`Math.min(3,·)`) instead of 4 — the ONLY change to the OWN axis,
+// which stays fully hi/lo-meaningful. On 3rd street a seat holds 3 cards so the
+// cap is a no-op (≤3 distinct lows possible) — the derived street-0 entry buckets
+// (solver/entry) are BYTE-IDENTICAL. It only merges "4 distinct low cards" into
+// "3+" on 5th–7th, where a made-low flag already carries the low strength, so the
+// 4th distinct low is near-redundant. This trims the OWN dimension a little; the
+// dominant infoset lever is the coarser OPPONENT bucket below.
 function ownBucketCards(cards, street) {
   const counts = {};
   for (const c of cards) { const r = rankOf(c); counts[r] = (counts[r] || 0) + 1; }
@@ -84,7 +93,7 @@ function ownBucketCards(cards, street) {
     else pairCls = groups[0].r <= 8 ? 'p' : 'P';
   }
 
-  const L = Math.min(4, lowRankCount(cards));
+  const L = Math.min(3, lowRankCount(cards));
   const suits = [0, 0, 0, 0];
   for (const c of cards) suits[suitOf(c)]++;
   const flushFlag = Math.max(...suits) >= (street < 2 ? 3 : 4) ? 'f' : '';
@@ -96,19 +105,34 @@ function ownBucketCards(cards, street) {
   return `${pairCls}${L}${aceFlag}${flushFlag}${lowFlag}`;
 }
 
-// ── oppBucket — single opponent's visible board. Ported VERBATIM from
-// games/stud8-game.js oppBucket. ──
+// ── oppBucket — single opponent's visible board (a coarse THREAT summary). ──
+// The infoset key stores an UNORDERED PAIR of these (a seat faces two opponents),
+// so this bucket's cardinality enters the infoset count SQUARED — it is the
+// dominant driver of the 3-player blowup. The 2-player game can afford a fine
+// 5-flag opponent bucket (L × paired × ace × suited × big ≈ 49 values); at 3
+// seats that squares to ~1000 board-pairs and pushes the cap-2 blueprint to 5.2M
+// infosets (which cannot even JSON.stringify). So this is COARSENED to three
+// board-threat signals, cutting the squared term ~6×:
+//   • loLevel = min(2, distinct low ranks ≤8)  — 0 / 1 / 2+ low cards: the
+//     opponent's low-draw danger, capped at 2+ (a strong-low board reads the same
+//     whether it shows 2, 3, or 4 lows — the hero's decision hinges on "clearly
+//     going low" vs not, not the exact count)
+//   • paired                                    — a made-hi / two-pair threat
+//   • hiThreat (H) = 3-flush OR any paint (J/Q/K) — a merged high-hand threat
+// The explicit ace flag is dropped (an ace already lifts loLevel), and the
+// separate flush/paint flags are merged into one hi-threat bit — losses that are
+// on the (coarse-by-nature) OPPONENT read, never the hero's own hi/lo hand. This
+// leaves 3 board-threat axes (low-level × paired × hi-draw ≈ 3·2·2 = 12 values →
+// ~78 unordered board-pairs, vs the fine bucket's ~49 singles / ~1000 pairs).
 function oppBucketUp(up) {
-  const L = lowRankCount(up);
+  const L = Math.min(2, lowRankCount(up));
   const counts = {};
   let paired = '';
   for (const c of up) { const r = rankOf(c); counts[r] = (counts[r] || 0) + 1; if (counts[r] >= 2) paired = 'P'; }
-  const aceUp = up.some(c => rankOf(c) === 14) ? 'a' : '';
   const suits = [0, 0, 0, 0];
   for (const c of up) suits[suitOf(c)]++;
-  const suitedFlag = Math.max(...suits) >= 3 ? 'f' : '';
-  const big = up.some(c => rankOf(c) >= 11 && rankOf(c) <= 13) ? 'h' : '';
-  return `${L}${paired}${aceUp}${suitedFlag}${big}`;
+  const hiThreat = (Math.max(...suits) >= 3 || up.some(c => rankOf(c) >= 11 && rankOf(c) <= 13)) ? 'H' : '';
+  return `${L}${paired}${hiThreat}`;
 }
 
 // Optional coarse opponent summary (3 opaque levels) — only if opts.coarseOpp
