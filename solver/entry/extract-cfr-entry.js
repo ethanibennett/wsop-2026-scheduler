@@ -48,6 +48,13 @@ if (require.main === module) {
   const { table, meta, n0, nVol } = extract(path);
   console.log(`blueprint: ${path}  (uniform=${meta.uniform}, iters=${meta.iters}, cap=${meta.cap})`);
   console.log(`street-0 infosets: ${n0}  | with a voluntary fold/enter decision: ${nVol}  | distinct buckets: ${table.size}`);
+  // --out <file>: emit the {bucket: P(enter)} table (+ provenance) the oracle consumer reads.
+  const outIdx = process.argv.indexOf('--out');
+  if (outIdx > 0 && process.argv[outIdx + 1]) {
+    const obj = { meta: { source: path, uniform: meta.uniform, iters: meta.iters, cap: meta.cap, buckets: table.size }, table: Object.fromEntries(table) };
+    fs.writeFileSync(process.argv[outIdx + 1], JSON.stringify(obj));
+    console.log(`wrote ${table.size} buckets -> ${process.argv[outIdx + 1]}`);
+  }
   const gates = ['As2h3d', '2c3h4d', 'Ah2c4d', '5s4d3c', '6s5d4c', '8s7d5c', '8s6d4c', '2c2h5d', '3c3h6d', 'Ac5d8s', 'KsQd9c', 'KdJh8c', 'Qs9h4d'];
   console.log('\nhand      bucket        P(enter)');
   for (const h of gates) {

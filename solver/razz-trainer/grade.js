@@ -846,8 +846,18 @@ function entryPrior(game, door, combo) {
   // opponent has >2 hidden cards (7th adds the river); which 2 were the hole is
   // unobserved -> take the MAX over dropping each extra hidden card (a legit
   // start exists if ANY 2-hidden choice is legit). Mirrors the razz path.
+  // Razz: prefer the DERIVED (CFR uniform-deal) entry range when a table exists
+  // (solver/strategies/razz3-uniform-entry.json, emitted by extract-cfr-entry.js);
+  // else fall back to the hand-tuned tiers. The derived range is horizon-correct
+  // and threshold-free (the equity fixed point was ill-conditioned — see
+  // solver/entry/DERIVATION_SPEC.md). Absent the file, behavior is unchanged.
+  const derivedPrior = isRazz ? require('../entry/derived-prior') : null;
   const weightOf = isRazz
-    ? (three) => { const t = DEFAULT_GAME.earlyLowTier(three); return RAZZ_ENTRY_W[t] != null ? RAZZ_ENTRY_W[t] : 0.04; }
+    ? (three) => {
+        const d = derivedPrior.pEnter('razz', three);
+        if (d != null) return d;
+        const t = DEFAULT_GAME.earlyLowTier(three); return RAZZ_ENTRY_W[t] != null ? RAZZ_ENTRY_W[t] : 0.04;
+      }
     : (three) => STUD8_ENTRY_W[stud8EntryTier(three)];
   if (combo.length <= 2) return weightOf([door, ...combo]);
   let best = 0;
