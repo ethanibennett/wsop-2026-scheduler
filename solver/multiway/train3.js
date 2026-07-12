@@ -20,9 +20,16 @@ const fs = require('fs');
 const path = require('path');
 const { makeRng } = require('../engine/cards');
 const { MCCFR3Trainer } = require('./mccfr3');
-const { makeGame, DEFAULT_CAP, DEFAULT_ANTES, UNIFORM_PRIORS } = require('./razz3-game');
 const { stratDrift, sampledExploit } = require('./measure3');
 const { makePool } = require('./parallel3');
+
+// ── game registry (parameterizes the trainer over the multiway games) ──
+// Each entry names the module a worker rebuilds the game from; every module
+// exposes the SAME { makeGame, DEFAULT_CAP, DEFAULT_ANTES, UNIFORM_PRIORS }
+// surface, so ALL of the train/measure/checkpoint/blueprint code below is
+// game-agnostic. Default is razz3 (unchanged); `--game stud8` loads the hi/lo
+// sibling. The written blueprint's meta.game is the constructed game's id.
+const GAME_MODULES = { razz3: './razz3-game', stud8: './stud8-3way-game' };
 
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
@@ -60,6 +67,14 @@ function writeCheckpoint(trainer, ckptFile) {
 
 async function main() {
   const smoke = !!arg('smoke', false);
+  // Select the game module (default razz3; --game stud8 → the hi/lo sibling).
+  const gameName = arg('game', 'razz3');
+  const gameModulePath = GAME_MODULES[gameName];
+  if (!gameModulePath) {
+    console.error(`unknown --game '${gameName}' (choices: ${Object.keys(GAME_MODULES).join(', ')})`);
+    process.exit(1);
+  }
+  const { makeGame, DEFAULT_CAP, DEFAULT_ANTES, UNIFORM_PRIORS } = require(gameModulePath);
   // --iters is an ABSOLUTE target (total lifetime iterations), matching
   // solver/train.js's targetIters — this is what makes the grind cumulative:
   // an escalating ladder just raises the target and the trainer resumes.
@@ -108,7 +123,7 @@ async function main() {
   // (same trick as solver/train.js's seed-mix on trainer.iterations).
   const rng = makeRng((seed + trainer.iterations * 2654435761) >>> 0 || seed);
   const potScale = game.deadPot + 3 * 8; // rough pot scale for % readout
-  const meta = { game: 'razz3', cap, antes, deadPot: game.deadPot, coarseOpp, uniform, seed, iters };
+  const meta = { game: game.id, cap, antes, deadPot: game.deadPot, coarseOpp, uniform, seed, iters };
 
   // Data-parallel pool (W>=2 only). Each worker rebuilds the IDENTICAL game via
   // this descriptor {module,factory,opts}. The pool wraps THIS SAME trainer, so
@@ -117,7 +132,7 @@ async function main() {
   // W workers -> DCFR-safe averaging merge) instead of trainer.train(). W<=1
   // leaves pool null and the in-process single-thread loop runs, byte-identical.
   const parallel = workers >= 2;
-  const gameDesc = { module: './razz3-game', factory: 'makeGame', opts: { cap, antes, coarseOpp, ...(priors ? { priors } : {}) } };
+  const gameDesc = { module: gameModulePath, factory: 'makeGame', opts: { cap, antes, coarseOpp, ...(priors ? { priors } : {}) } };
   const pool = parallel ? makePool(trainer, gameDesc, { workers, workerHeapMB }) : null;
   if (parallel) console.log(`  data-parallel: ${workers} workers, merge-every=${mergeEvery} (averaging merge; iters advance by merge-every/round, NOT ×W)`);
 
@@ -146,7 +161,7 @@ async function main() {
   process.on('SIGTERM', () => onSignal('SIGTERM'));
   process.on('SIGINT', () => onSignal('SIGINT'));
 
-  console.log(`razz3  cap=${cap}  antes=${antes} (deadPot=${game.deadPot})  coarseOpp=${coarseOpp}  seed=${seed}  target=${iters}`);
+  console.log(`${game.id}  cap=${cap}  antes=${antes} (deadPot=${game.deadPot})  coarseOpp=${coarseOpp}  seed=${seed}  target=${iters}`);
   console.log('  iters   infosets   meanPosReg   drift    exploit[s0,s1,s2] (chips)   tot   %pot');
 
   if (trainer.iterations >= iters) {
