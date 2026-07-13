@@ -2,7 +2,8 @@
 // Chips: ante 1, bring-in 2, small bet 4 (3rd/4th st), big bet 8
 // (5th-7th). Streets indexed 0..4 = 3rd..7th. Lowest upcard brings
 // in (ace high, suit order c<d<h<s breaks ties); the bring-in may
-// complete instead, and keeps the option to complete if just called.
+// complete instead. If it posts the partial bring-in and everyone just
+// CALLS (no completion), the round closes to 4th — NO live BB-style option.
 // From 4th street on, the best showing board acts first. 4-bet cap.
 //
 // Showdown splits the pot between the best hi and the best
@@ -215,7 +216,10 @@ const game = {
 
     if (a === 'br') {
       n.contrib[p] = n.base + BRING;
-      // forced bet — the bring-in keeps the option, so don't mark acted
+      // The forced bring-in COUNTS as the bring-in's action. If everyone merely
+      // CALLS it (no completion), the round closes to 4th — the bring-in does
+      // NOT get a live check/raise option (stud, unlike a hold'em big blind).
+      n.acted[p] = true;
       n.hist += 'i';
       n.curSeq += 'i';
       n.log.push({ p, a: `brings in for ${BRING}` });
@@ -245,7 +249,7 @@ const game = {
       n.contrib[p] += facing;
       n.log.push({ p, a: a === 'k' ? 'checks' : 'calls' });
       if (n.acted[1 - p]) endStreet(n);
-      else n.toAct = 1 - p; // bring-in retains the completion option
+      else n.toAct = 1 - p; // other seat hasn't acted yet (e.g. a check on 4th+) — pass to them
       return n;
     }
     // bet / raise / complete-over-bring-in

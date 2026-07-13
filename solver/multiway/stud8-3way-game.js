@@ -409,6 +409,10 @@ function makeGame(opts = {}) {
 
       if (a === 'br') {
         n.contrib[p] = n.base + BRING;
+        // The forced bring-in COUNTS as the bring-in's action: if all live seats
+        // merely CALL it (no completion), the round closes to 4th. A completion
+        // re-opens (resets acted), so a bring-in FACING a completion still acts.
+        n.acted[p] = true;
         n.hist += 'i'; n.curSeq += 'i';
         n.log.push({ p, a: `brings in for ${BRING}` });
         n.toAct = this._nextLive(n, p);

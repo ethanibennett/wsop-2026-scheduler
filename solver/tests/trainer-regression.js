@@ -754,9 +754,16 @@ const STUD_NUT_FIXTURE = {
   stud8: {
     cards: { down: [['Ah', '2h'], ['Tc', '8d']], up: [['3h'], ['Kc']], future: ['4h', 'Qd', '5h', 'Js', 'Kd', '9c', '6c', '7s'] },
     pre: [
-      { actor: 0, action: 'br' }, { actor: 1, action: 'c' }, { actor: 0, action: 'k' },
-      { actor: 1, action: 'k' }, { actor: 0, action: 'k' }, { actor: 1, action: 'k' }, { actor: 0, action: 'k' },
-      { actor: 1, action: 'k' }, { actor: 0, action: 'k' }, { actor: 1, action: 'b' },
+      // 3rd: bring-in + a CALL closes the street (corrected rule — the bring-in gets
+      // no live check/raise option). Then 4th-6th check through (actor 1 holds the
+      // best board — Kc-high — so acts first each street), and on 7th the opponent
+      // bets into hero's straight-flush scoop. (Was a 10-action line whose step-2
+      // {0,'k'} was the illegal bring-in-checks-after-being-called-around node.)
+      { actor: 0, action: 'br' }, { actor: 1, action: 'c' },
+      { actor: 1, action: 'k' }, { actor: 0, action: 'k' },
+      { actor: 1, action: 'k' }, { actor: 0, action: 'k' },
+      { actor: 1, action: 'k' }, { actor: 0, action: 'k' },
+      { actor: 1, action: 'b' },
     ],
     value: 'r', // RAISE the straight-flush scoop — the true EV-best line. Calling it
     // leaves ~3.3 chips vs raising for value (EVs: fold -3, call +11, raise +14.33);

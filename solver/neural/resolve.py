@@ -143,8 +143,9 @@ def apply_action(node: dict, a: str) -> dict:
     p = n['toAct']
     facing = n['contrib'][1 - p] - n['contrib'][p]
 
-    if a == 'br':                                  # bring-in keeps its option
+    if a == 'br':                                  # forced bring-in COUNTS as the bring-in's action
         n['contrib'][p] = n['base'] + BRING
+        n['acted'][p] = True                       # everyone-calls closes the street (no live BB-style option)
         n['curSeq'] += 'i'
         n['toAct'] = 1 - p
         return n

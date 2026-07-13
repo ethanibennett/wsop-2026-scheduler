@@ -343,5 +343,61 @@ console.log('— Best-response stud LBR —');
   });
 }
 
+console.log('— 3rd-street bring-in closing rule (all 4 stud engines) —');
+{
+  // In stud the bring-in makes ONE choice at posting (post the partial bring-in OR
+  // complete). If it posts the partial and everyone merely CALLS (no completion),
+  // the round CLOSES to 4th — the bring-in gets NO check/raise option (unlike a
+  // hold'em big blind). A completion still gives the bring-in a real facing decision.
+  const razz3 = require('../multiway/razz3-game').makeGame({ cap: 2, antes: 8 });
+  const stud83 = require('../multiway/stud8-3way-game').makeGame({ cap: 2, antes: 8 });
+  const engines = [['razz-HU', GAMES.razz], ['stud8-HU', GAMES.stud8], ['razz3', razz3], ['stud8-3way', stud83]];
+  const onStreet0 = (g, s) => s.street === 0 && !(g.isChance && g.isChance(s)) && !(g.isTerminal && g.isTerminal(s));
+
+  test('bring-in: a call-around CLOSES 3rd street (no live BB option)', () => {
+    for (const [name, g] of engines) {
+      for (let seed = 1; seed <= 6; seed++) {
+        let s = g.newHand(makeRng(seed));
+        const bi = g.currentPlayer(s);
+        assert.deepStrictEqual(g.legalActions(s), ['br', 'co'], `${name}: forced open is [br,co]`);
+        s = g.applyAction(s, 'br');
+        let guard = 0;
+        while (onStreet0(g, s) && guard++ < 12) {
+          const p = g.currentPlayer(s);
+          assert(p !== bi, `${name}: bring-in got an ILLEGAL street-0 decision after being called around`);
+          const acts = g.legalActions(s);
+          assert(!acts.includes('k') && !acts.includes('b'), `${name}: seat facing the bring-in must not get a free check/bet (got ${acts})`);
+          s = g.applyAction(s, 'c');
+        }
+        assert(!onStreet0(g, s), `${name}: a call-around must leave 3rd street, not loop back to the bring-in`);
+      }
+    }
+  });
+
+  test('bring-in: a completion still gives the bring-in a real f/c/r decision', () => {
+    for (const [name, g] of engines) {
+      for (let seed = 1; seed <= 6; seed++) {
+        let s = g.newHand(makeRng(seed));
+        const bi = g.currentPlayer(s);
+        s = g.applyAction(s, 'br');
+        s = g.applyAction(s, 'r'); // first opponent COMPLETES (facing the bring-in → 'r')
+        let guard = 0, saw = false;
+        while (onStreet0(g, s) && guard++ < 12) {
+          const p = g.currentPlayer(s);
+          const acts = g.legalActions(s);
+          if (p === bi) {
+            saw = true;
+            assert(acts.includes('c') && acts.includes('f') && !acts.includes('k'),
+              `${name}: bring-in facing a completion must get f/c/r, no free check (got ${acts})`);
+            break;
+          }
+          s = g.applyAction(s, 'c');
+        }
+        assert(saw, `${name}: bring-in must face a real decision after a completion`);
+      }
+    }
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
