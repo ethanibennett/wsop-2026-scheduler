@@ -152,7 +152,10 @@ export default function Multiway3TrainerView() {
   const totalEvLoss = useMemo(() => (grades || []).reduce((a, g) => a + Math.max(0, +g.evLoss || 0), 0), [grades]);
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '12px 14px 80px', maxWidth: 620, margin: '0 auto', fontFamily: FONT }}>
+    <div className="trainer-shell" style={{ height: '100%', overflowY: 'auto', padding: '12px 14px 80px', maxWidth: 620, margin: '0 auto', fontFamily: FONT }}>
+      {/* Full-width top band (header + subtitle + error). Spans above the two
+          columns on wide screens; top of the stack on narrow. */}
+      <div className="trainer-top">
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)', margin: '4px 0 2px' }}>3-Way Razz Trainer</h2>
         <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>MVP · multiway</span>
@@ -171,6 +174,13 @@ export default function Multiway3TrainerView() {
           </span>
         </div>
       )}
+
+      </div>{/* .trainer-top */}
+
+      {/* Two-column split on wide screens: LEFT = play, RIGHT = feedback.
+          Collapses to a single stacked column below 900px (see styles.css). */}
+      <div className="trainer-cols">
+      <div className="trainer-col trainer-col-play">
 
       {/* felt */}
       {state && <Felt3 state={state} heroSeat={heroSeat} handOver={handOver} result={result} />}
@@ -200,10 +210,20 @@ export default function Multiway3TrainerView() {
         </div>
       )}
 
-      {/* result + grades */}
+      {/* result banner — play side (the hand's conclusion, shown with the felt) */}
       {handOver && result && (
         <div style={{ marginTop: 12 }}>
           <ResultBanner3 result={result} heroSeat={heroSeat} />
+        </div>
+      )}
+
+      </div>{/* .trainer-col-play */}
+
+      {/* Feedback side: grading basis + per-decision grades + deal-next + scoreboard. */}
+      <div className="trainer-col trainer-col-feedback">
+
+      {handOver && result && (
+        <>
           {profile && (
             <div style={{ ...panel, marginTop: 10, padding: '8px 12px' }}>
               <span style={label}>Grading basis</span>
@@ -230,7 +250,7 @@ export default function Multiway3TrainerView() {
               No hero decisions to grade this hand.
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* next hand */}
@@ -248,6 +268,9 @@ export default function Multiway3TrainerView() {
 
       {/* scoreboard */}
       <SessionScoreboard3 session={session} onReset={resetSession} />
+
+      </div>{/* .trainer-col-feedback */}
+      </div>{/* .trainer-cols */}
     </div>
   );
 }
@@ -274,7 +297,6 @@ function Felt3({ state, heroSeat, handOver, result }) {
         const rs = resultSeats ? resultSeats.find(x => x.seat === s.seat) : null;
         const revealed = rs && rs.down && rs.down.some(c => c != null) ? rs.down : null;
         const isToAct = state.toAct === s.seat && !handOver;
-        const downCount = state.street === 4 ? 3 : 2;
         return (
           <div key={s.seat} style={{
             marginBottom: 10, padding: '8px 10px', borderRadius: 10,
@@ -293,14 +315,21 @@ function Felt3({ state, heroSeat, handOver, result }) {
               <span style={{ marginLeft: 'auto', fontSize: '0.62rem', color: 'var(--text-muted)' }}>in {s.contrib}</span>
               {rs && rs.lowRank && <span style={{ fontSize: '0.62rem', color: 'var(--text)', fontWeight: 700 }}>{rs.lowRank}</span>}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: 38 }}>
-              {/* down cards: hero always face-up; opponents hidden until showdown */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: 46, paddingTop: 12 }}>
+              {/* 2 hole cards: hero always face-up; opponents hidden until showdown */}
               {s.isHero
-                ? (s.down || []).map((c, i) => <Card key={'d' + i} str={c} size="sm" />)
+                ? (s.down || []).slice(0, 2).map((c, i) => <Card key={'d' + i} str={c} size="sm" />)
                 : revealed
-                  ? revealed.map((c, i) => <Card key={'d' + i} str={c} size="sm" />)
-                  : Array.from({ length: downCount }).map((_, i) => <Card key={'d' + i} faceDown size="sm" />)}
-              {(s.up || []).map((c, i) => <Card key={'u' + i} str={c} size="sm" />)}
+                  ? revealed.slice(0, 2).map((c, i) => <Card key={'d' + i} str={c} size="sm" />)
+                  : Array.from({ length: 2 }).map((_, i) => <Card key={'d' + i} faceDown size="sm" />)}
+              {/* upcards (3rd door + 4th/5th/6th), raised */}
+              {(s.up || []).map((c, i) => <Card key={'u' + i} str={c} size="sm" raised />)}
+              {/* 7th-street river — down card AFTER the upcards, at hole level, not raised */}
+              {s.isHero
+                ? (s.down || []).slice(2).map((c, i) => <Card key={'r' + i} str={c} size="sm" />)
+                : revealed
+                  ? revealed.slice(2).map((c, i) => <Card key={'r' + i} str={c} size="sm" />)
+                  : (state.street === 4 ? <Card key="rb" faceDown size="sm" /> : null)}
             </div>
           </div>
         );

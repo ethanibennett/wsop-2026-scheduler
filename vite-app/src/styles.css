@@ -6421,3 +6421,35 @@
     .solver-dead-row { display: flex; align-items: center; gap: 3px; }
     .solver-dead-label { font-family: 'Univers Condensed', 'Univers', sans-serif; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-right: 2px; }
     .solver-deadstrip img { height: 26px; width: 18px; border-radius: 2px; }
+
+    /* ── Solver Trainer responsive shell ──────────────────────────────────
+       RazzTrainerView + Multiway3TrainerView. NARROW (<900px): the existing
+       single-column phone stack — the inline maxWidth on the shell governs the
+       column width, unchanged. WIDE (≥900px): a wider centered container with a
+       two-column grid — LEFT = play (hand table + action buttons), RIGHT =
+       feedback (grading report + scoreboard + leaks + history) — so the table
+       and its per-street grades are visible at once with no scrolling between
+       them. The header (title + game pills), trust badge and Pro-mode toggle
+       stay full width in .trainer-top above the two columns. Pure CSS media
+       query — no JS resize listener. */
+    .trainer-cols { display: grid; grid-template-columns: 1fr; }
+    @media (min-width: 900px) {
+      /* Widen the centered shell. !important overrides the inline narrow
+         maxWidth (560 razz / 620 multiway), which is preserved below 900px. */
+      .trainer-shell { max-width: 1120px !important; }
+      .trainer-cols {
+        grid-template-columns: 1.28fr 1fr; /* LEFT ≈56% play · RIGHT ≈44% feedback */
+        gap: 20px;
+        align-items: start;
+      }
+      /* Keep the feedback column in view while the (usually taller) play column
+         scrolls; it scrolls INTERNALLY once it outgrows the viewport so no
+         grade/history is ever clipped. */
+      .trainer-col-feedback {
+        position: sticky;
+        top: 0;
+        align-self: start;
+        max-height: calc(100vh - var(--header-h, 60px) - var(--nav-h, 44px) - 20px);
+        overflow-y: auto;
+      }
+    }

@@ -379,7 +379,10 @@ export default function RazzTrainerView() {
   // ── render ──
   const gameName = GAME_LABEL[game] || game;
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '12px 14px 80px', maxWidth: 560, margin: '0 auto', fontFamily: FONT }}>
+    <div className="trainer-shell" style={{ height: '100%', overflowY: 'auto', padding: '12px 14px 80px', maxWidth: 560, margin: '0 auto', fontFamily: FONT }}>
+      {/* Full-width top band (header + game pills + trust badge + pro toggle + error).
+          On wide screens it spans above the two columns; on narrow it's the top of the stack. */}
+      <div className="trainer-top">
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)', margin: '4px 0 2px' }}>{gameName} Trainer</h2>
         {/* Game pills */}
@@ -437,6 +440,13 @@ export default function RazzTrainerView() {
         </div>
       )}
 
+      </div>{/* .trainer-top */}
+
+      {/* Two-column split on wide screens: LEFT = play, RIGHT = feedback.
+          Collapses to a single stacked column below 900px (see styles.css). */}
+      <div className="trainer-cols">
+      <div className="trainer-col trainer-col-play">
+
       {loading && !state && <div style={{ color: 'var(--text-muted)', padding: '20px 0' }}>Dealing…</div>}
 
       {state && cat === 'stud' && (
@@ -486,10 +496,15 @@ export default function RazzTrainerView() {
         </div>
       )}
 
-      {/* ── result + grading report ── */}
+      {/* ── result banner (play side — the hand's conclusion, shown with the felt) ── */}
       {handOver && result && (
         <ResultBanner result={result} heroSeat={heroSeat} game={game} />
       )}
+
+      </div>{/* .trainer-col-play */}
+
+      {/* Feedback side: grading report + deal-next + scoreboard + history. */}
+      <div className="trainer-col trainer-col-feedback">
 
       {handOver && grades && (
         <div style={{ marginTop: 12 }}>
@@ -570,6 +585,9 @@ export default function RazzTrainerView() {
 
       {/* ── durable per-hand history (DB-backed, per-game) ── */}
       <TrainerHistory game={game} gameName={gameName} rev={historyRev} />
+
+      </div>{/* .trainer-col-feedback */}
+      </div>{/* .trainer-cols */}
     </div>
   );
 }
@@ -696,13 +714,20 @@ function StudTable({ state, heroSeat, handOver, result }) {
             <span style={{ fontSize: '0.6rem', color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>to act</span>
           )}
         </div>
-        {/* hidden down cards (2 on 3rd–6th, 3 on 7th) then upcards. At
-            showdown the opponent's down cards are revealed face-up. */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: 38 }}>
+        {/* Card order: [2 hole cards] [upcards raised] [7th-street river, not raised].
+            The river is a down card but sits at the END (right of the 6th upcard) and
+            at hole-card level. Hidden pre-showdown; revealed face-up at showdown. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: 46, paddingTop: 12 }}>
+          {/* 2 hole cards */}
           {oppShowdown
-            ? oppShowdown.map((c, i) => <Card key={'od' + i} str={c} size="sm" />)
-            : Array.from({ length: state.street === 4 ? 3 : 2 }).map((_, i) => <Card key={'ob' + i} faceDown size="sm" />)}
-          {(state.oppUp || []).map((c, i) => <Card key={'ou' + i} str={c} size="sm" />)}
+            ? oppShowdown.slice(0, 2).map((c, i) => <Card key={'od' + i} str={c} size="sm" />)
+            : Array.from({ length: 2 }).map((_, i) => <Card key={'ob' + i} faceDown size="sm" />)}
+          {/* upcards (3rd door + 4th/5th/6th) */}
+          {(state.oppUp || []).map((c, i) => <Card key={'ou' + i} str={c} size="sm" raised />)}
+          {/* 7th-street river — down card AFTER the upcards, at hole level, not raised */}
+          {state.street === 4 && (oppShowdown
+            ? oppShowdown.slice(2).map((c, i) => <Card key={'or' + i} str={c} size="sm" />)
+            : <Card key="orb" faceDown size="sm" />)}
         </div>
       </div>
 
@@ -714,9 +739,13 @@ function StudTable({ state, heroSeat, handOver, result }) {
             <span style={{ fontSize: '0.6rem', color: 'var(--pos, #22c55e)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>to act</span>
           )}
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: 38 }}>
-          {(state.heroDown || []).map((c, i) => <Card key={'hd' + i} str={c} size="sm" />)}
-          {(state.heroUp || []).map((c, i) => <Card key={'hu' + i} str={c} size="sm" />)}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', minHeight: 46, paddingTop: 12 }}>
+          {/* first 2 down = hole cards */}
+          {(state.heroDown || []).slice(0, 2).map((c, i) => <Card key={'hd' + i} str={c} size="sm" />)}
+          {/* upcards (3rd door + 4th/5th/6th), raised */}
+          {(state.heroUp || []).map((c, i) => <Card key={'hu' + i} str={c} size="sm" raised />)}
+          {/* river — any down card beyond the first 2 (7th street), at hole level, not raised */}
+          {(state.heroDown || []).slice(2).map((c, i) => <Card key={'hr' + i} str={c} size="sm" />)}
         </div>
       </div>
 
