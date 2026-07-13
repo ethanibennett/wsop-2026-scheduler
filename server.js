@@ -632,6 +632,17 @@ if (require('fs').existsSync(consoleDist)) {
     res.json({ ok: true, kind, fired: true, title: msg.title, body: msg.body });
   });
 
+  // Routine checklist digest test (ham-gated): fire the morning/evening checklist
+  // NOW so delivery + wording can be verified on demand.
+  // Body: { period?: 'morning'|'evening' } (default 'morning').
+  app.post('/console/api/checklist/test', async (req, res) => {
+    const period = String((req.body && req.body.period) || 'morning') === 'evening' ? 'evening' : 'morning';
+    const msg = checklistDigest(period, new Date());
+    if (!msg) return res.json({ ok: true, period, fired: false, reason: 'no active checklist items' });
+    await sendConsolePush(msg.title, msg.body, 'checklist-' + period);
+    res.json({ ok: true, period, fired: true, title: msg.title, body: msg.body });
+  });
+
   // Manual Oura sync trigger (ham-gated by requireHamBasic on /console). Runs
   // the same job as the daily cron, once, for first-run backfill + debugging
   // without waiting for 10:30 ET. Body: { days?: number } (default 14 here so a
@@ -10649,28 +10660,12 @@ body{margin:0;background:var(--ink);color:var(--bone);font-family:'Univers Conde
 </script></body></html>`;
 
 function setupConsoleNudgeCron() {
-  if (!consoleSchedule || !Array.isArray(consoleSchedule.BASE_NUDGES)) return;
-  const { BASE_NUDGES, getNudges } = consoleSchedule;
+  if (!consoleSchedule) return;
   let scheduled = 0;
-  for (const nudge of BASE_NUDGES) {
-    if (!nudge.cron || !cron.validate(nudge.cron)) continue;
-    cron.schedule(
-      nudge.cron,
-      () => {
-        try {
-          // Only fire if this nudge is in today's active (ramped-on) set.
-          const active = getNudges(new Date());
-          if (!active.some((n) => n.id === nudge.id)) return;
-          sendConsolePush(nudge.title, nudge.body, nudge.id);
-        } catch (err) {
-          console.error('Console nudge fire error:', err);
-        }
-      },
-      { timezone: CONSOLE_TZ }
-    );
-    scheduled++;
-  }
-  // Home nudges fire daily, independent of the rhythm ramp.
+  // The per-item rhythm pings (BASE_NUDGES: wake anchor, movement, caffeine,
+  // session cap, weekly review) are intentionally NOT scheduled individually —
+  // they're consolidated into the morning + evening checklist digest
+  // (setupChecklistDigestCron). Home + ops nudges still fire on their own cron.
   for (const nudge of consoleSchedule.HOME_NUDGES || []) {
     if (!nudge.cron || !cron.validate(nudge.cron)) continue;
     cron.schedule(
@@ -10759,6 +10754,69 @@ function setupTrackNudgeCron() {
     n++;
   }
   console.log(`[console] scheduled ${n} keep-on-track nudge cron job(s) (${CONSOLE_TZ})`);
+}
+
+// ── Routine checklist digest: morning + evening ──
+// One push listing the day's routine items (the same phase-ramped set the app's
+// Today checklist shows, via consoleSchedule.getNudges). This CONSOLIDATES the
+// per-item rhythm pings into two digests: morning = the day's plan, evening = a
+// how-did-it-go review. Multi-line body; tapping opens /console to tick them off.
+
+// getNudges ramps on phase+week but NOT day-of-week, so a day-gated item like the
+// Sunday-only Weekly review would otherwise show in every day's checklist. Filter
+// by the cron's 5th (dow) field against today's NY weekday so the digest only
+// lists what actually belongs to that day.
+function cronDowMatches(cronStr, weekday) {
+  const parts = String(cronStr || '').trim().split(/\s+/);
+  const dow = parts.length >= 5 ? parts[4] : '*';
+  if (dow === '*' || dow === '?') return true;
+  for (const tok of dow.split(',')) {
+    const m = tok.match(/^(\d+)(?:-(\d+))?$/);
+    if (!m) continue;
+    const a = Number(m[1]) % 7; // 7 → 0 (Sunday)
+    const b = m[2] != null ? Number(m[2]) % 7 : a;
+    if (a <= b ? (weekday >= a && weekday <= b) : (weekday >= a || weekday <= b)) return true;
+  }
+  return false;
+}
+function nyWeekday(now) {
+  const s = new Intl.DateTimeFormat('en-US', { timeZone: CONSOLE_TZ, weekday: 'short' }).format(now);
+  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return map[s] != null ? map[s] : now.getDay();
+}
+function checklistDigest(period, now = new Date()) {
+  if (!consoleSchedule || typeof consoleSchedule.getNudges !== 'function') return null;
+  let items = [];
+  try { items = consoleSchedule.getNudges(now) || []; } catch (_) { return null; }
+  const wd = nyWeekday(now);
+  items = items.filter((n) => cronDowMatches(n.cron, wd));
+  if (!items.length) return null;
+  // Include each item's time — the digest replaces the per-item timed pings, so
+  // it doubles as the day's schedule.
+  const lines = items.map((n) => `☐ ${n.time ? n.time + ' · ' : ''}${n.title}`).join('\n');
+  if (period === 'evening') {
+    return { title: 'Evening checklist', body: `How did today's rhythm go?\n${lines}` };
+  }
+  return { title: 'Morning checklist', body: `Today's rhythm — tick them off:\n${lines}` };
+}
+
+function setupChecklistDigestCron() {
+  const jobs = [
+    { period: 'morning', cron: '0 10 * * *' }, // 10:00 ET — at wake, the day's plan
+    { period: 'evening', cron: '0 22 * * *' }, // 10:00pm ET — before the night's grind
+  ];
+  let n = 0;
+  for (const j of jobs) {
+    if (!cron.validate(j.cron)) continue;
+    cron.schedule(j.cron, () => {
+      try {
+        const msg = checklistDigest(j.period, new Date());
+        if (msg) sendConsolePush(msg.title, msg.body, 'checklist-' + j.period);
+      } catch (err) { console.error('[checklist] ' + j.period + ' error:', err && err.message); }
+    }, { timezone: CONSOLE_TZ });
+    n++;
+  }
+  console.log(`[console] scheduled ${n} checklist digest cron job(s) (${CONSOLE_TZ})`);
 }
 
 // ── Schedule Parser: extract tournament data from PDF/image via Claude Vision ──
@@ -12510,6 +12568,7 @@ initDatabase().then(() => {
     console.log(`Server running on port ${PORT}`);
     setupConsoleNudgeCron();
     setupTrackNudgeCron();
+    setupChecklistDigestCron();
     // Oura → console health sync — daily 10:30 ET (self-disables w/o OURA_PAT).
     try {
       ouraSync.setupOuraSyncCron(cron, db, saveDatabase, CONSOLE_TZ);
