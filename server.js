@@ -591,6 +591,52 @@ if (require('fs').existsSync(consoleDist)) {
     }
   });
 
+  // A backer's recorded shares (gated) — so the console can review + remove
+  // events (e.g. a test/miscategorised session). Includes session_id (the delete
+  // key) that the public feed omits.
+  app.get('/console/api/backers/:token/events', (req, res) => {
+    try {
+      const token = String(req.params.token || '');
+      if (!/^[A-Za-z0-9]{6,64}$/.test(token)) return res.status(400).json({ error: 'bad token' });
+      const s = db.prepare(
+        'SELECT session_id, date, game, venue, hours, session_result_cents, pct, share_cents, ts FROM backer_events WHERE token = ? ORDER BY ts DESC LIMIT 500'
+      );
+      s.bind([token]);
+      const events = [];
+      while (s.step()) {
+        const r = s.getAsObject();
+        events.push({
+          sessionId: r.session_id, date: r.date, game: r.game, venue: r.venue,
+          hours: r.hours, resultCents: r.session_result_cents, pct: r.pct,
+          shareCents: r.share_cents, ts: r.ts,
+        });
+      }
+      s.free();
+      res.json({ events });
+    } catch (err) {
+      console.error('Backer events error:', err);
+      res.status(500).json({ error: 'events failed' });
+    }
+  });
+
+  // Un-notify (gated): remove a backer's recorded share for a session — the
+  // reverse of notify. Deletes the (token, session_id) event so the backer's
+  // page + running total (SUM(share_cents)) self-correct. No push is sent.
+  app.post('/console/api/backers/unnotify', async (req, res) => {
+    try {
+      const { token, sessionId } = req.body || {};
+      if (!token || !/^[A-Za-z0-9]{6,64}$/.test(String(token))) return res.status(400).json({ error: 'bad token' });
+      if (!sessionId || typeof sessionId !== 'string') return res.status(400).json({ error: 'sessionId required' });
+      db.run('DELETE FROM backer_events WHERE token = ? AND session_id = ?', [String(token), sessionId]);
+      const removed = db.getRowsModified();
+      if (removed) await saveDatabase();
+      res.json({ ok: true, removed, cumulativeCents: backerCumulativeCents(String(token)) });
+    } catch (err) {
+      console.error('Backer unnotify error:', err);
+      res.status(500).json({ error: 'unnotify failed' });
+    }
+  });
+
   // Native app (APNs) device-token registration + a manual test push. Gated by
   // the console Basic Auth, so the native app must include ham's credentials.
   app.post('/console/api/native/register', async (req, res) => {
