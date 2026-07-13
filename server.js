@@ -217,11 +217,75 @@ app.use(express.static(path.join(__dirname, 'public-vite'), {
 // we can't reuse authenticateToken. Basic creds are verified (bcrypt) against
 // the users table; only username "ham" passes. Enter "ham" (or ham's email) as
 // the username and the account password.
+// ── Shared session cookie ──
+// The main app authenticates via a Bearer JWT in localStorage (header-only, so
+// it never rides a plain navigation to /console). To make "logged into
+// futurega.me ⇒ logged into the console" work, we ALSO issue that same JWT as an
+// httpOnly cookie at login; /console then accepts a valid cookie for the owner
+// (username 'ham'). Basic Auth stays as a fallback (native app + first-time seed).
+const SESSION_COOKIE = 'fg_session';
+const SESSION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // match the JWT's 90d expiry
+function setSessionCookie(res, token) {
+  res.cookie(SESSION_COOKIE, token, {
+    httpOnly: true,   // JS can't read it → XSS can't exfiltrate (unlike localStorage)
+    secure: true,     // HTTPS only
+    sameSite: 'lax',  // sent on top-level navigation, NOT on cross-site POST (CSRF-safe)
+    path: '/',
+    maxAge: SESSION_MAX_AGE_MS,
+  });
+}
+function readCookie(req, name) {
+  const raw = req.headers.cookie || '';
+  for (const part of raw.split(';')) {
+    const i = part.indexOf('=');
+    if (i < 0) continue;
+    if (part.slice(0, i).trim() === name) {
+      try { return decodeURIComponent(part.slice(i + 1).trim()); } catch (_) { return null; }
+    }
+  }
+  return null;
+}
+// True iff a valid, unexpired session cookie belongs to the console owner (ham).
+// The console owner's STABLE user id — resolved once at boot. Authorizing on the
+// id (not the mutable, case-variant `username` string) is what prevents a
+// look-alike account like 'HAM' from being treated as the owner. Resolves to the
+// ORIGINAL 'ham' (lowest id whose username case-insensitively equals 'ham');
+// env CONSOLE_OWNER_USER_ID overrides.
+let HAM_OWNER_ID = null;
+function resolveHamOwnerId() {
+  const envId = Number(process.env.CONSOLE_OWNER_USER_ID);
+  if (Number.isInteger(envId) && envId > 0) { HAM_OWNER_ID = envId; console.log(`[console] owner id = ${envId} (env)`); return; }
+  try {
+    const s = db.prepare("SELECT id FROM users WHERE LOWER(username) = 'ham' ORDER BY id ASC LIMIT 1");
+    let id = null; while (s.step()) id = s.getAsObject().id; s.free();
+    HAM_OWNER_ID = id != null ? Number(id) : null;
+  } catch (e) { console.error('[console] resolveHamOwnerId:', e && e.message); }
+  console.log(HAM_OWNER_ID != null
+    ? `[console] owner id = ${HAM_OWNER_ID}`
+    : '[console] owner id UNRESOLVED — /console cookie SSO disabled (Basic Auth only)');
+}
+function consoleSessionOk(req) {
+  if (HAM_OWNER_ID == null) return false; // owner unknown → never trust a cookie
+  const tok = readCookie(req, SESSION_COOKIE);
+  if (!tok) return false;
+  try {
+    // Pin HS256 so a forged alg:none / algorithm-confusion token can't verify.
+    const decoded = jwt.verify(tok, JWT_SECRET, { algorithms: ['HS256'] });
+    // Authorize on the STABLE id, never the username string. Exclude guests.
+    return !!decoded && !decoded.isGuest && Number(decoded.id) === HAM_OWNER_ID;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function requireHamBasic(req, res, next) {
   const challenge = () => {
     res.set('WWW-Authenticate', 'Basic realm="WSOP 2027 Console", charset="UTF-8"');
     res.status(401).type('txt').send('Authentication required — WSOP 2027 Console is private.');
   };
+  // (1) Accept a valid futurega.me session cookie for the owner — no popup.
+  if (consoleSessionOk(req)) return next();
+  // (2) Fall back to Basic Auth (native app, or first-time seed of the cookie).
   try {
     const [scheme, encoded] = (req.headers['authorization'] || '').split(' ');
     if (scheme !== 'Basic' || !encoded) return challenge();
@@ -230,18 +294,29 @@ async function requireHamBasic(req, res, next) {
     const login = sep >= 0 ? decoded.slice(0, sep) : decoded;
     const password = sep >= 0 ? decoded.slice(sep + 1) : '';
 
-    // Look up by username or email (case-insensitive), like the app's login.
-    const stmt = db.prepare(
-      'SELECT username, password FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)'
-    );
-    stmt.bind([login, login]);
-    let user = null;
-    while (stmt.step()) user = stmt.getAsObject();
+    if (HAM_OWNER_ID == null) return challenge(); // owner unresolved → deny
+    // Load the OWNER by stable id — NOT by the client-supplied login string — so
+    // a look-alike account ('HAM', or a row matching by email) can't be used to
+    // authenticate. The password is checked against the owner's hash only.
+    const stmt = db.prepare('SELECT id, username, email, password FROM users WHERE id = ?');
+    stmt.bind([HAM_OWNER_ID]);
+    let owner = null;
+    while (stmt.step()) owner = stmt.getAsObject();
     stmt.free();
+    if (!owner) return challenge();
 
-    const isHam = user && (user.username || '').toLowerCase() === 'ham';
-    const ok = isHam && (await bcrypt.compare(password, user.password));
+    const loginNamesOwner =
+      String(login).toLowerCase() === String(owner.username || '').toLowerCase() ||
+      String(login).toLowerCase() === String(owner.email || '').toLowerCase();
+    const ok = loginNamesOwner && (await bcrypt.compare(password, owner.password));
     if (!ok) return challenge();
+    // Seed the shared session cookie so subsequent requests (and the main app)
+    // recognise the session without re-prompting — this is what stops the popup
+    // recurring, and unifies with the futurega.me login.
+    try {
+      const tok = jwt.sign({ id: owner.id, username: owner.username }, JWT_SECRET, { expiresIn: '90d' });
+      setSessionCookie(res, tok);
+    } catch (_) { /* non-fatal: auth still succeeds without the cookie */ }
     next();
   } catch (err) {
     console.error('[console] basic-auth error:', err);
@@ -3528,6 +3603,17 @@ app.post('/api/register', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
+    // Reject case-insensitive duplicate username/email. The UNIQUE index is
+    // BINARY-collated, so without this a look-alike account (e.g. 'HAM' vs 'ham')
+    // could be registered — which is exactly what would defeat username-based
+    // owner/admin checks elsewhere. Case-fold the namespace here.
+    const dup = db.prepare('SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)');
+    dup.bind([username, email]);
+    let exists = false;
+    if (dup.step()) exists = true;
+    dup.free();
+    if (exists) return res.status(409).json({ error: 'Username or email already taken' });
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -3578,6 +3664,11 @@ app.post('/api/login', authLimiter, async (req, res) => {
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
       expiresIn: '90d'
     });
+
+    // Also drop the JWT as an httpOnly session cookie so a same-origin navigation
+    // to /console carries it (shared login with the console). Header-based
+    // Bearer auth for the main app is unchanged.
+    setSessionCookie(res, token);
 
     res.json({ token, username: user.username, userId: user.id, avatar: user.avatar || null, realName: user.real_name || null, handReplayerAccess: !!user.hand_replayer_access });
   } catch (error) {
@@ -12610,6 +12701,7 @@ app.get('/shared/:token', serveIndex);
 
 // Start server
 initDatabase().then(() => {
+  resolveHamOwnerId(); // console owner id, for cookie-SSO + Basic-Auth id-pinning
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
     setupConsoleNudgeCron();
