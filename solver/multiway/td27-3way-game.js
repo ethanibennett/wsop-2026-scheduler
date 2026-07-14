@@ -15,7 +15,9 @@
 //   increment 4: train + derive entry ranges.
 const { makeRng, cardFromStr, cardStr, rankOf, suitOf } = require('../engine/cards');
 const { score27 } = require('../eval/low27');
-const { bucket27, chooseKeep27 } = require('../games/triple-draw-27');
+const td27hu = require('../games/triple-draw-27');
+const { bucket27, chooseKeep27 } = td27hu;
+const drawOptions = td27hu.cfg.drawOptions; // strategically-meaningful draw counts
 
 const NSEAT = 3;
 const SB = 1, BB = 2;                 // blinds (small-bet units)
@@ -95,12 +97,26 @@ function deal(rng, opts = {}) {
 // increment 3 (a legalActions/applyAction 'draw' branch); until then the game is
 // exercised through a single betting street by the tests below.
 function makeGame(opts = {}) {
-  const deadPot = opts.dead != null ? opts.dead : DEFAULT_DEAD;
+  // train3 passes { cap, antes, coarseOpp, priors }; map antes → dead-money overlay.
+  // The deal is already uniform (no positional prior yet), which is what the entry
+  // derivation wants; priors/coarseOpp are accepted-and-ignored for now.
+  const deadPot = opts.dead != null ? opts.dead
+    : (opts.antes != null ? Math.max(0, opts.antes - NSEAT) : DEFAULT_DEAD);
   const CAPv = opts.cap != null ? opts.cap : CAP;
 
   const _high = s => { let h = 0; for (let i = 0; i < NSEAT; i++) if (!s.folded[i]) h = Math.max(h, s.contrib[i]); return h; };
   const _nextLive = (s, from) => { for (let k = 1; k <= NSEAT; k++) { const c = (from + k) % NSEAT; if (!s.folded[c]) return c; } return from; };
   const _firstLive = (s, from) => { for (let k = 0; k < NSEAT; k++) { const c = (from + k) % NSEAT; if (!s.folded[c]) return c; } return from; };
+  const _liveInOrderFrom = (s, from) => { const o = []; for (let k = 0; k < NSEAT; k++) { const c = (from + k) % NSEAT; if (!s.folded[c]) o.push(c); } return o; };
+  // Advance the draw round: drop the current drawer; when all live seats have drawn,
+  // open the next betting street (bets reset, OOP acts first); else the next seat draws.
+  function advanceDraw(n) {
+    n.drawQueue = n.drawQueue.slice(1);
+    if (n.drawQueue.length === 0) {
+      n.street++; n.phase = 'bet'; n.bets = 0; n.acted = [false, false, false];
+      n.toAct = _firstLive(n, n.sb); n.curSeq = ''; n.hist += '/';
+    } else { n.phase = 'draw'; n.toAct = n.drawQueue[0]; }
+  }
 
   // Round closes when every live seat has acted since the last aggression AND all
   // are matched to the high. Then: draw (streets 0-2) or showdown (after street 3).
@@ -116,7 +132,8 @@ function makeGame(opts = {}) {
     if (allActed && allMatched) {
       if (n.street === 3) { n.phase = 'showdown'; return; }
       n.phase = 'draw';
-      n.toAct = _firstLive(n, n.sb);   // OOP (first live from SB) draws first
+      n.drawQueue = _liveInOrderFrom(n, n.sb);   // OOP (first live from SB) draws first
+      n.toAct = n.drawQueue[0];
       return;
     }
     n.toAct = _nextLive(n, p);
@@ -127,13 +144,21 @@ function makeGame(opts = {}) {
     newHand: (rng) => deal(rng, opts),
     liveSeats,
     isTerminal: s => liveSeats(s).length === 1 || s.phase === 'showdown',
-    isChance: s => s.phase === 'drawDeal',   // private card replacement (increment 3)
+    isChance: s => s.phase === 'drawDeal',   // private card replacement after a draw
+    sampleChance(s) {
+      const n = clone(s);
+      const { seat, count } = n.pendingDraw;
+      for (let i = 0; i < count; i++) n.hands[seat].push(n.deck.pop()); // deck shuffled at deal
+      n.pendingDraw = null;
+      advanceDraw(n);
+      return n;
+    },
     utility: s => utility(s, deadPot),
     currentPlayer: s => s.toAct,
     _closeOrAdvance: closeOrAdvance, _high, _nextLive, _firstLive,   // exposed for tests
 
     legalActions(s) {
-      if (s.phase === 'draw') throw new Error('draw-phase legalActions: increment 3');
+      if (s.phase === 'draw') return drawOptions(s.hands[s.toAct]).map(k => 'd' + k);
       const p = s.toAct;
       const facing = _high(s) - s.contrib[p];
       if (facing > 0) { const a = ['f', 'c']; if (s.bets < CAPv) a.push('r'); return a; }
@@ -143,6 +168,21 @@ function makeGame(opts = {}) {
     applyAction(s, a) {
       const n = clone(s);
       const p = n.toAct;
+      if (a[0] === 'd') {   // DRAW decision — record public count, discard, queue replacement
+        const k = parseInt(a.slice(1), 10);
+        n.drawCounts[p].push(k);
+        n.curSeq += a;
+        if (k > 0) {
+          const keep = chooseKeep27(n.hands[p], k);
+          n.discards[p] = n.discards[p].concat(n.hands[p].filter(c => !keep.includes(c)));
+          n.hands[p] = keep;
+          n.pendingDraw = { seat: p, count: k };
+          n.phase = 'drawDeal';   // chance node draws the replacements
+        } else {
+          advanceDraw(n);          // pat / snow — no cards
+        }
+        return n;
+      }
       const high = _high(n);
       const facing = high - n.contrib[p];
       n.acted[p] = true;
@@ -163,6 +203,20 @@ function makeGame(opts = {}) {
       n.toAct = _nextLive(n, p);
       return n;
     },
+
+    // Own bucket + per-street exact history + PUBLIC opponent draw counts + quantized
+    // pot + positional flag. Mirrors the HU td27 key shape (street+phase | pot | seq |
+    // opp-draws | own-bucket); folded opponents drop out of the opp field.
+    infosetKey(s) {
+      const p = s.toAct;
+      const pot = deadPot + s.contrib.reduce((a, b) => a + b, 0);
+      const potBin = Math.min(12, Math.round(pot / (2 * SMALL_BET)));
+      const ph = s.phase === 'draw' ? 'D' : 'B';
+      const own = bucket27(s.hands[p]);
+      const opp = liveSeats(s).filter(i => i !== p).map(i => s.drawCounts[i].join('') || '-').sort().join(',');
+      const first = s.toAct === _firstLive(s, s.sb) ? 1 : 0;
+      return `${s.street}${ph}|p${potBin}|${s.curSeq}|o${opp}|f${first}|${own}`;
+    },
   };
   return game;
 }
@@ -170,4 +224,6 @@ function makeGame(opts = {}) {
 module.exports = {
   NSEAT, SB, BB, SMALL_BET, BIG_BET, CAP, HAND, DEFAULT_DEAD, betSize,
   clone, liveSeats, utility, freshDeck, deal, makeGame, score27, bucket27, chooseKeep27,
+  // train3.js interface (matches razz3/stud8-3way):
+  DEFAULT_CAP: CAP, DEFAULT_ANTES: DEFAULT_DEAD + NSEAT, UNIFORM_PRIORS: null,
 };

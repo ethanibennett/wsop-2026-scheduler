@@ -29,7 +29,7 @@ const { makePool } = require('./parallel3');
 // surface, so ALL of the train/measure/checkpoint/blueprint code below is
 // game-agnostic. Default is razz3 (unchanged); `--game stud8` loads the hi/lo
 // sibling. The written blueprint's meta.game is the constructed game's id.
-const GAME_MODULES = { razz3: './razz3-game', stud8: './stud8-3way-game' };
+const GAME_MODULES = { razz3: './razz3-game', stud8: './stud8-3way-game', td27: './td27-3way-game' };
 
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);

@@ -121,5 +121,61 @@ console.log('— GATE 7: 4-bet cap closes raising —');
   ok(capped.includes('c') && !capped.includes('r'), `at the cap: call/fold only, no raise (got ${capped})`);
 }
 
+console.log('— GATE 8: full random playout — card conservation + reaches showdown —');
+{
+  const g = G.makeGame({ dead: 3, cap: 4 });
+  const allCards = s => {
+    const cs = [];
+    for (let i = 0; i < 3; i++) { cs.push(...s.hands[i]); cs.push(...s.discards[i]); }
+    cs.push(...s.deck);
+    return cs;
+  };
+  let reached = 0, worstConserve = 0, keysOk = true, draws = 0;
+  for (let seed = 1; seed <= 300; seed++) {
+    const rng = makeRng(seed * 7 + 1);
+    let s = g.newHand(rng), guard = 0;
+    while (!g.isTerminal(s) && guard++ < 300) {
+      const cs = allCards(s);
+      if (new Set(cs).size !== cs.length || cs.length !== 52) { worstConserve++; break; }
+      if (g.isChance(s)) { s = g.sampleChance(s); continue; }
+      if (typeof g.infosetKey(s) !== 'string') keysOk = false;
+      const acts = g.legalActions(s);
+      if (acts.some(a => a[0] === 'd')) draws++;
+      s = g.applyAction(s, acts[Math.floor(rng() * acts.length)]);
+    }
+    if (g.isTerminal(s)) reached++;
+    // final conservation
+    const cs = allCards(s);
+    if (new Set(cs).size !== 52) worstConserve++;
+  }
+  ok(reached === 300, `all 300 random hands reach a terminal state (${reached}/300)`);
+  ok(worstConserve === 0, `52 distinct cards conserved (hands+discards+deck) every step (violations ${worstConserve})`);
+  ok(keysOk, `infosetKey returns a string at every decision node`);
+  ok(draws > 100, `draw nodes are actually exercised across the playouts (${draws})`);
+}
+
+console.log('— GATE 9: draw round — OOP draws first, then betting reopens on the next street —');
+{
+  const g = G.makeGame({ dead: 3, cap: 4 });
+  let s = g.newHand(makeRng(11));
+  const sb = s.sb;
+  // limp the pre-draw round around (button call, SB call, BB check) → draw phase
+  s = g.applyAction(s, 'c'); s = g.applyAction(s, 'c'); s = g.applyAction(s, 'k');
+  ok(s.phase === 'draw', `pre-draw betting closes to the draw phase (phase=${s.phase})`);
+  ok(s.toAct === sb, `OOP (SB) draws first (toAct=${s.toAct}, sb=${sb})`);
+  const dacts = g.legalActions(s);
+  ok(dacts.every(a => a[0] === 'd'), `draw node offers only draw counts (${dacts})`);
+  // everyone draws 2; walk through the chance replacements
+  let guard = 0;
+  while (s.phase !== 'bet' && guard++ < 12) {
+    if (g.isChance(s)) { s = g.sampleChance(s); continue; }
+    s = g.applyAction(s, 'd2');
+  }
+  ok(s.street === 1 && s.phase === 'bet', `after all draw, street advances to 1 and betting reopens (street=${s.street} phase=${s.phase})`);
+  ok(s.bets === 0 && s.toAct === g._firstLive(s, s.sb), `new street: bets reset, OOP acts first`);
+  ok([0, 1, 2].every(i => s.hands[i].length === 5), `every seat still holds 5 cards after drawing`);
+  ok([0, 1, 2].every(i => s.drawCounts[i].length === 1 && s.drawCounts[i][0] === 2), `each seat's public draw count (2) is recorded`);
+}
+
 console.log(`\n${PASS} passed, ${FAIL} failed`);
 process.exit(FAIL ? 1 : 0);
