@@ -52,8 +52,40 @@ function bucket(hand) {
   return `D${draw}k${topLow}${deuce}${srisk}${patable}`;
 }
 
-// Keep the (5 - drawCount) lowest distinct ranks (then lowest dups).
+// Best 4-card keep when BREAKING a made low by drawing one: maximize improving
+// outs (ranks that beat the current made hand — score27 penalizes straights/
+// flushes, so they don't count), tie-broken by the strongest achievable draw.
+// "Triple the Gold" Ep 1: breaking pat 8-7-5-4-3, keep the 8 (break the 7) for ~8
+// outs, NOT keep 7-5-4-3 (break the 8) which is a 4-out straight-prone draw. Naive
+// keep-lowest picks the inferior break; this picks the coach's.
+function breakBest(hand) {
+  const orig = score27(hand);
+  const inHand = new Set(hand);
+  let best = null;
+  for (let i = 0; i < hand.length; i++) {
+    const keep = hand.filter((_, j) => j !== i);
+    const bestByRank = {};
+    for (let c = 0; c < 52; c++) {
+      if (inHand.has(c)) continue;
+      const sc = score27(keep.concat([c]));
+      const r = rankOf(c);
+      if (bestByRank[r] === undefined || sc < bestByRank[r]) bestByRank[r] = sc;
+    }
+    let outs = 0, bestScore = Infinity;
+    for (const r in bestByRank) if (bestByRank[r] < orig) { outs++; if (bestByRank[r] < bestScore) bestScore = bestByRank[r]; }
+    if (!best || outs > best.outs || (outs === best.outs && bestScore < best.bestScore)) best = { keep, outs, bestScore };
+  }
+  return best.keep;
+}
+
+// Keep the (5 - drawCount) lowest distinct ranks (then lowest dups) — EXCEPT when
+// breaking a made 8-or-better low by one (only reachable via manual discard
+// control, since drawOptions pats these), where breakBest picks the outs-max card.
 function chooseKeep(hand, drawCount) {
+  if (drawCount === 1) {
+    const ranks = hand.map(rankOf);
+    if (Math.floor(score27(hand) / CAT_BASE) === 0 && Math.max(...ranks) <= 8) return breakBest(hand);
+  }
   const keepN = hand.length - drawCount;
   const sorted = hand.slice().sort((a, b) => rankOf(a) - rankOf(b));
   const keep = [], seen = new Set();
