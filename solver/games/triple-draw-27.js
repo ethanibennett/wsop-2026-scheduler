@@ -148,6 +148,63 @@ function describeMade(hand) {
   return `a straight flush`;
 }
 
+// ── v2 abstraction (course-derived, 2026-07-14) ──────────────────────────────
+// Three gaps the "Triple the Gold" course-vs-solver sweep surfaced, addressed
+// here as an OPT-IN abstraction so the v1 blueprint is untouched until v2 is
+// LBR-validated and swapped:
+//   (#4) the v1 draw bucket can't tell 2-6-7 from 2-3-7 (same D2k7d) — v2 adds a
+//        SMOOTHNESS tier from the 2nd-highest kept low.
+//   (#5) the v1 bucket keys on DISTINCT lows, so it overvalues a paired holding
+//        (3-3-2-8 == 2-3-8) — v2 adds a paired-low ('q') flag.
+//   (#1) v1 always pats a made 8-low (drawOptions [0]); the course breaks rough
+//        8-7s — v2 offers [0,1] for 8-7-x lows (chooseKeep's breakBest picks the
+//        card). Smoother 8s / 7-lows still pat.
+// chooseKeep is SHARED with v1 (its breakBest already handles the 8-7 break); the
+// draw-2-off-open-ender + straight-aware-draw-keep changes (#2,#3) are deferred to
+// v3 because they alter the training discard and need their own validation.
+function bucketV2(hand) {
+  const ranks = hand.map(rankOf);
+  const cat = Math.floor(score27(hand) / CAT_BASE);
+  const top = Math.max(...ranks);
+  if (cat === 0 && top <= 8) {
+    const desc = [...new Set(ranks)].sort((a, b) => b - a);
+    return 'M' + desc[0] + desc[1]; // made ≤8 low already encodes its top two
+  }
+  const lows = lowRanks(hand);
+  const L = lows.length;
+  let draw = 5 - L;
+  if (draw <= 0) draw = 1;
+  if (draw > 4) draw = 4;
+  const topLow = L > 0 ? lows[L - 1] : 0;
+  const deuce = (L > 0 && lows[0] === 2) ? 'd' : '';
+  // smoothness split ONLY on 2-card draws (where 2-3-7 vs 2-6-7 lives), 2 tiers —
+  // applying it to every street/draw multiplies the infoset count super-linearly.
+  let sm = '';
+  if (draw === 2 && L >= 2) { const second = lows[L - 2]; sm = second <= 4 ? '' : 'r'; }
+  // a paired LOW card is a dead duplicate — fewer effective outs
+  const lc = {}; for (const r of ranks) if (r <= 8) lc[r] = (lc[r] || 0) + 1;
+  const pair = Object.values(lc).some(n => n >= 2) ? 'q' : '';
+  let srisk = '';
+  for (let i = 0; i + 3 < L; i++) if (lows[i + 3] - lows[i] === 3) { srisk = 'x'; break; }
+  const patable = (cat === 0 && top <= 10) ? 'p' : '';
+  return `D${draw}k${topLow}${sm}${deuce}${pair}${srisk}${patable}`;
+}
+
+function drawOptionsV2(hand) {
+  const ranks = hand.map(rankOf);
+  const top = Math.max(...ranks);
+  const cat = Math.floor(score27(hand) / CAT_BASE);
+  if (cat === 0 && top <= 8) {
+    const desc = [...new Set(ranks)].sort((a, b) => b - a);
+    if (desc[0] === 8 && desc[1] === 7) return [0, 1]; // rough 8-7 low: pat OR break one
+    return [0];                                        // smoother made lows just pat
+  }
+  let natural = 5 - new Set(ranks.filter(r => r <= 8)).size;
+  if (natural <= 0) natural = 1;
+  if (natural > 4) natural = 4;
+  return [...new Set([0, natural])].sort((a, b) => a - b);
+}
+
 module.exports = makeDrawGame({
   id: 'td27',
   name: '2-7 Triple Draw',
@@ -163,6 +220,25 @@ module.exports = makeDrawGame({
   describeMade,
 });
 
+// Opt-in v2 abstraction variant (same game rules + eval + discard, finer bucket +
+// break-8 option). Train with `--game td27v2`; LBR-validate vs td27 before swap.
+module.exports.v2 = makeDrawGame({
+  id: 'td27v2',
+  name: '2-7 Triple Draw (v2 abstraction)',
+  handSize: 5,
+  compare(h0, h1) {
+    const a = score27(h0), b = score27(h1);
+    return a < b ? 1 : a > b ? -1 : 0;
+  },
+  bucket: bucketV2,
+  chooseKeep,
+  drawOptions: drawOptionsV2,
+  describeHand,
+  describeMade,
+});
+
 module.exports.bucket27 = bucket;
 module.exports.chooseKeep27 = chooseKeep;
 module.exports.describeMade27 = describeMade;
+module.exports.bucketV2 = bucketV2;
+module.exports.drawOptionsV2 = drawOptionsV2;

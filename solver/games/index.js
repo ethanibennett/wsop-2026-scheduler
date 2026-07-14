@@ -13,7 +13,7 @@ const razz = require('./razz-game');
 //            copy it to strategies/razzv1.json for `--game razzv1` CLIs).
 //   razzv2 = the same v2 key under its opt-in training id; its file
 //            razzv2.json == the committed razz-v2.json == razz.json.
-const GAMES = { td27, a5td, badugi, stud8, razz, razzv1: razz.v1, razzv2: razz.v2 };
+const GAMES = { td27, a5td, badugi, stud8, razz, razzv1: razz.v1, razzv2: razz.v2, td27v2: td27.v2 };
 
 const GAME_META = [
   { id: 'td27', name: '2-7 Triple Draw', stakes: 'Heads-up fixed limit, blinds 1/2, bets 2/4' },
