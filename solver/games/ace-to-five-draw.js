@@ -105,6 +105,25 @@ function describeHand(hand) {
   return `${draw}-card draw to ${tgt}${ace}`;
 }
 
+// At SHOWDOWN the hand is FINAL — describe the MADE 5-card ace-to-five low, not the
+// draw it used to be. (Aces low; straights & flushes DON'T count, so the only "bad"
+// categories are pairs.) 8-6-4-2-A is an 8-6 low, not "a 1-card draw to an 8".
+function describeMade(hand) {
+  const ch = r => RANK_CHARS[r === 1 ? 14 : r];
+  const ranks = hand.map(lowRankOf);
+  const counts = {};
+  for (const r of ranks) counts[r] = (counts[r] || 0) + 1;
+  const groups = Object.keys(counts).map(r => ({ r: +r, n: counts[r] })).sort((a, b) => (b.n - a.n) || (b.r - a.r));
+  const cat = Math.floor(score5Razz(hand) / CAT_BASE);
+  const desc = ranks.slice().sort((a, b) => b - a); // high → low (ace = 1 is lowest)
+  if (cat === 0) return `${ch(desc[0])}-${ch(desc[1])} low`;   // "5-4 low" (the wheel), "8-6 low"
+  if (cat === 1) return `a pair of ${ch(groups[0].r)}s`;
+  if (cat === 2) return `two pair, ${ch(groups[0].r)}s & ${ch(groups[1].r)}s`;
+  if (cat === 3) return `trip ${ch(groups[0].r)}s`;
+  if (cat === 7) return `quad ${ch(groups[0].r)}s`;
+  return `a full house`; // cat 6
+}
+
 module.exports = makeDrawGame({
   id: 'a5td',
   name: 'A-5 Triple Draw',
@@ -117,7 +136,9 @@ module.exports = makeDrawGame({
   chooseKeep,
   drawOptions,
   describeHand,
+  describeMade,
 });
 
 module.exports.bucketA5 = bucket;
+module.exports.describeMadeA5 = describeMade;
 module.exports.chooseKeepA5 = chooseKeep;

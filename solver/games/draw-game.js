@@ -273,7 +273,7 @@ function makeDrawGame(cfg) {
           ? `Draw ${s.street + 1}` : streetNames[s.street],
         phase: s.phase,
         heroCards: s.hands[p].map(cardStr),
-        handLabel: cfg.describeHand(s.hands[p]),
+        handLabel: (s.phase === 'showdown' && cfg.describeMade ? cfg.describeMade : cfg.describeHand)(s.hands[p]),
         pot: s.contrib[0] + s.contrib[1],
         toCall: Math.max(0, s.contrib[1 - p] - s.contrib[p]),
         betSize: betSize(s.street),
@@ -297,7 +297,7 @@ function makeDrawGame(cfg) {
         players: [0, 1].map(p => ({
           position: p === 0 ? 'Button (SB)' : 'Big Blind',
           cards: s.hands[p].map(cardStr),
-          handLabel: cfg.describeHand(s.hands[p]),
+          handLabel: (s.phase === 'showdown' && cfg.describeMade ? cfg.describeMade : cfg.describeHand)(s.hands[p]),
           draws: s.drawCounts[p].slice(),
           discards: s.discards[p].map(cardStr), // dead cards thrown this hand
         })),
@@ -309,7 +309,7 @@ function makeDrawGame(cfg) {
     result(s) {
       const labels = [0, 1].map(p => ({
         cards: s.hands[p].map(cardStr),
-        label: cfg.describeHand(s.hands[p]),
+        label: (s.folded === null && cfg.describeMade ? cfg.describeMade : cfg.describeHand)(s.hands[p]),
         discards: s.discards[p].map(cardStr),
       }));
       if (s.folded !== null) {

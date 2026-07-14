@@ -128,6 +128,26 @@ function describeHand(hand) {
   return `${draw}-card draw to ${tgt}${deuce}`;
 }
 
+// At SHOWDOWN the hand is FINAL — describe the MADE 5-card hand, not the draw it
+// used to be. Q-7-4-3-2 is a made queen-low, NOT "a 1-card draw to a 7".
+function describeMade(hand) {
+  const ranks = hand.map(rankOf);
+  const counts = {};
+  for (const r of ranks) counts[r] = (counts[r] || 0) + 1;
+  const groups = Object.keys(counts).map(r => ({ r: +r, n: counts[r] })).sort((a, b) => (b.n - a.n) || (b.r - a.r));
+  const cat = Math.floor(score27(hand) / CAT_BASE);
+  const desc = ranks.slice().sort((a, b) => b - a); // high → low
+  if (cat === 0) return `${RANK_CHARS[desc[0]]}-${RANK_CHARS[desc[1]]} low`; // "7-5 low", "Q-7 low"
+  if (cat === 1) return `a pair of ${RANK_CHARS[groups[0].r]}s`;
+  if (cat === 2) return `two pair, ${RANK_CHARS[groups[0].r]}s & ${RANK_CHARS[groups[1].r]}s`;
+  if (cat === 3) return `trip ${RANK_CHARS[groups[0].r]}s`;
+  if (cat === 4) return `${RANK_CHARS[desc[0]]}-high straight`;
+  if (cat === 5) return `${RANK_CHARS[desc[0]]}-high flush`;
+  if (cat === 6) return `a full house`;
+  if (cat === 7) return `quad ${RANK_CHARS[groups[0].r]}s`;
+  return `a straight flush`;
+}
+
 module.exports = makeDrawGame({
   id: 'td27',
   name: '2-7 Triple Draw',
@@ -140,7 +160,9 @@ module.exports = makeDrawGame({
   chooseKeep,
   drawOptions,
   describeHand,
+  describeMade,
 });
 
 module.exports.bucket27 = bucket;
 module.exports.chooseKeep27 = chooseKeep;
+module.exports.describeMade27 = describeMade;
