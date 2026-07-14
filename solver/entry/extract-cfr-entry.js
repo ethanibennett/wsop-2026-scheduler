@@ -8,6 +8,7 @@
 const fs = require('fs');
 const { ownBucketCards: razz3Own } = require('../multiway/razz3-game');
 const { ownBucketCards: stud8Own } = require('../multiway/stud8-3way-game');
+const { bucket27 } = require('../games/triple-draw-27');
 const { earlyLowTier } = require('../games/razz-game');
 const { cardFromStr } = require('../engine/cards');
 
@@ -15,11 +16,15 @@ const parse = h => { const c = []; for (let i = 0; i < h.length; i += 2) c.push(
 // game-aware street-0 own bucket, matching each game's infosetKey field[4]:
 //   razz  = razz3 ownBucketCards + the hole-aware H-tier (razz3 appends it on streets 0-1);
 //   stud8 = stud8-3way ownBucketCards(cards, street=0) (hi/lo bucket is street-aware internally).
+//   td27  = triple-draw-27 bucket27(cards) (the street-0 own bucket, draw-aware).
 function bucketOf(game, cards) {
-  return game === 'stud8' ? stud8Own(cards, 0) : razz3Own(cards) + 'H' + earlyLowTier(cards);
+  if (game === 'td27') return bucket27(cards);
+  if (game === 'stud8') return stud8Own(cards, 0);
+  return razz3Own(cards) + 'H' + earlyLowTier(cards);
 }
-// map a blueprint's meta.game ('razz3' | 'stud83') to the bucketOf game key.
-const gameKeyOf = metaGame => (/stud8/.test(String(metaGame)) ? 'stud8' : 'razz');
+// map a blueprint's meta.game ('razz3' | 'stud83' | 'td27-3') to the bucketOf game key.
+const gameKeyOf = metaGame =>
+  (/td27/.test(String(metaGame)) ? 'td27' : /stud8/.test(String(metaGame)) ? 'stud8' : 'razz');
 
 function extract(blueprintPath) {
   const bp = JSON.parse(fs.readFileSync(blueprintPath, 'utf8'));
